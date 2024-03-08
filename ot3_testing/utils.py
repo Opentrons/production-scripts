@@ -2,7 +2,7 @@ import os
 import subprocess
 from typing import List
 
-ProjectName = "ot3-testing"
+ProjectName = "ot3_testing"
 
 
 class Utils:

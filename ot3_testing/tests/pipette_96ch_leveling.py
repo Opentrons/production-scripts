@@ -1,10 +1,11 @@
 import time
 
-from tests.base_init import TestBase
-from ot_type import Point, Mount
+from ot3_testing.tests.base_init import TestBase
+from ot3_testing.ot_type import Point, Mount
 from typing import Union, List
-from devices.amsamotion_sensor import LaserSensor
+from ot3_testing.devices.amsamotion_sensor import LaserSensor
 import asyncio
+import enum
 
 SlotLocation = {"C1-Y": Point(223, 203, 318),
                 "C3-Y": Point(207, 203, 318),
@@ -34,10 +35,16 @@ RequestReadyFlag = False
 DoCalibrate = True
 
 
+class CalibrateMethod(enum.Enum):
+    Approach = "approach"
+    Dichotomy = "dichotomy"
+
+
 class Pipette96Leveling(TestBase):
     def __init__(self):
         super(Pipette96Leveling).__init__()
         self.laser_sensor: Union[None, LaserSensor] = None
+        self.approaching = False
 
     def init_laser_sensor(self):
         """
@@ -71,6 +78,8 @@ class Pipette96Leveling(TestBase):
         :param only_code:
         :return:
         """
+        print("Reading Sensor...")
+        time.sleep(1)
         device_addr = ChannelDefinition[position]["device_addr"]
         channel = ChannelDefinition[position]["channel"]
         code_value = self.laser_sensor.get_distance_single(device_addr, channel)
@@ -90,14 +99,24 @@ class Pipette96Leveling(TestBase):
         distance = -2 * voltage + 35  # /mm
         return distance
 
-    async def move_step_with_test_name(self, test_name: str, direction: str, step=0.1):
+    async def move_step_with_test_name(self, test_name: str, direction: str, step=0.1,
+                                       method=CalibrateMethod.Dichotomy, gap=0):
         """
         move a step
         :param test_name:
         :param direction:
         :param step:
+        :param method:
+        :param gap:
         :return:
         """
+        if method == CalibrateMethod.Dichotomy:
+            step = step
+        elif method == CalibrateMethod.Approach and self.approaching:
+            step = 0.2
+        elif method == CalibrateMethod.Approach and not self.approaching:
+            step = gap * 2
+            self.approaching = True
         global SlotLocation
         _point: Point = SlotLocation[test_name]
         if "Y" in test_name and "3" not in test_name:
@@ -126,13 +145,15 @@ class Pipette96Leveling(TestBase):
         await self.move_to_test_point(_point, MountDefinition)
         SlotLocation[test_name] = _point
 
-    async def calibrate_to_zero(self, test_name: str, spec: float, read_definition: List[str], target_voltage=2.5):
+    async def calibrate_to_zero(self, test_name: str, spec: float, read_definition: List[str], target_voltage=2.5,
+                                method=CalibrateMethod.Dichotomy):
         """
         move fixture to zero (30mm)
         :param test_name:
         :param spec:
         :param read_definition:
         :param target_voltage:
+        :param method:
         :return:
         """
 
@@ -147,18 +168,23 @@ class Pipette96Leveling(TestBase):
             for item in read_definition:
                 ret = await self.read_definition_distance(item, only_code=True)
                 distance_list.append(get_voltage(ret))
-            min_voltage = min(distance_list)
+            # min_voltage = min(distance_list)
+            min_voltage = distance_list[0]  # judge the first channel
+
             print("current min voltage is: ", min_voltage)
             if spec > (min_voltage - target_voltage) > 0:
                 break
             else:
                 if min_voltage > target_voltage:
-                    await self.move_step_with_test_name(test_name, "plus", step=init_step)
+                    await self.move_step_with_test_name(test_name, "plus", step=init_step, method=method,
+                                                        gap=(abs(min_voltage - target_voltage)))
                 else:
-                    await self.move_step_with_test_name(test_name, "mimus", step=init_step)
+                    await self.move_step_with_test_name(test_name, "mimus", step=init_step, method=method,
+                                                        gap=(abs(min_voltage - target_voltage)))
             init_step = init_step / 1.2
             if init_step <= 0.1:
                 init_step = 0.1
+        self.approaching = False
 
     async def run_test_slot(self, test_slot_name: str, test_slot_value: str, read_definition: List[str],
                             with_cal=False):
@@ -174,7 +200,7 @@ class Pipette96Leveling(TestBase):
         print(f"Test - {test_slot_name}")
         await self.move_to_test_slot(test_slot_value)  # FIXME : maybe need to adjust to suitable position
         if with_cal:
-            await self.calibrate_to_zero(test_slot_value, 0.1, read_definition)
+            await self.calibrate_to_zero(test_slot_value, 0.1, read_definition, method=CalibrateMethod.Approach)
         for item in read_definition:
             ret = await self.read_definition_distance(item)
             print(f"{test_slot_name}-{test_slot_value}-{item}: {ret}")
