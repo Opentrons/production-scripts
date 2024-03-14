@@ -5,7 +5,7 @@ from typing import Union
 import serial
 import serial.tools.list_ports
 
-ReceiveBuffer = 100
+ReceiveBuffer = 200
 
 
 class SerialDriver:
@@ -100,12 +100,14 @@ class SerialDriver:
         读取缓存
         :return:
         """
-        length = self.com.inWaiting()
         try:
             self.com.flushInput()
             self.com.flushOutput()
         except:
             pass
+        time.sleep(3)
+        # length = self.com.inWaiting()
+        length = ReceiveBuffer
         data = self.com.read(length)
         self.com.flushInput()
         self.com.flushOutput()

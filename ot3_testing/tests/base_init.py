@@ -1,5 +1,5 @@
-from protocol.protocol_context import ProtocolContext
-from hardware_control.hardware_control import HardwareControl
+from ot3_testing.protocol.protocol_context import ProtocolContext
+from ot3_testing.hardware_control.hardware_control import HardwareControl
 from typing import Union
 import time
 

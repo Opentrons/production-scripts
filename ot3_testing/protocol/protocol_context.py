@@ -1,9 +1,9 @@
 import asyncio
 import time
 
-from hardware_control.hardware_control import HardwareControl
-from http_client import HttpClient
-from ot_type import LabWare, Instrument, ModuleName, Mount, Target, Axis, Point, LabwareResult, PipetteResult
+from ot3_testing.hardware_control.hardware_control import HardwareControl
+from ot3_testing.http_client import HttpClient
+from ot3_testing.ot_type import LabWare, Instrument, ModuleName, Mount, Target, Axis, Point, LabwareResult, PipetteResult
 from typing import Union, List
 
 

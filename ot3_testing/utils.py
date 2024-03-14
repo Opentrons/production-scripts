@@ -1,6 +1,7 @@
 import os
 import subprocess
 from typing import List
+import csv
 
 ProjectName = "ot3_testing"
 
@@ -74,6 +75,12 @@ class Utils:
         for device in devices:
             Utils.test_online(device)
 
+    @classmethod
+    def write_to_csv(cls, filename, row: list):
+        with open(filename, 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(row)
+
 
 if __name__ == '__main__':
-    print(Utils.test_online("192.168.0.88"))
+    Utils.write_to_csv("output.csv", [1,2,3])

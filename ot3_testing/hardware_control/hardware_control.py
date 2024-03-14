@@ -1,5 +1,5 @@
-from http_client import HttpClient
-from ot_type import PositionSel, Mount, Point, Target, Axis, LabWare, Instrument, PositionSel
+from ot3_testing.http_client import HttpClient
+from ot3_testing.ot_type import PositionSel, Mount, Point, Target, Axis, LabWare, Instrument, PositionSel
 from typing import Union, List
 import asyncio
 
