@@ -36,10 +36,8 @@ class Utils:
         try:
             result = subprocess.check_output(cmd, shell=True).decode('gbk')
             if 'ttl' in result.lower():
-                print(f"{device} online")
                 return True
             else:
-                print(f"{device} offline")
                 return False
         except subprocess.CalledProcessError as e:
             print(e, f"{device} online")
@@ -83,4 +81,5 @@ class Utils:
 
 
 if __name__ == '__main__':
-    Utils.write_to_csv("output.csv", [1,2,3])
+    ret = Utils.test_online('192.168.0.151')
+    print(ret)
