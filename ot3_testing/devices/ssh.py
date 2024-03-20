@@ -1,5 +1,5 @@
 import paramiko
-from utils import Utils
+from ot3_testing.utils import Utils
 
 
 class SSHClient:

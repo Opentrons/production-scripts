@@ -1,9 +1,9 @@
 """
 @description: for jog ot2
 """
-from ot_type import Mount, Point, PositionSel
+from ot3_testing.ot_type import Mount, Point, PositionSel
 import sys
-from hardware_control.hardware_control import HardwareControl
+from ot3_testing.hardware_control.hardware_control import HardwareControl
 import asyncio
 import curses
 
@@ -150,5 +150,5 @@ async def jog(hc: HardwareControl, mount: Mount):
 
 
 if __name__ == '__main__':
-    hc = HardwareControl("192.168.6.31")
-    asyncio.run(jog(hc, Mount.LEFT))
+    hc = HardwareControl("192.168.6.44")
+    asyncio.run(jog(hc, Mount.RIGHT))

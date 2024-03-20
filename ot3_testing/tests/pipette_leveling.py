@@ -7,11 +7,13 @@ from ot3_testing.devices.amsamotion_sensor import LaserSensor
 import asyncio
 
 from ot3_testing.tests.test_type import *
+import datetime
+from ot3_testing.utils import Utils
 
 MountDefinition = Mount.LEFT
 RequestReadyFlag = False
 DoCalibrate = True
-from ot3_testing.utils import Utils
+Test_8CH_SIDE = "Left_Right"
 
 
 class PipetteLeveling(TestBase):
@@ -93,6 +95,7 @@ class PipetteLeveling(TestBase):
         :param gap:
         :return:
         """
+
         if method == CalibrateMethod.Dichotomy:
             step = step
         elif method == CalibrateMethod.Approach and self.approaching:
@@ -102,6 +105,7 @@ class PipetteLeveling(TestBase):
             self.approaching = True
 
         _point: Point = self.slot_location[test_name]
+
         if "Y" in test_name and "3" not in test_name:
             if direction == "plus":  # x+
                 _point = _point + Point(step, 0, 0)
@@ -109,10 +113,16 @@ class PipetteLeveling(TestBase):
                 _point = _point - Point(step, 0, 0)
         elif "Y" in test_name and "3" in test_name:
             _point: Point = self.slot_location[test_name]
-            if direction == "plus":  # x-
-                _point = _point - Point(step, 0, 0)
+            if test_name == "96ch":
+                if direction == "plus":  # x-
+                    _point = _point - Point(step, 0, 0)
+                else:
+                    _point = _point + Point(step, 0, 0)
             else:
-                _point = _point + Point(step, 0, 0)
+                if direction == "plus":  # x-
+                    _point = _point + Point(step, 0, 0)
+                else:
+                    _point = _point - Point(step, 0, 0)
         elif "X" in test_name:
             if direction == "plus":  # x+
                 _point = _point - Point(0, step, 0)
@@ -184,10 +194,12 @@ class PipetteLeveling(TestBase):
         test slot
         :param test_slot_name:
         :param test_slot_value:
-        :param read_definition:
+        :param read_definition:aaaaaaaaaaaaaaaaaaaaaaaaaasssssssssssssssz
         :param with_cal:
         :return:
         """
+        if RequestReadyFlag:
+            input(f">>Test {test_slot_name}")
         read_result = []
         print(f"Test - {test_slot_name}")
         await self.move_to_test_slot(test_slot_value)  # FIXME : maybe need to adjust to suitable position
@@ -202,38 +214,9 @@ class PipetteLeveling(TestBase):
             read_result.append(ret)
         return {test_slot_name: read_result}
 
-    async def run_8ch_test(self, flex_name: str):
-        """
-        8ch main loop
-        """
-        test_result = {}
-        addr = self.get_address().strip()
-        self.initial_api(addr, hc=True)
-        await self.api.home()
-        self.init_laser_sensor(send=False)
-        if RequestReadyFlag:
-            input(">>Test C1-left:")
-        ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"], with_cal=DoCalibrate)
-        test_result.update(ret)
-        # if RequestReadyFlag:
-        #     input(">>Test C1-right:")
-        # ret = await self.run_test_slot("Test C1-right", "Y-C1-Right", ["right_front", "right_rear"], with_cal=DoCalibrate)
-        # test_result.update(ret)
-        # if RequestReadyFlag:
-        #     input(">>Test C3-left:")
-        # ret = await self.run_test_slot("Test C3-right", "Y-C3-Right", ["right_front", "right_rear"], with_cal=DoCalibrate)
-        # test_result.update(ret)
-        # if RequestReadyFlag:
-        #     input(">>Test A2-left:")
-        # ret = await self.run_test_slot("Test A2-right", "Y-A2-Right", ["right_front", "right_rear"], with_cal=DoCalibrate)
-        test_result.update(ret)
-
-        await self.move_to_test_slot("UninstallPos")  # 复位拆卸
-        # show result
+    def show_and_save_result(self, test_result, flex_name):
         csv_list = []
         csv_title = []
-        import datetime
-
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
         csv_list.append(time_str + flex_name)
@@ -251,73 +234,9 @@ class PipetteLeveling(TestBase):
         Utils.write_to_csv("pipette_leveling.csv", csv_list)
         self.laser_sensor.close()
 
-    async def run_96ch_test(self, flex_name: str):
-        """
-        main loop
-        :return:
-        """
-        test_result = {}
-        addr = self.get_address().strip()
-        self.initial_api(addr, hc=True)
-        await self.api.home()
-        self.init_laser_sensor()
-        if RequestReadyFlag:
-            input(">>Test y-Axis-A2 - left")
-        ret = await self.run_test_slot("Test y-Axis-A2", "A2-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test y-Axis-C1 - right")
-        ret = await self.run_test_slot("Test y-Axis-C1", "C1-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test y-Axis-C3 - left")
-        ret = await self.run_test_slot("Test y-Axis-C3", "C3-Y", ["right_front", "right_rear"], with_cal=DoCalibrate)
-        test_result.update(ret)
-
-        if RequestReadyFlag:
-            input(">>Test X-Axis-A2 - front")
-        ret = await self.run_test_slot("Test X-Axis-A2", "A2-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test X-Axis-C1 - front")
-        ret = await self.run_test_slot("Test X-Axis-C1", "C1-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test X-Axis-C3 - front")
-        ret = await self.run_test_slot("Test X-Axis-C3", "C3-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
-        test_result.update(ret)
-
-        if RequestReadyFlag:
-            input(">>Test Z-Axis-A2 - hover")
-        ret = await self.run_test_slot("Test Z-Axis-A2", "A2-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
-                                       with_cal=DoCalibrate)
-
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test Z-Axis-D1 - hover")
-        ret = await self.run_test_slot("Test Z-Axis-D1", "D1-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
-                                       with_cal=DoCalibrate)
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test Z-Axis-D3 - hover")
-        ret = await self.run_test_slot("Test Z-Axis-D3", "D3-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
-                                       with_cal=DoCalibrate)
-        test_result.update(ret)
-        if RequestReadyFlag:
-            input(">>Test Z-Axis-C2 - hover")
-        ret = await self.run_test_slot("Test Z-Axis-C2", "C2-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
-                                       with_cal=DoCalibrate)
-        test_result.update(ret)
-
-        await self.move_to_test_slot("UninstallPos")  # 复位拆卸
-        # show result
+    def show_and_save_result_96(self, test_result, flex_name):
         csv_list = []
         csv_title = []
-        import datetime
 
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
@@ -352,6 +271,103 @@ class PipetteLeveling(TestBase):
         Utils.write_to_csv("pipette_leveling.csv", csv_title)
         Utils.write_to_csv("pipette_leveling.csv", csv_list)
         self.laser_sensor.close()
+
+    async def run_8ch_test(self, flex_name: str):
+        """
+        8ch main loop
+        """
+        global MountDefinition
+        test_result = {}
+        addr = self.get_address().strip()
+        self.initial_api(addr, hc=True)
+        # right
+        print("Testing Right Side")
+        MountDefinition = Mount.RIGHT
+
+        await self.api.home()
+        self.init_laser_sensor(send=False)
+
+        ret = await self.run_test_slot("Test A2-Right", "Y-A2-Right", ["right_front", "right_rear"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test C1-Right", "Y-C1-Right", ["right_front", "right_rear"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test C3-Right", "Y-C3-Right", ["right_front", "right_rear"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+
+        # left
+        print("Testing Left Side")
+        MountDefinition = Mount.LEFT
+        if Test_8CH_SIDE != "All":
+            await self.api.home()
+            self.init_laser_sensor(send=False)
+
+        ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+        await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+        # show result
+        self.show_and_save_result(test_result, flex_name)
+
+    async def run_96ch_test(self, flex_name: str):
+        """
+        main loop
+        :return:
+        """
+        test_result = {}
+        addr = self.get_address().strip()
+        self.initial_api(addr, hc=True)
+        await self.api.home()
+        self.init_laser_sensor()
+
+        ret = await self.run_test_slot("Test y-Axis-A2", "A2-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test y-Axis-C1", "C1-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test y-Axis-C3", "C3-Y", ["right_front", "right_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test X-Axis-A2", "A2-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test X-Axis-C1", "C1-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test X-Axis-C3", "C3-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test Z-Axis-A2", "A2-Z", ["below_front_left", "below_front_right",
+                                                                  "below_rear_left", "below_rear_right"],
+                                       with_cal=DoCalibrate)
+
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test Z-Axis-D1", "D1-Z", ["below_front_left", "below_front_right",
+                                                                  "below_rear_left", "below_rear_right"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test Z-Axis-D3", "D3-Z", ["below_front_left", "below_front_right",
+                                                                  "below_rear_left", "below_rear_right"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        ret = await self.run_test_slot("Test Z-Axis-C2", "C2-Z", ["below_front_left", "below_front_right",
+                                                                  "below_rear_left", "below_rear_right"],
+                                       with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+        # show result
+        self.show_and_save_result_96(test_result, flex_name)
 
 
 if __name__ == '__main__':
