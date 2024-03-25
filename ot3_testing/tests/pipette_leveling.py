@@ -96,7 +96,11 @@ class PipetteLeveling(TestBase):
         if method == CalibrateMethod.Dichotomy:
             step = step
         elif method == CalibrateMethod.Approach and self.approaching:
+<<<<<<< HEAD
             step = 0.06
+=======
+            step = 0.1
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         elif method == CalibrateMethod.Approach and not self.approaching:
             step = gap * 2
             self.approaching = True
@@ -109,6 +113,7 @@ class PipetteLeveling(TestBase):
                 _point = _point - Point(step, 0, 0)
         elif "Y" in test_name and "3" in test_name:
             _point: Point = self.slot_location[test_name]
+<<<<<<< HEAD
             if self.test_name == "96ch":
                 if direction == "plus":  # x-
                     _point = _point - Point(step, 0, 0)
@@ -119,6 +124,12 @@ class PipetteLeveling(TestBase):
                     _point = _point + Point(step, 0, 0)
                 else:
                     _point = _point - Point(step, 0, 0)
+=======
+            if direction == "plus":  # x-
+                _point = _point - Point(step, 0, 0)
+            else:
+                _point = _point + Point(step, 0, 0)
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         elif "X" in test_name:
             if direction == "plus":  # x+
                 _point = _point - Point(0, step, 0)
@@ -194,8 +205,11 @@ class PipetteLeveling(TestBase):
         :param with_cal:
         :return:
         """
+<<<<<<< HEAD
         if RequestReadyFlag:
             input(f">>Test {test_slot_name}")
+=======
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         read_result = []
         print(f"Test - {test_slot_name}")
         await self.move_to_test_slot(test_slot_value)  # FIXME : maybe need to adjust to suitable position
@@ -214,6 +228,7 @@ class PipetteLeveling(TestBase):
         """
         8ch main loop
         """
+<<<<<<< HEAD
         global MountDefinition
         test_result = {}
         addr = self.get_address().strip()
@@ -243,6 +258,29 @@ class PipetteLeveling(TestBase):
 
         ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"], with_cal=DoCalibrate)
         test_result.update(ret)
+=======
+        test_result = {}
+        addr = self.get_address().strip()
+        self.initial_api(addr, hc=True)
+        await self.api.home()
+        self.init_laser_sensor(send=False)
+        if RequestReadyFlag:
+            input(">>Test C1-left:")
+        ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+        # if RequestReadyFlag:
+        #     input(">>Test C1-right:")
+        # ret = await self.run_test_slot("Test C1-right", "Y-C1-Right", ["right_front", "right_rear"], with_cal=DoCalibrate)
+        # test_result.update(ret)
+        # if RequestReadyFlag:
+        #     input(">>Test C3-left:")
+        # ret = await self.run_test_slot("Test C3-right", "Y-C3-Right", ["right_front", "right_rear"], with_cal=DoCalibrate)
+        # test_result.update(ret)
+        # if RequestReadyFlag:
+        #     input(">>Test A2-left:")
+        # ret = await self.run_test_slot("Test A2-right", "Y-A2-Right", ["right_front", "right_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
 
         await self.move_to_test_slot("UninstallPos")  # 复位拆卸
         # show result
@@ -277,6 +315,7 @@ class PipetteLeveling(TestBase):
         self.initial_api(addr, hc=True)
         await self.api.home()
         self.init_laser_sensor()
+<<<<<<< HEAD
 
         ret = await self.run_test_slot("Test y-Axis-A2", "A2-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
         test_result.update(ret)
@@ -296,29 +335,77 @@ class PipetteLeveling(TestBase):
         ret = await self.run_test_slot("Test X-Axis-C3", "C3-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
         test_result.update(ret)
 
+=======
+        if RequestReadyFlag:
+            input(">>Test y-Axis-A2 - left")
+        ret = await self.run_test_slot("Test y-Axis-A2", "A2-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+        if RequestReadyFlag:
+            input(">>Test y-Axis-C1 - right")
+        ret = await self.run_test_slot("Test y-Axis-C1", "C1-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+        if RequestReadyFlag:
+            input(">>Test y-Axis-C3 - left")
+        ret = await self.run_test_slot("Test y-Axis-C3", "C3-Y", ["right_front", "right_rear"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        if RequestReadyFlag:
+            input(">>Test X-Axis-A2 - front")
+        ret = await self.run_test_slot("Test X-Axis-A2", "A2-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
+        test_result.update(ret)
+        if RequestReadyFlag:
+            input(">>Test X-Axis-C1 - front")
+        ret = await self.run_test_slot("Test X-Axis-C1", "C1-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
+        test_result.update(ret)
+        if RequestReadyFlag:
+            input(">>Test X-Axis-C3 - front")
+        ret = await self.run_test_slot("Test X-Axis-C3", "C3-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
+        test_result.update(ret)
+
+        if RequestReadyFlag:
+            input(">>Test Z-Axis-A2 - hover")
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         ret = await self.run_test_slot("Test Z-Axis-A2", "A2-Z", ["below_front_left", "below_front_right",
                                                                   "below_rear_left", "below_rear_right"],
                                        with_cal=DoCalibrate)
 
         test_result.update(ret)
+<<<<<<< HEAD
 
+=======
+        if RequestReadyFlag:
+            input(">>Test Z-Axis-D1 - hover")
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         ret = await self.run_test_slot("Test Z-Axis-D1", "D1-Z", ["below_front_left", "below_front_right",
                                                                   "below_rear_left", "below_rear_right"],
                                        with_cal=DoCalibrate)
         test_result.update(ret)
+<<<<<<< HEAD
 
+=======
+        if RequestReadyFlag:
+            input(">>Test Z-Axis-D3 - hover")
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         ret = await self.run_test_slot("Test Z-Axis-D3", "D3-Z", ["below_front_left", "below_front_right",
                                                                   "below_rear_left", "below_rear_right"],
                                        with_cal=DoCalibrate)
         test_result.update(ret)
+<<<<<<< HEAD
 
+=======
+        if RequestReadyFlag:
+            input(">>Test Z-Axis-C2 - hover")
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         ret = await self.run_test_slot("Test Z-Axis-C2", "C2-Z", ["below_front_left", "below_front_right",
                                                                   "below_rear_left", "below_rear_right"],
                                        with_cal=DoCalibrate)
         test_result.update(ret)
 
         await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+<<<<<<< HEAD
 
+=======
+>>>>>>> dad3f2ae8939831d2d3c648c1b8bdb8011090228
         # show result
         csv_list = []
         csv_title = []
