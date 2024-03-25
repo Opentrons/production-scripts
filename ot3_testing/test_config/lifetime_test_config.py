@@ -1,0 +1,20 @@
+Z_STAGE_LIFETIME_TEST = [
+    {"ip": "192.168.6.8", "robot_name": "Z-Stage-7",
+     "current_speed_cycle": {"current": 0.55, "speed": 10, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.189", "robot_name": "Z-Stage-2",
+     "current_speed_cycle": {"current": 0.55, "speed": 10, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.206", "robot_name": "Z-Stage-8",
+     "current_speed_cycle": {"current": 0.55, "speed": 10, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.40", "robot_name": "Z-Stage-6",
+     "current_speed_cycle": {"current": 0.55, "speed": 10, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.185", "robot_name": "Z-Stage-5",
+     "current_speed_cycle": {"current": 0.55, "speed": 10, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.54", "robot_name": "Z-Stage-11",
+     "current_speed_cycle": {"current": 0.8, "speed": 2, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.215", "robot_name": "Z-Stage-10",
+     "current_speed_cycle": {"current": 0.6, "speed": 5, "cycle": 10000}, "with_key": True},
+    {"ip": "192.168.6.47", "robot_name": "Z-Stage-9",
+     "current_speed_cycle": {"current": 0.6, "speed": 5, "cycle": 10000}, "with_key": True},
+    # {"ip": "192.168.0.17", "robot_name": "Z-Stage 10",
+    #  "current_speed_cycle": {"current": 0.55, "speed": 10, "cycle": 10000}, "with_key": True}
+]
