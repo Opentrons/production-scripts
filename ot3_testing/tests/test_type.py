@@ -33,14 +33,14 @@ ChannelDefinitionCH96 = {"left_front": {"device_addr": 1, "channel": 4},
                          }
 
 ChannelOffsetsCH96 = {"left_front": 0,
-                      "left_rear": 0.188,
+                      "left_rear": 0,
                       "right_front": 0,
                       "right_rear": 0,
                       "rear_right": 0,
-                      "rear_left": -0.242,
-                      "below_front_left": 0.148,
-                      "below_front_right": 0.546,
-                      "below_rear_left": 0.01,
+                      "rear_left": 0,
+                      "below_front_left": 0,
+                      "below_front_right": 0,
+                      "below_rear_left": 0,
                       "below_rear_right": 0,
                       }
 

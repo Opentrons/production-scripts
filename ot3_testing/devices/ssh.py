@@ -1,3 +1,5 @@
+import os.path
+
 import paramiko
 from utils import Utils
 
@@ -10,6 +12,7 @@ class SSHClient:
         self.port = port
         self.username = username
         self.password = password
+        self.channel = None
 
     def connect(self, with_key=None):
         """
@@ -19,15 +22,18 @@ class SSHClient:
         if with_key is None:
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, password=self.password)
+            self.channel = self.ssh_client.invoke_shell()
         else:
-            key_file = Utils.add_path(Utils.get_root_path(), Utils.add_path("devices", "robot_key"))
+            abs_dir = os.path.dirname(os.path.abspath(__file__))
+            key_file = os.path.join(abs_dir, 'robot_key')
             key = paramiko.RSAKey.from_private_key_file(key_file)
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, pkey=key)
+            self.channel = self.ssh_client.invoke_shell()
 
     def exec_command(self, cmd: str, buffer_size=-1, with_read=False):
         """
-        使用exec_command方法执行命令，并使用变量接收命令的返回值并用print输出
+        使用exec_command方法执行命令,并使用变量接收命令的返回值并用print输出
         """
         stdin, stdout, stderr = self.ssh_client.exec_command(cmd, bufsize=buffer_size)
         # 获取命令结果
@@ -43,7 +49,12 @@ class SSHClient:
 
 
 if __name__ == '__main__':
-    pass
+    client = SSHClient('')
+    client.connect(with_key=True)
+    # client = SSHClient("192.168.6.12")
+    # client.connect(with_key=True)
+    # # client.exec_command("pwd")
+    # client.test_send()
     # test_cmd = "cd /opt/opentrons-robot-server/ && nohup python3 -m hardware_testing.scripts.force_pick_up_test --cycles 10000 --speed 10 --current 0.55 > /data/testing_data/z_life_time.txt &"
     # # test_cmd = "cd /opt/opentrons-robot-server/ && python3 -m hardware_testing.scripts.force_pick_up_test --cycles 10000 --speed 10 --current 0.55"
     # command = "df -h"

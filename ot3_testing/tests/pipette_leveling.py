@@ -1,17 +1,18 @@
 import time
 
 from ot3_testing.tests.base_init import TestBase
-from ot3_testing.ot_type import Point, Mount
+from ot3_testing.ot_type import Mount
 from typing import Union, List
 from ot3_testing.devices.amsamotion_sensor import LaserSensor
-import asyncio
 
 from ot3_testing.tests.test_type import *
+import datetime
+from utils import Utils
 
 MountDefinition = Mount.LEFT
 RequestReadyFlag = False
 DoCalibrate = True
-from ot3_testing.utils import Utils
+Test_8CH_SIDE = "Left_Right"
 
 
 class PipetteLeveling(TestBase):
@@ -93,6 +94,7 @@ class PipetteLeveling(TestBase):
         :param gap:
         :return:
         """
+
         if method == CalibrateMethod.Dichotomy:
             step = step
         elif method == CalibrateMethod.Approach and self.approaching:
@@ -102,6 +104,7 @@ class PipetteLeveling(TestBase):
             self.approaching = True
 
         _point: Point = self.slot_location[test_name]
+
         if "Y" in test_name and "3" not in test_name:
             if direction == "plus":  # x+
                 _point = _point + Point(step, 0, 0)
@@ -190,7 +193,7 @@ class PipetteLeveling(TestBase):
         test slot
         :param test_slot_name:
         :param test_slot_value:
-        :param read_definition:
+        :param read_definition:aaaaaaaaaaaaaaaaaaaaaaaaaasssssssssssssssz
         :param with_cal:
         :return:
         """
@@ -248,8 +251,6 @@ class PipetteLeveling(TestBase):
         # show result
         csv_list = []
         csv_title = []
-        import datetime
-
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
         csv_list.append(time_str + flex_name)
@@ -318,7 +319,6 @@ class PipetteLeveling(TestBase):
         # show result
         csv_list = []
         csv_title = []
-        import datetime
 
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
