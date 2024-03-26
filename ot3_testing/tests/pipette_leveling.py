@@ -1,14 +1,13 @@
 import time
 
 from ot3_testing.tests.base_init import TestBase
-from ot3_testing.ot_type import Point, Mount
+from ot3_testing.ot_type import Mount
 from typing import Union, List
 from ot3_testing.devices.amsamotion_sensor import LaserSensor
-import asyncio
 
 from ot3_testing.tests.test_type import *
 import datetime
-from ot3_testing.utils import Utils
+from utils import Utils
 
 MountDefinition = Mount.LEFT
 RequestReadyFlag = False

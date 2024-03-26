@@ -32,16 +32,27 @@ ChannelDefinitionCH96 = {"left_front": {"device_addr": 1, "channel": 4},
                          "below_rear_right": {"device_addr": 2, "channel": 2},
                          }
 
+# ChannelOffsetsCH96 = {"left_front": 0,
+#                       "left_rear": 0.188,
+#                       "right_front": 0,
+#                       "right_rear": 0,
+#                       "rear_right": 0,
+#                       "rear_left": -0.242,
+#                       "below_front_left": 0.148,
+#                       "below_front_right": 0.546,
+#                       "below_rear_left": 0.01,
+#                       "below_rear_right": 0,
+#                       }
 
 ChannelOffsetsCH96 = {"left_front": 0,
-                      "left_rear": 0.188,
+                      "left_rear": 0,
                       "right_front": 0,
                       "right_rear": 0,
                       "rear_right": 0,
-                      "rear_left": -0.242,
-                      "below_front_left": 0.148,
-                      "below_front_right": 0.546,
-                      "below_rear_left": 0.01,
+                      "rear_left": 0,
+                      "below_front_left": 0,
+                      "below_front_right": 0,
+                      "below_rear_left": 0,
                       "below_rear_right": 0,
                       }
 # A2, B2
@@ -62,7 +73,13 @@ SlotLocationCH8 = {"Y-C1-Left": Point(198.42, 198.33, 299.16),
                    "UninstallPos": Point(223, 203, 500)
                    }
 
+# ChannelOffsetsCH8 = {"left_front": 0,
+#                      "left_rear": -0.05074,
+#                      "right_front": 0,
+#                      "right_rear": 0.01876}
+
+
 ChannelOffsetsCH8 = {"left_front": 0,
-                     "left_rear": 0.077,
+                     "left_rear": 0,
                      "right_front": 0,
-                     "right_rear": 0.03}
+                     "right_rear": 0}
