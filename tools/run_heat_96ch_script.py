@@ -47,7 +47,10 @@ def heat_96ch(client: SSHClient, device_name):
         if during_time < (3 * 3600):
             pass
         else:
-            play_alarm_2()
+            try:
+                play_alarm_2()
+            except:
+                pass
             print(
                 f"{device_name} -> 加热时间已完成，关闭程序则结束加热，如果要继续加热，不关闭程序即可，加热时间请自己计算")
 

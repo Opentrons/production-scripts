@@ -10,14 +10,8 @@ class Utils:
 
     @classmethod
     def get_root_path(cls):
-        if getattr(sys, ProjectName, False):
-            absPath = os.path.dirname(os.path.abspath(sys.executable))
-            return absPath
-        elif __file__:
-            absPath = os.path.dirname(os.path.abspath(__file__))
-            return absPath
-        else:
-            raise Exception
+        abs_path = os.path.dirname(os.path.abspath(__file__))
+        return abs_path
 
     @classmethod
     def add_path(cls, root_path, add):
