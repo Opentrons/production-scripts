@@ -32,18 +32,6 @@ ChannelDefinitionCH96 = {"left_front": {"device_addr": 1, "channel": 4},
                          "below_rear_right": {"device_addr": 2, "channel": 2},
                          }
 
-# ChannelOffsetsCH96 = {"left_front": 0,
-#                       "left_rear": 0.188,
-#                       "right_front": 0,
-#                       "right_rear": 0,
-#                       "rear_right": 0,
-#                       "rear_left": -0.242,
-#                       "below_front_left": 0.148,
-#                       "below_front_right": 0.546,
-#                       "below_rear_left": 0.01,
-#                       "below_rear_right": 0,
-#                       }
-
 ChannelOffsetsCH96 = {"left_front": 0,
                       "left_rear": 0,
                       "right_front": 0,
@@ -55,10 +43,6 @@ ChannelOffsetsCH96 = {"left_front": 0,
                       "below_rear_left": 0,
                       "below_rear_right": 0,
                       }
-# A2, B2
-# B1, A1
-# A3, B3
-# C, D, B, A
 
 ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0},
                         "left_rear": {"device_addr": 1, "channel": 1},
@@ -67,17 +51,17 @@ ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0},
                         }
 
 SlotLocationCH8 = {"Y-C1-Left": Point(198.42, 198.33, 299.16),
-                   "Y-C1-Right": Point(172.5, 198.33, 299.16),
-                   "Y-C3-Right": Point(500.5, 198.33, 299.16),
-                   "Y-A2-Right": Point(336.5, 413, 299.16),
+                   "Y-C1-Right": Point(172.07, 197.18, 299.16),
+                   "Y-C3-Right": Point(499.83, 197.18, 299.16),
+                   "Y-A2-Right": Point(335.94, 412.22, 299.16),
                    "UninstallPos": Point(223, 203, 500)
                    }
+
 
 # ChannelOffsetsCH8 = {"left_front": 0,
 #                      "left_rear": -0.05074,
 #                      "right_front": 0,
 #                      "right_rear": 0.01876}
-
 
 ChannelOffsetsCH8 = {"left_front": 0,
                      "left_rear": 0,
