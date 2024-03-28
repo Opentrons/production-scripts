@@ -1,4 +1,4 @@
-from devices.driver import SerialDriver
+from drivers.serial_driver import SerialDriver
 import time
 
 

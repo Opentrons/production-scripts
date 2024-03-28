@@ -1,6 +1,6 @@
 import codecs
-from ot3_testing.devices.driver import SerialDriver
-from ot3_testing.devices.crc_func import crc16_modbus
+from drivers.serial_driver import SerialDriver
+from drivers.crc_func import crc16_modbus
 
 
 class LaserSensor:

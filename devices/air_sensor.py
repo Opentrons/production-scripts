@@ -1,4 +1,4 @@
-from devices.driver import SerialDriver
+from drivers.serial_driver import SerialDriver
 from serial.serialutil import SerialException
 import codecs
 import time
@@ -33,7 +33,6 @@ class AirSensor:
         data_packet = "{}0300000002{}".format(
             self._sensor_address, addrs[self._sensor_address]
         )
-        print(f"sending {data_packet}")
         command_bytes = codecs.decode(data_packet.encode(), "hex")
         try:
             self.serial.com.flushInput()
@@ -43,15 +42,12 @@ class AirSensor:
 
             length = self.serial.com.inWaiting()
             res = self.serial.com.read(length)
-            print(f"received {res}")
 
             res = codecs.encode(res, "hex")
             relative_hum = res[6:10]
             temp = res[10:14]
-            print(f"Temp: {temp}, RelativeHum: {relative_hum}")
             temp = float(int(temp, 16)) / 10
             relative_hum = float(int(relative_hum, 16)) / 10
-            print(f"Temp: {temp}, Hum: {relative_hum}")
             return temp, relative_hum
 
         except (IndexError, ValueError) as e:

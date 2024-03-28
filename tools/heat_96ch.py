@@ -1,6 +1,6 @@
-from ot3_testing.devices.ssh import SSHClient
+from drivers.ssh import SSHClient
 import time
-from ot3_testing.devices.play_sound import play_alarm_2
+from drivers.play_sound import play_alarm_2
 
 
 def heat_96ch(client: SSHClient, device_name):

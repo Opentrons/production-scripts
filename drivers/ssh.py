@@ -25,7 +25,7 @@ class SSHClient:
             self.channel = self.ssh_client.invoke_shell()
         else:
             abs_dir = os.path.dirname(os.path.abspath(__file__))
-            key_file = os.path.join(abs_dir, 'robot_key')
+            key_file = os.path.join(abs_dir, '../ot3_testing/devices/robot_key')
             key = paramiko.RSAKey.from_private_key_file(key_file)
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, pkey=key)
@@ -43,6 +43,26 @@ class SSHClient:
             return result.decode('utf-8'), err.decode('utf-8')
         else:
             return None
+
+    def exec_shell(self, cmd: str, stop_string: str):
+        """
+        exec shell
+        :param cmd:
+        :param stop_string:
+        :return:
+        """
+        if self.channel is None:
+            raise ValueError("current channel is none")
+        self.channel.send(cmd)
+        output_line = ""
+        while True:
+            result = self.channel.recv(1).decode()
+            output_line = output_line + result
+            if '\n' in result:
+                print(output_line)
+                output_line = ""
+            if output_line.find(stop_string) != -1:
+                break
 
     def close(self):
         self.ssh_client.close()

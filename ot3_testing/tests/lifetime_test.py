@@ -1,4 +1,4 @@
-from devices.ssh import SSHClient
+from drivers.ssh import SSHClient
 from typing import Union
 from test_config.lifetime_test_config import Z_STAGE_LIFETIME_TEST
 from utils import Utils

@@ -2,8 +2,8 @@ from ot3_testing.tests.pipette_leveling import PipetteLeveling
 from ot3_testing.tests.test_type import SlotLocationCH96, ChannelDefinitionCH96, ChannelOffsetsCH96, SlotLocationCH8, \
     ChannelOffsetsCH8, ChannelDefinitionCH8
 import asyncio
-from tools.run_heat_96ch_script import heat_96ch
-from ot3_testing.devices.ssh import SSHClient
+from tools.heat_96ch import heat_96ch
+from drivers.ssh import SSHClient
 
 if __name__ == '__main__':
     flex_name = input("输入机器条码: ")
