@@ -5,31 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="90bd1517-530a-4777-8442-1b6672e08b89" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/devices/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/devices/air_sensor2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/devices/rsa_install/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/drivers/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/drivers/socket_interface.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tools/airsensor_saver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/air_sensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/devices/air_sensor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/amsamotion_sensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/devices/amsamotion_sensor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/crc_func.py" beforeDir="false" afterPath="$PROJECT_DIR$/drivers/crc_func.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/driver.py" beforeDir="false" afterPath="$PROJECT_DIR$/drivers/serial_driver.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/play_sound.py" beforeDir="false" afterPath="$PROJECT_DIR$/drivers/play_sound.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/rsa_install/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/rsa_install/id_rsa" beforeDir="false" afterPath="$PROJECT_DIR$/devices/rsa_install/id_rsa" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/rsa_install/id_rsa.pub" beforeDir="false" afterPath="$PROJECT_DIR$/devices/rsa_install/id_rsa.pub" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/sanliang.py" beforeDir="false" afterPath="$PROJECT_DIR$/devices/sanliang.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/devices/ssh.py" beforeDir="false" afterPath="$PROJECT_DIR$/drivers/ssh.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/tests/gantry_leveling.py" beforeDir="false" afterPath="$PROJECT_DIR$/ot3_testing/tests/gantry_leveling.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/tests/lifetime_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/ot3_testing/tests/lifetime_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ot3_testing/tests/pipette_leveling.py" beforeDir="false" afterPath="$PROJECT_DIR$/ot3_testing/tests/pipette_leveling.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/production_scripts.py" beforeDir="false" afterPath="$PROJECT_DIR$/production_scripts.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tools/run_heat_96ch_script.py" beforeDir="false" afterPath="$PROJECT_DIR$/tools/heat_96ch.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tools/run_heat_96ch_script.spec" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/testing_data/reading-air-sensor-2024-03-28 10-50-23.csv" beforeDir="false" afterPath="$PROJECT_DIR$/testing_data/reading-air-sensor-2024-03-28 10-50-23.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/airsensor_saver.py" beforeDir="false" afterPath="$PROJECT_DIR$/tools/airsensor_saver.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

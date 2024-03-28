@@ -9,6 +9,7 @@ def init_connection():
     sensor2.connect()
     return sensor1, sensor2
 
+
 def read_air_params(sensor1, sensor2):
     """
     read tem/humidity/pressure
