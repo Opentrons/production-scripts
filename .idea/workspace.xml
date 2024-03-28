@@ -4,12 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="90bd1517-530a-4777-8442-1b6672e08b89" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/testing_data/reading-air-sensor-2024-03-28 10-50-23.csv" beforeDir="false" afterPath="$PROJECT_DIR$/testing_data/reading-air-sensor-2024-03-28 10-50-23.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tools/airsensor_saver.py" beforeDir="false" afterPath="$PROJECT_DIR$/tools/airsensor_saver.py" afterDir="false" />
-    </list>
+    <list default="true" id="90bd1517-530a-4777-8442-1b6672e08b89" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
