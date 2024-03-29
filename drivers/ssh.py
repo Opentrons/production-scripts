@@ -24,8 +24,7 @@ class SSHClient:
                                     username=self.username, password=self.password)
             self.channel = self.ssh_client.invoke_shell()
         else:
-            abs_dir = os.path.dirname(os.path.abspath(__file__))
-            key_file = os.path.join(abs_dir, '../ot3_testing/devices/robot_key')
+            key_file = 'assets/robot_key'
             key = paramiko.RSAKey.from_private_key_file(key_file)
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, pkey=key)

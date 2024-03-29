@@ -1,11 +1,12 @@
 from drivers.ssh import SSHClient
 import time
 from drivers.play_sound import play_alarm_2
+from tools.inquirer import prompt_ip
 
 
 def heat_96ch(client: SSHClient, device_name):
     """
-    client, 机器条码
+    client, device_name
     """
     started_time_h = input("请输入多少小时后开始加热(/h): ")
     started_time_s = float(started_time_h.strip()) * 3600
@@ -41,18 +42,27 @@ def heat_96ch(client: SSHClient, device_name):
 
     # 计算加热时间
     heat_start = time.time()
+    heat_complete_flag = False
     while True:
         heat_time = time.time()
         during_time = heat_time - heat_start
         if during_time < (3 * 3600):
             pass
         else:
+            heat_complete_flag = True
+            print(
+                f"{device_name} -> 加热时间已完成，关闭程序则结束加热，如果要继续加热，不关闭程序即可，加热时间请自己计算")
+        if heat_complete_flag:
             try:
                 play_alarm_2()
             except:
                 pass
-            print(
-                f"{device_name} -> 加热时间已完成，关闭程序则结束加热，如果要继续加热，不关闭程序即可，加热时间请自己计算")
+
+
+def test_run():
+    ip = prompt_ip()
+    client = SSHClient(ip)
+    heat_96ch(client, ip)
 
 
 if __name__ == '__main__':

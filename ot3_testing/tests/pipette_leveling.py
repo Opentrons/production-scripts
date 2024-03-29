@@ -5,7 +5,7 @@ from ot3_testing.ot_type import Mount
 from typing import Union, List
 from devices.amsamotion_sensor import LaserSensor
 
-from ot3_testing.tests.test_type import *
+from ot3_testing.test_config.pipette_leveling_config import *
 import datetime
 from utils import Utils
 
