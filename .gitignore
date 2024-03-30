@@ -1,0 +1,7 @@
+*.csv
+*.spec
+.idea
+__pycache__
+build
+testing_data/*
+

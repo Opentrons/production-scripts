@@ -78,6 +78,16 @@ class Utils:
             writer = csv.writer(file)
             writer.writerow(row)
 
+    @classmethod
+    def get_time_string(cls, format=False):
+        from datetime import datetime
+        # 方法一：获取当前时间并格式化为指定字符串格式
+        if not format:
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            current_time = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+        return current_time
+
 
 if __name__ == '__main__':
     Utils.get_root_path()
