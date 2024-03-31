@@ -14,7 +14,7 @@ class SSHClient:
         self.password = password
         self.channel = None
 
-    def connect(self, with_key=None):
+    def connect(self, with_key=None, key_path=''):
         """
         connect host
         :return:
@@ -24,7 +24,10 @@ class SSHClient:
                                     username=self.username, password=self.password)
             self.channel = self.ssh_client.invoke_shell()
         else:
-            key_file = 'assets/robot_key'
+            if key_path == '':
+                key_file = 'assets/robot_key'
+            else:
+                key_file = os.path.join(key_path, 'assets', 'robot_key')
             key = paramiko.RSAKey.from_private_key_file(key_file)
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, pkey=key)

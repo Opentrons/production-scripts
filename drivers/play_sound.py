@@ -38,4 +38,5 @@ def play_alarm_2(project_path):
 
 if __name__ == '__main__':
     # play_dog_barking()
-    play_alarm_2()
+    # play_alarm_2(
+    pass
