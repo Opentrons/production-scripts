@@ -68,21 +68,7 @@ class SSHClient:
 
 
 if __name__ == '__main__':
-    client = SSHClient('')
+    client = SSHClient('192.168.6.44')
     client.connect(with_key=True)
-    # client = SSHClient("192.168.6.12")
-    # client.connect(with_key=True)
-    # # client.exec_command("pwd")
-    # client.test_send()
-    # test_cmd = "cd /opt/opentrons-robot-server/ && nohup python3 -m hardware_testing.scripts.force_pick_up_test --cycles 10000 --speed 10 --current 0.55 > /data/testing_data/z_life_time.txt &"
-    # # test_cmd = "cd /opt/opentrons-robot-server/ && python3 -m hardware_testing.scripts.force_pick_up_test --cycles 10000 --speed 10 --current 0.55"
-    # command = "df -h"
-    # client = SSHClient('192.168.6.8')
-    # client.connect(with_key=True)
-    # res = client.exec_command(command)
-    # print(res)
-    # res = client.exec_command(test_cmd)
-    # import time
-    #
-    # time.sleep(5)
-    # client.close()
+    ret = client.exec_command('pwd', with_read=True)
+    print(ret)

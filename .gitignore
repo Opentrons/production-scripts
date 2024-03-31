@@ -1,5 +1,6 @@
 *.csv
 *.spec
+*.pyc
 .idea
 __pycache__
 build
