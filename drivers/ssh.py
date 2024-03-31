@@ -28,6 +28,7 @@ class SSHClient:
                 key_file = 'assets/robot_key'
             else:
                 key_file = os.path.join(key_path, 'assets', 'robot_key')
+                print(key_file)
             key = paramiko.RSAKey.from_private_key_file(key_file)
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, pkey=key)
