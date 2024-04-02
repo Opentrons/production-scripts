@@ -16,13 +16,17 @@ def read_air_params(sensor1, sensor2):
     """
     sensor1_tem, sensor1_hum = sensor1.get_read()
     air_params = sensor2.get_air_params()
-    if air_params["success"] is True:
-        sensor2_tem = air_params["data"]["temperature"]
-        sensor2_hum = air_params["data"]["humidity"]
-        sensor2_pressure = air_params["data"]["pressure"]
-        return (sensor1_tem, sensor1_hum), (sensor2_tem, sensor2_hum, sensor2_pressure)
-    else:
-        raise ValueError
+    for i in range(10):
+        if air_params["success"] is True:
+            sensor2_tem = air_params["data"]["temperature"]
+            sensor2_hum = air_params["data"]["humidity"]
+            sensor2_pressure = air_params["data"]["pressure"]
+            return (sensor1_tem, sensor1_hum), (sensor2_tem, sensor2_hum, sensor2_pressure)
+        else:
+            if i < 9:
+                pass
+            else:
+                raise ValueError
 
 
 def reading_and_write_csv(file_name):
