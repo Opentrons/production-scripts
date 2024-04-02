@@ -45,10 +45,11 @@ ChannelOffsetsCH96 = {"left_front": 0,
                       "below_rear_right": 0,
                       }
 
+# device addr are un-useful in ch8
 ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0},
                         "left_rear": {"device_addr": 1, "channel": 1},
-                        "right_front": {"device_addr": 1, "channel": 0},
-                        "right_rear": {"device_addr": 1, "channel": 1},
+                        "right_front": {"device_addr": 1, "channel": 4},
+                        "right_rear": {"device_addr": 1, "channel": 5},
                         }
 
 SlotLocationCH8 = {"Y-C1-Left": Point(198.42, 198.33, 299.16),

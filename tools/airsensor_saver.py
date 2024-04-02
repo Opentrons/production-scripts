@@ -1,3 +1,5 @@
+import time
+
 from devices.air_sensor import AirSensor
 from devices.air_sensor2 import AirSensor2
 from utils import Utils
@@ -16,7 +18,7 @@ def read_air_params(sensor1, sensor2):
     """
     sensor1_tem, sensor1_hum = sensor1.get_read()
     air_params = sensor2.get_air_params()
-    for i in range(10):
+    for i in range(30):
         if air_params["success"] is True:
             sensor2_tem = air_params["data"]["temperature"]
             sensor2_hum = air_params["data"]["humidity"]
@@ -24,7 +26,8 @@ def read_air_params(sensor1, sensor2):
             return (sensor1_tem, sensor1_hum), (sensor2_tem, sensor2_hum, sensor2_pressure)
         else:
             if i < 9:
-                pass
+                print(f"Reading Fail {i+1} times")
+                time.sleep(1)
             else:
                 raise ValueError
 

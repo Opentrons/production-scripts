@@ -18,7 +18,7 @@ class LaserSensor:
     def close(self):
         self.serial.close()
 
-    def get_distance_multi(self, device_addr: int, channel_num=8):
+    def get_distance_multi(self, device_addr: int, channel_num=8) -> dict:
         """
         get multi ch data
         :param device_addr:
@@ -28,6 +28,7 @@ class LaserSensor:
         multi_value = {}
         read_data = ""
         if self.send:
+            # use modbus driver
             crc_16 = crc16_modbus(f"0{device_addr}040000000{channel_num}")
             for repeat in range(5):
                 read_data = self.serial.write_and_get_buffer(
@@ -46,11 +47,12 @@ class LaserSensor:
                 data_channel = data_value[i * 4: (i * 4 + 4)]
                 multi_value.update({i: int(data_channel.decode(), 16)})
         else:
+            # use serial driver
             ret = self.serial.read_buffer()
-            ret = ret.split('\r')[1]
+            ret = ret.split('\r\n')[1]
 
             for index, item in enumerate(ret.split(',')):
-                multi_value.update({index: (float(item.split(':')[1].strip())/1000)})
+                multi_value.update({index: (float(item.split(':')[1].strip()) / 1000)})
         return multi_value
 
     def get_distance_single(self, device_addr: int, ch: int):

@@ -193,7 +193,7 @@ class PipetteLeveling(TestBase):
         test slot
         :param test_slot_name:
         :param test_slot_value:
-        :param read_definition:aaaaaaaaaaaaaaaaaaaaaaaaaasssssssssssssssz
+        :param read_definition:
         :param with_cal:
         :return:
         """
@@ -242,7 +242,6 @@ class PipetteLeveling(TestBase):
         print("Test Left Side...")
         MountDefinition = Mount.LEFT
         await self.api.home()
-        self.init_laser_sensor(send=False)
 
         ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"], with_cal=DoCalibrate)
         test_result.update(ret)
