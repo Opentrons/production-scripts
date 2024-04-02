@@ -5,9 +5,10 @@ from ot3_testing.test_config.pipette_leveling_config import SlotLocationCH96, Ch
 import asyncio
 from tools.inquirer import prompt_flex_name, prompt_test_name, prompt_exit
 from tools import heat_96ch
+from __version__ import get_version
 
 if __name__ == '__main__':
-
+    get_version()
     flex_name = prompt_flex_name()
     while True:
         test_name = prompt_test_name()

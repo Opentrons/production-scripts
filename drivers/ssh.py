@@ -5,34 +5,34 @@ from utils import Utils
 
 
 class SSHClient:
-    def __init__(self, hostname: str, port=22, username="root", password="None"):
+    def __init__(self, hostname: str, use_key=True, port=22, username="root", password="None"):
         self.ssh_client = paramiko.SSHClient()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.hostname = hostname
         self.port = port
         self.username = username
         self.password = password
+        self.use_key = use_key
         self.channel = None
 
-    def connect(self, with_key=None, key_path=''):
+    def connect(self, key_path=''):
         """
         connect host
         :return:
         """
-        if with_key is None:
+        if self.use_key is False:
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, password=self.password)
-            self.channel = self.ssh_client.invoke_shell()
         else:
             if key_path == '':
-                key_file = 'assets/robot_key'
+                key_file = '../assets/robot_key'
             else:
                 key_file = os.path.join(key_path, 'assets', 'robot_key')
                 print(key_file)
             key = paramiko.RSAKey.from_private_key_file(key_file)
             self.ssh_client.connect(hostname=self.hostname, port=self.port,
                                     username=self.username, pkey=key)
-            self.channel = self.ssh_client.invoke_shell()
+        self.channel = self.ssh_client.invoke_shell()
 
     def exec_command(self, cmd: str, buffer_size=-1, with_read=False):
         """
@@ -72,7 +72,7 @@ class SSHClient:
 
 
 if __name__ == '__main__':
-    client = SSHClient('192.168.6.44')
-    client.connect(with_key=True)
+    client = SSHClient('192.168.6.122')
+    client.connect()
     ret = client.exec_command('pwd', with_read=True)
     print(ret)

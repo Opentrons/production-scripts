@@ -1,7 +1,7 @@
 from drivers.ssh import SSHClient
 import time
 from drivers.play_sound import play_alarm_2
-from tools.inquirer import prompt_ip
+from tools.inquirer import prompt_ip, prompt_connect_method
 import os
 
 
@@ -20,7 +20,7 @@ def heat_96ch(client: SSHClient, device_name):
         if judge_time > float(started_time_s):
             # 开始加热
             print("开始加热...")
-            client.connect(with_key=True, key_path=current_path)
+            client.connect(key_path=current_path)
             channel = client.channel
             channel.send(f"ot3repl \n")
             time.sleep(3)
@@ -66,7 +66,11 @@ def heat_96ch(client: SSHClient, device_name):
 
 def test_run():
     ip = prompt_ip()
-    client = SSHClient(ip)
+    use_key: str = prompt_connect_method()
+    if "Y" in use_key.strip().upper():
+        client = SSHClient(ip)
+    else:
+        client = SSHClient(ip, use_key=False)
     heat_96ch(client, ip)
 
 

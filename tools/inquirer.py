@@ -28,6 +28,13 @@ question_exit = {
     'choices': ['yes(是)', 'no(否)']
 }
 
+question_ssh_connection = {
+    'type': 'list',
+    'name': 'connection',
+    'message': 'use key (是否使用密钥连接):',
+    'choices': ['yes(是)', 'no(否)']
+}
+
 
 def prompt_flex_name():
     ret = prompt(question_flex)
@@ -42,6 +49,11 @@ def prompt_ip():
 def prompt_test_name():
     ret = prompt(question_test)
     return ret['test'].strip()
+
+
+def prompt_connect_method():
+    ret = prompt(question_ssh_connection)
+    return ret['connection'].strip()
 
 
 def prompt_exit():

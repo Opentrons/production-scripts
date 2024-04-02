@@ -1,12 +1,13 @@
 import os
 
-VERSION = '1.0.0'
+VERSION = '1.0.3'
 
 
 def get_version():
     """
     this version
     """
+    print(f"__VERSION__ is {VERSION}")
     return VERSION
 
 
