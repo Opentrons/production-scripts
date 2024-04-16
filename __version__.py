@@ -1,6 +1,7 @@
 import os
+import subprocess
 
-VERSION = '1.0.3'
+VERSION = '1.1.0'
 
 
 def get_version():
@@ -23,10 +24,22 @@ def write_to_requirements_file(dependencies):
 
 
 # 主函数
-def main():
+def explore_requirement():
     dependencies = get_dependencies()
     write_to_requirements_file(dependencies)
 
 
+def build():
+    cmd = 'pyinstaller -F --ico="assets/logo.ico" --name=Productions production_scripts.py'
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    while True:
+        line = process.stdout.readline()
+        if not line:
+            break  # 如果没有读取到数据，表示子进程已经结束，退出循环
+        else:
+            print(line, end='')  # 实时打印输出
+    process.wait()
+
+
 if __name__ == "__main__":
-    main()
+    build()

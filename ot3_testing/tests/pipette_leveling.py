@@ -1,3 +1,4 @@
+import os.path
 import time
 
 from ot3_testing.tests.base_init import TestBase
@@ -13,10 +14,11 @@ MountDefinition = Mount.LEFT
 RequestReadyFlag = False
 DoCalibrate = True
 Test_8CH_SIDE = "Left_Right"
+ApplyCompensationFlag = True
 
 
 class PipetteLeveling(TestBase):
-    def __init__(self, slot_location, channel_definition, channel_offsets):
+    def __init__(self, slot_location, channel_definition, robot_ip=None):
         super(PipetteLeveling).__init__()
         self.test_name = "96ch"
         self.k = -2
@@ -25,7 +27,9 @@ class PipetteLeveling(TestBase):
         self.approaching = False
         self.slot_location = slot_location
         self.channel_definition = channel_definition
-        self.channel_offsets = channel_offsets
+        self.channel_offsets = None
+        self.robot_ip = robot_ip
+        self.select_default = False
 
     def init_laser_sensor(self, send=True):
         """
@@ -33,7 +37,7 @@ class PipetteLeveling(TestBase):
         :return:
         """
         self.laser_sensor = LaserSensor(send=send)
-        self.laser_sensor.init_device()
+        self.laser_sensor.init_device(select_default=self.select_default)
 
     async def move_to_test_point(self, p: Point, mount: Mount):
         """
@@ -50,41 +54,51 @@ class PipetteLeveling(TestBase):
         :param slot_name:
         :return:
         """
-        await self.move_to_test_point(self.slot_location[slot_name], MountDefinition)
+        await self.move_to_test_point(self.slot_location[slot_name]["Point"], MountDefinition)
 
-    async def read_definition_distance(self, position: str, only_code=False):
+    async def read_definition_distance(self, position: List[str], only_code=False) -> dict:
         """
-        read distance
+        read distance, using one device id (please use same device_id in the positions)
         :param position:
         :param only_code:
         :return:
         """
         print("Reading Sensor...")
+        result = {}
         time.sleep(1)
-        device_addr = self.channel_definition[position]["device_addr"]
-        channel = self.channel_definition[position]["channel"]
-        code_value = self.laser_sensor.get_distance_single(device_addr, channel)
+        device_addr = self.channel_definition[position[0]]["device_addr"]
+        code_value_list = self.laser_sensor.get_distance_multi(device_addr)
         if only_code:
-            return code_value
-        else:
-            distance_value = await self.read_distance_mm_from_code_value(code_value)
-            return distance_value
+            for item in position:
+                result.update({item: code_value_list[self.channel_definition[item]["channel"]]})
 
-    async def read_distance_mm_from_code_value(self, code_value: int):
+        else:
+            for item in position:
+                code_value = code_value_list[self.channel_definition[item]["channel"]]
+                distance_value = await self.read_distance_mm_from_code_value(code_value)
+                result.update({item: distance_value})
+
+        return result
+
+    async def read_distance_mm_from_code_value(self, code_value: int, get_voltage=False):
         """
         read real value
         :param code_value:
+        :param get_voltage: return voltage
         :return:
         """
         if self.test_name == "96ch":
-            voltage = (code_value / 1600) / 2  # /V
+            voltage = round(float((code_value / 1600) / 2), 3)  # /V
         else:
-            voltage = code_value
-        distance = self.k * voltage + self.b  # /mm
-        return distance
+            voltage = round(float(code_value), 3)
+        if get_voltage:
+            return voltage
+        else:
+            distance = self.k * voltage + self.b  # /mm
+            return round(float(distance), 3)
 
     async def move_step_with_test_name(self, test_name: str, direction: str, step=0.1,
-                                       method=CalibrateMethod.Dichotomy, gap=0):
+                                       method=CalibrateMethod.Dichotomy, gap: float = 0):
         """
         move a step
         :param test_name:
@@ -103,7 +117,7 @@ class PipetteLeveling(TestBase):
             step = gap * 2
             self.approaching = True
 
-        _point: Point = self.slot_location[test_name]
+        _point: Point = self.slot_location[test_name]["Point"]
 
         if "Y" in test_name and "3" not in test_name:
             if direction == "plus":  # x+
@@ -111,7 +125,7 @@ class PipetteLeveling(TestBase):
             else:
                 _point = _point - Point(step, 0, 0)
         elif "Y" in test_name and "3" in test_name:
-            _point: Point = self.slot_location[test_name]
+            _point: Point = self.slot_location[test_name]["Point"]
             if self.test_name == "96ch":
                 if direction == "plus":  # x-
                     _point = _point - Point(step, 0, 0)
@@ -135,7 +149,7 @@ class PipetteLeveling(TestBase):
 
         print("move to: ", _point)
         await self.move_to_test_point(_point, MountDefinition)
-        self.slot_location[test_name] = _point
+        self.slot_location[test_name]["Point"] = _point
 
     async def calibrate_to_zero(self, test_name: str, spec: float, read_definition: List[str], target_voltage=2.5,
                                 method=CalibrateMethod.Dichotomy):
@@ -148,24 +162,13 @@ class PipetteLeveling(TestBase):
         :param method:
         :return:
         """
-
-        def get_voltage(code_value):
-            voltage = (code_value / 1600) / 2
-            return voltage
-
         init_step = 2
         while True:
-            # read current
-            distance_list = []
-            for item in read_definition:
-                ret = await self.read_definition_distance(item, only_code=True)
-                if self.test_name == "96ch":
-                    distance_list.append(get_voltage(ret))
-                else:
-                    distance_list.append(ret)
+            # read voltage
+            ret_dict = await self.read_definition_distance(read_definition, only_code=True)
             # min_voltage = min(distance_list)
-            min_voltage = distance_list[0]  # judge the first channel
-
+            _min = list(ret_dict.values())[0]  # judge the first channel
+            min_voltage = await self.read_distance_mm_from_code_value(_min, get_voltage=True)
             print("current min voltage is: ", min_voltage)
             if spec >= (min_voltage - target_voltage) >= 0:
                 break
@@ -187,6 +190,14 @@ class PipetteLeveling(TestBase):
         """
         return self.channel_offsets[definition_name]
 
+    async def apply_offset_by_slot_name(self, read_value, slot_value: str):
+        """
+        apply stable offset
+        """
+        compensation = self.slot_location[slot_value]["compensation"]
+        print(f"apply offset: {compensation} to {read_value}")
+        return compensation + read_value
+
     async def run_test_slot(self, test_slot_name: str, test_slot_value: str, read_definition: List[str],
                             with_cal=False):
         """
@@ -199,27 +210,27 @@ class PipetteLeveling(TestBase):
         """
         if RequestReadyFlag:
             input(f">>Test {test_slot_name}")
-        read_result = []
         print(f"Test - {test_slot_name}")
-        await self.move_to_test_slot(test_slot_value)  # FIXME : maybe need to adjust to suitable position
+        await self.move_to_test_slot(test_slot_value)  # FIXME : maybe need to adjust to suitable position (FIXED)
         if with_cal:
             await self.calibrate_to_zero(test_slot_value, 0.1, read_definition, method=CalibrateMethod.Approach)
-        for item in read_definition:
-            ret = await self.read_definition_distance(item)
-            offset = await self.apply_offset_by_definition_name(item)
-            print(f"apply offset: {offset} to {ret}")
-            ret = ret + offset
-            print(f"{test_slot_name}-{test_slot_value}-{item}: {ret}")
-            read_result.append(ret)
-        return {test_slot_name: read_result}
 
-    async def run_8ch_test(self, flex_name: str):
+        ret_dict = await self.read_definition_distance(read_definition)
+        for key, value in ret_dict.items():
+            print(f"{test_slot_value}-{key}: {value}")
+
+        return {test_slot_value: ret_dict}
+
+    async def run_8ch_test(self, flex_name: str, project_path=None):
         """
         8ch main loop
         """
         global MountDefinition
         test_result = {}
-        addr = self.get_address().strip()
+        if self.robot_ip is None:
+            addr = self.get_address().strip()
+        else:
+            addr = self.robot_ip
         self.initial_api(addr, hc=True)
 
         print("Test Right Side...")
@@ -256,24 +267,54 @@ class PipetteLeveling(TestBase):
         csv_title.append(time_str + flex_name)
         print("=" * 5 + "Test Result" + "=" * 5 + "\n")
         for key, value in test_result.items():
-            print(f"{key} --> {value} (mm) --> offset: {max(value) - min(value)}(mm)")
-            for item in value:
-                csv_title.append(key)
-                csv_list.append(item)
+            distance_list = list(value.values())
+            difference = distance_list[0] - distance_list[1]
+            compensation = self.slot_location[key]["compensation"]
+            if ApplyCompensationFlag:
+                print(f"apply offset {compensation} to {difference}, difference -> {difference - compensation}")
+                difference = difference - compensation
+            print(f"{key} --> {value} (mm) --> difference: {round(difference, 3)}(mm)")
+            for item_key, item_value in value.items():
+                csv_title.append(key + " " + item_key)
+                if ApplyCompensationFlag and "front" in item_key:
+                    csv_list.append(item_value - compensation)
+                else:
+                    csv_list.append(item_value)
             csv_title.append(key + "-Result")
-            csv_list.append(max(value) - min(value))
+            csv_list.append(difference)
 
         # save csv
-        Utils.write_to_csv("pipette_leveling.csv", csv_list)
+        if project_path is not None:
+            file_path = os.path.join(project_path, 'testing_data', 'pipette_8ch_leveling.csv')
+        else:
+            file_path = '../../testing_data/pipette_8ch_leveling.csv'
+        self.save_csv(file_path, csv_title, csv_list)
         self.laser_sensor.close()
 
-    async def run_96ch_test(self, flex_name: str):
+    def save_csv(self, file_path, title, content):
+        """
+        save csv
+        """
+        is_exist = Utils.is_file_exist(file_path)
+        if is_exist:
+            pass
+        else:
+            Utils.write_to_csv(file_path, title)
+        Utils.write_to_csv(file_path, content)
+
+    def get_max_index(self, lst: list):
+        return max(range(len(lst)), key=lst.__getitem__)
+
+    async def run_96ch_test(self, flex_name: str, project_path=None):
         """
         main loop
         :return:
         """
         test_result = {}
-        addr = self.get_address().strip()
+        if self.robot_ip is None:
+            addr = self.get_address().strip()
+        else:
+            addr = self.robot_ip
         self.initial_api(addr, hc=True)
         await self.api.home()
         self.init_laser_sensor()
@@ -296,21 +337,21 @@ class PipetteLeveling(TestBase):
         ret = await self.run_test_slot("Test X-Axis-C3", "C3-X", ["rear_left", "rear_right"], with_cal=DoCalibrate)
         test_result.update(ret)
 
-        ret = await self.run_test_slot("Test Z-Axis-A2", "A2-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
+        ret = await self.run_test_slot("Test Z-Axis-A2", "A2-Z", ["below_rear_left", "below_rear_right",
+                                                                  "below_front_left", "below_front_right"],
                                        with_cal=DoCalibrate)
 
         test_result.update(ret)
-        ret = await self.run_test_slot("Test Z-Axis-D1", "D1-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
+        ret = await self.run_test_slot("Test Z-Axis-D1", "D1-Z", ["below_rear_left", "below_rear_right",
+                                                                  "below_front_left", "below_front_right"],
                                        with_cal=DoCalibrate)
         test_result.update(ret)
-        ret = await self.run_test_slot("Test Z-Axis-D3", "D3-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
+        ret = await self.run_test_slot("Test Z-Axis-D3", "D3-Z", ["below_rear_left", "below_rear_right",
+                                                                  "below_front_left", "below_front_right"],
                                        with_cal=DoCalibrate)
         test_result.update(ret)
-        ret = await self.run_test_slot("Test Z-Axis-C2", "C2-Z", ["below_front_left", "below_front_right",
-                                                                  "below_rear_left", "below_rear_right"],
+        ret = await self.run_test_slot("Test Z-Axis-C2", "C2-Z", ["below_rear_left", "below_rear_right",
+                                                                  "below_front_left", "below_front_right"],
                                        with_cal=DoCalibrate)
         test_result.update(ret)
 
@@ -325,44 +366,63 @@ class PipetteLeveling(TestBase):
         csv_title.append(time_str + flex_name)
         print("=" * 5 + "Test Result" + "=" * 5 + "\n")
         for key, value in test_result.items():
-            print(f"{key} --> {value} (mm) --> offset: {max(value) - min(value)}(mm)")
-            for item in value:
-                csv_title.append(key)
-                csv_list.append(item)
+            distance_list = list(value.values())
+            # differences
+            if len(distance_list) <= 2:
+                difference = distance_list[0] - distance_list[1]
+            else:
+                difference = max(distance_list) - min(distance_list)
+            compensation = self.slot_location[key]["compensation"]
+            if ApplyCompensationFlag:
+                print(f"apply offset {compensation} to {difference}, difference -> {difference - compensation}")
+                difference = difference - compensation
+            print(f"{key} --> {value} (mm) --> difference: {round(difference, 3)}(mm)")
+            for item_key, item_value in value.items():
+                csv_title.append(key + " " + item_key)
+
+            if ApplyCompensationFlag:
+                max_value_idx = self.get_max_index(distance_list)
+                distance_list[max_value_idx] = distance_list[max_value_idx] - compensation
+            for values in distance_list:
+                csv_list.append(values)
             if 'Z' not in key:
                 csv_title.append(key + "-Result")
-                csv_list.append(max(value) - min(value))
+                csv_list.append(difference)
             else:
                 csv_title.extend(['', '', key + "-Result"])
-                csv_list.extend(['', '', max(value) - min(value)])
+                csv_list.extend(['', '', difference])
             # 插入空行匹配数据格式
-            if "y-Axis-C3" in key:
-                csv_title.extend(['', ''])
+            if "C3-Y" in key:
+                csv_title.extend(['Max', 'Comment'])
                 csv_list.extend(['', ''])
-            elif "X-Axis-C3" in key:
-                csv_title.extend(['', '', ''])
-                csv_list.extend(['', '', ''])
-            elif 'Z-Axis-C2' in key:
-                csv_title.extend([''])
+            elif "C3-X" in key:
+                csv_title.extend(['Max', 'Comment'])
+                csv_list.extend(['', ''])
+            elif 'C2-Z' in key:
+                csv_title.extend(['Comment'])
                 csv_list.extend([''])
             else:
                 pass
 
         # save csv
-        Utils.write_to_csv("pipette_leveling.csv", csv_title)
-        Utils.write_to_csv("pipette_leveling.csv", csv_list)
+        if project_path is not None:
+            file_path = os.path.join(project_path, 'testing_data', 'pipette_96ch_leveling.csv')
+        else:
+            file_path = '../../testing_data/pipette_96ch_leveling.csv'
+        self.save_csv(file_path, csv_title, csv_list)
         self.laser_sensor.close()
 
 
 if __name__ == '__main__':
-    # run 96
-    # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, ChannelOffsetsCH96)
-    # asyncio.run(pipette_leveling.run_96ch_test())
+    # import asyncio
 
-    # run 8
-    # pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, ChannelOffsetsCH8)
-    # pipette_leveling.test_name = "8ch"
-    # pipette_leveling.k = -2
-    # pipette_leveling.b = 35
-    # asyncio.run(pipette_leveling.run_8ch_test())
+    # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip='192.168.6.29')
+    # pipette_leveling.select_default = True
+    # for i in range(1):
+    #     asyncio.run(pipette_leveling.run_96ch_test("FLXA1020240203003"))
+    # pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, robot_ip='192.168.6.58')
+    # pipette_leveling.select_default = True
+    # pipette_leveling.test_name = '8ch'
+    # for i in range(3):
+    #     asyncio.run(pipette_leveling.run_8ch_test("FLXA1020240203003"))
     pass

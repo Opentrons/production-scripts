@@ -8,12 +8,12 @@ class LaserSensor:
         self.serial = SerialDriver()
         self.send = send
 
-    def init_device(self):
+    def init_device(self, select_default=False):
         """
         get device
         :return:
         """
-        self.serial.init(9600)
+        self.serial.init(9600, select_default=select_default)
 
     def close(self):
         self.serial.close()
@@ -43,7 +43,7 @@ class LaserSensor:
             data_value = read_data[3:(3 + data_length)]
             data_value = codecs.encode(data_value, "hex")
             # trans to int
-            for i in range(8):
+            for i in range(channel_num):
                 data_channel = data_value[i * 4: (i * 4 + 4)]
                 multi_value.update({i: int(data_channel.decode(), 16)})
         else:

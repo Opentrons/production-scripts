@@ -19,7 +19,7 @@ class SerialDriver:
         self.device = None
         self.com = None
 
-    def get_device(self):
+    def get_device(self, select_default=False):
         """
         select device
         :return:
@@ -28,7 +28,10 @@ class SerialDriver:
         print("=" * 5 + "PORT LIST" + "=" * 5)
         for index, p in enumerate(port_list):
             print(f"{index + 1} >>{p.device}")
-        select = input("Select Port Number(输入串口号对应的数字):")
+        if select_default:
+            select = '1'
+        else:
+            select = input("Select Port Number(输入串口号对应的数字):")
         self.device = port_list[int(select.strip()) - 1].device
 
     def init_serial(self, baud):
@@ -55,12 +58,12 @@ class SerialDriver:
         self.com.close()
         print(f"{self.device} Closed! \n")
 
-    def init(self, baud):
+    def init(self, baud, select_default=False):
         """
         main
         :return:
         """
-        self.get_device()
+        self.get_device(select_default=select_default)
         try:
             self.init_serial(baud)
         except:

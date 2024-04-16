@@ -73,6 +73,10 @@ class Utils:
             Utils.test_online(device)
 
     @classmethod
+    def is_file_exist(cls, file_path: str):
+        return os.path.exists(file_path)
+
+    @classmethod
     def write_to_csv(cls, filename, row: list):
         with open(filename, 'a', newline='') as file:
             writer = csv.writer(file)
