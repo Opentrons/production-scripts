@@ -1,12 +1,27 @@
 from PyInquirer import prompt
 
-test_choices = ['leveling-8ch', 'leveling-96ch', 'leveling-gantry', 'heat-96ch']
+test_choices = ['leveling-8ch', 'leveling-96ch', 'leveling-gantry', 'heat-96ch','grav-openweb']
 
 question_flex = {
     'type': 'input',
     'name': 'flex',
     'message': 'Please input flex SN (请输入机器条码):'
 }
+
+question_gravname = {
+    'type': 'input',
+    'name': 'raspNo',
+    'message': 'Please input raspberry pie No (请输入树莓派编号(GRAV1)):'
+}
+
+question_openweb = {
+    'type': 'list',
+    'name': 'openweb',
+    'message': 'open (是否打开称数据网站):',
+    'choices': ['yes(打开)', 'no(关闭)']
+
+}
+
 
 question_ip = {
     'type': 'input',
@@ -41,6 +56,10 @@ def prompt_flex_name():
     return ret['flex'].strip()
 
 
+def prompt_raspNo():
+    ret = prompt(question_gravname)
+    return ret['raspNo'].strip()
+
 def prompt_ip():
     ret = prompt(question_ip)
     return ret['ip'].strip()
@@ -59,3 +78,8 @@ def prompt_connect_method():
 def prompt_exit():
     ret = prompt(question_exit)
     return ret['exit'].strip()
+
+def prompt_openweb():
+    ret = prompt(question_openweb)
+    return ret['openweb'].strip()
+
