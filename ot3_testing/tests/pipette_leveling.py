@@ -375,14 +375,12 @@ class PipetteLeveling(TestBase):
             compensation = self.slot_location[key]["compensation"]
             if ApplyCompensationFlag:
                 print(f"apply offset {compensation} to {difference}, difference -> {difference - compensation}")
-                difference = difference - compensation
+                difference = abs(difference - compensation)
+                max_value_idx = self.get_max_index(distance_list)
+                distance_list[max_value_idx] = distance_list[max_value_idx] - compensation
             print(f"{key} --> {value} (mm) --> difference: {round(difference, 3)}(mm)")
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
-
-            if ApplyCompensationFlag:
-                max_value_idx = self.get_max_index(distance_list)
-                distance_list[max_value_idx] = distance_list[max_value_idx] - compensation
             for values in distance_list:
                 csv_list.append(values)
             if 'Z' not in key:
