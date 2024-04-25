@@ -16,7 +16,7 @@ SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": 0.25
                     "D1-Z": {"Point": Point(51, 99, 318), "compensation": 0.5},
                     # "B2-Z": Point(213, 324, 317),
                     "D3-Z": {"Point": Point(377, 99, 318), "compensation": 0.44},
-                    "C2-Z": {"Point": Point(214, 210, 318), "compensation": 0.40},
+                    "C2-Z": {"Point": Point(214, 210, 318), "compensation": 0.46},
                     "A2-Z": {"Point": Point(218, 424, 390.5), "compensation": 0.31},
                     "UninstallPos": {"Point": Point(223, 203, 500)}
                     }
@@ -40,19 +40,10 @@ ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0, "offset":
                         "right_rear": {"device_addr": 1, "channel": 5, "offset": 0},
                         }
 
-SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(198.42, 198.33, 299.16), "compensation": 0.0464},
+SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(198.42, 198.33, 299.16), "compensation": -0.015},
                    "Y-C1-Right": {"Point": Point(172.07, 197.18, 299.16), "compensation": -0.03},
                    "Y-C3-Right": {"Point": Point(499.83, 197.18, 299.16), "compensation": -0.03},
                    "Y-A2-Right": {"Point": Point(335.94, 412.22, 299.16), "compensation": -0.03},
                    "UninstallPos": {"Point": Point(223, 203, 500), "compensation": 0}
                    }
 
-# ChannelOffsetsCH8 = {"left_front": 0,
-#                      "left_rear": -0.05074,
-#                      "right_front": 0,
-#                      "right_rear": 0.01876}
-
-ChannelOffsetsCH8 = {"left_front": 0,
-                     "left_rear": 0,
-                     "right_front": 0,
-                     "right_rear": 0}

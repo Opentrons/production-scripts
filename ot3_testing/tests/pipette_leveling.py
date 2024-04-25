@@ -281,7 +281,7 @@ class PipetteLeveling(TestBase):
                 else:
                     csv_list.append(item_value)
             csv_title.append(key + "-Result")
-            csv_list.append(difference)
+            csv_list.append(abs(difference))
 
         # save csv
         if project_path is not None:
@@ -376,8 +376,8 @@ class PipetteLeveling(TestBase):
             if ApplyCompensationFlag:
                 print(f"apply offset {compensation} to {difference}, difference -> {difference - compensation}")
                 difference = abs(difference - compensation)
-                max_value_idx = self.get_max_index(distance_list)
-                distance_list[max_value_idx] = distance_list[max_value_idx] - compensation
+                # max_value_idx = self.get_max_index(distance_list)
+                # distance_list[max_value_idx] = distance_list[max_value_idx] - compensation
             print(f"{key} --> {value} (mm) --> difference: {round(difference, 3)}(mm)")
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
@@ -412,15 +412,4 @@ class PipetteLeveling(TestBase):
 
 
 if __name__ == '__main__':
-    # import asyncio
-
-    # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip='192.168.6.29')
-    # pipette_leveling.select_default = True
-    # for i in range(1):
-    #     asyncio.run(pipette_leveling.run_96ch_test("FLXA1020240203003"))
-    # pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, robot_ip='192.168.6.58')
-    # pipette_leveling.select_default = True
-    # pipette_leveling.test_name = '8ch'
-    # for i in range(3):
-    #     asyncio.run(pipette_leveling.run_8ch_test("FLXA1020240203003"))
     pass
