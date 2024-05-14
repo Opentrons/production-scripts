@@ -49,7 +49,8 @@ class LaserSensor:
         else:
             # use serial driver
             ret = self.serial.read_buffer()
-            ret = ret.split('\r\n')[1]
+            ret = ret.split('\r\n')
+            ret = ret[1]
 
             for index, item in enumerate(ret.split(',')):
                 multi_value.update({index: (float(item.split(':')[1].strip()) / 1000)})

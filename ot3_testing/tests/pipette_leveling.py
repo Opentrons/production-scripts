@@ -87,10 +87,10 @@ class PipetteLeveling(TestBase):
         :param get_voltage: return voltage
         :return:
         """
-        if self.test_name == "96ch":
-            voltage = round(float((code_value / 1600) / 2), 3)  # /V
-        else:
-            voltage = round(float(code_value), 3)
+        # if self.test_name == "96ch":
+        #     voltage = round(float((code_value / 1600) / 2), 3)  # /V
+        # else:
+        voltage = round(float(code_value), 3)
         if get_voltage:
             return voltage
         else:
@@ -317,7 +317,7 @@ class PipetteLeveling(TestBase):
             addr = self.robot_ip
         self.initial_api(addr, hc=True)
         await self.api.home()
-        self.init_laser_sensor()
+        self.init_laser_sensor(send=False)
 
         ret = await self.run_test_slot("Test y-Axis-A2", "A2-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
         test_result.update(ret)
@@ -412,4 +412,6 @@ class PipetteLeveling(TestBase):
 
 
 if __name__ == '__main__':
-    pass
+    import asyncio
+    pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip="192.168.6.62")
+    asyncio.run(pipette_leveling.run_96ch_test(""))

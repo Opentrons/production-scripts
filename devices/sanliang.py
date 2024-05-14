@@ -44,6 +44,6 @@ class SanLiang:
 
 if __name__ == '__main__':
     s = SanLiang()
-    ret = s.read_distance_n_times(5)
-    print(ret)
+    # ret = s.read_distance_n_times(5)
+    # print(ret)
     # s.clear()
