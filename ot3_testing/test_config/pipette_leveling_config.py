@@ -21,16 +21,16 @@ SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": 0.25
                     "UninstallPos": {"Point": Point(223, 203, 500)}
                     }
 
-ChannelDefinitionCH96 = {"left_front": {"device_addr": 1, "channel": 4, "offset": 0},
-                         "left_rear": {"device_addr": 1, "channel": 5, "offset": 0},
-                         "right_front": {"device_addr": 1, "channel": 3, "offset": 0},
-                         "right_rear": {"device_addr": 1, "channel": 2, "offset": 0},
-                         "rear_right": {"device_addr": 1, "channel": 0, "offset": 0},
-                         "rear_left": {"device_addr": 1, "channel": 1, "offset": 0},
-                         "below_front_left": {"device_addr": 2, "channel": 1, "offset": 0},
-                         "below_front_right": {"device_addr": 2, "channel": 0, "offset": 0},
-                         "below_rear_left": {"device_addr": 2, "channel": 3, "offset": 0},
-                         "below_rear_right": {"device_addr": 2, "channel": 2, "offset": 0},
+ChannelDefinitionCH96 = {"left_front": {"device_addr": 1, "channel": 0, "offset": 0},
+                         "left_rear": {"device_addr": 1, "channel": 1, "offset": 0},
+                         "right_front": {"device_addr": 1, "channel": 2, "offset": 0},
+                         "right_rear": {"device_addr": 1, "channel": 3, "offset": 0},
+                         "rear_right": {"device_addr": 1, "channel": 5, "offset": 0},
+                         "rear_left": {"device_addr": 1, "channel": 4, "offset": 0},
+                         "below_front_left": {"device_addr": 2, "channel": 8, "offset": 0},
+                         "below_front_right": {"device_addr": 2, "channel": 9, "offset": 0},
+                         "below_rear_left": {"device_addr": 2, "channel": 10, "offset": 0},
+                         "below_rear_right": {"device_addr": 2, "channel": 11, "offset": 0},
                          }
 
 # device addr are un-useful in ch8
