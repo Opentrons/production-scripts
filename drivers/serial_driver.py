@@ -5,7 +5,7 @@ from typing import Union
 import serial
 import serial.tools.list_ports
 
-ReceiveBuffer = 200
+ReceiveBuffer = 500
 
 
 class SerialDriver:
@@ -122,5 +122,5 @@ if __name__ == '__main__':
     s.init(9600)
     for i in range(100):
         ret = s.read_buffer()
-        print(ret)
+        print(ret.split('\r\n')[1])
         time.sleep(1)
