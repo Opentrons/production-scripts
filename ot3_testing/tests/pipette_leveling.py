@@ -378,7 +378,7 @@ class PipetteLeveling(TestBase):
                     result.append(compensation_value + distance_list[compensation_idx])
                     compensation_idx += 1
                 difference = round((abs(max(result) - min(result))), 3)
-            print(f"{key} --> {value} (mm) \ndifference: {difference}(mm)")
+            print(f"{key} --> {value} (mm) \ndifference: {difference}(mm)\n")
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
             for values in result:
