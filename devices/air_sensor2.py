@@ -21,12 +21,14 @@ class AirSensor2:
             pressure = data_list[0].split(' ')[0]
             humidity = data_list[1].split(' ')[0]
             temperature = data_list[2].split(' ')[0]
+            pressure_diffrence = data_list[3].split(' ')[0]
             return {
                 "success": True,
                 "data": {
                     "pressure": pressure,
                     "humidity": humidity,
-                    "temperature": temperature
+                    "temperature": temperature,
+                    "p_difference": pressure_diffrence
                 }
             }
         except Exception as e:
@@ -37,4 +39,6 @@ class AirSensor2:
 if __name__ == '__main__':
     sensor = AirSensor2()
     sensor.connect()
-    sensor.get_air_params()
+    while True:
+        ret = sensor.get_air_params()
+        print(ret)
