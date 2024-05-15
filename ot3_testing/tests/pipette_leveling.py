@@ -366,22 +366,22 @@ class PipetteLeveling(TestBase):
         csv_title.append(time_str + flex_name)
         print("=" * 5 + "Test Result" + "=" * 5 + "\n")
         for key, value in test_result.items():
+            result = []  # 本次写入结果
             distance_list = list(value.values())
             # differences
-            if len(distance_list) <= 2:
-                difference = distance_list[0] - distance_list[1]
-            else:
-                difference = max(distance_list) - min(distance_list)
-            compensation = self.slot_location[key]["compensation"]
+            difference = round(abs(max(distance_list) - min(distance_list)), 3)
+            compensation: dict = self.slot_location[key]["compensation"]
             if ApplyCompensationFlag:
-                print(f"apply offset {compensation} to {difference}, difference -> {difference - compensation}")
-                difference = abs(difference - compensation)
-                # max_value_idx = self.get_max_index(distance_list)
-                # distance_list[max_value_idx] = distance_list[max_value_idx] - compensation
-            print(f"{key} --> {value} (mm) --> difference: {round(difference, 3)}(mm)")
+                compensation_idx = 0
+                for compensation_key, compensation_value in compensation.items():
+                    print(f"apply offset {compensation_key} -> {compensation_value} to {distance_list[compensation_idx]}")
+                    result.append(compensation_value + distance_list[compensation_idx])
+                    compensation_idx += 1
+                difference = round((abs(max(result) - min(result))), 3)
+            print(f"{key} --> {value} (mm) \ndifference: {difference}(mm)")
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
-            for values in distance_list:
+            for values in result:
                 csv_list.append(values)
             if 'Z' not in key:
                 csv_title.append(key + "-Result")
