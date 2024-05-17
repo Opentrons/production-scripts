@@ -2,8 +2,8 @@ from drivers.socket_interface import Server
 
 
 class AirSensor2:
-    def __init__(self):
-        self.server = Server()
+    def __init__(self, port):
+        self.server = Server(port)
 
     def connect(self):
         """
@@ -15,6 +15,7 @@ class AirSensor2:
         """
         send get value
         """
+        data = None
         try:
             data = self.server.send_and_receive("GetMValue", 2)
             data_list = data.split('\r\n')
@@ -32,13 +33,21 @@ class AirSensor2:
                 }
             }
         except Exception as e:
+            print('Getting data error:\n')
+            print(data)
             print(e)
             return {"success": False}
 
 
 if __name__ == '__main__':
-    sensor = AirSensor2()
-    sensor.connect()
+    sensor1 = AirSensor2(49846)
+    sensor2 = AirSensor2(49847)
+    sensor1.connect()
+    sensor2.connect()
     while True:
-        ret = sensor.get_air_params()
-        print(ret)
+        ret1 = sensor1.get_air_params()
+        ret2 = sensor2.get_air_params()
+        print("RET - 1: ")
+        print(ret1)
+        print("RET - 2: ")
+        print(ret2)

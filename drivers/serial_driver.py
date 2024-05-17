@@ -18,6 +18,7 @@ class SerialDriver:
     def __init__(self):
         self.device = None
         self.com = None
+        self.receive_buffer = None
 
     def get_device(self, select_default=False):
         """
@@ -110,17 +111,29 @@ class SerialDriver:
             pass
         time.sleep(3)
         # length = self.com.inWaiting()
-        length = ReceiveBuffer
+        length = ReceiveBuffer if self.receive_buffer is None else self.receive_buffer
         data = self.com.read(length)
         self.com.flushInput()
         self.com.flushOutput()
         return data.decode('utf-8')
 
+    def read_buffer2(self, read_length, hex_flag=None):
+        """
+        get specify length of buffer
+        """
+        self.com.flushInput()  # 清除接收缓存数据
+        for _i in range(5):
+            time.sleep(0.1)
+            length = self.com.in_waiting
+            if length < read_length:
+                continue
+            else:
+                return self.com.read(read_length) if hex_flag is None else self.com.read(read_length).hex()
+
 
 if __name__ == '__main__':
     s = SerialDriver()
-    s.init(9600)
+    s.init(115200)
     for i in range(100):
-        ret = s.read_buffer()
-        print(ret)
-        time.sleep(1)
+        data = s.read_buffer2(28, hex_flag=True)
+        print(data)

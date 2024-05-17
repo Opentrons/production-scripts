@@ -3,14 +3,15 @@ import time
 
 
 class Server:
-    def __init__(self):
-        self.port = 49846
+    def __init__(self, port):
+        self.port = port
         self.server_socket = None
 
     def initial_server(self):
         try:
             # 创建socket对象
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.settimeout(6)
             # 获取本地机器的IP地址
             localhost = socket.gethostbyname(socket.gethostname())
             # 绑定socket到地址
@@ -38,7 +39,7 @@ class Server:
 
 
 if __name__ == '__main__':
-    server = Server()
+    server = Server(49846)
     server.initial_server()
     for i in range(100):
         data = server.send_and_receive("GetMValue", 2)
