@@ -13,9 +13,12 @@ class WVTB01_BT50:
         self.baud = 115200
         self.serial: Optional[SerialDriver, None] = None
 
-    def build_device(self):
+    def build_device_by_serial(self):
         self.serial = SerialDriver()
         self.serial.init(self.baud)
+
+    def build_device_by_bluetooth(self):
+        pass
 
     def read_data(self):
         """
@@ -87,7 +90,7 @@ class WVTB01_BT50:
 
 if __name__ == '__main__':
     device = WVTB01_BT50()
-    device.build_device()
+    device.build_device_by_serial()
     while True:
         data = device.read_data()
 
