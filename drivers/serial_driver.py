@@ -5,7 +5,7 @@ from typing import Union
 import serial
 import serial.tools.list_ports
 
-ReceiveBuffer = 200
+ReceiveBuffer = 500
 
 
 class SerialDriver:

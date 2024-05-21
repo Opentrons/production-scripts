@@ -7,17 +7,25 @@ class CalibrateMethod(enum.Enum):
     Dichotomy = "dichotomy"
 
 
-SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": 0.0},
-                    "C3-Y": {"Point": Point(207, 203, 318), "compensation": 0.0},
-                    "A2-Y": {"Point": Point(387, 421, 318), "compensation": 0.0},
-                    "C1-X": {"Point": Point(50, 91, 300), "compensation": 0.0},
-                    "C3-X": {"Point": Point(382, 91, 300), "compensation": 0.0},
-                    "A2-X": {"Point": Point(213, 305, 300), "compensation": 0.0},
-                    "D1-Z": {"Point": Point(51, 99, 318), "compensation": 0.0},
+SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": {"left_rear": 0, "left_front": 0}},
+                    "C3-Y": {"Point": Point(207, 203, 318), "compensation": {"right_rear": 0, "right_front": 0}},
+                    "A2-Y": {"Point": Point(387, 421, 318), "compensation": {"left_rear": 0, "left_front": 0}},
+                    "C1-X": {"Point": Point(50, 91, 300), "compensation": {"left": 0, "right": 0}},
+                    "C3-X": {"Point": Point(382, 91, 300), "compensation": {"left": 0, "right": 0}},
+                    "A2-X": {"Point": Point(213, 305, 300), "compensation": {"left": 0, "right": 0}},
+                    "D1-Z": {"Point": Point(51, 99, 318),
+                             "compensation": {"rear_left": -0.56664, "rear_right": -0.6685, "front_left": -0.43876,
+                                              "front_right": 0}},
                     # "B2-Z": Point(213, 324, 317),
-                    "D3-Z": {"Point": Point(377, 99, 318), "compensation": 0.0},
-                    "C2-Z": {"Point": Point(214, 210, 318), "compensation": 0.0},
-                    "A2-Z": {"Point": Point(218, 424, 390.5), "compensation": 0.0},
+                    "D3-Z": {"Point": Point(377, 99, 318),
+                             "compensation": {"rear_left": -0.56664, "rear_right": -0.70712, "front_left": -0.41324,
+                                              "front_right": 0}},
+                    "C2-Z": {"Point": Point(214, 210, 318),
+                             "compensation": {"rear_left": -0.60076, "rear_right": -0.679, "front_left": -0.32926,
+                                              "front_right": 0}},
+                    "A2-Z": {"Point": Point(218, 424, 390.5),
+                             "compensation": {"rear_left": -0.57076, "rear_right": -0.694, "front_left": -0.40876,
+                                              "front_right": 0}},
                     "UninstallPos": {"Point": Point(223, 203, 500)}
                     }
 
@@ -46,4 +54,3 @@ SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(198.42, 198.33, 299.16), "compen
                    "Y-A2-Right": {"Point": Point(335.94, 412.22, 299.16), "compensation": -0.03},
                    "UninstallPos": {"Point": Point(223, 203, 500), "compensation": 0}
                    }
-
