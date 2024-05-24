@@ -49,6 +49,8 @@ class LaserSensor:
         else:
             # use serial driver
             ret = self.serial.read_buffer()
+            if ret == "":
+                raise ValueError("read sensor fail")
             ret = ret.split('\r\n')
             ret = ret[1]
 

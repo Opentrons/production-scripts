@@ -56,7 +56,7 @@ class PipetteLeveling(TestBase):
         """
         await self.move_to_test_point(self.slot_location[slot_name]["Point"], MountDefinition)
 
-    async def read_definition_distance(self, position: List[str], only_code=False) -> dict:
+    async def _read_definition_distance(self, position: List[str], only_code=False) -> dict:
         """
         read distance, using one device id (please use same device_id in the positions)
         :param position:
@@ -75,12 +75,12 @@ class PipetteLeveling(TestBase):
         else:
             for item in position:
                 code_value = code_value_list[self.channel_definition[item]["channel"]]
-                distance_value = await self.read_distance_mm_from_code_value(code_value)
+                distance_value = await self._read_distance_mm_from_code_value(code_value)
                 result.update({item: distance_value})
 
         return result
 
-    async def read_distance_mm_from_code_value(self, code_value: int, get_voltage=False):
+    async def _read_distance_mm_from_code_value(self, code_value: int, get_voltage=False):
         """
         read real value
         :param code_value:
@@ -165,10 +165,10 @@ class PipetteLeveling(TestBase):
         init_step = 2
         while True:
             # read voltage
-            ret_dict = await self.read_definition_distance(read_definition, only_code=True)
+            ret_dict = await self._read_definition_distance(read_definition, only_code=True)
             # min_voltage = min(distance_list)
             _min = list(ret_dict.values())[0]  # judge the first channel
-            min_voltage = await self.read_distance_mm_from_code_value(_min, get_voltage=True)
+            min_voltage = await self._read_distance_mm_from_code_value(_min, get_voltage=True)
             print("current min voltage is: ", min_voltage)
             if spec >= (min_voltage - target_voltage) >= 0:
                 break
@@ -215,7 +215,7 @@ class PipetteLeveling(TestBase):
         if with_cal:
             await self.calibrate_to_zero(test_slot_value, 0.1, read_definition, method=CalibrateMethod.Approach)
 
-        ret_dict = await self.read_definition_distance(read_definition)
+        ret_dict = await self._read_definition_distance(read_definition)
         for key, value in ret_dict.items():
             print(f"{test_slot_value}-{key}: {value}")
 
@@ -267,21 +267,24 @@ class PipetteLeveling(TestBase):
         csv_title.append(time_str + flex_name)
         print("=" * 5 + "Test Result" + "=" * 5 + "\n")
         for key, value in test_result.items():
+            result = []
             distance_list = list(value.values())
-            difference = distance_list[0] - distance_list[1]
+            difference = round(abs(distance_list[0] - distance_list[1]), 3)
             compensation = self.slot_location[key]["compensation"]
             if ApplyCompensationFlag:
-                print(f"apply offset {compensation} to {difference}, difference -> {difference - compensation}")
-                difference = difference - compensation
-            print(f"{key} --> {value} (mm) --> difference: {round(difference, 3)}(mm)")
+                compensation_idx = 0
+                for compensation_key, compensation_value in compensation.items():
+                    print(
+                        f"apply offset {compensation_key} -> {compensation_value}  to {distance_list[compensation_idx]}")
+                    result.append(compensation_value + distance_list[compensation_idx])
+                    compensation_idx += 1
+                difference = round(abs(result[0] - result[1]), 3)
+            print(f"{key} --> {value} (mm) --> difference: {difference}(mm)")
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
-                if ApplyCompensationFlag and "front" in item_key:
-                    csv_list.append(item_value - compensation)
-                else:
-                    csv_list.append(item_value)
+                csv_list.append(item_value)
             csv_title.append(key + "-Result")
-            csv_list.append(abs(difference))
+            csv_list.append(difference)
 
         # save csv
         if project_path is not None:
@@ -374,7 +377,8 @@ class PipetteLeveling(TestBase):
             if ApplyCompensationFlag:
                 compensation_idx = 0
                 for compensation_key, compensation_value in compensation.items():
-                    print(f"apply offset {compensation_key} -> {compensation_value} to {distance_list[compensation_idx]}")
+                    print(
+                        f"apply offset {compensation_key} -> {compensation_value} to {distance_list[compensation_idx]}")
                     result.append(compensation_value + distance_list[compensation_idx])
                     compensation_idx += 1
                 difference = round((abs(max(result) - min(result))), 3)
@@ -413,5 +417,11 @@ class PipetteLeveling(TestBase):
 
 if __name__ == '__main__':
     import asyncio
-    pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, )
-    asyncio.run(pipette_leveling.run_96ch_test("FLXA1020240513001"))
+
+    # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, )
+    # pipette_leveling.test_name = '96ch'
+    # asyncio.run(pipette_leveling.run_96ch_test("0518003"))
+
+    pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, )
+    pipette_leveling.test_name = '8ch'
+    asyncio.run(pipette_leveling.run_8ch_test("0518003"))

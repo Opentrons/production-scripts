@@ -14,17 +14,17 @@ SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": {"le
                     "C3-X": {"Point": Point(382, 91, 300), "compensation": {"left": 0, "right": 0}},
                     "A2-X": {"Point": Point(213, 305, 300), "compensation": {"left": 0, "right": 0}},
                     "D1-Z": {"Point": Point(51, 99, 318),
-                             "compensation": {"rear_left": -0.56664, "rear_right": -0.6685, "front_left": -0.43876,
+                             "compensation": {"rear_left": 0.09, "rear_right": 0.01, "front_left": 0.11,
                                               "front_right": 0}},
                     # "B2-Z": Point(213, 324, 317),
                     "D3-Z": {"Point": Point(377, 99, 318),
-                             "compensation": {"rear_left": -0.56664, "rear_right": -0.70712, "front_left": -0.41324,
+                             "compensation": {"rear_left": 0.09, "rear_right": 0.01, "front_left": 0.11,
                                               "front_right": 0}},
                     "C2-Z": {"Point": Point(214, 210, 318),
-                             "compensation": {"rear_left": -0.60076, "rear_right": -0.679, "front_left": -0.32926,
+                             "compensation": {"rear_left": 0.09, "rear_right": 0.01, "front_left": 0.11,
                                               "front_right": 0}},
                     "A2-Z": {"Point": Point(218, 424, 390.5),
-                             "compensation": {"rear_left": -0.57076, "rear_right": -0.694, "front_left": -0.40876,
+                             "compensation": {"rear_left": 0.09, "rear_right": 0.01, "front_left": 0.11,
                                               "front_right": 0}},
                     "UninstallPos": {"Point": Point(223, 203, 500)}
                     }
@@ -48,9 +48,9 @@ ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0, "offset":
                         "right_rear": {"device_addr": 1, "channel": 5, "offset": 0},
                         }
 
-SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(198.42, 198.33, 299.16), "compensation": -0.015},
-                   "Y-C1-Right": {"Point": Point(172.07, 197.18, 299.16), "compensation": -0.03},
-                   "Y-C3-Right": {"Point": Point(499.83, 197.18, 299.16), "compensation": -0.03},
-                   "Y-A2-Right": {"Point": Point(335.94, 412.22, 299.16), "compensation": -0.03},
+SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(215.42, 198.33, 299.16), "compensation": {"rear": 0, "front": 0}},
+                   "Y-C1-Right": {"Point": Point(172.07, 197.18, 299.16), "compensation": {"rear": 0, "front": 0}},
+                   "Y-C3-Right": {"Point": Point(499.83, 197.18, 299.16), "compensation": {"rear": 0, "front": 0}},
+                   "Y-A2-Right": {"Point": Point(335.94, 412.22, 299.16), "compensation": {"rear": 0, "front": 0}},
                    "UninstallPos": {"Point": Point(223, 203, 500), "compensation": 0}
                    }
