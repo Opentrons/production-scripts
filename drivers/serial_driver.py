@@ -109,7 +109,7 @@ class SerialDriver:
             self.com.flushOutput()
         except:
             pass
-        time.sleep(3)
+        time.sleep(0.1)
         # length = self.com.inWaiting()
         length = ReceiveBuffer if self.receive_buffer is None else self.receive_buffer
         data = self.com.read(length)
@@ -133,7 +133,7 @@ class SerialDriver:
 
 if __name__ == '__main__':
     s = SerialDriver()
-    s.init(115200)
+    s.init(9600)
     for i in range(100):
-        data = s.read_buffer2(28, hex_flag=True)
+        data = s.read_buffer()
         print(data)

@@ -101,7 +101,7 @@ class TestBase:
 
         else:
             for item in definition:
-                code_value = code_value_list[channel_definition[item]["channel"]]
+                code_value = code_value_list[_channel_definition[item]["channel"]]
                 distance_value = await self.read_distance_mm_from_code_value(code_value)
                 result.update({item: distance_value})
 

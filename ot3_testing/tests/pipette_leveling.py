@@ -420,8 +420,8 @@ if __name__ == '__main__':
 
     # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, )
     # pipette_leveling.test_name = '96ch'
-    # asyncio.run(pipette_leveling.run_96ch_test("0518003"))
+    # asyncio.run(pipette_leveling.run_96ch_test("0527001"))
 
     pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, )
     pipette_leveling.test_name = '8ch'
-    asyncio.run(pipette_leveling.run_8ch_test("0518003"))
+    asyncio.run(pipette_leveling.run_8ch_test("0527001"))

@@ -1,3 +1,5 @@
+import threading
+
 from ot3_testing.tests.base_init import TestBase
 from ot3_testing.ot_type import Mount, Point
 from devices.amsamotion_sensor import LaserSensor
@@ -16,6 +18,7 @@ class ZStageLeveling(TestBase):
         self.laser_sensor = None
         self.slot_location: ZStagePoint = slot_location
         self.approaching = False
+        self.judge_complete = False
 
     def init_laser_sensor(self, send=False):
         """
@@ -129,14 +132,38 @@ class ZStageLeveling(TestBase):
         print(f"Test - {slot_name}")
         await self.move_to_test_point(point)
         if with_cal:
-            await self.calibrate_to_zero(slot_name, 0.1, read_definition, ZStageChannel[self.mount],
+            await self.calibrate_to_zero(slot_name, 0.1, read_definition, ZStageChannel,
                                          method=CalibrateMethod.Approach)
 
-        ret_dict = await self.read_definition_distance(read_definition)
+        ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor, self.mount)
         for key, value in ret_dict.items():
             print(f"{slot_name}-{key}: {value}")
 
         return {slot_name: ret_dict}
+
+    async def th_reading_c2(self):
+        while True:
+            ret_dict = await self.read_definition_distance(ZStagePoint[Mount.RIGHT]['Z-C2']["channel_definition"],
+                                                           ZStageChannel, self.laser_sensor, self.mount)
+            _ret_list = list(ret_dict.values())
+            _difference = round(abs(max(_ret_list) - min(_ret_list)), 3)
+            difference = int(-_difference * 1500 + 1500)
+            if difference < 200:
+                difference = 200
+            if difference > 1500:
+                difference = 1500
+            fre = 100 if _difference > 0.03 else 1000
+            print(_difference, difference)
+            play_alarm_3(difference, fre)
+            if self.judge_complete:
+                break
+
+    def run_th_reading_c2(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        future = asyncio.run_coroutine_threadsafe(self.th_reading_c2(), loop)
+        future.running()
+        # return future.result()
 
     async def adjust_leveling(self, slot_name: str, mount: Mount):
         """
@@ -148,24 +175,12 @@ class ZStageLeveling(TestBase):
         await self.move_to_test_point(_point)
         await self.calibrate_to_zero(slot_name, 0.1, _definition, ZStageChannel, method=CalibrateMethod.Approach)
 
-        while True:
-            play_alarm_3(500, 500)
+        th = threading.Thread(target=self.run_th_reading_c2)
+        th.start()
+        th.join()
 
-        # async def thread_play_beep():
-        #     while True:
-        #         result = await self.read_definition_distance(_definition, ZStageChannel, self.laser_sensor)
-        #         _rear = result['below_rear']
-        #         _front = result['below_front']
-        #         print(f"Rear: {_rear}")
-        #         print(f"_front: {_front}")
-        #         difference = _rear - _front
-        #         if abs(difference) > 0.03:
-        #             play_alarm_3(1000, 500)
-        #         else:
-        #             play_alarm_3(500, 500)
-        #
-        # while True:
-        #     result: dict = await self.read_definition_distance(_definition, ZStageChannel, self.laser_sensor, self.mount)
+        input("Judging complete ? （完成校准回车）")
+        self.judge_complete = True
 
     async def run_z_stage_test(self):
         """
@@ -183,6 +198,9 @@ class ZStageLeveling(TestBase):
         # adjust
         await self.adjust_leveling('Z-C2', Mount.RIGHT)
 
+        await self.api.home()
+
+        input("run test")
         # run test
         for mount in [Mount.RIGHT, Mount.LEFT]:
             self.mount = mount
@@ -191,7 +209,10 @@ class ZStageLeveling(TestBase):
                 _point = p_value["point"]
                 _compensation = p_value["compensation"]
                 _channel_definition = p_value["channel_definition"]
-                await self.run_test_slot(_point, p_key, _channel_definition)
+                result = await self.run_test_slot(_point, p_key, _channel_definition)
+                test_result.update(result)
+            await self.api.home()
+        print(test_result)
         # save
 
 
