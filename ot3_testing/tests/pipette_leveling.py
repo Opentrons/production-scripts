@@ -199,13 +199,14 @@ class PipetteLeveling(TestBase):
         return compensation + read_value
 
     async def run_test_slot(self, test_slot_name: str, test_slot_value: str, read_definition: List[str],
-                            with_cal=False):
+                            with_cal=False, keep_reading=False):
         """
         test slot
         :param test_slot_name:
         :param test_slot_value:
         :param read_definition:
         :param with_cal:
+        :param keep_reading:
         :return:
         """
         if RequestReadyFlag:
@@ -214,12 +215,14 @@ class PipetteLeveling(TestBase):
         await self.move_to_test_slot(test_slot_value)  # FIXME : maybe need to adjust to suitable position (FIXED)
         if with_cal:
             await self.calibrate_to_zero(test_slot_value, 0.1, read_definition, method=CalibrateMethod.Approach)
-
-        ret_dict = await self._read_definition_distance(read_definition)
-        for key, value in ret_dict.items():
-            print(f"{test_slot_value}-{key}: {value}")
-
-        return {test_slot_value: ret_dict}
+        while True:
+            ret_dict = await self._read_definition_distance(read_definition)
+            for key, value in ret_dict.items():
+                print(f"{test_slot_value}-{key}: {value}")
+            _value_list = list(ret_dict.values())
+            print(f"Difference: {round(max(_value_list) - min(_value_list), 3)}")
+            if keep_reading is False:
+                return {test_slot_value: ret_dict}
 
     async def run_8ch_test(self, flex_name: str, project_path=None):
         """
@@ -414,6 +417,21 @@ class PipetteLeveling(TestBase):
         self.save_csv(file_path, csv_title, csv_list)
         self.laser_sensor.close()
 
+    async def test_96ch_slot(self, slot_name: str):
+        """
+        test special slot
+        """
+        if self.robot_ip is None:
+            addr = self.get_address().strip()
+        else:
+            addr = self.robot_ip
+        self.initial_api(addr, hc=True)
+        await self.api.home()
+        self.init_laser_sensor(send=False)
+
+        await self.run_test_slot(slot_name, slot_name, SlotLocationCH96[slot_name]["definition"],
+                                 with_cal=DoCalibrate, keep_reading=True)
+
 
 if __name__ == '__main__':
     import asyncio
@@ -422,6 +440,10 @@ if __name__ == '__main__':
     # pipette_leveling.test_name = '96ch'
     # asyncio.run(pipette_leveling.run_96ch_test("0527001"))
 
-    pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, )
-    pipette_leveling.test_name = '8ch'
-    asyncio.run(pipette_leveling.run_8ch_test("0527001"))
+    # pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, )
+    # pipette_leveling.test_name = '8ch'
+    # asyncio.run(pipette_leveling.run_8ch_test("0527001"))
+
+    pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip="192.168.6.24")
+    pipette_leveling.test_name = '96ch'
+    asyncio.run(pipette_leveling.test_96ch_slot("C2-Z"))
