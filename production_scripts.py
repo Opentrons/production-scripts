@@ -36,7 +36,7 @@ if __name__ == '__main__':
             pipette_leveling.test_name = "8ch"
             pipette_leveling.k = -2
             pipette_leveling.b = 35
-            asyncio.run(pipette_leveling.run_8ch_test(flex_name))
+            asyncio.run(pipette_leveling.run_8ch_test(flex_name, project_path=project_path))
         elif "grav-openweb" in test_name:
             openweb()
 

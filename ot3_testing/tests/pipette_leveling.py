@@ -14,7 +14,7 @@ MountDefinition = Mount.LEFT
 RequestReadyFlag = False
 DoCalibrate = True
 Test_8CH_SIDE = "Left_Right"
-ApplyCompensationFlag = True
+ApplyCompensationFlag = False
 
 
 class PipetteLeveling(TestBase):
