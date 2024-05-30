@@ -161,9 +161,7 @@ class ZStageLeveling(TestBase):
     def run_th_reading_c2(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        future = asyncio.run_coroutine_threadsafe(self.th_reading_c2(), loop)
-        future.running()
-        # return future.result()
+        loop.run_until_complete(self.th_reading_c2())
 
     async def adjust_leveling(self, slot_name: str, mount: Mount):
         """
@@ -177,8 +175,6 @@ class ZStageLeveling(TestBase):
 
         th = threading.Thread(target=self.run_th_reading_c2)
         th.start()
-        th.join()
-
         input("Judging complete ? （完成校准回车）")
         self.judge_complete = True
 

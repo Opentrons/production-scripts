@@ -13,8 +13,7 @@ from utils import Utils
 MountDefinition = Mount.LEFT
 RequestReadyFlag = False
 DoCalibrate = True
-Test_8CH_SIDE = "Left_Right"
-ApplyCompensationFlag = False
+ApplyCompensationFlag = True
 
 
 class PipetteLeveling(TestBase):
