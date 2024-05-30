@@ -63,8 +63,8 @@ ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0, "offset":
                         }
 
 SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(215.42, 198.33, 299.16), "compensation": {"rear": 0, "front": 0}},
-                   "Y-C1-Right": {"Point": Point(172.07, 197.18, 299.16), "compensation": {"rear": 0, "front": 0}},
-                   "Y-C3-Right": {"Point": Point(499.83, 197.18, 299.16), "compensation": {"rear": 0, "front": 0}},
-                   "Y-A2-Right": {"Point": Point(335.94, 412.22, 299.16), "compensation": {"rear": 0, "front": 0}},
+                   "Y-C1-Right": {"Point": Point(172.07, 197.18, 299.16), "compensation": {"rear": 0, "front": 0.045}},
+                   "Y-C3-Right": {"Point": Point(499.83, 197.18, 299.16), "compensation": {"rear": 0, "front": 0.029}},
+                   "Y-A2-Right": {"Point": Point(335.94, 412.22, 299.16), "compensation": {"rear": 0, "front": 0.050}},
                    "UninstallPos": {"Point": Point(223, 203, 500), "compensation": 0}
                    }

@@ -196,7 +196,7 @@ class ZStageLeveling(TestBase):
 
         await self.api.home()
 
-        input("run test")
+        input("Run Test (开始测试)？")
         # run test
         for mount in [Mount.RIGHT, Mount.LEFT]:
             self.mount = mount
@@ -215,5 +215,5 @@ class ZStageLeveling(TestBase):
 if __name__ == '__main__':
     import asyncio
 
-    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.33")
+    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.51")
     asyncio.run(obj.run_z_stage_test())
