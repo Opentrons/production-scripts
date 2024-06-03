@@ -6,8 +6,11 @@ from devices.amsamotion_sensor import LaserSensor
 from ot3_testing.test_config.zstage_leveling_config import ZStagePoint, CalibrateMethod, ZStageChannel
 from typing import List
 from drivers.play_sound import play_alarm_3
-
+from utils import Utils
+import os
+import asyncio
 RequestReadyFlag = False
+ApplyCompensationFlag = True
 
 
 class ZStageLeveling(TestBase):
@@ -178,11 +181,11 @@ class ZStageLeveling(TestBase):
         input("Judging complete ? （完成校准回车）")
         self.judge_complete = True
 
-    async def run_z_stage_test(self):
+    async def run_z_stage_test(self, project_path=None):
         """
         main loop
         """
-        test_result = {}
+        self.judge_complete = False
         if self.robot_ip is None:
             addr = self.get_address().strip()
         else:
@@ -193,13 +196,16 @@ class ZStageLeveling(TestBase):
 
         # adjust
         await self.adjust_leveling('Z-C2', Mount.RIGHT)
-
-        await self.api.home()
-
         input("Run Test (开始测试)？")
         # run test
+        await self.api.home()
+
+        csv_title = []
+        csv_list = []
+
         for mount in [Mount.RIGHT, Mount.LEFT]:
             self.mount = mount
+            test_result = {}
             print(f"Start {self.mount.value} side...")
             for p_key, p_value in ZStagePoint[self.mount].items():
                 _point = p_value["point"]
@@ -208,12 +214,47 @@ class ZStageLeveling(TestBase):
                 result = await self.run_test_slot(_point, p_key, _channel_definition)
                 test_result.update(result)
             await self.api.home()
-        print(test_result)
-        # save
+            print(test_result)
+            # save
+            for key, value in test_result.items():
+                result = []
+                distance_list = list(value.values())
+                difference = round(abs(distance_list[0] - distance_list[1]), 3)
+                compensation = ZStagePoint[self.mount][key]["compensation"]
+                if ApplyCompensationFlag:
+                    compensation_idx = 0
+                    for compensation_key, compensation_value in compensation.items():
+                        print(
+                            f"apply offset {compensation_key} -> {compensation_value}  to {distance_list[compensation_idx]}")
+                        result.append(compensation_value + distance_list[compensation_idx])
+                        compensation_idx += 1
+                    difference = round(abs(result[0] - result[1]), 3)
+                print(f"{key} --> {value} (mm) --> difference: {difference}(mm)")
+                for item_key, item_value in value.items():
+                    csv_title.append(self.mount.name + " " + key + " " + item_key)
+                    csv_list.append(item_value)
+                csv_title.append(key + "-Result")
+                csv_list.append(difference)
+
+        if project_path is not None:
+            file_path = os.path.join(project_path, 'testing_data', 'z_stage_leveling.csv')
+        else:
+            file_path = '../../testing_data/z_stage_leveling.csv'
+        self.save_csv(file_path, csv_title, csv_list)
+        self.laser_sensor.close()
+
+    def save_csv(self, file_path, title, content):
+        """
+        save csv
+        """
+        is_exist = Utils.is_file_exist(file_path)
+        if is_exist:
+            pass
+        else:
+            Utils.write_to_csv(file_path, title)
+        Utils.write_to_csv(file_path, content)
 
 
 if __name__ == '__main__':
-    import asyncio
-
-    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.51")
+    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.33")
     asyncio.run(obj.run_z_stage_test())

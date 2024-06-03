@@ -1,6 +1,6 @@
 from PyInquirer import prompt
 
-test_choices = ['leveling-8ch', 'leveling-96ch', 'leveling-gantry', 'heat-96ch','grav-openweb']
+test_choices = ['leveling-8ch', 'leveling-96ch', 'leveling-gantry', 'leveling-z-stage', 'heat-96ch', 'grav-openweb']
 
 question_flex = {
     'type': 'input',
@@ -21,7 +21,6 @@ question_openweb = {
     'choices': ['yes(打开)', 'no(关闭)']
 
 }
-
 
 question_ip = {
     'type': 'input',
@@ -60,6 +59,7 @@ def prompt_raspNo():
     ret = prompt(question_gravname)
     return ret['raspNo'].strip()
 
+
 def prompt_ip():
     ret = prompt(question_ip)
     return ret['ip'].strip()
@@ -79,7 +79,7 @@ def prompt_exit():
     ret = prompt(question_exit)
     return ret['exit'].strip()
 
+
 def prompt_openweb():
     ret = prompt(question_openweb)
     return ret['openweb'].strip()
-

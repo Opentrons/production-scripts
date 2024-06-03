@@ -11,7 +11,7 @@ ZStagePoint = {
 
     Mount.LEFT: {
 
-        "Z-C2": {"point": Point(195, 197, 357), "compensation": {"rear": 0, "front": 0},
+        "Z-C2": {"point": Point(215, 197, 357), "compensation": {"rear": 0, "front": 0},
                  "channel_definition": ["below_rear", "below_front"]},
 
     },
