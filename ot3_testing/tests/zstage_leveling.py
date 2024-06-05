@@ -9,6 +9,8 @@ from drivers.play_sound import play_alarm_3
 from utils import Utils
 import os
 import asyncio
+import datetime
+
 RequestReadyFlag = False
 ApplyCompensationFlag = True
 
@@ -181,7 +183,7 @@ class ZStageLeveling(TestBase):
         input("Judging complete ? （完成校准回车）")
         self.judge_complete = True
 
-    async def run_z_stage_test(self, project_path=None):
+    async def run_z_stage_test(self, flex_name, project_path=None):
         """
         main loop
         """
@@ -202,6 +204,11 @@ class ZStageLeveling(TestBase):
 
         csv_title = []
         csv_list = []
+
+        now = datetime.datetime.now()
+        time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
+        csv_list.append(time_str + flex_name)
+        csv_title.append(time_str + flex_name)
 
         for mount in [Mount.RIGHT, Mount.LEFT]:
             self.mount = mount
@@ -257,4 +264,4 @@ class ZStageLeveling(TestBase):
 
 if __name__ == '__main__':
     obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.33")
-    asyncio.run(obj.run_z_stage_test())
+    asyncio.run(obj.run_z_stage_test("xxx"))

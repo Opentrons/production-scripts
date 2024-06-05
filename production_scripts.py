@@ -34,7 +34,7 @@ if __name__ == '__main__':
             asyncio.run(pipette_leveling.run_96ch_test(flex_name, project_path=project_path))
         elif "leveling-z-stage" in test_name:
             z_leveling = ZStageLeveling(ZStagePoint)
-            asyncio.run(z_leveling.run_z_stage_test(project_path=project_path))
+            asyncio.run(z_leveling.run_z_stage_test(flex_name, project_path=project_path))
 
         elif "leveling-8ch" in test_name:
             # run 8
