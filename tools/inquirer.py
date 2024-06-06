@@ -1,6 +1,7 @@
 from PyInquirer import prompt
 
-test_choices = ['leveling-8ch', 'leveling-96ch', 'leveling-gantry', 'leveling-z-stage', 'heat-96ch', 'grav-openweb']
+test_choices = ['leveling-8ch', 'leveling-96ch', 'leveling-gantry', 'leveling-z-stage', 'leveling-gripper',
+                'heat-96ch', 'grav-openweb']
 
 question_flex = {
     'type': 'input',

@@ -1,10 +1,12 @@
 import os
 import sys
 from ot3_testing.tests.pipette_leveling import PipetteLeveling
+from ot3_testing.tests.gripper_leveling import GripperLeveling
 from ot3_testing.tests.zstage_leveling import ZStageLeveling
 from ot3_testing.test_config.pipette_leveling_config import SlotLocationCH96, ChannelDefinitionCH96, \
     SlotLocationCH8, ChannelDefinitionCH8
 from ot3_testing.test_config.zstage_leveling_config import ZStagePoint
+from ot3_testing.test_config.gripper_leveling_config import Gripper_Position
 import asyncio
 from tools.inquirer import prompt_flex_name, prompt_test_name, prompt_exit
 from tools import heat_96ch
@@ -35,7 +37,9 @@ if __name__ == '__main__':
         elif "leveling-z-stage" in test_name:
             z_leveling = ZStageLeveling(ZStagePoint)
             asyncio.run(z_leveling.run_z_stage_test(flex_name, project_path=project_path))
-
+        elif 'leveling-gripper' in test_name:
+            _gripper = GripperLeveling(Gripper_Position)
+            asyncio.run(_gripper.run_gripper_test(flex_name, project_path=project_path))
         elif "leveling-8ch" in test_name:
             # run 8
             pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8)

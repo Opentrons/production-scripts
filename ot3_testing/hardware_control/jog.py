@@ -150,5 +150,5 @@ async def jog(hc: HardwareControl, mount: Mount):
 
 
 if __name__ == '__main__':
-    hc = HardwareControl("192.168.6.24")
+    hc = HardwareControl("192.168.6.33")
     asyncio.run(jog(hc, Mount.LEFT))

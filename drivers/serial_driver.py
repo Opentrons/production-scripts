@@ -109,7 +109,7 @@ class SerialDriver:
             self.com.flushOutput()
         except:
             pass
-        time.sleep(0.1)
+        time.sleep(0.3)
         # length = self.com.inWaiting()
         length = ReceiveBuffer if self.receive_buffer is None else self.receive_buffer
         data = self.com.read(length)
