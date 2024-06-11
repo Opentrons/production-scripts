@@ -18,6 +18,8 @@ FirstThreshold = 0.03
 SecondThreshold = 0.15
 ThisMount = Mount.LEFT
 
+TEST_SPEC = 0.3
+
 
 class GantryLeveling(TestBase):
     def __init__(self):
@@ -115,7 +117,7 @@ class GantryLeveling(TestBase):
                 return "Fail", 1000
             point_value.append(value[0])
         point_value.append(0)
-        sub_value = abs(max(point_value)-min(point_value))
+        sub_value = abs(max(point_value) - min(point_value))
         return "Pass", sub_value if sub_value < SecondThreshold else "Fail", sub_value
 
     async def run_test(self, only_check=False):

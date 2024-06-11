@@ -21,6 +21,14 @@ class TestBase:
         else:
             self.api = ProtocolContext(ip)
 
+    def judge_test_result(self, result_list, test_spec):
+        """
+        judge the difference
+        """
+        diff = abs(max(result_list) - min(result_list))
+        if diff > test_spec:
+            raise ValueError(f"Difference - {diff} don't match test spec - {test_spec} (测试结果超过预期，请复测!)")
+
     def initial_server(self):
         """
         restart opentrons-robot-server

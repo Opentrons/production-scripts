@@ -14,6 +14,8 @@ import datetime
 RequestReadyFlag = False
 ApplyCompensationFlag = True
 
+TEST_SPEC = 0.3
+
 
 class ZStageLeveling(TestBase):
     def __init__(self, slot_location, robot_ip=None):
@@ -143,7 +145,7 @@ class ZStageLeveling(TestBase):
         ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor, self.mount)
         for key, value in ret_dict.items():
             print(f"{slot_name}-{key}: {value}")
-
+        self.judge_test_result(list(ret_dict.values()), TEST_SPEC)
         return {slot_name: ret_dict}
 
     async def th_reading_c2(self):

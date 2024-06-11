@@ -11,6 +11,8 @@ import os, datetime
 ApplyCompensationFlag = True
 CalibrateFlag = True
 
+TEST_SPEC = 0.45
+
 
 class GripperLeveling(TestBase):
     def __init__(self, slot_location, robot_ip=None):
@@ -126,6 +128,7 @@ class GripperLeveling(TestBase):
         while True:
             result = await self.read_definition_distance(definition, GripperChannel, self.laser_sensor, self.mount)
             print(result)
+            self.judge_test_result(list(result.values()), TEST_SPEC)
             if not keep_reading:
                 return {test_name: result}
 

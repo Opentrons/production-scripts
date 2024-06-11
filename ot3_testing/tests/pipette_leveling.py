@@ -15,6 +15,8 @@ RequestReadyFlag = False
 DoCalibrate = True
 ApplyCompensationFlag = True
 
+TEST_SPEC = 0.45
+
 
 class PipetteLeveling(TestBase):
     def __init__(self, slot_location, channel_definition, robot_ip=None):
@@ -220,6 +222,7 @@ class PipetteLeveling(TestBase):
                 print(f"{test_slot_value}-{key}: {value}")
             _value_list = list(ret_dict.values())
             print(f"Difference: {round(max(_value_list) - min(_value_list), 3)}")
+            self.judge_test_result(_value_list, TEST_SPEC)
             if keep_reading is False:
                 return {test_slot_value: ret_dict}
 
