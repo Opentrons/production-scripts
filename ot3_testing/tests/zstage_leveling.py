@@ -15,6 +15,8 @@ RequestReadyFlag = False
 ApplyCompensationFlag = True
 
 TEST_SPEC = 0.3
+DefaultPort = True
+AdjustBeforeTest = False
 
 
 class ZStageLeveling(TestBase):
@@ -33,7 +35,7 @@ class ZStageLeveling(TestBase):
         :return:
         """
         self.laser_sensor = LaserSensor(send=send)
-        self.laser_sensor.init_device()
+        self.laser_sensor.init_device(select_default=DefaultPort)
 
     async def move_to_test_point(self, p: Point):
         """
@@ -142,7 +144,8 @@ class ZStageLeveling(TestBase):
             await self.calibrate_to_zero(slot_name, 0.1, read_definition, ZStageChannel,
                                          method=CalibrateMethod.Approach)
 
-        ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor, self.mount)
+        ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor, self.mount,
+                                                       wait_time=5)
         for key, value in ret_dict.items():
             print(f"{slot_name}-{key}: {value}")
         self.judge_test_result(list(ret_dict.values()), TEST_SPEC)
@@ -199,9 +202,10 @@ class ZStageLeveling(TestBase):
         self.init_laser_sensor(send=False)
 
         # adjust
-        await self.adjust_leveling('Z-C2', Mount.RIGHT)
-        input("Run Test (开始测试)？")
-        # run test
+        if AdjustBeforeTest:
+            await self.adjust_leveling('Z-C2', Mount.RIGHT)
+            input("Run Test (开始测试)？")
+            # run test
         await self.api.home()
 
         csv_title = []
@@ -265,5 +269,6 @@ class ZStageLeveling(TestBase):
 
 
 if __name__ == '__main__':
-    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.33")
-    asyncio.run(obj.run_z_stage_test("xxx"))
+    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.45")
+    for i in range(6):
+        asyncio.run(obj.run_z_stage_test(f"xxx_{i + 1}"))

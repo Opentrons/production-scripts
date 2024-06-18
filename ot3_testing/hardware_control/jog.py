@@ -47,7 +47,7 @@ async def jog(hc: HardwareControl, mount: Mount):
     else:
         select = PositionSel.MOUNT_RIGHT
     # useful_pos = await hc.require_useful_pos(select)
-    useful_pos = Point(50, 100, 500)
+    useful_pos = Point(60, 50, 400)
     print("useful_pos: ", useful_pos)
     await hc.move_to(mount, useful_pos, target="mount")
 
@@ -151,4 +151,4 @@ async def jog(hc: HardwareControl, mount: Mount):
 
 if __name__ == '__main__':
     hc = HardwareControl("192.168.6.33")
-    asyncio.run(jog(hc, Mount.LEFT))
+    asyncio.run(jog(hc, Mount.RIGHT))

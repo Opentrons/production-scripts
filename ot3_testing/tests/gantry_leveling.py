@@ -98,7 +98,7 @@ class GantryLeveling(TestBase):
         # step 2 : move to target
         await self.move_to_test_point(target, ThisMount)
         # 等待读数稳定
-        time.sleep(1)
+        time.sleep(5)
         distance = self.sanliang.read_distance_n_times(5)  # 读取示数
         while abs(distance) >= FirstThreshold:
             play_alarm_2()

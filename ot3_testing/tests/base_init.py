@@ -84,7 +84,7 @@ class TestBase:
 
     async def read_definition_distance(self, definition: List, channel_definition, laser: LaserSensor, mount,
                                        only_code=False,
-                                       send=False, add_compensation=True) -> dict:
+                                       send=False, add_compensation=True, wait_time= 1) -> dict:
         """
         read distance, using one device id (please use same device_id in the positions)
         :param definition:
@@ -98,7 +98,9 @@ class TestBase:
         """
         print("Reading Sensor...")
         result = {}
-        time.sleep(1)
+        for i in range(wait_time):
+            time.sleep(1)
+            print(f"wait ({wait_time})/{i+1}...")
         _channel_definition = channel_definition[mount]
         device_addr = _channel_definition[definition[0]]["device_addr"]
         code_value_list = laser.get_distance_multi(device_addr)

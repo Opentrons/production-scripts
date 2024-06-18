@@ -134,6 +134,4 @@ class SerialDriver:
 if __name__ == '__main__':
     s = SerialDriver()
     s.init(9600)
-    for i in range(100):
-        data = s.read_buffer()
-        print(data)
+    s.write_and_get_buffer("GetVolt")

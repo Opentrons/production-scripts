@@ -52,7 +52,7 @@ class LaserSensor:
             if ret == "":
                 raise ValueError("read sensor fail")
             ret = ret.split('\r\n')
-            ret = ret[1]
+            ret = ret[-2]
 
             for index, item in enumerate(ret.split(',')):
                 multi_value.update({index: (float(item.split(':')[1].strip()) / 1000)})
