@@ -4,7 +4,7 @@ import time
 from ot3_testing.tests.base_init import TestBase
 from ot3_testing.ot_type import Mount
 from typing import Union, List
-from devices.amsamotion_sensor import LaserSensor
+from devices.laser_stj_10_m0 import LaserSensor
 
 from ot3_testing.test_config.pipette_leveling_config import *
 import datetime
@@ -16,6 +16,7 @@ DoCalibrate = True
 ApplyCompensationFlag = True
 
 TEST_SPEC = 0.45
+WAIT_TIME = 30
 
 
 class PipetteLeveling(TestBase):
@@ -31,13 +32,15 @@ class PipetteLeveling(TestBase):
         self.channel_offsets = None
         self.robot_ip = robot_ip
         self.select_default = False
+        self.mount = Mount.LEFT
 
     def init_laser_sensor(self, send=True):
         """
         init 96ch device
         :return:
         """
-        self.laser_sensor = LaserSensor(send=send)
+        self.laser_sensor = LaserSensor()
+        self.laser_sensor.accuracy = "low"
         self.laser_sensor.init_device(select_default=self.select_default)
 
     async def move_to_test_point(self, p: Point, mount: Mount):
@@ -166,7 +169,8 @@ class PipetteLeveling(TestBase):
         init_step = 2
         while True:
             # read voltage
-            ret_dict = await self._read_definition_distance(read_definition, only_code=True)
+            ret_dict = await self.read_definition_distance(read_definition, self.channel_definition, self.laser_sensor,
+                                                           self.mount, only_code=True)
             # min_voltage = min(distance_list)
             _min = list(ret_dict.values())[0]  # judge the first channel
             min_voltage = await self._read_distance_mm_from_code_value(_min, get_voltage=True)
@@ -217,7 +221,8 @@ class PipetteLeveling(TestBase):
         if with_cal:
             await self.calibrate_to_zero(test_slot_value, 0.1, read_definition, method=CalibrateMethod.Approach)
         while True:
-            ret_dict = await self._read_definition_distance(read_definition)
+            ret_dict = await self.read_definition_distance(read_definition, self.channel_definition, self.laser_sensor,
+                                                           self.mount, wait_time=WAIT_TIME)
             for key, value in ret_dict.items():
                 print(f"{test_slot_value}-{key}: {value}")
             _value_list = list(ret_dict.values())
@@ -241,6 +246,7 @@ class PipetteLeveling(TestBase):
         print("Test Right Side...")
         MountDefinition = Mount.RIGHT
         await self.api.home()
+        self.mount = MountDefinition
         self.init_laser_sensor(send=False)
 
         ret = await self.run_test_slot("Test A2-right", "Y-A2-Right", ["right_front", "right_rear"],
@@ -258,7 +264,7 @@ class PipetteLeveling(TestBase):
         print("Test Left Side...")
         MountDefinition = Mount.LEFT
         await self.api.home()
-
+        self.mount = MountDefinition
         ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"], with_cal=DoCalibrate)
         test_result.update(ret)
 
@@ -325,6 +331,7 @@ class PipetteLeveling(TestBase):
             addr = self.robot_ip
         self.initial_api(addr, hc=True)
         await self.api.home()
+        self.mount = Mount.LEFT
         self.init_laser_sensor(send=False)
 
         ret = await self.run_test_slot("Test y-Axis-A2", "A2-Y", ["left_front", "left_rear"], with_cal=DoCalibrate)
@@ -446,6 +453,6 @@ if __name__ == '__main__':
     # pipette_leveling.test_name = '8ch'
     # asyncio.run(pipette_leveling.run_8ch_test("0527001"))
 
-    pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip="192.168.6.24")
+    pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip="192.168.6.85")
     pipette_leveling.test_name = '96ch'
-    asyncio.run(pipette_leveling.test_96ch_slot("C2-Z"))
+    asyncio.run(pipette_leveling.test_96ch_slot("C3-X"))

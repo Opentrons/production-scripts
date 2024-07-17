@@ -1,6 +1,6 @@
 from ot3_testing.tests.base_init import TestBase
 from ot3_testing.ot_type import Mount, Point
-from devices.amsamotion_sensor import LaserSensor
+from devices.laser_stj_10_m0 import LaserSensor
 from ot3_testing.test_config.gripper_leveling_config import CalibrateMethod, Gripper_Position, GripperChannel, \
     GripperMiddlePosition
 import asyncio
@@ -10,6 +10,7 @@ import os, datetime
 
 ApplyCompensationFlag = True
 CalibrateFlag = True
+WAIT_TIME = 30
 
 TEST_SPEC = 0.45
 
@@ -28,7 +29,8 @@ class GripperLeveling(TestBase):
         init 96ch device
         :return:
         """
-        self.laser_sensor = LaserSensor(send=send)
+        self.laser_sensor = LaserSensor()
+        self.laser_sensor.accuracy = "low"
         self.laser_sensor.init_device()
 
     async def move_to_test_point(self, p: Point):
@@ -63,9 +65,9 @@ class GripperLeveling(TestBase):
 
         if "y" in test_name:
             if direction == "plus":  # x+
-                _point = _point - Point(step, 0, 0)
-            else:
                 _point = _point + Point(step, 0, 0)
+            else:
+                _point = _point - Point(step, 0, 0)
         elif "x" in test_name:
             if direction == "plus":  # x+
                 _point = _point + Point(0, step, 0)
@@ -126,7 +128,8 @@ class GripperLeveling(TestBase):
         if CalibrateFlag and "z" not in test_name:
             await self.calibrate_to_zero(test_name, 0.1, definition, GripperChannel, method=CalibrateMethod.Approach)
         while True:
-            result = await self.read_definition_distance(definition, GripperChannel, self.laser_sensor, self.mount)
+            result = await self.read_definition_distance(definition, GripperChannel, self.laser_sensor, self.mount,
+                                                         wait_time=WAIT_TIME)
             print(result)
             self.judge_test_result(list(result.values()), TEST_SPEC)
             if not keep_reading:

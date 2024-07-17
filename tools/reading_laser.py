@@ -8,12 +8,15 @@ import asyncio
 from utils import Utils
 from devices.laser_stj_10_m0 import LaserSensor as HighAccuracySensor
 
-_point = Point(195, 195, 357)  # C2 - Right
-Rounds = 10
+# _point = Point(195, 195, 357)  # C2 - Right
+Rounds = 30
 KeepReading = False
+UseHighAccuracy = False
+
+WaitTime = 60
 
 
-# _point = Point(30, 90, 357)
+_point = Point(30, 90, 357)   # D1 - Right
 
 
 # _point = Point(55, 92, 356.5)
@@ -21,7 +24,7 @@ KeepReading = False
 class ReadLaser(TestBase):
     def __init__(self):
         super(ReadLaser).__init__()
-        self.robot_ip = "192.168.6.54"
+        self.robot_ip = "192.168.6.33"
         self.laser_sensor = None
         self.mount = Mount.RIGHT
         self.high_laser_sensor = None
@@ -34,9 +37,9 @@ class ReadLaser(TestBase):
         self.laser_sensor = HighAccuracySensor()
         self.laser_sensor.accuracy = "low"
         self.laser_sensor.init_device(select_default=False)
-
-        self.high_laser_sensor = HighAccuracySensor()
-        self.high_laser_sensor.init_device()
+        if UseHighAccuracy:
+            self.high_laser_sensor = HighAccuracySensor()
+            self.high_laser_sensor.init_device()
 
     async def build_reading(self):
         if self.robot_ip is None:
@@ -76,19 +79,20 @@ class ReadLaser(TestBase):
                 await self.move_to_test_point(_point)
 
             result = {}
-            for _wait in range(8):
+            for _wait in range(WaitTime):
                 print(f"wait {_wait + 1}...")
                 time.sleep(1)
             low_res = self.laser_sensor.read_sensor_low()
-
-            high_res = self.high_laser_sensor.read_sensor_high()
+            if UseHighAccuracy:
+                high_res = self.high_laser_sensor.read_sensor_high()
 
             time_str = Utils.get_time_string()
             result.update({"time": time_str})
             for key, value in low_res.items():
                 distance_value = await self.read_distance_mm_from_code_value(value)
                 result.update({key: distance_value})
-            result.update({"high": high_res})
+            if UseHighAccuracy:
+                result.update({"high": high_res})
             print(result)
 
             file_path = '../testing_data/reading_sensor.csv'
@@ -99,4 +103,4 @@ class ReadLaser(TestBase):
 
 if __name__ == '__main__':
     re = ReadLaser()
-    asyncio.run(re.run_test("RIGHT-C2"))
+    asyncio.run(re.run_test("RIGHT-D1"))

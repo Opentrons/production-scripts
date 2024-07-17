@@ -2,7 +2,7 @@ import threading
 
 from ot3_testing.tests.base_init import TestBase
 from ot3_testing.ot_type import Mount, Point
-from devices.amsamotion_sensor import LaserSensor
+from devices.laser_stj_10_m0 import LaserSensor
 from ot3_testing.test_config.zstage_leveling_config import ZStagePoint, CalibrateMethod, ZStageChannel
 from typing import List
 from drivers.play_sound import play_alarm_3
@@ -15,8 +15,11 @@ RequestReadyFlag = False
 ApplyCompensationFlag = True
 
 TEST_SPEC = 0.3
-DefaultPort = True
-AdjustBeforeTest = False
+DefaultPort = False
+AdjustBeforeTest = True
+
+WAIT_TIME = 30
+DEBUGGING_READING = True
 
 
 class ZStageLeveling(TestBase):
@@ -34,7 +37,8 @@ class ZStageLeveling(TestBase):
         init 96ch device
         :return:
         """
-        self.laser_sensor = LaserSensor(send=send)
+        self.laser_sensor = LaserSensor()
+        self.laser_sensor.accuracy = "low"
         self.laser_sensor.init_device(select_default=DefaultPort)
 
     async def move_to_test_point(self, p: Point):
@@ -127,25 +131,45 @@ class ZStageLeveling(TestBase):
         self.approaching = False
 
     async def run_test_slot(self, point: Point, slot_name: str, read_definition: List[str],
-                            with_cal=True):
+                            with_cal=True, project_path=None):
         """
         test slot
         :param point:
         :param slot_name:
         :param read_definition:
         :param with_cal:
+        :param project_path:
         :return:
         """
         if RequestReadyFlag:
             input(f">>Test {slot_name}")
         print(f"Test - {slot_name}")
+        debug_front = []
+        debug_rear = []
+        ret_dict = {}
         await self.move_to_test_point(point)
         if with_cal:
             await self.calibrate_to_zero(slot_name, 0.1, read_definition, ZStageChannel,
                                          method=CalibrateMethod.Approach)
-
-        ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor, self.mount,
-                                                       wait_time=5)
+        for _i in range(WAIT_TIME):
+            if DEBUGGING_READING:
+                print(f"Waiting {_i}...")
+                ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor,
+                                                               self.mount, wait_time=1)
+                debug_front.append(list(ret_dict.values())[0])
+                debug_rear.append(list(ret_dict.values())[1])
+            else:
+                ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor,
+                                                               self.mount, wait_time=WAIT_TIME)
+        # save debugging result
+        if DEBUGGING_READING:
+            if project_path is not None:
+                file_path = os.path.join(project_path, 'testing_data', 'debugging_z_stage_leveling.csv')
+            else:
+                file_path = '../../testing_data/debugging_z_stage_leveling.csv'
+            self.save_csv(file_path, [], debug_front)
+            self.save_csv(file_path, [], debug_rear)
+            self.save_csv(file_path, [], [])
         for key, value in ret_dict.items():
             print(f"{slot_name}-{key}: {value}")
         self.judge_test_result(list(ret_dict.values()), TEST_SPEC)
@@ -154,7 +178,7 @@ class ZStageLeveling(TestBase):
     async def th_reading_c2(self):
         while True:
             ret_dict = await self.read_definition_distance(ZStagePoint[Mount.RIGHT]['Z-C2']["channel_definition"],
-                                                           ZStageChannel, self.laser_sensor, self.mount)
+                                                           ZStageChannel, self.laser_sensor, self.mount, wait_time=0)
             _ret_list = list(ret_dict.values())
             _difference = round(abs(max(_ret_list) - min(_ret_list)), 3)
             difference = int(-_difference * 1500 + 1500)
@@ -224,7 +248,7 @@ class ZStageLeveling(TestBase):
                 _point = p_value["point"]
                 _compensation = p_value["compensation"]
                 _channel_definition = p_value["channel_definition"]
-                result = await self.run_test_slot(_point, p_key, _channel_definition)
+                result = await self.run_test_slot(_point, p_key, _channel_definition, project_path=project_path)
                 test_result.update(result)
             await self.api.home()
             print(test_result)

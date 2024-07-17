@@ -1,5 +1,5 @@
 import enum
-from ot3_testing.ot_type import Point
+from ot3_testing.ot_type import Point, Mount
 
 
 class CalibrateMethod(enum.Enum):
@@ -43,24 +43,35 @@ SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": {"le
                     "UninstallPos": {"Point": Point(223, 203, 500)}
                     }
 
-ChannelDefinitionCH96 = {"left_front": {"device_addr": 1, "channel": 0, "offset": 0},
-                         "left_rear": {"device_addr": 1, "channel": 1, "offset": 0},
-                         "right_front": {"device_addr": 1, "channel": 2, "offset": 0},
-                         "right_rear": {"device_addr": 1, "channel": 3, "offset": 0},
-                         "rear_right": {"device_addr": 1, "channel": 5, "offset": 0},
-                         "rear_left": {"device_addr": 1, "channel": 4, "offset": 0},
-                         "below_front_left": {"device_addr": 2, "channel": 8, "offset": 0},
-                         "below_front_right": {"device_addr": 2, "channel": 9, "offset": 0},
-                         "below_rear_left": {"device_addr": 2, "channel": 10, "offset": 0},
-                         "below_rear_right": {"device_addr": 2, "channel": 11, "offset": 0},
-                         }
+ChannelDefinitionCH96 = {
+    Mount.LEFT: {
+        "left_front": {"device_addr": 1, "channel": 0, "offset": 0},
+        "left_rear": {"device_addr": 1, "channel": 1, "offset": 0},
+        "right_front": {"device_addr": 1, "channel": 2, "offset": 0},
+        "right_rear": {"device_addr": 1, "channel": 3, "offset": 0},
+        "rear_right": {"device_addr": 1, "channel": 5, "offset": 0},
+        "rear_left": {"device_addr": 1, "channel": 4, "offset": 0},
+        "below_front_left": {"device_addr": 2, "channel": 8, "offset": 0},
+        "below_front_right": {"device_addr": 2, "channel": 9, "offset": 0},
+        "below_rear_left": {"device_addr": 2, "channel": 10, "offset": 0},
+        "below_rear_right": {"device_addr": 2, "channel": 11, "offset": 0},
+
+    },
+    Mount.RIGHT: {
+
+    }
+
+}
 
 # device addr are un-useful in ch8
-ChannelDefinitionCH8 = {"left_front": {"device_addr": 1, "channel": 0, "offset": 0},
-                        "left_rear": {"device_addr": 1, "channel": 1, "offset": 0},
-                        "right_front": {"device_addr": 1, "channel": 4, "offset": 0},
-                        "right_rear": {"device_addr": 1, "channel": 5, "offset": 0},
-                        }
+ChannelDefinitionCH8 = {
+    Mount.LEFT: {"left_front": {"device_addr": 1, "channel": 0, "offset": 0},
+                 "left_rear": {"device_addr": 1, "channel": 1, "offset": 0}},
+    Mount.RIGHT: {"right_front": {"device_addr": 1, "channel": 4, "offset": 0},
+                  "right_rear": {"device_addr": 1, "channel": 5, "offset": 0}
+                  }
+
+}
 
 SlotLocationCH8 = {"Y-C1-Left": {"Point": Point(215.42, 198.33, 299.16), "compensation": {"rear": 0, "front": 0}},
                    "Y-C1-Right": {"Point": Point(172.07, 197.18, 299.16), "compensation": {"rear": 0, "front": 0.045}},

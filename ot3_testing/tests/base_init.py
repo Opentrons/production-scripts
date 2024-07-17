@@ -1,7 +1,7 @@
 from ot3_testing.protocol.protocol_context import ProtocolContext
 from ot3_testing.hardware_control.hardware_control import HardwareControl
 from typing import Union, List
-from devices.amsamotion_sensor import LaserSensor
+from devices.laser_stj_10_m0 import LaserSensor
 import time
 
 
@@ -84,7 +84,7 @@ class TestBase:
 
     async def read_definition_distance(self, definition: List, channel_definition, laser: LaserSensor, mount,
                                        only_code=False,
-                                       send=False, add_compensation=True, wait_time= 1) -> dict:
+                                       send=False, add_compensation=True, wait_time=8) -> dict:
         """
         read distance, using one device id (please use same device_id in the positions)
         :param definition:
@@ -94,16 +94,18 @@ class TestBase:
         :param only_code:
         :param send: 是否需要发送再接收，区分两种传感器
         :param add_compensation: 添加补偿
+        :param wait_time: 等待时间
         :return:
         """
         print("Reading Sensor...")
         result = {}
-        for i in range(wait_time):
-            time.sleep(1)
-            print(f"wait ({wait_time})/{i+1}...")
+        if wait_time >= 0:
+            for i in range(wait_time):
+                time.sleep(1)
+                print(f"wait ({wait_time})/{i + 1}...")
         _channel_definition = channel_definition[mount]
         device_addr = _channel_definition[definition[0]]["device_addr"]
-        code_value_list = laser.get_distance_multi(device_addr)
+        code_value_list = laser.read_sensor_low()
 
         if only_code:
             for item in definition:
