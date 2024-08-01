@@ -7,27 +7,28 @@ from devices.amsamotion_sensor import LaserSensor
 import asyncio
 from utils import Utils
 from devices.laser_stj_10_m0 import LaserSensor as HighAccuracySensor
+import os
 
 # _point = Point(195, 195, 357)  # C2 - Right
 Rounds = 30
 KeepReading = False
 UseHighAccuracy = False
 
-WaitTime = 60
+WaitTime = 15
 
-
-_point = Point(30, 90, 357)   # D1 - Right
+_point = Point(20, 90, 357)  # D1 - Right
 
 
 # _point = Point(55, 92, 356.5)
 
 class ReadLaser(TestBase):
-    def __init__(self):
+    def __init__(self, add_height):
         super(ReadLaser).__init__()
-        self.robot_ip = "192.168.6.33"
+        self.robot_ip = "192.168.6.84"
         self.laser_sensor = None
         self.mount = Mount.RIGHT
         self.high_laser_sensor = None
+        self.point = _point + Point(0, 0, add_height)
 
     def init_laser_sensor(self, send=False):
         """
@@ -69,14 +70,14 @@ class ReadLaser(TestBase):
         """
         await self.api.move_to(self.mount, p, target="pipette", )
 
-    async def run_test(self, slot_name):
+    async def run_test(self, slot_name, project_path):
         await self.build_reading()
         if KeepReading:
-            await self.move_to_test_point(_point)
+            await self.move_to_test_point(self.point)
         for i in range(Rounds):
-            print(f"Round --------------------------------- {i+1}")
+            print(f"Round --------------------------------- {i + 1}")
             if not KeepReading:
-                await self.move_to_test_point(_point)
+                await self.move_to_test_point(self.point)
 
             result = {}
             for _wait in range(WaitTime):
@@ -94,13 +95,16 @@ class ReadLaser(TestBase):
             if UseHighAccuracy:
                 result.update({"high": high_res})
             print(result)
-
-            file_path = '../testing_data/reading_sensor.csv'
+            if project_path is not None:
+                file_path = os.path.join(project_path, 'testing_data', 'reading_laser.csv')
+            else:
+                file_path = '../../testing_data/reading_laser.csv'
             self.save_csv(file_path, [slot_name], list(result.values()))
             if KeepReading is not True:
                 await self.api.home()
 
 
 if __name__ == '__main__':
-    re = ReadLaser()
-    asyncio.run(re.run_test("RIGHT-D1"))
+    pass
+    re = ReadLaser(4)
+    asyncio.run(re.run_test("RIGHT-D1", project_path=None))

@@ -23,7 +23,7 @@ Method = 1
 class ReadLaser(TestBase):
     def __init__(self):
         super(ReadLaser).__init__()
-        self.robot_ip = "192.168.6.54"
+        self.robot_ip = "192.168.6.84"
         self.laser_sensor = None
         self.mount = Mount.RIGHT
         self.high_laser_sensor = None

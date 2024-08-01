@@ -40,14 +40,14 @@ class AirSensor2:
 
 
 if __name__ == '__main__':
+    # sensor1 = AirSensor2(49846)
     sensor1 = AirSensor2(49846)
-    sensor2 = AirSensor2(49847)
     sensor1.connect()
-    sensor2.connect()
+    # sensor2.connect()
     while True:
         ret1 = sensor1.get_air_params()
-        ret2 = sensor2.get_air_params()
+        # ret2 = sensor2.get_air_params()
         print("RET - 1: ")
         print(ret1)
-        print("RET - 2: ")
-        print(ret2)
+        # print("RET - 2: ")
+        # print(ret2)

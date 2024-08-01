@@ -8,10 +8,11 @@ from ot3_testing.test_config.pipette_leveling_config import SlotLocationCH96, Ch
 from ot3_testing.test_config.zstage_leveling_config import ZStagePoint
 from ot3_testing.test_config.gripper_leveling_config import Gripper_Position
 import asyncio
-from tools.inquirer import prompt_flex_name, prompt_test_name, prompt_exit
+from tools.inquirer import prompt_flex_name, prompt_test_name, prompt_exit, prompt_ip
 from tools import heat_96ch
 from __version__ import get_version
 from gravimetric_testing.openwebapp import openweb
+from tools.reading_laser import ReadLaser
 
 addpathpat = os.path.dirname(__file__)
 addpath = os.path.dirname(os.path.dirname(__file__))
@@ -49,7 +50,12 @@ if __name__ == '__main__':
             asyncio.run(pipette_leveling.run_8ch_test(flex_name, project_path=project_path))
         elif "grav-openweb" in test_name:
             openweb()
-
+        elif 'leveling-reading-sensor' in test_name:
+            add_height = float(input("请输入增加的高度: ").strip())
+            reader = ReadLaser(add_height)
+            reader.robot_ip = prompt_ip()
+            reader.add_height = add_height
+            asyncio.run(reader.run_test("RIGHT-D1", project_path))
         else:
             pass
 
