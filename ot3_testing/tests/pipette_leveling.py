@@ -16,7 +16,7 @@ DoCalibrate = True
 ApplyCompensationFlag = True
 
 TEST_SPEC = 0.45
-WAIT_TIME = 30
+WAIT_TIME = 15
 
 
 class PipetteLeveling(TestBase):

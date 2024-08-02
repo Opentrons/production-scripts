@@ -47,7 +47,7 @@ class LaserSensor:
         value = primary_value + secondary_value
         return value
 
-    def read_sensor_low(self):
+    def read_sensor_low(self, show_distance=False):
         multi_value = {}
         result = self.serial.write_and_get_buffer(LOW_MEASURE_CODE)
         result = result.decode('utf-8')
@@ -55,6 +55,8 @@ class LaserSensor:
         for index, item in enumerate(result.split(',')):
             _value = float(item.split(':')[1].strip()) / 1000
             _value = round(_value, 3)
+            if show_distance:
+                _value = round(-2*_value + 35, 3)
             multi_value.update({index: _value})
         return multi_value
 
@@ -64,5 +66,5 @@ if __name__ == '__main__':
     ls.init_device()
     # ls.accuracy = "low"
     while True:
-        ret = ls.read_sensor_high()
+        ret = ls.read_sensor_low(show_distance=True)
         print(ret)

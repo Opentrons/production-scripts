@@ -18,7 +18,7 @@ TEST_SPEC = 0.3
 DefaultPort = False
 AdjustBeforeTest = True
 
-WAIT_TIME = 30
+WAIT_TIME = 15
 DEBUGGING_READING = True
 
 
