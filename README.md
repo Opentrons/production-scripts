@@ -7,6 +7,8 @@
 Pushing some Opentrons productions test scripts in SZ team, including Flex and Modules. Please keep sync local scripts in SZ.
 
 ## Struction
+- oem-projects:
+
 
 - ot3-testing：
   
