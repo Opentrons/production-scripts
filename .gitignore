@@ -5,4 +5,5 @@
 __pycache__
 build
 testing_data/*
+node_modules
 

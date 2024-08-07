@@ -2,6 +2,8 @@ import uvicorn
 from fastapi import FastAPI, APIRouter, status
 from server.engine.router import engine_router
 from server.testing.router import testing_router
+import os
+import subprocess
 
 api_router = APIRouter()
 
@@ -27,6 +29,19 @@ async def get_system_info():
 
 
 def start_server():
+    # back end
     uvicorn.run(app, host="127.0.0.1", port=8888)
+    # fore end
+
+    # cmd = f'pyinstaller -F --ico="assets/logo.ico"  --name=Productions-{VERSION} production_scripts.py'
+    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    # while True:
+    #     line = process.stdout.readline()
+    #     if not line:
+    #         break  # 如果没有读取到数据，表示子进程已经结束，退出循环
+    #     else:
+    #         print(line, end='')  # 实时打印输出
+    # process.wait()
+    
 
 

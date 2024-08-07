@@ -3,7 +3,7 @@ import { createWebHistory, createRouter } from 'vue-router'
 
 const routes = [
 
-    { path: '/', name: 'root', component: () => import('../views/login.vue') },
+    { path: '/', name: 'root', meta: {"title": "Opentrons-SZ测试平台"},component: () => import('../views/home/home.vue') },
     { path: '/login', name: 'login', redirect: '/' },
     { path: "/index", name: "Index", redirect: "/index/home"},
     { path: '/index', name: "index", component: () => import('../views/index.vue'),
