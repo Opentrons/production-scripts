@@ -1,9 +1,9 @@
 from fastapi import Depends, FastAPI, HTTPException, APIRouter, status
-from hardware_control.hardware_control import HardwareControl
+from ot3_testing.hardware_control.hardware_control import HardwareControl
 from textwrap import dedent
 from server.engine.models import *
 from typing import Union
-from ot_type import Point
+from ot3_testing.ot_type import Point
 
 engine_router = APIRouter()
 api: Union[None, HardwareControl] = None

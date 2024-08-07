@@ -11,6 +11,7 @@ api_router.include_router(testing_router, prefix="/testing")
 app = FastAPI()
 app.include_router(api_router, prefix='/api')
 
+
 @app.get(
     "/system/info",
     summary="Get system information",
@@ -25,5 +26,7 @@ async def get_system_info():
             "contact": "andy.hu@opentrons.com"}
 
 
-if __name__ == '__main__':
+def start_server():
     uvicorn.run(app, host="127.0.0.1", port=8888)
+
+

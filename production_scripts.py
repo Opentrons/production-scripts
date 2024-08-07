@@ -13,6 +13,7 @@ from tools import heat_96ch
 from __version__ import get_version
 from gravimetric_testing.openwebapp import openweb
 from tools.reading_laser import ReadLaser
+from server.start_server import start_server
 
 addpathpat = os.path.dirname(__file__)
 addpath = os.path.dirname(os.path.dirname(__file__))
@@ -56,6 +57,8 @@ if __name__ == '__main__':
             reader.robot_ip = prompt_ip()
             reader.add_height = add_height
             asyncio.run(reader.run_test("RIGHT-D1", project_path))
+        elif '9' in test_name:
+            start_server()
         else:
             pass
 

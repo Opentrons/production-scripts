@@ -1,9 +1,9 @@
 from fastapi import Depends, FastAPI, HTTPException, APIRouter, status
-from tests.lifetime_test import LifeTime
+from ot3_testing.tests.lifetime_test import LifeTime
 from textwrap import dedent
 from server.testing.models import *
 from typing import Union
-from ot_type import Point
+from ot3_testing.ot_type import Point
 
 testing_router = APIRouter()
 
