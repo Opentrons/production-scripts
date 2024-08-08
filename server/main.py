@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from user.auth import AuthHandler
+from server.user.auth import AuthHandler
 from server.api.user import user
 from server.api.hardware import hardware
 from server.api.device import device
@@ -33,6 +33,10 @@ app.add_middleware(
 async def say_hi():
     return {"message": 'connection is OK !',
             "success": True}
+
+
+def start_sever():
+    uvicorn.run(app, host='127.0.0.1', port=8080)
 
 
 if __name__ == '__main__':

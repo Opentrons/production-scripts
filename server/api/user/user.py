@@ -1,10 +1,10 @@
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
-from api.user.models import *
-from utils import write_local_json, read_local_json
+from server.api.user.models import *
+from server.utils import write_local_json, read_local_json
 import time
-from user.auth import AuthHandler
+from server.user.auth import AuthHandler
 
-register_path = 'database/register.json'
+register_path = 'server/database/register.json'
 
 router = APIRouter()
 auth_handler = AuthHandler()

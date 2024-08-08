@@ -13,8 +13,8 @@ from tools import heat_96ch
 from __version__ import get_version
 from gravimetric_testing.openwebapp import openweb
 from tools.reading_laser import ReadLaser
-from server.start_server import start_server
 from tools.high_voltage_test.main import run_high_voltage_test
+from __start_server__ import start_server
 
 addpathpat = os.path.dirname(__file__)
 addpath = os.path.dirname(os.path.dirname(__file__))

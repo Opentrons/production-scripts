@@ -9,7 +9,7 @@ from server.utils import create_id
 from fastapi import File, UploadFile
 
 router = APIRouter()
-files_path = './server_files/'
+files_path = './server/server_files/'
 
 
 @router.post("/uploadfile/")

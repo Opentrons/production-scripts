@@ -1,12 +1,12 @@
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from typing import List
-from api.device.models import *
-from ot_type import Mount, Point
-from utils import write_local_json, read_local_json
+from server.api.device.models import *
+from server.ot_type import Mount, Point
+from server.utils import write_local_json, read_local_json
 
 router = APIRouter()
 
-database_path = 'database/device_status.json'
+database_path = 'server/database/device_status.json'
 
 
 def judge_ipaddress_repeat(device: list, target: dict) -> bool:
@@ -21,6 +21,7 @@ def judge_ipaddress_repeat(device: list, target: dict) -> bool:
             return False
     return True
 
+
 def get_target_ip_device(device: list, target_ip):
     """
     get target
@@ -32,7 +33,6 @@ def get_target_ip_device(device: list, target_ip):
         if item["device_address"] == target_ip:
             return index
     return -1
-
 
 
 @router.get('/status', status_code=200)

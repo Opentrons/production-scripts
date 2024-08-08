@@ -1,0 +1,23 @@
+{
+    "96ch": [
+        {
+            "date": "2024-03-18",
+            "auth": "default",
+            "robot_name": "Z-Stage7",
+            "device_ip": "192.168.6.8",
+            "use_key": true,
+            "description": "Z-Stage7  Z轴老化测试",
+            "cmd": "cd /opt/opentrons-robot-server/ && nohup python3 -m hardware_testing.scripts.force_pick_up_test",
+            "type": [
+                "lifetime"
+            ],
+            "params": [
+                "--speed 10",
+                "--current 0.55",
+                "--target Z-Stage7"
+            ],
+            "id": "736e1637c9a353f056d39dba5bca6d33"
+        }
+    ],
+    "robot": []
+}

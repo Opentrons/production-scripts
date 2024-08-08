@@ -1,13 +1,13 @@
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from typing import List
-from api.tests.models import *
-from ot_type import Mount, Point
-from utils import Utils, create_id
-from utils import write_local_json, read_local_json
+from server.api.tests.models import *
+from server.ot_type import Mount, Point
+from server.utils import Utils, create_id
+from server.utils import write_local_json, read_local_json
 
 router = APIRouter()
 
-database_path = 'database/tests.json'
+database_path = 'server/database/tests.json'
 
 
 @router.get('/get/runs', status_code=200)

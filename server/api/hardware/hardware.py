@@ -1,9 +1,9 @@
-from hardware_control.hardware_control import HardwareControl
-from protocol_control.protocol_control import ProtocolContext
+from server.hardware_control.hardware_control import HardwareControl
+from server.protocol_control.protocol_control import ProtocolContext
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from typing import List
-from api.hardware.models import *
-from ot_type import Mount, Point
+from server.api.hardware.models import *
+from server.ot_type import Mount, Point
 from utils import Utils
 
 
