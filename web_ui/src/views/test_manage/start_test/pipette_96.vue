@@ -86,7 +86,7 @@
 
                         </div>
                         <div class="test4-content">
-                            <CommandTable :tableData="tableData96ch" :production="production"> </CommandTable>
+                            <CommandTable :tableData="tableData96ch" :production="_production"> </CommandTable>
                         </div>
                     </div>
 

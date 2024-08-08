@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import paramiko
 
-key = paramiko.RSAKey.from_private_key_file("../assets/robot_key")
+key = paramiko.RSAKey.from_private_key_file("../source/robot_key")
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 print("connecting")

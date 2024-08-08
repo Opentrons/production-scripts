@@ -184,7 +184,6 @@ import { nextTick, onMounted } from 'vue'
 import { ElInput } from 'element-plus'
 import { $testOnline } from '../../api/hardware';
 import { $get_device, $add_device, $remove_device} from '../../api/device'
-import { $get_current_time } from '../../utils/utils'
 
 const input_device_name = ref('96通道老化')
 const input_device_address = ref("192.168.6.11")

@@ -1,0 +1,76 @@
+{
+    "device": [
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-7",
+            "device_address": "192.168.6.8",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-2",
+            "device_address": "192.168.6.189",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-8",
+            "device_address": "192.168.6.206",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-6",
+            "device_address": "192.168.6.40",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-5",
+            "device_address": "192.168.6.185",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-11",
+            "device_address": "192.168.6.54",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-10",
+            "device_address": "192.168.6.215",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-03-15",
+            "auth": "default",
+            "device_name": "Z-Stage-9",
+            "device_address": "192.168.6.47",
+            "device_tag": "工装,Z轴老化",
+            "online": "Unknow"
+        },
+        {
+            "date": "2024-08-08",
+            "auth": "default",
+            "device_name": "96通道老化",
+            "device_address": "192.168.6.11",
+            "device_tag": "工装,诊断,老化",
+            "online": "Unknow"
+        }
+    ]
+}

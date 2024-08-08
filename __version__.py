@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-VERSION = '1.2.9'
+VERSION = '1.3.0'
 
 
 def get_version():
@@ -30,7 +30,7 @@ def explore_requirement():
 
 
 def build():
-    cmd = f'pyinstaller -F --ico="assets/logo.ico"  --name=Productions-{VERSION} production_scripts.py'
+    cmd = f'pyinstaller -F --ico="source/logo.ico"  --name=Productions-{VERSION} production_scripts.py'
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     while True:
         line = process.stdout.readline()
@@ -39,6 +39,8 @@ def build():
         else:
             print(line, end='')  # 实时打印输出
     process.wait()
+    output_path = os.path.join(os.getcwd(), "dist")
+    print(f"Complete! target file -> {output_path}")
 
 
 if __name__ == "__main__":

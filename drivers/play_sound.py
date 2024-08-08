@@ -7,10 +7,10 @@ from utils import Utils
 
 root_path = Utils.get_root_path()
 
-Dog_Barking = 'assets/sounds/mixkit-dog-barking-twice-1.wav'
-Alarm_1 = 'assets/sounds/mixkit-classic-alarm-995.wav'
-Alarm_2 = os.path.join('assets', 'sounds', 'mixkit-alarm-tone-996.wav')
-voice = 'assets/'
+Dog_Barking = 'source/sounds/mixkit-dog-barking-twice-1.wav'
+Alarm_1 = 'source/sounds/mixkit-classic-alarm-995.wav'
+Alarm_2 = os.path.join('source', 'sounds', 'mixkit-alarm-tone-996.wav')
+voice = 'source/'
 
 value = 1
 

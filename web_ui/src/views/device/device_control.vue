@@ -11,7 +11,7 @@
             <el-text>使用密钥</el-text>
             <el-switch v-model="use_secret" />
 
-            <el-button :type="connect_type" color="#409EFF" plain @click="clickConnect"> {{ connect_status }}
+            <el-button type="primary" color="#409EFF" plain @click="clickConnect"> {{ connect_status }}
             </el-button>
 
         </div>

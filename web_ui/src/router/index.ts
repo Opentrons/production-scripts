@@ -3,10 +3,10 @@ import { createWebHistory, createRouter } from 'vue-router'
 
 const routes = [
 
-    { path: '/', name: 'root', meta: {"title": "Opentrons-SZ测试平台"},component: () => import('../views/home/home.vue') },
-    { path: '/login', name: 'login', redirect: '/' },
-    { path: "/index", name: "Index", redirect: "/index/home"},
-    { path: '/index', name: "index", component: () => import('../views/index.vue'),
+    // { path: '/', name: 'root', meta: {"title": "Opentrons-SZ测试平台"},component: () => import('../views/home/home.vue') },
+    // { path: '/login', name: 'login', redirect: '/' },
+    // { path: "/index", name: "Index", redirect: "/index/home"},
+    { path: '/', name: "index", component: () => import('../views/index.vue'),
       children: [
         {path: 'home', name: "Home", meta: {"title": "Opentrons-SZ测试平台"}, component: () => import('../views/home/home.vue')},
         {path: 'file_handler', name: "FileHandler", component: () => import('../views/files/file_upload_download.vue')},

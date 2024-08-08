@@ -26,7 +26,7 @@
                         <span>数据处理</span>
                     </template>
 
-                    <el-menu-item index="/index/file_handler">上传下载</el-menu-item>
+                    <el-menu-item index="file_handler">上传下载</el-menu-item>
                     <el-menu-item index="2-2">数据分析</el-menu-item>
                     <el-menu-item index="2-23">数据统计</el-menu-item>
 
@@ -41,8 +41,8 @@
                         <span>设备管理</span>
                     </template>
 
-                    <el-menu-item index="/index/device/status">设备状态</el-menu-item>
-                    <el-menu-item index="/index/device/control">设备控制</el-menu-item>
+                    <el-menu-item index="/device/status">设备状态</el-menu-item>
+                    <el-menu-item index="/device/control">设备控制</el-menu-item>
 
 
 
@@ -56,18 +56,18 @@
                     <span>测试管理</span>
                 </template>
 
-                <el-menu-item index="/index/test_managment/status">测试状态</el-menu-item>
+                <el-menu-item index="/test_managment/status">测试状态</el-menu-item>
                 <el-sub-menu index="4-2">
                     <template #title>开始测试</template>
-                    <el-menu-item index="/index/test_managment/test/ot3">OT3</el-menu-item>
-                    <el-menu-item index="/index/test_managment/test/pipette">Pipette 1/8CH</el-menu-item>
-                    <el-menu-item index="/index/test_managment/test/pipette/96ch">Pipette 96CH</el-menu-item>
+                    <el-menu-item index="/test_managment/test/ot3">OT3</el-menu-item>
+                    <el-menu-item index="/test_managment/test/pipette">Pipette 1/8CH</el-menu-item>
+                    <el-menu-item index="/test_managment/test/pipette/96ch">Pipette 96CH</el-menu-item>
                 </el-sub-menu>
 
 
 
 </el-sub-menu>
-                <el-menu-item index="/index/document">
+                <el-menu-item index="/document">
                     <el-icon>
                         <FolderOpened />
                     </el-icon>
@@ -87,13 +87,13 @@
             <div class="top-box">
                 <el-menu class="el-menu-top" mode="horizontal" :ellipsis="false" :default-active="active_uri"
                     :router="true" background-color="#16212d" text-color="#fff" active-text-color="#ffd04b">
-                    <el-menu-item index="/index/home">
+                    <el-menu-item index="/home">
                         <el-icon>
                             <HomeFilled />
                         </el-icon>
                         首页
                     </el-menu-item>
-                    <el-menu-item index="/index/test_manage">
+                    <el-menu-item index="/test_manage">
                         <el-icon>
                             <Histogram />
                         </el-icon>
@@ -135,7 +135,7 @@ import { ref, Ref, computed } from "vue";
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import en from 'element-plus/dist/locale/en.mjs'
 
-let active_uri: Ref<string> = ref("/index/home")
+let active_uri: Ref<string> = ref("/home")
 
 const _lan = ref("语言")
 const language = ref('zh-cn')

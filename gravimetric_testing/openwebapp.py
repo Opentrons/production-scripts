@@ -37,7 +37,7 @@ def modify_json_file(host, username, password, json_file_path,key_valune_list):
     ssh_client.close()
 
 def openweb():
-    json_file_path=os.path.join(os.getcwd(),"assets","gravapp","addr.json")
+    json_file_path=os.path.join(os.getcwd(),"source","gravapp","addr.json")
     name = prompt_raspNo()
     use_key: str = prompt_openweb()
     try:    

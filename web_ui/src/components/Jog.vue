@@ -18,27 +18,27 @@
 
                     <div class="slider-demo-block">
                         <span class="demonstration">Step-X</span>
-                        <el-slider v-model="step_x" show-input step="0.1" />
+                        <el-slider v-model="step_x" show-input :step="0.1" />
                     </div>
                     <div class="slider-demo-block">
                         <span class="demonstration">Step-Y</span>
-                        <el-slider v-model="step_y" show-input step="0.1" />
+                        <el-slider v-model="step_y" show-input :step="0.1" />
                     </div>
                     <div class="slider-demo-block">
                         <span class="demonstration">Step-Z</span>
-                        <el-slider v-model="step_z" show-input step="0.1" />
+                        <el-slider v-model="step_z" show-input :step="0.1" />
                     </div>
                     <div class="slider-demo-block">
                         <span class="demonstration">Step-Z-P</span>
-                        <el-slider v-model="step_z_p" show-input step="0.1" />
+                        <el-slider v-model="step_z_p" show-input :step="0.1" />
                     </div>
                     <div class="slider-demo-block">
                         <span class="demonstration">Step-G</span>
-                        <el-slider v-model="step_g" show-input step="0.1" />
+                        <el-slider v-model="step_g" show-input :step="0.1" />
                     </div>
                     <div class="slider-demo-block">
                         <span class="demonstration">Grip-Force</span>
-                        <el-slider v-model="grip_force" show-input step="1" />
+                        <el-slider v-model="grip_force" show-input :step="1" />
                     </div>
                 </div>
 
