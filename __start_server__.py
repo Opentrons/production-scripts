@@ -1,8 +1,11 @@
 import os
+import time
+
 from server.main import start_sever as start_backend_serve
 import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
+import webbrowser
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -24,11 +27,14 @@ def start_front_server():
 
 def start_server():
     print("Open web page on http://127.0.0.1:8000 \n")
-
+    time.sleep(0.5)
     th1 = Thread(target=start_front_server)
     th1.start()
-    th2 = Thread(target=start_backend_serve)
-    th2.start()
+    time.sleep(0.5)
+    webbrowser.open("http://127.0.0.1:8000")
+    start_backend_serve()
+    th1.join()
+    input("Server Closed !")
 
 
 if __name__ == '__main__':
