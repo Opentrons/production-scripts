@@ -59,7 +59,7 @@ if __name__ == '__main__':
             reader.add_height = add_height
             asyncio.run(reader.run_test("RIGHT-D1", project_path))
         elif '9' in test_name:
-            start_server()
+            start_server(None)
         elif '10' in test_name:
             run_high_voltage_test()
         else:
