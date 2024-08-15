@@ -296,7 +296,7 @@ class BasicDriver:
         self.set_pressure_off()
         self.init_motors()
         self.set_temperature_controller_off()
-        self.home()
+        # self.home()
 
     def close_lid(self):
         """
@@ -499,16 +499,20 @@ if __name__ == '__main__':
     """
     1. x y z 轴电机测试
     """
-    for i in range(10):
-        print(f"Round ---------------------------- {i+1}")
-        bd.move_to_work_position()
-        bd.set_pressure(0.02, 5)
-        bd.home()
+    # for i in range(10):
+    #     print(f"Round ---------------------------- {i+1}")
+    #     bd.move_to_work_position()
+    #     bd.set_pressure(0.02, 5)
+    #     bd.home()
 
     """
     2. 保温测试
     """
     # bd.heat_incubation([{"temperature": 70, "time": 60}])
     # bd.move_z("AC67FFFF")
+    """
+    3. led测试
+    """
+    bd.set_led_virtual_value()
 
 

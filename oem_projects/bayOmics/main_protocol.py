@@ -8,7 +8,7 @@ import hashlib
 
 # metadata
 metadata = {
-    "protocolName": "__BayOmicsTemperatureModule__V1.3.4",
+    "protocolName": "__BayOmicsTemperatureModule__V1.3.9",
     "author": "Name <opentrons@example.com>",
     "description": "Simple protocol to get started using the OT-2",
 }
@@ -19,18 +19,16 @@ requirements = {"robotType": "OT-2", "apiLevel": "2.18"}
 """
 customer labware
 """
-USER_LABWARE_SLOT = '8'
+USER_LABWARE_SLOT = '9'
 LABWARE_DEF_JSON = """{"ordering":[["A1","B1","C1","D1","E1","F1","G1","H1"],["A2","B2","C2","D2","E2","F2","G2","H2"],["A3","B3","C3","D3","E3","F3","G3","H3"],["A4","B4","C4","D4","E4","F4","G4","H4"],["A5","B5","C5","D5","E5","F5","G5","H5"],["A6","B6","C6","D6","E6","F6","G6","H6"],["A7","B7","C7","D7","E7","F7","G7","H7"],["A8","B8","C8","D8","E8","F8","G8","H8"],["A9","B9","C9","D9","E9","F9","G9","H9"],["A10","B10","C10","D10","E10","F10","G10","H10"],["A11","B11","C11","D11","E11","F11","G11","H11"],["A12","B12","C12","D12","E12","F12","G12","H12"]],"brand":{"brand":"BayOmics","brandId":["v1"]},"metadata":{"displayName":"BayOmics 96 Well Plate 1000 µL","displayCategory":"wellPlate","displayVolumeUnits":"µL","tags":[]},"dimensions":{"xDimension":127.56,"yDimension":85.36,"zDimension":130.74},"wells":{"A1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":74.18,"z":112.99},"B1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":65.18,"z":112.99},"C1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":56.18,"z":112.99},"D1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":47.18,"z":112.99},"E1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":38.18,"z":112.99},"F1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":29.18,"z":112.99},"G1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":20.18,"z":112.99},"H1":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":11.18,"z":112.99},"A2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":74.18,"z":112.99},"B2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":65.18,"z":112.99},"C2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":56.18,"z":112.99},"D2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":47.18,"z":112.99},"E2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":38.18,"z":112.99},"F2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":29.18,"z":112.99},"G2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":20.18,"z":112.99},"H2":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":11.18,"z":112.99},"A3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":74.18,"z":112.99},"B3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":65.18,"z":112.99},"C3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":56.18,"z":112.99},"D3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":47.18,"z":112.99},"E3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":38.18,"z":112.99},"F3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":29.18,"z":112.99},"G3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":20.18,"z":112.99},"H3":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":11.18,"z":112.99},"A4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":74.18,"z":112.99},"B4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":65.18,"z":112.99},"C4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":56.18,"z":112.99},"D4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":47.18,"z":112.99},"E4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":38.18,"z":112.99},"F4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":29.18,"z":112.99},"G4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":20.18,"z":112.99},"H4":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":11.18,"z":112.99},"A5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":74.18,"z":112.99},"B5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":65.18,"z":112.99},"C5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":56.18,"z":112.99},"D5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":47.18,"z":112.99},"E5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":38.18,"z":112.99},"F5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":29.18,"z":112.99},"G5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":20.18,"z":112.99},"H5":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":11.18,"z":112.99},"A6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":74.18,"z":112.99},"B6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":65.18,"z":112.99},"C6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":56.18,"z":112.99},"D6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":47.18,"z":112.99},"E6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":38.18,"z":112.99},"F6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":29.18,"z":112.99},"G6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":20.18,"z":112.99},"H6":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":11.18,"z":112.99},"A7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":74.18,"z":112.99},"B7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":65.18,"z":112.99},"C7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":56.18,"z":112.99},"D7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":47.18,"z":112.99},"E7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":38.18,"z":112.99},"F7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":29.18,"z":112.99},"G7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":20.18,"z":112.99},"H7":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":11.18,"z":112.99},"A8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":74.18,"z":112.99},"B8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":65.18,"z":112.99},"C8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":56.18,"z":112.99},"D8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":47.18,"z":112.99},"E8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":38.18,"z":112.99},"F8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":29.18,"z":112.99},"G8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":20.18,"z":112.99},"H8":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":11.18,"z":112.99},"A9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":74.18,"z":112.99},"B9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":65.18,"z":112.99},"C9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":56.18,"z":112.99},"D9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":47.18,"z":112.99},"E9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":38.18,"z":112.99},"F9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":29.18,"z":112.99},"G9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":20.18,"z":112.99},"H9":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":11.18,"z":112.99},"A10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":74.18,"z":112.99},"B10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":65.18,"z":112.99},"C10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":56.18,"z":112.99},"D10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":47.18,"z":112.99},"E10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":38.18,"z":112.99},"F10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":29.18,"z":112.99},"G10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":20.18,"z":112.99},"H10":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":11.18,"z":112.99},"A11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":74.18,"z":112.99},"B11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":65.18,"z":112.99},"C11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":56.18,"z":112.99},"D11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":47.18,"z":112.99},"E11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":38.18,"z":112.99},"F11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":29.18,"z":112.99},"G11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":20.18,"z":112.99},"H11":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":11.18,"z":112.99},"A12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":74.18,"z":112.99},"B12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":65.18,"z":112.99},"C12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":56.18,"z":112.99},"D12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":47.18,"z":112.99},"E12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":38.18,"z":112.99},"F12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":29.18,"z":112.99},"G12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":20.18,"z":112.99},"H12":{"depth":17.75,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":11.18,"z":112.99}},"groups":[{"metadata":{"wellBottomShape":"flat"},"wells":["A1","B1","C1","D1","E1","F1","G1","H1","A2","B2","C2","D2","E2","F2","G2","H2","A3","B3","C3","D3","E3","F3","G3","H3","A4","B4","C4","D4","E4","F4","G4","H4","A5","B5","C5","D5","E5","F5","G5","H5","A6","B6","C6","D6","E6","F6","G6","H6","A7","B7","C7","D7","E7","F7","G7","H7","A8","B8","C8","D8","E8","F8","G8","H8","A9","B9","C9","D9","E9","F9","G9","H9","A10","B10","C10","D10","E10","F10","G10","H10","A11","B11","C11","D11","E11","F11","G11","H11","A12","B12","C12","D12","E12","F12","G12","H12"]}],"parameters":{"format":"irregular","quirks":[],"isTiprack":false,"isMagneticModuleCompatible":false,"loadName":"bayomics_96_wellplate_1000ul"},"namespace":"custom_beta","version":1,"schemaVersion":2,"cornerOffsetFromSlot":{"x":0,"y":0,"z":0}}"""
 LABWARE_DEF = json.loads(LABWARE_DEF_JSON)
-LABWARE_LABEL = LABWARE_DEF.get('metadata', {}).get(
-    'displayName', 'test labware')
+LABWARE_LABEL = LABWARE_DEF.get('metadata', {}).get('displayName', 'test labware')
 LABWARE_DIMENSIONS = LABWARE_DEF.get('wells', {}).get('A1', {}).get('yDimension')
 
 USER_LIQUID_SLOT = '1'
 USER_LIQUID_LABWARE_DEF_JSON = """{"ordering":[["A1","B1","C1","D1","E1","F1","G1","H1"],["A2","B2","C2","D2","E2","F2","G2","H2"],["A3","B3","C3","D3","E3","F3","G3","H3"],["A4","B4","C4","D4","E4","F4","G4","H4"],["A5","B5","C5","D5","E5","F5","G5","H5"],["A6","B6","C6","D6","E6","F6","G6","H6"],["A7","B7","C7","D7","E7","F7","G7","H7"],["A8","B8","C8","D8","E8","F8","G8","H8"],["A9","B9","C9","D9","E9","F9","G9","H9"],["A10","B10","C10","D10","E10","F10","G10","H10"],["A11","B11","C11","D11","E11","F11","G11","H11"],["A12","B12","C12","D12","E12","F12","G12","H12"]],"brand":{"brand":"BayOmics","brandId":[]},"metadata":{"displayName":"BayOmics 96 Well Plate 1200 µL","displayCategory":"wellPlate","displayVolumeUnits":"µL","tags":[]},"dimensions":{"xDimension":127,"yDimension":85,"zDimension":24.6},"wells":{"A1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":73.85,"z":2.9},"B1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":64.85,"z":2.9},"C1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":55.85,"z":2.9},"D1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":46.85,"z":2.9},"E1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":37.85,"z":2.9},"F1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":28.85,"z":2.9},"G1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":19.85,"z":2.9},"H1":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":14.3,"y":10.85,"z":2.9},"A2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":73.85,"z":2.9},"B2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":64.85,"z":2.9},"C2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":55.85,"z":2.9},"D2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":46.85,"z":2.9},"E2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":37.85,"z":2.9},"F2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":28.85,"z":2.9},"G2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":19.85,"z":2.9},"H2":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":23.3,"y":10.85,"z":2.9},"A3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":73.85,"z":2.9},"B3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":64.85,"z":2.9},"C3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":55.85,"z":2.9},"D3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":46.85,"z":2.9},"E3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":37.85,"z":2.9},"F3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":28.85,"z":2.9},"G3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":19.85,"z":2.9},"H3":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":32.3,"y":10.85,"z":2.9},"A4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":73.85,"z":2.9},"B4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":64.85,"z":2.9},"C4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":55.85,"z":2.9},"D4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":46.85,"z":2.9},"E4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":37.85,"z":2.9},"F4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":28.85,"z":2.9},"G4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":19.85,"z":2.9},"H4":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":41.3,"y":10.85,"z":2.9},"A5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":73.85,"z":2.9},"B5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":64.85,"z":2.9},"C5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":55.85,"z":2.9},"D5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":46.85,"z":2.9},"E5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":37.85,"z":2.9},"F5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":28.85,"z":2.9},"G5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":19.85,"z":2.9},"H5":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":50.3,"y":10.85,"z":2.9},"A6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":73.85,"z":2.9},"B6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":64.85,"z":2.9},"C6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":55.85,"z":2.9},"D6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":46.85,"z":2.9},"E6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":37.85,"z":2.9},"F6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":28.85,"z":2.9},"G6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":19.85,"z":2.9},"H6":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":59.3,"y":10.85,"z":2.9},"A7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":73.85,"z":2.9},"B7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":64.85,"z":2.9},"C7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":55.85,"z":2.9},"D7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":46.85,"z":2.9},"E7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":37.85,"z":2.9},"F7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":28.85,"z":2.9},"G7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":19.85,"z":2.9},"H7":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":68.3,"y":10.85,"z":2.9},"A8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":73.85,"z":2.9},"B8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":64.85,"z":2.9},"C8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":55.85,"z":2.9},"D8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":46.85,"z":2.9},"E8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":37.85,"z":2.9},"F8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":28.85,"z":2.9},"G8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":19.85,"z":2.9},"H8":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":77.3,"y":10.85,"z":2.9},"A9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":73.85,"z":2.9},"B9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":64.85,"z":2.9},"C9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":55.85,"z":2.9},"D9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":46.85,"z":2.9},"E9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":37.85,"z":2.9},"F9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":28.85,"z":2.9},"G9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":19.85,"z":2.9},"H9":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":86.3,"y":10.85,"z":2.9},"A10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":73.85,"z":2.9},"B10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":64.85,"z":2.9},"C10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":55.85,"z":2.9},"D10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":46.85,"z":2.9},"E10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":37.85,"z":2.9},"F10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":28.85,"z":2.9},"G10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":19.85,"z":2.9},"H10":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":95.3,"y":10.85,"z":2.9},"A11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":73.85,"z":2.9},"B11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":64.85,"z":2.9},"C11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":55.85,"z":2.9},"D11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":46.85,"z":2.9},"E11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":37.85,"z":2.9},"F11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":28.85,"z":2.9},"G11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":19.85,"z":2.9},"H11":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":104.3,"y":10.85,"z":2.9},"A12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":73.85,"z":2.9},"B12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":64.85,"z":2.9},"C12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":55.85,"z":2.9},"D12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":46.85,"z":2.9},"E12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":37.85,"z":2.9},"F12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":28.85,"z":2.9},"G12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":19.85,"z":2.9},"H12":{"depth":21.7,"totalLiquidVolume":1200,"shape":"rectangular","xDimension":8,"yDimension":8,"x":113.3,"y":10.85,"z":2.9}},"groups":[{"metadata":{"wellBottomShape":"u"},"wells":["A1","B1","C1","D1","E1","F1","G1","H1","A2","B2","C2","D2","E2","F2","G2","H2","A3","B3","C3","D3","E3","F3","G3","H3","A4","B4","C4","D4","E4","F4","G4","H4","A5","B5","C5","D5","E5","F5","G5","H5","A6","B6","C6","D6","E6","F6","G6","H6","A7","B7","C7","D7","E7","F7","G7","H7","A8","B8","C8","D8","E8","F8","G8","H8","A9","B9","C9","D9","E9","F9","G9","H9","A10","B10","C10","D10","E10","F10","G10","H10","A11","B11","C11","D11","E11","F11","G11","H11","A12","B12","C12","D12","E12","F12","G12","H12"]}],"parameters":{"format":"irregular","quirks":[],"isTiprack":false,"isMagneticModuleCompatible":false,"loadName":"bayomics_96_wellplate_1200ul"},"namespace":"custom_beta","version":1,"schemaVersion":2,"cornerOffsetFromSlot":{"x":0,"y":0,"z":0}}"""
 USER_LIQUID_LABWARE_DEF = json.loads(USER_LIQUID_LABWARE_DEF_JSON)
-USER_LIQUID_LABWARE_LABEL = LABWARE_DEF.get('metadata', {}).get(
-    'displayName', 'test labware')
+USER_LIQUID_LABWARE_LABEL = LABWARE_DEF.get('metadata', {}).get('displayName', 'test labware')
 USER_LIQUID_LABWARE_DIMENSIONS = LABWARE_DEF.get('wells', {}).get('A1', {}).get('yDimension')
 
 """
@@ -43,6 +41,7 @@ User Arguments, 定义用户参数
 6. DARK_DURATION 遮光孵化时间 (min)
 7. HEAT_TEMP_GAP 加热设备真实与预期的差值 （摄氏度）
 8. USE_MODE 运行模式 调试模式会缩短运行时间
+9. WORK_POSITION_FOR_Z Z 轴到达的工作位置
 """
 LIQUID_CAL_RANGE = 880
 LIQUID_REAL_RANGE = 1000
@@ -54,8 +53,8 @@ USER_LIQUID = {
     "Et": {5: LIQUID_REAL_RANGE},
     "Ds": {6: LIQUID_REAL_RANGE},
     "Wa": {7: LIQUID_REAL_RANGE, 8: LIQUID_REAL_RANGE, 9: LIQUID_REAL_RANGE},
-    "Sample": {1: LIQUID_REAL_RANGE},
-    "Enzyme": {1: LIQUID_REAL_RANGE}
+    "Sample": {1: LIQUID_REAL_RANGE},  # 35
+    "Enzyme": {1: LIQUID_REAL_RANGE}  # 20
 }  # BayOmics Liquid loaded on slot1, 每种液体定义所在列及孔板容量(Ul)
 
 SERIAL_DEVICE_INDEX = 1
@@ -74,10 +73,13 @@ EXPLAIN_FLAG = False
 
 RUN_TIMES = 0
 
+WORK_POSITION_FOR_Z = "AC67FFFF"
+
 
 class DropMethod(Enum):
     DoNotDrop = 1  # 不丢针管
     DropAtLast = 2  # 最后再丢针管
+    DoNotPickUp = 5
     DropForAColumn = 3  # 完成一列移液后丢针管
     DropOnceUse = 4  # 一旦使用就丢针管
 
@@ -235,6 +237,8 @@ class BasicDriver:
         display screen number
         :return:
         """
+        if _round > 9999:
+            _round = 9999
         self.print_f(f"Setting Round {_round}...")
         # 设置小数点 - 0
         if initial_point:
@@ -308,7 +312,7 @@ class BasicDriver:
         :return:
         """
         if "y" in axis:
-            self.send_to_device("06 10 00 03 00 02 04 00 00 44 7A", "Set Y Axis Speed", verify="061000030002")
+            self.send_to_device("06 10 00 03 00 02 04 00 00 44 FA", "Set Y Axis Speed", verify="061000030002")  # 44 7A
         elif 'z' in axis:
             self.send_to_device("071000030002048000463B", "Set Z Axis Speed", verify="071000030002")  # 8000463B
         elif "r" in axis:
@@ -329,13 +333,6 @@ class BasicDriver:
             self.opentrons_delay(5)
             self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
             self.judge_pos(60, 'r', "00000000")
-        if y:
-            self.set_axis_speed('y')
-            self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
-            self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
-            self.opentrons_delay(1.5)
-            self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
-            self.judge_pos(30, 'y', "00000000")
         if z:
             self.set_axis_speed('z')
             self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
@@ -343,6 +340,13 @@ class BasicDriver:
             self.opentrons_delay(1)
             self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
             self.judge_pos(30, 'z', "00000000")
+        if y:
+            self.set_axis_speed('y')
+            self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
+            self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
+            self.opentrons_delay(1.5)
+            self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+            self.judge_pos(30, 'y', "00000000")
 
     def init_motors(self, y=True, z=True, r=True):
         """
@@ -550,9 +554,9 @@ class BasicDriver:
         # 设置小数点 - 0
         if not self.led_virtual:
             self.send_to_device("010600100003", "Set Led Point")
-        # set round
-        set_number = self._format_hex(value)
-        self.send_to_device(f"01060007{set_number}", "Set Led Value")
+            # set round
+            set_number = self._format_hex(value)
+            self.send_to_device(f"01060007{set_number}", "Set Led Value")
 
     def set_pressure(self, pressure, duration):
         """
@@ -562,10 +566,13 @@ class BasicDriver:
         :return:
         """
         self.move_to_work_position()
-        pressure_kpa = pressure * 1000
+        if USE_MODE == "Debugging":
+            pressure_kpa = 0
+        else:
+            pressure_kpa = pressure * 1000
         # 显示压力值
         self.set_led_pressure_value(int(pressure_kpa))
-        voltage_mv = int(((pressure_kpa + 123.75) / 124.75) * 1000)
+        voltage_mv = int(((pressure_kpa + 123.75) / 124.75) * 1000)  # * 10000
         voltage_mv_string = self._format_hex(voltage_mv)
         self.send_to_device("03 05 00 41 FF 00", "Pressure Open")  # 阀门开启
         self.send_to_device(f"0406000A{voltage_mv_string}", f"Set Pressure {pressure} Mpa", verify="")  # 设置正压
@@ -583,7 +590,7 @@ class BasicDriver:
         if home:
             self.home()
         self.move_y("BA24FFFF")
-        self.move_z("AC67FFFF")
+        self.move_z(WORK_POSITION_FOR_Z)
 
     def release_work_position(self):
         """
@@ -714,6 +721,12 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
         elif drop_method == DropMethod.DropForAColumn:
             drop = True
             pick_up = True
+        elif drop_method == DropMethod.DoNotDrop:
+            pick_up = True if i == 0 else False
+            drop = False
+        elif drop_method == DropMethod.DoNotPickUp:
+            pick_up = False
+            drop = True if i == (int(sample_counts / 8) - 1) else False
         else:
             drop = True
             pick_up = True
@@ -773,6 +786,13 @@ def add_parameters(parameters: protocol_api.Parameters):
         variable_name="led_virtual",
         display_name="LED虚拟值显示",
         description="是否按虚拟值显示当前LED",
+        default=True
+    )
+
+    parameters.add_bool(
+        variable_name="pause_selection",
+        display_name="暂停观察",
+        description="是否运行过程中等待操作员操作",
         default=True
     )
 
@@ -836,6 +856,15 @@ def run(protocol: protocol_api.ProtocolContext):
     sample_counts = protocol.params.sample_number
     led_virtual = protocol.params.led_virtual
     user_pwd = protocol.params.user_pwd
+    pause_selection = protocol.params.pause_selection
+    """
+    检查参数
+    """
+    verificaiton_value = sample_counts % 8
+    assert verificaiton_value == 0, 'sample counts should be multiples of 8 (样本数不是8的倍数)'
+
+    def _move_to():
+        left_pipette.move_to(move_to_location['A1'].top(z=50))
 
     """一、连接串口
     1. 建立设备连接
@@ -849,7 +878,7 @@ def run(protocol: protocol_api.ProtocolContext):
     if auth:
         serial_module.led_virtual = led_virtual
     else:
-        serial_module.led_virtual = False
+        serial_module.led_virtual = True
     if serial_module.device is not None:
         protocol.comment(">>>>>2.初始化设备<<<<<")
         """二、初始化
@@ -867,39 +896,46 @@ def run(protocol: protocol_api.ProtocolContext):
             temp_mod.start_set_temperature(celsius=4)
 
         protocol.comment(">>>>>3.开始实验<<<<<")
+        _protocol = None
         """三、执行实验步骤(移液&正压)
         1. 向样本处理器中加入60ul试剂 Ac
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 60, move_to_location,
-                        serial_module, pressure=0.02, duration=60, protocol=protocol)
+                        serial_module, pressure=0.02, duration=60, protocol=_protocol)
         """三、执行实验步骤(移液&正压)
         2. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, pressure=0.06, duration=60, protocol=protocol)
+                        serial_module, pressure=0.06, duration=60, protocol=_protocol)
+        if pause_selection:
+            protocol.pause("观察试剂过柱情况")
         """三、执行实验步骤(移液&正压)
         3. 向样本处理器中加入30ul样本
         """
         transform_round(left_pipette, sample_liquid, user_labware, "Sample", sample_counts, 30, move_to_location,
-                        serial_module, pressure=0.02, duration=180, drop_method=DropMethod.DropForAColumn, protocol=protocol)
+                        serial_module, pressure=0.02, duration=180, drop_method=DropMethod.DropForAColumn,
+                        protocol=_protocol)
         """三、执行实验步骤(移液&正压)
         4. 向样本处理器中加入30ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 30, move_to_location,
-                        serial_module, pressure=0.03, duration=60, protocol=protocol)
+                        serial_module, pressure=0.03, duration=60, protocol=_protocol)
         """三、执行实验步骤(移液&正压)
         5. 向样本处理器中加入30ul试剂 Ac
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 30, move_to_location,
-                        serial_module, pressure=0.03, duration=60, protocol=protocol)
+                        serial_module, pressure=0.03, duration=60, protocol=_protocol)
         """三、执行实验步骤(移液&正压)
         6. 向样本处理器中加入30ul试剂 Rd - 再加入30ul Rd -  遮光孵化 - 正压
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
-                        serial_module, pressure=0.04, duration=20, protocol=protocol)
+                        serial_module, pressure=0.04, duration=20, protocol=_protocol, drop_method=DropMethod.DoNotDrop)
+        _move_to()
         transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
-                        serial_module, pressure=0.04, duration=20, protocol=protocol)
-        protocol.pause("开始做避光孵化，请确认...")
+                        serial_module, pressure=0.04, duration=20, protocol=_protocol,
+                        drop_method=DropMethod.DoNotPickUp)
+        if pause_selection:
+            protocol.pause("开始做避光孵化，请确认...")
         if USE_MODE == "Debugging":
             serial_module.dark_incubation(1)
         else:
@@ -909,14 +945,16 @@ def run(protocol: protocol_api.ProtocolContext):
         7. 向样本处理器中加入30ul试剂 Ds
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ds", sample_counts, 30, move_to_location,
-                        serial_module, pressure=0.05, duration=40, protocol=protocol)
+                        serial_module, pressure=0.05, duration=40, protocol=_protocol)
         """三、执行实验步骤(移液&正压)
         8. 向样本处理器中加入13ul + 5ul酶
         """
         transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 13, move_to_location,
-                        serial_module, pressure=0.04, duration=16, protocol=protocol)
+                        serial_module, pressure=0.04, duration=16, protocol=_protocol, drop_method=DropMethod.DoNotDrop)
+        _move_to()
         transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 5, move_to_location,
-                        serial_module, pressure=0.02, duration=5, protocol=protocol)
+                        serial_module, pressure=0.02, duration=5, protocol=_protocol,
+                        drop_method=DropMethod.DoNotPickUp)
         # close td
         if USE_MODE == "Debugging":
             pass
@@ -936,19 +974,20 @@ def run(protocol: protocol_api.ProtocolContext):
         10. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, pressure=0.07, duration=60)
+                        serial_module, pressure=0.07, duration=60, drop_method=DropMethod.DoNotDrop)
+        _move_to()
         """三、执行实验步骤(移液&正压)
         11. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, pressure=0.07, duration=60)
+                        serial_module, pressure=0.07, duration=60, drop_method=DropMethod.DoNotPickUp)
         protocol.pause("请更换收集板...")
         """三、执行实验步骤(移液&正压)
         12. 向样本处理器中加入60ul试剂 Et
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Et", sample_counts, 60, move_to_location,
                         serial_module, pressure=0.03, duration=60)
-
+        protocol.pause("实验结束...恢复即将复位设备...")
     if serial_module.device is not None:
         protocol.comment(">>>>>4.实验结束<<<<<")
         serial_module.release_device()
