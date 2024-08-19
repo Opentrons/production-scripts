@@ -53,21 +53,21 @@ SINGLE_VOLUME = 20
 DARK_DURATION = 1
 
 USER_PRESSURE = {
-    "Step1": {"pressure": 0.02, "duration": 60},
-    "Step2": {"pressure": 0.06, "duration": 60},
-    "Step3": {"pressure": 0.02, "duration": 180},
-    "Step4": {"pressure": 0.03, "duration": 60},
-    "Step5": {"pressure": 0.03, "duration": 60},
-    "Step6_1": {"pressure": 0.04, "duration": 20},
-    "Step6_2": {"pressure": 0.04, "duration": 20},
-    "Step6_3": {"pressure": 0.04, "duration": 60},
-    "Step7": {"pressure": 0.05, "duration": 40},
-    "Step8_1": {"pressure": 0.04, "duration": 16},
-    "Step8_2": {"pressure": 0.02, "duration": 5},
-    "Step9": {"pressure": 0.04, "duration": 100},
-    "Step10": {"pressure": 0.07, "duration": 60},
-    "Step11": {"pressure": 0.07, "duration": 60},
-    "Step12": {"pressure": 0.03, "duration": 60},
+    "step1": {"pressure": 0.02, "duration": 60},
+    "step2": {"pressure": 0.06, "duration": 60},
+    "step3": {"pressure": 0.02, "duration": 180},
+    "step4": {"pressure": 0.03, "duration": 60},
+    "step5": {"pressure": 0.03, "duration": 60},
+    "step6_1": {"pressure": 0.04, "duration": 20},
+    "step6_2": {"pressure": 0.04, "duration": 20},
+    "step6_3": {"pressure": 0.04, "duration": 60},
+    "step7": {"pressure": 0.05, "duration": 40},
+    "step8_1": {"pressure": 0.04, "duration": 16},
+    "step8_2": {"pressure": 0.02, "duration": 5},
+    "step9": {"pressure": 0.04, "duration": 100},
+    "step10": {"pressure": 0.07, "duration": 60},
+    "step11": {"pressure": 0.07, "duration": 60},
+    "step12": {"pressure": 0.03, "duration": 60},
 
 }
 
@@ -90,7 +90,6 @@ class UserMode(Enum):
     Debugging = 1
     Running = 2
 
-
 class BayOmicsLib:
     @classmethod
     def get_com_list(cls):
@@ -102,7 +101,7 @@ class BayOmicsLib:
         self.port = None
         self.device = None
         self.protocol: protocol_api.ProtocolContext = protocol
-        self.simulate = False
+        self.simulate = True
         self.led_virtual = True
         self.verify = True
         self.explain_flag = True
@@ -119,19 +118,19 @@ class BayOmicsLib:
 
     def build_connection(self, simulating, led_virtual, user_pwd):
         res = BayOmicsLib.get_com_list()
+        self.simulate = simulating
         self.print_f("=" * 5 + "PORT LIST" + "=" * 5)
         for index, p in enumerate(res):
             self.print_f(f"{index + 1} >>{p.device}")
         # select = input("Select Port Number(输入串口号对应的数字):")
         select = str(SERIAL_DEVICE_INDEX)
         if self.port is None:
-            if len(res) == 0:
+            if len(res) == 0 or self.simulate is True:
                 self.port = "None"
+                self.device = None
+                return
             else:
                 self.port = res[int(select.strip()) - 1].device
-        if self.port == "None":
-            self.device = None
-            return
         self.device = serial.Serial(self.port, self.baud, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
                                     bytesize=serial.EIGHTBITS, timeout=1)
         if self.device.isOpen():
@@ -141,7 +140,7 @@ class BayOmicsLib:
         self.device.parity = serial.PARITY_NONE  # 无校验
         self.device.stopbits = serial.STOPBITS_ONE  # 停止位 1
         # init
-        self.simulate = simulating
+
         auth = _auth(user_pwd)
         if auth:
             self.led_virtual = led_virtual
@@ -658,27 +657,8 @@ class BayOmicsLib:
         self.close_device()
         self.set_lights(False)
 
-    def init_loop(self):
-        """
-        run main
-        :return:
-        """
-        """ 一、串口连接
-        1. 连接串口
-        2. 初始化led
-        """
-        self.build_connection()
-        self.init_led()
 
-        """ 二、初始化
-        1. 使能电机，初始化速度和复位
-        2. 关闭加压
-        3. 关闭温度控制器
-        """
-        self.init_device()
-
-
-def _transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
+def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                          customer_labware: protocol_api.labware, customer_labware_pos: str, liquid_name: str,
                          volume: float, move_location: protocol_api.Labware, pick_up=False, drop=False):
     """
@@ -723,6 +703,8 @@ def _transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labwar
         assert aspirate_flag, "Aspirate liquid fail"
         pipette.dispense(SINGLE_VOLUME, customer_labware[customer_labware_pos])
         pipette.blow_out(customer_labware[customer_labware_pos])
+        if liquid_name == 'Ac' or liquid_name == 'Et':
+            pipette.touch_tip(speed=30)
 
     if _trans_last_volume > 0:
         if liquid_name != "Sample" and liquid_name != "Enzyme":
@@ -738,6 +720,8 @@ def _transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labwar
         assert aspirate_flag, "Aspirate liquid fail"
         pipette.dispense(_trans_last_volume, customer_labware[customer_labware_pos])
         pipette.blow_out(customer_labware[customer_labware_pos])
+        if liquid_name == 'Ac' or liquid_name == 'Et':
+            pipette.touch_tip(speed=30)
     _drop_tip()
 
 
@@ -779,7 +763,7 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
         else:
             drop = True
             pick_up = True
-        _transfer_user_liquid(pipette, liquid_labware, customer_labware, f'A{i + 1}', liquid_name, volume, move_location,
+        transfer_user_liquid(pipette, liquid_labware, customer_labware, f'A{i + 1}', liquid_name, volume, move_location,
                              pick_up=pick_up, drop=drop)
     if drop_method == DropMethod.DoNotDrop:
         pipette.move_to(move_location['A1'].top(z=50))

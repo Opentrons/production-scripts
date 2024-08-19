@@ -8,7 +8,7 @@ from BayOmicsLib import UserMode, DropMethod, transform_round, USER_PRESSURE, DA
 
 # metadata
 metadata = {
-    "protocolName": "__BayOmicsTemperatureModule__V1.4.5",
+    "protocolName": "__BayOmicsTemperatureModule__V1.4.8",
     "author": "Name <opentrons@example.com>",
     "description": "Simple protocol to get started using the OT-2",
 }
@@ -124,6 +124,7 @@ def run(protocol: protocol_api.ProtocolContext):
     protocol.comment(">>>>>1.连接串口<<<<<")
     serial_module = BayOmicsLib(19200, protocol)
     serial_module.build_connection(simulating, led_virtual, user_pwd)
+    serial_module.user_mode = UserMode.Debugging
 
     if serial_module.device is not None:
         protocol.comment(">>>>>2.初始化设备<<<<<")
@@ -231,6 +232,6 @@ def run(protocol: protocol_api.ProtocolContext):
         transform_round(left_pipette, customer_liquid, user_labware, "Et", sample_counts, 60, move_to_location,
                         serial_module, pressure_setting=USER_PRESSURE['step12'])
         protocol.pause("实验结束...恢复即将复位设备...")
-    if serial_module.device is not None:
+
         protocol.comment(">>>>>4.实验结束<<<<<")
         serial_module.release_device()

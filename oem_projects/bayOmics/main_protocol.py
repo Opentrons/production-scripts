@@ -101,7 +101,7 @@ class UserMode(Enum):
     Running = 2
 
 
-class BasicDriver:
+class BayOmicsLib:
     @classmethod
     def get_com_list(cls):
         port_list = serial.tools.list_ports.comports()
@@ -128,7 +128,7 @@ class BasicDriver:
         self.protocol.comment(msg)
 
     def build_connection(self, simulating, led_virtual, user_pwd):
-        res = BasicDriver.get_com_list()
+        res = BayOmicsLib.get_com_list()
         self.simulate = simulating
         self.print_f("=" * 5 + "PORT LIST" + "=" * 5)
         for index, p in enumerate(res):
@@ -715,7 +715,7 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
         pipette.dispense(SINGLE_VOLUME, customer_labware[customer_labware_pos])
         pipette.blow_out(customer_labware[customer_labware_pos])
         if liquid_name == 'Ac' or liquid_name == 'Et':
-            pipette.touch_tip()
+            pipette.touch_tip(speed=30)
 
     if _trans_last_volume > 0:
         if liquid_name != "Sample" and liquid_name != "Enzyme":
@@ -732,13 +732,13 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
         pipette.dispense(_trans_last_volume, customer_labware[customer_labware_pos])
         pipette.blow_out(customer_labware[customer_labware_pos])
         if liquid_name == 'Ac' or liquid_name == 'Et':
-            pipette.touch_tip()
+            pipette.touch_tip(speed=30)
     _drop_tip()
 
 
 def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                     customer_labware: protocol_api.labware, liquid_name: str, sample_counts: int,
-                    volume: float, move_location: protocol_api.Labware, serial_device: BasicDriver, pressure=None,
+                    volume: float, move_location: protocol_api.Labware, serial_device: BayOmicsLib, pressure=None,
                     duration=30, drop_method: DropMethod = DropMethod.DropAtLast, protocol=None,
                     pressure_setting: dict = None):
     """
@@ -923,7 +923,7 @@ def run(protocol: protocol_api.ProtocolContext):
     2. 初始化LED屏幕
     """
     protocol.comment(">>>>>1.连接串口<<<<<")
-    serial_module = BasicDriver(19200, protocol)
+    serial_module = BayOmicsLib(19200, protocol)
     serial_module.build_connection(simulating, led_virtual, user_pwd)
     serial_module.user_mode = UserMode.Debugging
 
