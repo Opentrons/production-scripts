@@ -1,5 +1,0 @@
-setup.py
-bayOmicsLib.egg-info/PKG-INFO
-bayOmicsLib.egg-info/SOURCES.txt
-bayOmicsLib.egg-info/dependency_links.txt
-bayOmicsLib.egg-info/top_level.txt

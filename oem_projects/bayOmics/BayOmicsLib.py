@@ -54,7 +54,7 @@ class DropMethod(Enum):
     DropOnceUse = 4  # 一旦使用就丢针管
 
 
-class BasicDriver:
+class BayOmicsLib:
     @classmethod
     def get_com_list(cls):
         port_list = serial.tools.list_ports.comports()
@@ -75,7 +75,7 @@ class BasicDriver:
         self.protocol.comment(msg)
 
     def build_connection(self):
-        res = BasicDriver.get_com_list()
+        res = BayOmicsLib.get_com_list()
         self.print_f("=" * 5 + "PORT LIST" + "=" * 5)
         for index, p in enumerate(res):
             self.print_f(f"{index + 1} >>{p.device}")
@@ -606,7 +606,7 @@ class BasicDriver:
         self.init_device()
 
 
-def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
+def _transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                          customer_labware: protocol_api.labware, customer_labware_pos: str, liquid_name: str,
                          volume: float, move_location: protocol_api.Labware, pick_up=False, drop=False):
     """
@@ -661,7 +661,7 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
 
 def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                     customer_labware: protocol_api.labware, liquid_name: str, sample_counts: int,
-                    volume: float, move_location: protocol_api.Labware, serial_device: BasicDriver, pressure=None,
+                    volume: float, move_location: protocol_api.Labware, serial_device: BayOmicsLib, pressure=None,
                     duration=30, drop_method: DropMethod = DropMethod.DropAtLast, protocol=None):
     """
     执行加液，正压，一个流程
@@ -689,7 +689,7 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
         else:
             drop = True
             pick_up = True
-        transfer_user_liquid(pipette, liquid_labware, customer_labware, f'A{i + 1}', liquid_name, volume, move_location,
+        _transfer_user_liquid(pipette, liquid_labware, customer_labware, f'A{i + 1}', liquid_name, volume, move_location,
                              pick_up=pick_up, drop=drop)
     if pressure:
         if USE_MODE == "Debugging":
