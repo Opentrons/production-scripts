@@ -19,7 +19,7 @@ requirements = {"robotType": "OT-2", "apiLevel": "2.18"}
 """
 customer labware
 """
-USER_LABWARE_SLOT = '9'
+USER_LABWARE_SLOT = '8'
 LABWARE_DEF_JSON = """{"ordering":[["A1","B1","C1","D1","E1","F1","G1","H1"],["A2","B2","C2","D2","E2","F2","G2","H2"],["A3","B3","C3","D3","E3","F3","G3","H3"],["A4","B4","C4","D4","E4","F4","G4","H4"],["A5","B5","C5","D5","E5","F5","G5","H5"],["A6","B6","C6","D6","E6","F6","G6","H6"],["A7","B7","C7","D7","E7","F7","G7","H7"],["A8","B8","C8","D8","E8","F8","G8","H8"],["A9","B9","C9","D9","E9","F9","G9","H9"],["A10","B10","C10","D10","E10","F10","G10","H10"],["A11","B11","C11","D11","E11","F11","G11","H11"],["A12","B12","C12","D12","E12","F12","G12","H12"]],"brand":{"brand":"BayOmics2","brandId":["v2"]},"metadata":{"displayName":"BayOmics2 96 Well Plate 1000 µL","displayCategory":"wellPlate","displayVolumeUnits":"µL","tags":[]},"dimensions":{"xDimension":127.56,"yDimension":85.36,"zDimension":130.74},"wells":{"A1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":74.18,"z":126.24},"B1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":65.18,"z":126.24},"C1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":56.18,"z":126.24},"D1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":47.18,"z":126.24},"E1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":38.18,"z":126.24},"F1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":29.18,"z":126.24},"G1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":20.18,"z":126.24},"H1":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":14.28,"y":11.18,"z":126.24},"A2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":74.18,"z":126.24},"B2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":65.18,"z":126.24},"C2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":56.18,"z":126.24},"D2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":47.18,"z":126.24},"E2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":38.18,"z":126.24},"F2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":29.18,"z":126.24},"G2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":20.18,"z":126.24},"H2":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":23.28,"y":11.18,"z":126.24},"A3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":74.18,"z":126.24},"B3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":65.18,"z":126.24},"C3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":56.18,"z":126.24},"D3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":47.18,"z":126.24},"E3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":38.18,"z":126.24},"F3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":29.18,"z":126.24},"G3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":20.18,"z":126.24},"H3":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":32.28,"y":11.18,"z":126.24},"A4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":74.18,"z":126.24},"B4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":65.18,"z":126.24},"C4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":56.18,"z":126.24},"D4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":47.18,"z":126.24},"E4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":38.18,"z":126.24},"F4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":29.18,"z":126.24},"G4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":20.18,"z":126.24},"H4":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":41.28,"y":11.18,"z":126.24},"A5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":74.18,"z":126.24},"B5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":65.18,"z":126.24},"C5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":56.18,"z":126.24},"D5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":47.18,"z":126.24},"E5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":38.18,"z":126.24},"F5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":29.18,"z":126.24},"G5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":20.18,"z":126.24},"H5":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":50.28,"y":11.18,"z":126.24},"A6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":74.18,"z":126.24},"B6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":65.18,"z":126.24},"C6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":56.18,"z":126.24},"D6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":47.18,"z":126.24},"E6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":38.18,"z":126.24},"F6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":29.18,"z":126.24},"G6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":20.18,"z":126.24},"H6":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":59.28,"y":11.18,"z":126.24},"A7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":74.18,"z":126.24},"B7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":65.18,"z":126.24},"C7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":56.18,"z":126.24},"D7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":47.18,"z":126.24},"E7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":38.18,"z":126.24},"F7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":29.18,"z":126.24},"G7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":20.18,"z":126.24},"H7":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":68.28,"y":11.18,"z":126.24},"A8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":74.18,"z":126.24},"B8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":65.18,"z":126.24},"C8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":56.18,"z":126.24},"D8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":47.18,"z":126.24},"E8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":38.18,"z":126.24},"F8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":29.18,"z":126.24},"G8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":20.18,"z":126.24},"H8":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":77.28,"y":11.18,"z":126.24},"A9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":74.18,"z":126.24},"B9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":65.18,"z":126.24},"C9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":56.18,"z":126.24},"D9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":47.18,"z":126.24},"E9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":38.18,"z":126.24},"F9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":29.18,"z":126.24},"G9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":20.18,"z":126.24},"H9":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":86.28,"y":11.18,"z":126.24},"A10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":74.18,"z":126.24},"B10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":65.18,"z":126.24},"C10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":56.18,"z":126.24},"D10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":47.18,"z":126.24},"E10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":38.18,"z":126.24},"F10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":29.18,"z":126.24},"G10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":20.18,"z":126.24},"H10":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":95.28,"y":11.18,"z":126.24},"A11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":74.18,"z":126.24},"B11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":65.18,"z":126.24},"C11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":56.18,"z":126.24},"D11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":47.18,"z":126.24},"E11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":38.18,"z":126.24},"F11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":29.18,"z":126.24},"G11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":20.18,"z":126.24},"H11":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":104.28,"y":11.18,"z":126.24},"A12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":74.18,"z":126.24},"B12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":65.18,"z":126.24},"C12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":56.18,"z":126.24},"D12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":47.18,"z":126.24},"E12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":38.18,"z":126.24},"F12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":29.18,"z":126.24},"G12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":20.18,"z":126.24},"H12":{"depth":4.5,"totalLiquidVolume":1000,"shape":"circular","diameter":4.89,"x":113.28,"y":11.18,"z":126.24}},"groups":[{"metadata":{"wellBottomShape":"v"},"wells":["A1","B1","C1","D1","E1","F1","G1","H1","A2","B2","C2","D2","E2","F2","G2","H2","A3","B3","C3","D3","E3","F3","G3","H3","A4","B4","C4","D4","E4","F4","G4","H4","A5","B5","C5","D5","E5","F5","G5","H5","A6","B6","C6","D6","E6","F6","G6","H6","A7","B7","C7","D7","E7","F7","G7","H7","A8","B8","C8","D8","E8","F8","G8","H8","A9","B9","C9","D9","E9","F9","G9","H9","A10","B10","C10","D10","E10","F10","G10","H10","A11","B11","C11","D11","E11","F11","G11","H11","A12","B12","C12","D12","E12","F12","G12","H12"]}],"parameters":{"format":"irregular","quirks":[],"isTiprack":false,"isMagneticModuleCompatible":false,"loadName":"bayomics2_96_wellplate_1000ul"},"namespace":"custom_beta","version":1,"schemaVersion":2,"cornerOffsetFromSlot":{"x":0,"y":0,"z":0}}"""
 LABWARE_DEF = json.loads(LABWARE_DEF_JSON)
 LABWARE_LABEL = LABWARE_DEF.get('metadata', {}).get('displayName', 'test labware')
@@ -116,8 +116,8 @@ class BayOmicsLib:
         self.led_virtual = True
         self.verify = True
         self.explain_flag = True
-        self.WORK_POSITION_FOR_Z = "AC67FFFF"
-        self.WORK_POSITION_FOR_Y = "BA24FFFF"
+        self.WORK_POSITION_FOR_Z = "8E3EFFFF"
+        self.WORK_POSITION_FOR_Y = "BAD0FFFF"
         self.user_mode = UserMode.Running
         self.HEAT_TEMP_GAP = 2
 
@@ -297,6 +297,16 @@ class BayOmicsLib:
         if not self.led_virtual:
             self.set_led_pressure_value(0)
 
+    def read_pressure(self):
+        """
+        读取气压值
+        """
+        data = self.send_to_device("04 04 00 00 00 01", "Read Pressure", verify="")
+        value = data[6:10]
+        value = int(value, 16) / 1000
+        value_mpa = 0.125 * value - 0.124
+        return value_mpa
+
     def set_motor_enable(self, y=True, z=True, r=True):
         """
         set motor enable
@@ -367,14 +377,14 @@ class BayOmicsLib:
             self.set_axis_speed('z')
             self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
             self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
-            self.opentrons_delay(1)
+            self.opentrons_delay(0.5)
             self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
             self.judge_pos(30, 'z', "00000000")
         if y:
             self.set_axis_speed('y')
             self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
             self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
-            self.opentrons_delay(1.5)
+            self.opentrons_delay(1)
             self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
             self.judge_pos(30, 'y', "00000000")
 
@@ -616,13 +626,19 @@ class BayOmicsLib:
             pressure_kpa = 0
         else:
             pressure_kpa = pressure * 1000
-        # 显示压力值
-        self.set_led_pressure_value(int(pressure_kpa))
         # voltage_mv = int(((pressure_kpa + 123.75) / 124.75) * 1000)  # * 10000
         voltage_mv = int(pressure_kpa * 10)
         voltage_mv_string = self._format_hex(voltage_mv)
         self.send_to_device("03 05 00 41 FF 00", "Pressure Open")  # 阀门开启
         self.send_to_device(f"0406000A{voltage_mv_string}", f"Set Pressure {pressure} Mpa", verify="")  # 设置正压
+        self.opentrons_delay(1)
+        pressure = self.read_pressure()
+
+        # 显示压力值
+        _pressure = int(pressure * 1000)
+        if _pressure <= 0:
+            _pressure = 0
+        self.set_led_pressure_value(_pressure)
         self.opentrons_delay(duration)
         # 关闭压力
         self.set_pressure_off()
@@ -644,7 +660,7 @@ class BayOmicsLib:
         释放work position, ready home
         :return:
         """
-        # self.move_z("00000000")
+        self.move_z("00000000")
         self.home(r=False)
 
     def init_led(self):
@@ -671,7 +687,8 @@ class BayOmicsLib:
 
 def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                          customer_labware: protocol_api.labware, customer_labware_pos: str, liquid_name: str,
-                         volume: float, move_location: protocol_api.Labware, pick_up=False, drop=False):
+                         volume: float, move_location: protocol_api.Labware, pick_up_location: protocol_api.Labware,
+                         pick_up=False, drop=False):
     """
     移液&加压
     :param pipette:
@@ -681,6 +698,7 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
     :param liquid_name:
     :param volume:
     :param move_location:
+    :param pick_up_location:
     :param drop:
     :param pick_up:
     :return:
@@ -693,9 +711,13 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
             pipette.move_to(move_location['A1'].top(z=50))
             pipette.drop_tip()
 
+    def _pick_up():
+        pipette.move_to(pick_up_location['A1'].top(z=50))
+        pipette.pick_up_tip()
+
     aspirate_flag = False
     if pick_up:
-        pipette.pick_up_tip()
+        _pick_up()
     liquid: dict = USER_LIQUID[liquid_name]
     _trans_times = int(volume / SINGLE_VOLUME)
     _trans_last_volume = (volume % SINGLE_VOLUME)
@@ -738,8 +760,9 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
 
 def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                     customer_labware: protocol_api.labware, liquid_name: str, sample_counts: int,
-                    volume: float, move_location: protocol_api.Labware, serial_device: BayOmicsLib, pressure=None,
-                    duration=30, drop_method: DropMethod = DropMethod.DropAtLast, protocol=None,
+                    volume: float, move_location: protocol_api.Labware, serial_device: BayOmicsLib,
+                    pick_up_location: protocol_api.Labware,
+                    pressure=None, duration=30, drop_method: DropMethod = DropMethod.DropAtLast, protocol=None,
                     pressure_setting: dict = None):
     """
     执行加液，正压，一个流程
@@ -756,6 +779,7 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
     :param drop_method:
     :param protocol:
     :param pressure_setting:
+    :param pick_up_location:
     :return:
     """
     for i in range(int(sample_counts / 8)):
@@ -775,7 +799,7 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
             drop = True
             pick_up = True
         transfer_user_liquid(pipette, liquid_labware, customer_labware, f'A{i + 1}', liquid_name, volume, move_location,
-                             pick_up=pick_up, drop=drop)
+                             pick_up_location, pick_up=pick_up, drop=drop)
     if drop_method == DropMethod.DoNotDrop:
         pipette.move_to(move_location['A1'].top(z=50))
     if pressure_setting is None and pressure:
@@ -881,15 +905,15 @@ def run(protocol: protocol_api.ProtocolContext):
     tiprack_2 = protocol.load_labware(
         "opentrons_96_tiprack_20ul", location="5"
     )
-    tiprack_3 = protocol.load_labware(
-        "opentrons_96_tiprack_20ul", location="6"
-    )
+    # tiprack_3 = protocol.load_labware(
+    #     "opentrons_96_tiprack_20ul", location="6"
+    # )
 
-    move_to_location = tiprack_3
+    move_to_location = tiprack_2
 
     # pipettes
     left_pipette = protocol.load_instrument("p20_multi_gen2", mount="left",
-                                            tip_racks=[tiprack_1, tiprack_2, tiprack_3])
+                                            tip_racks=[tiprack_1, tiprack_2])
     sample_liquid = protocol.load_labware('armadillo_96_wellplate_200ul_pcr_full_skirt', location='2')  # 样本
 
     # customer labware
@@ -948,38 +972,38 @@ def run(protocol: protocol_api.ProtocolContext):
         1. 向样本处理器中加入60ul试剂 Ac
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 60, move_to_location,
-                        serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step1'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step1'])
         """三、执行实验步骤(移液&正压)
         2. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step2'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step2'])
         if pause_selection:
             protocol.pause("观察试剂过柱情况")
         """三、执行实验步骤(移液&正压)
         3. 向样本处理器中加入30ul样本
         """
         transform_round(left_pipette, sample_liquid, user_labware, "Sample", sample_counts, 30, move_to_location,
-                        serial_module, drop_method=DropMethod.DropForAColumn, protocol=_protocol,
+                        serial_module, enzyme_liquid, drop_method=DropMethod.DropForAColumn, protocol=_protocol,
                         pressure_setting=USER_PRESSURE['step3'])
         """三、执行实验步骤(移液&正压)
         4. 向样本处理器中加入30ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 30, move_to_location,
-                        serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step4'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step4'])
         """三、执行实验步骤(移液&正压)
         5. 向样本处理器中加入30ul试剂 Ac
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 30, move_to_location,
-                        serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step5'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step5'])
         """三、执行实验步骤(移液&正压)
         6. 向样本处理器中加入30ul试剂 Rd - 再加入30ul Rd -  遮光孵化 - 正压
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
-                        serial_module, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
+                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
                         pressure_setting=USER_PRESSURE['step6_1'])
         transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
-                        serial_module, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
+                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
                         pressure_setting=USER_PRESSURE['step6_2'])
         if pause_selection:
             protocol.pause("开始做避光孵化，请确认...")
@@ -991,15 +1015,15 @@ def run(protocol: protocol_api.ProtocolContext):
         7. 向样本处理器中加入30ul试剂 Ds
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ds", sample_counts, 30, move_to_location,
-                        serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step7'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step7'])
         """三、执行实验步骤(移液&正压)
         8. 向样本处理器中加入13ul + 5ul酶
         """
         transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 13, move_to_location,
-                        serial_module, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
+                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
                         pressure_setting=USER_PRESSURE['step8_1'])
         transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 5, move_to_location,
-                        serial_module, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
+                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
                         pressure_setting=USER_PRESSURE['step8_2'])
         # close td
         if serial_module.user_mode == UserMode.Debugging:
@@ -1015,23 +1039,23 @@ def run(protocol: protocol_api.ProtocolContext):
         9. 向样本处理器中加入60ul试剂 Tf
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Tf", sample_counts, 60, move_to_location,
-                        serial_module, pressure_setting=USER_PRESSURE['step9'])
+                        serial_module, enzyme_liquid, pressure_setting=USER_PRESSURE['step9'])
         """三、执行实验步骤(移液&正压)
         10. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, drop_method=DropMethod.DoNotDrop, pressure_setting=USER_PRESSURE['step10'])
+                        serial_module, enzyme_liquid, drop_method=DropMethod.DoNotDrop, pressure_setting=USER_PRESSURE['step10'])
         """三、执行实验步骤(移液&正压)
         11. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, drop_method=DropMethod.DoNotPickUp, pressure_setting=USER_PRESSURE['step11'])
+                        serial_module, enzyme_liquid, drop_method=DropMethod.DoNotPickUp, pressure_setting=USER_PRESSURE['step11'])
         protocol.pause("请更换收集板...")
         """三、执行实验步骤(移液&正压)
         12. 向样本处理器中加入60ul试剂 Et
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Et", sample_counts, 60, move_to_location,
-                        serial_module, pressure_setting=USER_PRESSURE['step12'])
+                        serial_module, enzyme_liquid, pressure_setting=USER_PRESSURE['step12'])
         protocol.pause("实验结束...恢复即将复位设备...")
 
         protocol.comment(">>>>>4.实验结束<<<<<")

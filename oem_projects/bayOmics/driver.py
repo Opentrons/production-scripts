@@ -7,10 +7,16 @@ import time
 import serial
 import serial.tools.list_ports
 import codecs
+from enum import Enum
 
-VERIFY_RESPONDS = True
-EXPLAIN_FLAG = True
+VERIFY_RESPONDS = False
+EXPLAIN_FLAG = False
 SET_LED_VIRTUAL = True
+
+
+class UserMode(Enum):
+    Debugging = 1
+    Running = 2
 
 
 class BasicDriver:
@@ -25,6 +31,7 @@ class BasicDriver:
         self.device = None
         self.led_virtual = True
         self.simulate = False
+        self.user_mode = UserMode.Running
 
     def build_connection(self):
         res = BasicDriver.get_com_list()
@@ -254,6 +261,13 @@ class BasicDriver:
             time.sleep(5)
             self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
             self.judge_pos(60, 'r', "00000000")
+        if z:
+            self.set_axis_speed('z')
+            self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
+            self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
+            time.sleep(0.5)
+            self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+            self.judge_pos(30, 'z', "00000000")
         if y:
             self.set_axis_speed('y')
             self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
@@ -261,13 +275,6 @@ class BasicDriver:
             time.sleep(1.5)
             self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
             self.judge_pos(30, 'y', "00000000")
-        if z:
-            self.set_axis_speed('z')
-            self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
-            self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
-            time.sleep(1)
-            self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
-            self.judge_pos(30, 'z', "00000000")
 
     def init_motors(self):
         """
@@ -305,7 +312,14 @@ class BasicDriver:
         """
         self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
         self.send_to_device("05 10 00 01 00 02 04 F7 D4 FF FF", "close lid", verify="051000010002")
-        self.judge_pos(60, "r", "F7D4FFFF")
+        ret = self.judge_pos(60, "r", "F7D4FFFF", judge_method="")
+        if not ret:
+            for i in range(3):
+                judge_m = "Interrupt" if i >= 2 else ""
+                self.home(y=False, z=False)
+                self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
+                self.send_to_device("05 10 00 01 00 02 04 F7 D4 FF FF", "close lid", verify="051000010002")
+                self.judge_pos(60, "r", "F7D4FFFF", judge_method=judge_m)
 
     def dark_incubation(self, dark_time: int):
         """
@@ -427,6 +441,16 @@ class BasicDriver:
             raise ValueError("Can't find Axis")
         return (data[6:14].upper())
 
+    def read_pressure(self):
+        """
+        读取气压值
+        """
+        data = self.send_to_device("04 04 00 00 00 01", "Read Pressure", verify="")
+        value = data[6:10]
+        value = int(value, 16) / 1000
+        value_mpa = 0.125 * value - 0.124
+        return value_mpa
+
     def set_pressure(self, pressure, duration):
         """
         施加压力过程
@@ -434,17 +458,26 @@ class BasicDriver:
         :param duration: 持续时间 （s）
         :return:
         """
-        self.move_to_work_position()
-        pressure_kpa = pressure * 1000
-        voltage_mv = int(((pressure_kpa + 123.75) / 124.75) * 1000)
+        # self.move_to_work_position()
+        if self.user_mode == UserMode.Debugging:
+            pressure_kpa = 0
+        else:
+            pressure_kpa = pressure * 1000
+        # voltage_mv = int(((pressure_kpa + 123.75) / 124.75) * 1000)  # * 10000
+        voltage_mv = int(pressure_kpa * 10)
         voltage_mv_string = self._format_hex(voltage_mv)
         self.send_to_device("03 05 00 41 FF 00", "Pressure Open")  # 阀门开启
         self.send_to_device(f"0406000A{voltage_mv_string}", f"Set Pressure {pressure} Mpa", verify="")  # 设置正压
+        time.sleep(0.5)
+        pressure = self.read_pressure()
+        print(f"SET {(i + 1) * 0.01} GET {pressure}")
+        # 显示压力值
+        self.set_led_pressure_value(int(pressure * 1000))
         time.sleep(duration)
         # 关闭压力
         self.set_pressure_off()
         # 释放work position
-        self.release_work_position()
+        # self.release_work_position()
 
     def move_to_work_position(self, home=False):
         """
@@ -453,15 +486,15 @@ class BasicDriver:
         """
         if home:
             self.home()
-        self.move_y("BA24FFFF")
-        self.move_z("AC67FFFF")
+        self.move_y("BAD0FFFF")
+        self.move_z("8E3EFFFF")
 
     def release_work_position(self):
         """
         释放work position, ready home
         :return:
         """
-        # self.move_z("00000000")
+        self.move_z("00000000")
         self.home(r=False)
 
     def init_led(self):
@@ -495,24 +528,28 @@ class BasicDriver:
 if __name__ == '__main__':
     bd = BasicDriver(19200)
     bd.build_connection()
+    # for i in range(10):
+    #     print(f"Round ---------------------------- {i + 1}")
+    #     bd.set_pressure((i + 1) * 0.01, 10)
     bd.init_device()
+    bd.close_lid()
+
+    # bd.init_device()
     """
     1. x y z 轴电机测试
     """
     # for i in range(10):
-    #     print(f"Round ---------------------------- {i+1}")
+    #     print(f"Round ---------------------------- {i + 1}")
     #     bd.move_to_work_position()
-    #     bd.set_pressure(0.02, 5)
-    #     bd.home()
+    #     bd.set_pressure((i + 1) * 0.01, 10)
+    # bd.home()
 
-    """
-    2. 保温测试
-    """
-    # bd.heat_incubation([{"temperature": 70, "time": 60}])
-    # bd.move_z("AC67FFFF")
-    """
-    3. led测试
-    """
-    bd.set_led_virtual_value()
-
-
+    # """
+    # 2. 保温测试
+    # """
+    # # bd.heat_incubation([{"temperature": 70, "time": 60}])
+    # # bd.move_z("AC67FFFF")
+    # """
+    # 3. led测试
+    # """
+    # bd.set_led_virtual_value()

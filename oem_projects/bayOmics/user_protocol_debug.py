@@ -3,7 +3,7 @@ import json
 
 # metadata
 metadata = {
-    "protocolName": "__BayOmicsTemperatureModuleUser__V1.5.2",
+    "protocolName": "__BayOmicsTemperatureModuleUserDebug__V1.5.0",
     "author": "Andy <opentrons@example.com>",
     "description": "Simple protocol to get started using the OT-2",
 }
@@ -29,7 +29,6 @@ USER_LIQUID_LABWARE_DIMENSIONS = LABWARE_DEF.get('wells', {}).get('A1', {}).get(
 """
 增加用户参数
 """
-heat_setting = [{"temperature": 52, "time": 120}, {"temperature": 0, "time": 30}, {"temperature": 52, "time": 120}]
 
 
 def add_parameters(parameters: protocol_api.Parameters):
@@ -70,12 +69,6 @@ def add_parameters(parameters: protocol_api.Parameters):
         maximum=96,
         unit="个"
     )
-    parameters.add_bool(
-        variable_name="use_td",
-        display_name="使用TD模块",
-        description="是否运行过程中开启TD模块",
-        default=True
-    )
 
 
 # protocol run function
@@ -90,7 +83,6 @@ def run(protocol: protocol_api.ProtocolContext):
     led_virtual = protocol.params.led_virtual
     user_pwd = protocol.params.user_pwd
     pause_selection = protocol.params.pause_selection
-    use_td = protocol.params.use_td
 
     """Opentrons 加载移液器，耗材
     1. load pipette
@@ -141,132 +133,34 @@ def run(protocol: protocol_api.ProtocolContext):
     1. 建立设备连接
     2. 初始化LED屏幕
     """
-    if not simulating:
-        protocol.comment(">>>>>1.连接串口<<<<<")
-        serial_module = BayOmicsLib(19200, protocol)
-        serial_module.build_connection(simulating, led_virtual, user_pwd)
-        serial_module.user_mode = UserMode.Running
-        serial_module.WORK_POSITION_FOR_Z = '8E3EFFFF'
+    # if not simulating:
 
-        protocol.comment(">>>>>2.初始化设备<<<<<")
-        """二、初始化
-        1. 使能电机，初始化速度和复位
-        2. 关闭加压
-        3. 关闭温度控制器
-        4. 开启灯带
-        5. 开启TD
-        """
-        serial_module.init_device()
-        if use_td:
-            temp_mod.start_set_temperature(celsius=4)
-
-        protocol.comment(">>>>>3.开始实验<<<<<")
-        _protocol = None
-        """三、执行实验步骤(移液&正压)
-        1. 向样本处理器中加入60ul试剂 Ac
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step1'])
-        """三、执行实验步骤(移液&正压)
-        2. 向样本处理器中加入60ul试剂 Wa
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step2'])
-        if pause_selection:
-            protocol.pause("观察试剂过柱情况")
-        """三、执行实验步骤(移液&正压)
-        3. 向样本处理器中加入30ul样本
-        """
-        transform_round(left_pipette, sample_liquid, user_labware, "Sample", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, drop_method=DropMethod.DropForAColumn, protocol=_protocol,
-                        pressure_setting=USER_PRESSURE['step3'])
-        """三、执行实验步骤(移液&正压)
-        4. 向样本处理器中加入30ul试剂 Wa
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step4'])
-        """三、执行实验步骤(移液&正压)
-        5. 向样本处理器中加入30ul试剂 Ac
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step5'])
-        """三、执行实验步骤(移液&正压)
-        6. 向样本处理器中加入30ul试剂 Rd - 再加入30ul Rd -  遮光孵化 - 正压
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
-                        pressure_setting=USER_PRESSURE['step6_1'])
-        transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
-                        pressure_setting=USER_PRESSURE['step6_2'])
-        if pause_selection:
-            protocol.pause("开始做避光孵化，请确认...")
-        if serial_module.user_mode == UserMode.Debugging:
-            serial_module.dark_incubation(1, pressure_setting=USER_PRESSURE['step6_3'])
-        else:
-            serial_module.dark_incubation(DARK_DURATION * 60, pressure_setting=USER_PRESSURE['step6_3'])
-        """三、执行实验步骤(移液&正压)
-        7. 向样本处理器中加入30ul试剂 Ds
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Ds", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step7'])
-        """三、执行实验步骤(移液&正压)
-        8. 向样本处理器中加入13ul + 5ul酶
-        """
-        transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 13, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
-                        pressure_setting=USER_PRESSURE['step8_1'])
-        transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 5, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
-                        pressure_setting=USER_PRESSURE['step8_2'])
-        # close td
-        if use_td:
-            temp_mod.deactivate()
-        # 保温
-        if serial_module.user_mode == UserMode.Debugging:
-            serial_module.heat_incubation([{"temperature": 52, "time": 120}])
-        else:
-            serial_module.heat_incubation(heat_setting)
-
-        serial_module.set_led_virtual_value()
-        """三、执行实验步骤(移液&正压)
-        9. 向样本处理器中加入60ul试剂 Tf
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Tf", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, pressure_setting=USER_PRESSURE['step9'])
-        """三、执行实验步骤(移液&正压)
-        10. 向样本处理器中加入60ul试剂 Wa
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, drop_method=DropMethod.DoNotDrop,
-                        pressure_setting=USER_PRESSURE['step10'])
-        """三、执行实验步骤(移液&正压)
-        11. 向样本处理器中加入60ul试剂 Wa
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, drop_method=DropMethod.DoNotPickUp,
-                        pressure_setting=USER_PRESSURE['step11'])
-        protocol.pause("请更换收集板...")
-        """三、执行实验步骤(移液&正压)
-        12. 向样本处理器中加入60ul试剂 Et
-        """
-        transform_round(left_pipette, customer_liquid, user_labware, "Et", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, pressure_setting=USER_PRESSURE['step12'])
-        protocol.pause("实验结束...恢复即将复位设备...")
-
-        protocol.comment(">>>>>4.实验结束<<<<<")
-        serial_module.release_device()
-    else:
-        # fake process 示例流程为了初始化校准,保存校准位置
-        left_pipette.pick_up_tip(tiprack_1['A1'])
-        left_pipette.aspirate(20, customer_liquid['A1'])
-        left_pipette.dispense(20, sample_liquid['A1'])
-        left_pipette.drop_tip()
-        left_pipette.pick_up_tip(tiprack_2['A2'])
-        left_pipette.aspirate(20, customer_liquid['A1'])
-        left_pipette.dispense(20, enzyme_liquid['A1'])
-        left_pipette.drop_tip()
+    def _pick_up():
+        left_pipette.move_to(enzyme_liquid['A1'].top(z=50))
         left_pipette.pick_up_tip()
-        left_pipette.aspirate(20, customer_liquid['A1'])
-        left_pipette.dispense(20, user_labware['A1'])
-        left_pipette.drop_tip()
+    _pick_up()
+    left_pipette.aspirate(20, customer_liquid['A1'])
+    left_pipette.dispense(20, sample_liquid['A1'])
+    left_pipette.drop_tip()
+    _pick_up()
+    left_pipette.aspirate(20, customer_liquid['A1'])
+    left_pipette.dispense(20, enzyme_liquid['A1'])
+    left_pipette.drop_tip()
+    _pick_up()
+    left_pipette.aspirate(20, customer_liquid['A1'])
+    left_pipette.dispense(20, user_labware['A1'])
+    left_pipette.drop_tip()
+    # else:
+    #     # fake process 示例流程为了初始化校准,保存校准位置
+    #     left_pipette.pick_up_tip()
+    #     left_pipette.aspirate(20, customer_liquid['A1'])
+    #     left_pipette.dispense(20, sample_liquid['A1'])
+    #     left_pipette.drop_tip()
+    #     left_pipette.pick_up_tip()
+    #     left_pipette.aspirate(20, customer_liquid['A1'])
+    #     left_pipette.dispense(20, enzyme_liquid['A1'])
+    #     left_pipette.drop_tip()
+    #     left_pipette.pick_up_tip()
+    #     left_pipette.aspirate(20, customer_liquid['A1'])
+    #     left_pipette.dispense(20, user_labware['A1'])
+    #     left_pipette.drop_tip()

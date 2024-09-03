@@ -118,7 +118,6 @@ class BayOmicsLib:
         self.explain_flag = True
         self.WORK_POSITION_FOR_Z = "8E3EFFFF"
         self.WORK_POSITION_FOR_Y = "BAD0FFFF"
-        self.CLOSE_POS = "F7D4FFFF"
         self.user_mode = UserMode.Running
         self.HEAT_TEMP_GAP = 2
 
@@ -436,15 +435,8 @@ class BayOmicsLib:
         :return:
         """
         self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
-        self.send_to_device(f"05 10 00 01 00 02 04 {self.CLOSE_POS}", "close lid", verify="")
-        ret = self.judge_pos(60, "r", self.CLOSE_POS, judge_method="")
-        if not ret:
-            for i in range(3):
-                judge_m = "Interrupt" if i >= 2 else ""
-                self.home(y=False, z=False)
-                self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
-                self.send_to_device(f"05 10 00 01 00 02 04 {self.CLOSE_POS}", "close lid", verify="")
-                self.judge_pos(60, "r", self.CLOSE_POS, judge_method=judge_m)
+        self.send_to_device("05 10 00 01 00 02 04 F7 D4 FF FF", "close lid", verify="051000010002")
+        self.judge_pos(60, "r", "F7D4FFFF")
 
     def dark_incubation(self, dark_time: int, pressure=None, duration=None, pressure_setting=None):
         """
@@ -643,10 +635,7 @@ class BayOmicsLib:
         pressure = self.read_pressure()
 
         # 显示压力值
-        _pressure = int(pressure * 1000)
-        if _pressure <= 0:
-            _pressure = 0
-        self.set_led_pressure_value(_pressure)
+        self.set_led_pressure_value(int(pressure * 1000))
         self.opentrons_delay(duration)
         # 关闭压力
         self.set_pressure_off()
@@ -684,34 +673,18 @@ class BayOmicsLib:
         释放设备
         :return:
         """
-        """
-        初始化变量？
-        """
-        global USER_LIQUID
-        USER_LIQUID = {
-            "Ac": {1: LIQUID_REAL_RANGE, 2: LIQUID_REAL_RANGE},
-            "Rd": {3: LIQUID_REAL_RANGE},
-            "Tf": {4: LIQUID_REAL_RANGE},
-            "Et": {5: LIQUID_REAL_RANGE},
-            "Ds": {6: LIQUID_REAL_RANGE},
-            "Wa": {7: LIQUID_REAL_RANGE, 8: LIQUID_REAL_RANGE, 9: LIQUID_REAL_RANGE},
-            "Sample": {1: LIQUID_REAL_RANGE},  # 35
-            "Enzyme": {1: LIQUID_REAL_RANGE}  # 20
-        }  # BayOmics Liquid loaded on slot1, 每种液体定义所在列及孔板容量(Ul)
-
         self.print_f("实验完成，正在关闭设备...")
         self.home()
         self.set_pressure_off()
         self.set_temperature_controller_off()
-        self.set_led_virtual_value()
+        self.set_led_rounds(0)
         self.close_device()
         self.set_lights(False)
 
 
 def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                          customer_labware: protocol_api.labware, customer_labware_pos: str, liquid_name: str,
-                         volume: float, move_location: protocol_api.Labware, pick_up_location: protocol_api.Labware,
-                         pick_up=False, drop=False):
+                         volume: float, move_location: protocol_api.Labware, pick_up=False, drop=False):
     """
     移液&加压
     :param pipette:
@@ -721,7 +694,6 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
     :param liquid_name:
     :param volume:
     :param move_location:
-    :param pick_up_location:
     :param drop:
     :param pick_up:
     :return:
@@ -734,13 +706,9 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
             pipette.move_to(move_location['A1'].top(z=50))
             pipette.drop_tip()
 
-    def _pick_up():
-        pipette.move_to(pick_up_location['A1'].top(z=50))
-        pipette.pick_up_tip()
-
     aspirate_flag = False
     if pick_up:
-        _pick_up()
+        pipette.pick_up_tip()
     liquid: dict = USER_LIQUID[liquid_name]
     _trans_times = int(volume / SINGLE_VOLUME)
     _trans_last_volume = (volume % SINGLE_VOLUME)
@@ -783,9 +751,8 @@ def transfer_user_liquid(pipette: protocol_api.InstrumentContext, liquid_labware
 
 def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: protocol_api.Labware,
                     customer_labware: protocol_api.labware, liquid_name: str, sample_counts: int,
-                    volume: float, move_location: protocol_api.Labware, serial_device: BayOmicsLib,
-                    pick_up_location: protocol_api.Labware,
-                    pressure=None, duration=30, drop_method: DropMethod = DropMethod.DropAtLast, protocol=None,
+                    volume: float, move_location: protocol_api.Labware, serial_device: BayOmicsLib, pressure=None,
+                    duration=30, drop_method: DropMethod = DropMethod.DropAtLast, protocol=None,
                     pressure_setting: dict = None):
     """
     执行加液，正压，一个流程
@@ -802,7 +769,6 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
     :param drop_method:
     :param protocol:
     :param pressure_setting:
-    :param pick_up_location:
     :return:
     """
     for i in range(int(sample_counts / 8)):
@@ -822,7 +788,7 @@ def transform_round(pipette: protocol_api.InstrumentContext, liquid_labware: pro
             drop = True
             pick_up = True
         transfer_user_liquid(pipette, liquid_labware, customer_labware, f'A{i + 1}', liquid_name, volume, move_location,
-                             pick_up_location, pick_up=pick_up, drop=drop)
+                             pick_up=pick_up, drop=drop)
     if drop_method == DropMethod.DoNotDrop:
         pipette.move_to(move_location['A1'].top(z=50))
     if pressure_setting is None and pressure:
@@ -862,3 +828,238 @@ def _auth(pwd: int):
         return True
     else:
         return False
+
+
+"""
+增加用户参数
+"""
+
+
+def add_parameters(parameters: protocol_api.Parameters):
+    """
+    :param parameters:
+    :return:
+    """
+    parameters.add_int(
+        variable_name="user_pwd",
+        display_name="管理员密码",
+        description="部分功能需要管理员密码才能生效",
+        default=999999,
+        minimum=0,
+        maximum=999999,
+        unit=""
+    )
+
+    parameters.add_bool(
+        variable_name="led_virtual",
+        display_name="LED虚拟值显示",
+        description="是否按虚拟值显示当前LED",
+        default=True
+    )
+
+    parameters.add_bool(
+        variable_name="pause_selection",
+        display_name="暂停观察",
+        description="是否运行过程中等待操作员操作",
+        default=True
+    )
+
+    parameters.add_int(
+        variable_name="sample_number",
+        display_name="样品数量",
+        description="实验的样品数量，最大不能超过96",
+        default=8,
+        minimum=8,
+        maximum=96,
+        unit="个"
+    )
+
+
+# protocol run function
+def run(protocol: protocol_api.ProtocolContext):
+    """
+    :param protocol:
+    :return:
+    """
+    """Opentrons 加载移液器，耗材
+    1. load pipette
+    2. load labware
+    3. loda module
+    4. 定义中间move to location
+    """
+    # labware
+    tiprack_1 = protocol.load_labware(
+        "opentrons_96_tiprack_20ul", location="4"
+    )
+    tiprack_2 = protocol.load_labware(
+        "opentrons_96_tiprack_20ul", location="5"
+    )
+    # tiprack_3 = protocol.load_labware(
+    #     "opentrons_96_tiprack_20ul", location="6"
+    # )
+
+    move_to_location = tiprack_2
+
+    # pipettes
+    left_pipette = protocol.load_instrument("p20_multi_gen2", mount="left",
+                                            tip_racks=[tiprack_1, tiprack_2])
+    sample_liquid = protocol.load_labware('armadillo_96_wellplate_200ul_pcr_full_skirt', location='2')  # 样本
+
+    # customer labware
+    customer_liquid = protocol.load_labware_from_definition(USER_LIQUID_LABWARE_DEF, USER_LIQUID_SLOT,
+                                                            USER_LIQUID_LABWARE_LABEL)  # 试剂
+    user_labware = protocol.load_labware_from_definition(
+        LABWARE_DEF,
+        USER_LABWARE_SLOT,
+        LABWARE_LABEL,
+    )
+    # TD module
+    temp_mod = protocol.load_module(
+        module_name="temperature module gen2", location="3"
+    )
+    temp_adapter = temp_mod.load_adapter("opentrons_96_well_aluminum_block")
+    enzyme_liquid = temp_adapter.load_labware("armadillo_96_wellplate_200ul_pcr_full_skirt")
+    # parameters
+    simulating = protocol.is_simulating()
+    sample_counts = protocol.params.sample_number
+    led_virtual = protocol.params.led_virtual
+    user_pwd = protocol.params.user_pwd
+    pause_selection = protocol.params.pause_selection
+    """
+    检查参数
+    """
+    verificaiton_value = sample_counts % 8
+    assert verificaiton_value == 0, 'sample counts should be multiples of 8 (样本数不是8的倍数)'
+    TEST_MAIN = False
+    if TEST_MAIN:
+
+        """一、连接串口
+        1. 建立设备连接
+        2. 初始化LED屏幕
+        """
+        protocol.comment(">>>>>1.连接串口<<<<<")
+        serial_module = BayOmicsLib(19200, protocol)
+        serial_module.build_connection(simulating, led_virtual, user_pwd)
+        serial_module.user_mode = UserMode.Debugging
+
+        if serial_module.device is not None:
+            protocol.comment(">>>>>2.初始化设备<<<<<")
+            """二、初始化
+            1. 使能电机，初始化速度和复位
+            2. 关闭加压
+            3. 关闭温度控制器
+            4. 开启灯带
+            5. 开启TD
+            """
+            serial_module.init_device()
+            if serial_module.user_mode == UserMode.Debugging:
+                pass
+            else:
+                temp_mod.start_set_temperature(celsius=4)
+
+            protocol.comment(">>>>>3.开始实验<<<<<")
+            _protocol = None
+            """三、执行实验步骤(移液&正压)
+            1. 向样本处理器中加入60ul试剂 Ac
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 60, move_to_location,
+                            serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step1'])
+            """三、执行实验步骤(移液&正压)
+            2. 向样本处理器中加入60ul试剂 Wa
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
+                            serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step2'])
+            if pause_selection:
+                protocol.pause("观察试剂过柱情况")
+            """三、执行实验步骤(移液&正压)
+            3. 向样本处理器中加入30ul样本
+            """
+            transform_round(left_pipette, sample_liquid, user_labware, "Sample", sample_counts, 30, move_to_location,
+                            serial_module, drop_method=DropMethod.DropForAColumn, protocol=_protocol,
+                            pressure_setting=USER_PRESSURE['step3'])
+            """三、执行实验步骤(移液&正压)
+            4. 向样本处理器中加入30ul试剂 Wa
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 30, move_to_location,
+                            serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step4'])
+            """三、执行实验步骤(移液&正压)
+            5. 向样本处理器中加入30ul试剂 Ac
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 30, move_to_location,
+                            serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step5'])
+            """三、执行实验步骤(移液&正压)
+            6. 向样本处理器中加入30ul试剂 Rd - 再加入30ul Rd -  遮光孵化 - 正压
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
+                            serial_module, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
+                            pressure_setting=USER_PRESSURE['step6_1'])
+            transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
+                            serial_module, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
+                            pressure_setting=USER_PRESSURE['step6_2'])
+            if pause_selection:
+                protocol.pause("开始做避光孵化，请确认...")
+            if serial_module.user_mode == UserMode.Debugging:
+                serial_module.dark_incubation(1, pressure_setting=USER_PRESSURE['step6_3'])
+            else:
+                serial_module.dark_incubation(DARK_DURATION * 60, pressure_setting=USER_PRESSURE['step6_3'])
+            """三、执行实验步骤(移液&正压)
+            7. 向样本处理器中加入30ul试剂 Ds
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Ds", sample_counts, 30, move_to_location,
+                            serial_module, protocol=_protocol, pressure_setting=USER_PRESSURE['step7'])
+            """三、执行实验步骤(移液&正压)
+            8. 向样本处理器中加入13ul + 5ul酶
+            """
+            transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 13, move_to_location,
+                            serial_module, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
+                            pressure_setting=USER_PRESSURE['step8_1'])
+            transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 5, move_to_location,
+                            serial_module, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
+                            pressure_setting=USER_PRESSURE['step8_2'])
+            # close td
+            if serial_module.user_mode == UserMode.Debugging:
+                pass
+            else:
+                temp_mod.deactivate()
+            # 保温
+            if serial_module.user_mode == UserMode.Debugging:
+                serial_module.heat_incubation([{"temperature": 52, "time": 120}])
+            else:
+                serial_module.heat_incubation(HEAT_SETTING)
+            """三、执行实验步骤(移液&正压)
+            9. 向样本处理器中加入60ul试剂 Tf
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Tf", sample_counts, 60, move_to_location,
+                            serial_module, pressure_setting=USER_PRESSURE['step9'])
+            """三、执行实验步骤(移液&正压)
+            10. 向样本处理器中加入60ul试剂 Wa
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
+                            serial_module, drop_method=DropMethod.DoNotDrop, pressure_setting=USER_PRESSURE['step10'])
+            """三、执行实验步骤(移液&正压)
+            11. 向样本处理器中加入60ul试剂 Wa
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
+                            serial_module, drop_method=DropMethod.DoNotPickUp, pressure_setting=USER_PRESSURE['step11'])
+            protocol.pause("请更换收集板...")
+            """三、执行实验步骤(移液&正压)
+            12. 向样本处理器中加入60ul试剂 Et
+            """
+            transform_round(left_pipette, customer_liquid, user_labware, "Et", sample_counts, 60, move_to_location,
+                            serial_module, pressure_setting=USER_PRESSURE['step12'])
+            protocol.pause("实验结束...恢复即将复位设备...")
+
+            protocol.comment(">>>>>4.实验结束<<<<<")
+            serial_module.release_device()
+    else:
+        left_pipette.pick_up_tip(tiprack_1['A1'])
+        left_pipette.aspirate(20, customer_liquid['A1'])
+        left_pipette.dispense(20, sample_liquid['A1'])
+        left_pipette.aspirate(20, customer_liquid['A1'])
+        left_pipette.dispense(20, enzyme_liquid['A1'])
+        left_pipette.drop_tip()
+        left_pipette.pick_up_tip(tiprack_2['A1'])
+        left_pipette.aspirate(20, customer_liquid['A1'])
+        left_pipette.dispense(20, user_labware['A1'])
+        left_pipette.move_to(tiprack_2['A1'].top(z=50))
+        left_pipette.drop_tip()
