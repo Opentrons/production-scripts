@@ -1,0 +1,17 @@
+{
+    "step1": {"pressure": 0.02, "duration": 60},
+    "step2": {"pressure": 0.06, "duration": 60},
+    "step3": {"pressure": 0.02, "duration": 180},
+    "step4": {"pressure": 0.03, "duration": 60},
+    "step5": {"pressure": 0.03, "duration": 60},
+    "step6_1": {"pressure": 0.04, "duration": 20},
+    "step6_2": {"pressure": 0.04, "duration": 20},
+    "step6_3": {"pressure": 0.04, "duration": 60},
+    "step7": {"pressure": 0.05, "duration": 40},
+    "step8_1": {"pressure": 0.04, "duration": 16},
+    "step8_2": {"pressure": 0.02, "duration": 5},
+    "step9": {"pressure": 0.04, "duration": 100},
+    "step10": {"pressure": 0.07, "duration": 60},
+    "step11": {"pressure": 0.07, "duration": 60},
+    "step12": {"pressure": 0.03, "duration": 60}
+}

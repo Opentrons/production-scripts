@@ -3,7 +3,7 @@ import json
 
 # metadata
 metadata = {
-    "protocolName": "__BayOmicsTemperatureModuleUser__V1.5.2",
+    "protocolName": "__BayOmicsTemperatureModuleUser__V1.5.6",
     "author": "Andy <opentrons@example.com>",
     "description": "Simple protocol to get started using the OT-2",
 }
@@ -29,7 +29,7 @@ USER_LIQUID_LABWARE_DIMENSIONS = LABWARE_DEF.get('wells', {}).get('A1', {}).get(
 """
 增加用户参数
 """
-heat_setting = [{"temperature": 52, "time": 120}, {"temperature": 0, "time": 30}, {"temperature": 52, "time": 120}]
+heat_setting = [{"temperature": 52, "time": 60*4}, {"temperature": 0, "time": 30}]
 
 
 def add_parameters(parameters: protocol_api.Parameters):
@@ -58,7 +58,7 @@ def add_parameters(parameters: protocol_api.Parameters):
         variable_name="pause_selection",
         display_name="暂停观察",
         description="是否运行过程中等待操作员操作",
-        default=True
+        default=False
     )
 
     parameters.add_int(
@@ -127,9 +127,17 @@ def run(protocol: protocol_api.ProtocolContext):
     )
     temp_adapter = temp_mod.load_adapter("opentrons_96_well_aluminum_block")
     enzyme_liquid = temp_adapter.load_labware("armadillo_96_wellplate_200ul_pcr_full_skirt")
+
+    """
+    定义移液器参数 - 速率
+    """
+    left_pipette.flow_rate.aspirate = 50
+    left_pipette.flow_rate.dispense = 100
+    left_pipette.flow_rate.blow_out = 75
+    
     if not simulating:
         from BayOmicsLib import BayOmicsLib
-        from BayOmicsLib import UserMode, DropMethod, transform_round, USER_PRESSURE, DARK_DURATION, HEAT_SETTING
+        from BayOmicsLib import UserMode, DropMethod, transform_round, DARK_DURATION, get_pressure_setting
 
     """
     检查参数
@@ -146,7 +154,7 @@ def run(protocol: protocol_api.ProtocolContext):
         serial_module = BayOmicsLib(19200, protocol)
         serial_module.build_connection(simulating, led_virtual, user_pwd)
         serial_module.user_mode = UserMode.Running
-        serial_module.WORK_POSITION_FOR_Z = '8E3EFFFF'
+        serial_module.WORK_POSITION_FOR_Z = '8B00FFFF'
 
         protocol.comment(">>>>>2.初始化设备<<<<<")
         """二、初始化
@@ -156,22 +164,23 @@ def run(protocol: protocol_api.ProtocolContext):
         4. 开启灯带
         5. 开启TD
         """
+        user_pressure = get_pressure_setting()
         serial_module.init_device()
         if use_td:
             temp_mod.start_set_temperature(celsius=4)
-
+    
         protocol.comment(">>>>>3.开始实验<<<<<")
         _protocol = None
         """三、执行实验步骤(移液&正压)
         1. 向样本处理器中加入60ul试剂 Ac
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step1'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=user_pressure['step1'])
         """三、执行实验步骤(移液&正压)
         2. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step2'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=user_pressure['step2'])
         if pause_selection:
             protocol.pause("观察试剂过柱情况")
         """三、执行实验步骤(移液&正压)
@@ -179,46 +188,46 @@ def run(protocol: protocol_api.ProtocolContext):
         """
         transform_round(left_pipette, sample_liquid, user_labware, "Sample", sample_counts, 30, move_to_location,
                         serial_module, enzyme_liquid, drop_method=DropMethod.DropForAColumn, protocol=_protocol,
-                        pressure_setting=USER_PRESSURE['step3'])
+                        pressure_setting=user_pressure['step3'])
         """三、执行实验步骤(移液&正压)
         4. 向样本处理器中加入30ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step4'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=user_pressure['step4'])
         """三、执行实验步骤(移液&正压)
         5. 向样本处理器中加入30ul试剂 Ac
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ac", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step5'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=user_pressure['step5'])
         """三、执行实验步骤(移液&正压)
         6. 向样本处理器中加入30ul试剂 Rd - 再加入30ul Rd -  遮光孵化 - 正压
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
                         serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
-                        pressure_setting=USER_PRESSURE['step6_1'])
+                        pressure_setting=user_pressure['step6_1'])
         transform_round(left_pipette, customer_liquid, user_labware, "Rd", sample_counts, 30, move_to_location,
                         serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
-                        pressure_setting=USER_PRESSURE['step6_2'])
+                        pressure_setting=user_pressure['step6_2'])
         if pause_selection:
             protocol.pause("开始做避光孵化，请确认...")
         if serial_module.user_mode == UserMode.Debugging:
-            serial_module.dark_incubation(1, pressure_setting=USER_PRESSURE['step6_3'])
+            serial_module.dark_incubation(1, pressure_setting=user_pressure['step6_3'])
         else:
-            serial_module.dark_incubation(DARK_DURATION * 60, pressure_setting=USER_PRESSURE['step6_3'])
+            serial_module.dark_incubation(DARK_DURATION * 60, pressure_setting=user_pressure['step6_3'])
         """三、执行实验步骤(移液&正压)
         7. 向样本处理器中加入30ul试剂 Ds
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Ds", sample_counts, 30, move_to_location,
-                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=USER_PRESSURE['step7'])
+                        serial_module, enzyme_liquid, protocol=_protocol, pressure_setting=user_pressure['step7'])
         """三、执行实验步骤(移液&正压)
         8. 向样本处理器中加入13ul + 5ul酶
         """
         transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 13, move_to_location,
                         serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotDrop,
-                        pressure_setting=USER_PRESSURE['step8_1'])
+                        pressure_setting=user_pressure['step8_1'])
         transform_round(left_pipette, enzyme_liquid, user_labware, "Enzyme", sample_counts, 5, move_to_location,
                         serial_module, enzyme_liquid, protocol=_protocol, drop_method=DropMethod.DoNotPickUp,
-                        pressure_setting=USER_PRESSURE['step8_2'])
+                        pressure_setting=user_pressure['step8_2'])
         # close td
         if use_td:
             temp_mod.deactivate()
@@ -233,25 +242,25 @@ def run(protocol: protocol_api.ProtocolContext):
         9. 向样本处理器中加入60ul试剂 Tf
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Tf", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, pressure_setting=USER_PRESSURE['step9'])
+                        serial_module, enzyme_liquid, pressure_setting=user_pressure['step9'])
         """三、执行实验步骤(移液&正压)
         10. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
                         serial_module, enzyme_liquid, drop_method=DropMethod.DoNotDrop,
-                        pressure_setting=USER_PRESSURE['step10'])
+                        pressure_setting=user_pressure['step10'])
         """三、执行实验步骤(移液&正压)
         11. 向样本处理器中加入60ul试剂 Wa
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Wa", sample_counts, 60, move_to_location,
                         serial_module, enzyme_liquid, drop_method=DropMethod.DoNotPickUp,
-                        pressure_setting=USER_PRESSURE['step11'])
+                        pressure_setting=user_pressure['step11'])
         protocol.pause("请更换收集板...")
         """三、执行实验步骤(移液&正压)
         12. 向样本处理器中加入60ul试剂 Et
         """
         transform_round(left_pipette, customer_liquid, user_labware, "Et", sample_counts, 60, move_to_location,
-                        serial_module, enzyme_liquid, pressure_setting=USER_PRESSURE['step12'])
+                        serial_module, enzyme_liquid, pressure_setting=user_pressure['step12'])
         protocol.pause("实验结束...恢复即将复位设备...")
 
         protocol.comment(">>>>>4.实验结束<<<<<")

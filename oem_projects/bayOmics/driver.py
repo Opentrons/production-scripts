@@ -227,11 +227,23 @@ class BasicDriver:
                     return True
                 if i == run_times - 1:
                     if judge_method == "Interrupt":
-                        raise RuntimeError("Move timeout")
+                        raise RuntimeError(f"Move {axis} timeout")
                     else:
                         return False
         else:
             pass
+
+    def judge_rel_pos(self, axis: str):
+        """
+        判断位置变化
+        """
+        curr_1 = self.get_axis_position(axis)
+        time.sleep(1)
+        curr_2 = self.get_axis_position(axis)
+        if curr_1 == curr_2:
+            return False
+        else:
+            return True
 
     def set_axis_speed(self, axis: str):
         """
@@ -240,11 +252,11 @@ class BasicDriver:
         :return:
         """
         if "y" in axis:
-            self.send_to_device("06 10 00 03 00 02 04 00 00 44 7A", "Set Y Axis Speed", verify="061000030002")
+            self.send_to_device("06 10 00 03 00 02 04 00 00 44 FA", "Set Y Axis Speed", verify="061000030002")
         elif 'z' in axis:
             self.send_to_device("071000030002048000463B", "Set Z Axis Speed", verify="071000030002")  # 8000463B
         elif "r" in axis:
-            pass
+            self.send_to_device("05 10 00 03 00 02 04 00 00 42 C8", "Set Speed 192000", verify="")
 
     def home(self, y=True, z=True, r=True):
         """
@@ -255,25 +267,47 @@ class BasicDriver:
         :return:
         """
         if r:
-            self.send_to_device("05 10 00 03 00 02 04 00 00 42 48", "Set Speed 192000", verify="")
-            self.send_to_device("05 10 00 01 00 02 04 FD 9C FF FF", "Move Relative", verify="")
-            self.send_to_device("050600000302", "Set R Axis Relative Position Mode", verify="")
-            time.sleep(5)
-            self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
+            def _r_move():
+                self.set_axis_speed('r')
+                self.send_to_device("05 10 00 01 00 02 04 FD 9C FF FF", "Move Relative", verify="")
+                self.send_to_device("050600000302", "Set R Axis Relative Position Mode", verify="")
+                time.sleep(1)
+                self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
+
+            for i in range(30):
+                _r_move()
+                ret = self.judge_rel_pos('r')
+                if ret:
+                    break
             self.judge_pos(60, 'r', "00000000")
         if z:
-            self.set_axis_speed('z')
-            self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
-            self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
-            time.sleep(0.5)
-            self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+            def _z_move():
+                # 相对运动模式向下走
+                self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
+                self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
+                time.sleep(0.5)
+                self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+
+            for i in range(30):
+                _z_move()
+                ret = self.judge_rel_pos('z')
+                current = self.get_axis_position('z')
+                if ret or current.strip() == '00000000':
+                    break
             self.judge_pos(30, 'z', "00000000")
         if y:
-            self.set_axis_speed('y')
-            self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
-            self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
-            time.sleep(1.5)
-            self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+            def _y_move():
+                self.set_axis_speed('y')
+                self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
+                self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
+                time.sleep(0.5)
+                self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+            for i in range(30):
+                _y_move()
+                ret = self.judge_rel_pos('y')
+                current = self.get_axis_position('y')
+                if ret or current.strip() == '00000000':
+                    break
             self.judge_pos(30, 'y', "00000000")
 
     def init_motors(self):
@@ -310,16 +344,11 @@ class BasicDriver:
         close_lid
         :return:
         """
-        self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
-        self.send_to_device("05 10 00 01 00 02 04 F7 D4 FF FF", "close lid", verify="051000010002")
-        ret = self.judge_pos(60, "r", "F7D4FFFF", judge_method="")
-        if not ret:
-            for i in range(3):
-                judge_m = "Interrupt" if i >= 2 else ""
-                self.home(y=False, z=False)
-                self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
-                self.send_to_device("05 10 00 01 00 02 04 F7 D4 FF FF", "close lid", verify="051000010002")
-                self.judge_pos(60, "r", "F7D4FFFF", judge_method=judge_m)
+        target = 'F7D4FFFF'
+        current_pos = self.get_axis_position('r')
+        if current_pos.strip() == target:
+            return
+        self.move_r(target)
 
     def dark_incubation(self, dark_time: int):
         """
@@ -393,7 +422,7 @@ class BasicDriver:
             # compare temp
             set_temp = self.read_setting_temperature()
             real_temp = self.read_real_temperature()
-            assert abs(set_temp - real_temp) < 1, "heat device fail"
+            assert abs(set_temp - real_temp) < 1, f"heat device fail"
 
     def move_y(self, position: str):
         """
@@ -401,14 +430,37 @@ class BasicDriver:
         :param position:
         :return:
         """
-        for i in range(3):
+
+        def _move():
             self.set_axis_speed('y')
             self.send_to_device("060600000301", "Set Y Axis Position Mode", verify="")
             self.send_to_device(f"06100001000204{position}", f"Move Y To {position}", verify="061000010002")
-            ret = self.judge_pos(30, 'y', position, judge_method="others")
+
+        for i in range(30):
+            _move()
+            ret = self.judge_rel_pos('y')
+            current = self.get_axis_position('y')
+            if ret or current.strip() == position:
+                break
+        self.judge_pos(30, 'y', position)
+
+    def move_r(self, position: str):
+        """
+        移动 r轴
+        """
+
+        def _move():
+            self.set_axis_speed('r')
+            self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
+            self.send_to_device(f"05100001000204{position}", "close lid", verify="")
+
+        for i in range(30):
+            _move()
+            ret = self.judge_rel_pos('r')
             if ret:
-                return 0
-        raise TimeoutError("Move Y Time Out")
+                break
+
+        self.judge_pos(30, 'r', position)
 
     def move_z(self, position: str):
         """
@@ -416,14 +468,18 @@ class BasicDriver:
         :param position:
         :return:
         """
-        for i in range(3):
+
+        def _move():
             self.set_axis_speed('z')
             self.send_to_device("070600000301", "Set Z Axis Position Mode", verify="")
             self.send_to_device(f"07100001000204{position}", f"Move Z To {position}", verify="071000010002")
-            ret = self.judge_pos(30, 'z', position, judge_method="others")
+
+        for i in range(30):
+            _move()
+            ret = self.judge_rel_pos('z')
             if ret:
-                return 0
-        raise TimeoutError("Move Z Time Out")
+                break
+        self.judge_pos(30, 'z', position)
 
     def get_axis_position(self, axis: str):
         """
@@ -495,7 +551,7 @@ class BasicDriver:
         :return:
         """
         self.move_z("00000000")
-        self.home(r=False)
+        self.move_y('00000000')
 
     def init_led(self):
         """
@@ -532,12 +588,15 @@ if __name__ == '__main__':
     #     print(f"Round ---------------------------- {i + 1}")
     #     bd.set_pressure((i + 1) * 0.01, 10)
     bd.init_device()
-    bd.close_lid()
+    bd.heat_incubation([{"temperature": 52, "time": 120}, {"temperature": 0, "time": 30}, {"temperature": 52, "time": 120}])
 
+    # bd.home()
+    # bd.set_led_rounds(9999)
+    # while True:
+    #     bd.move_to_work_position()
+    #     bd.release_work_position()
     # bd.init_device()
-    """
-    1. x y z 轴电机测试
-    """
+
     # for i in range(10):
     #     print(f"Round ---------------------------- {i + 1}")
     #     bd.move_to_work_position()

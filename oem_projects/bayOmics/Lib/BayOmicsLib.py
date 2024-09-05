@@ -5,6 +5,7 @@ import serial.tools.list_ports
 import codecs
 from enum import Enum
 import hashlib
+import json
 
 # metadata
 metadata = {
@@ -62,25 +63,6 @@ SERIAL_DEVICE_INDEX = 1
 SINGLE_VOLUME = 20
 DARK_DURATION = 1
 
-USER_PRESSURE = {
-    "step1": {"pressure": 0.02, "duration": 60},
-    "step2": {"pressure": 0.06, "duration": 60},
-    "step3": {"pressure": 0.02, "duration": 180},
-    "step4": {"pressure": 0.03, "duration": 60},
-    "step5": {"pressure": 0.03, "duration": 60},
-    "step6_1": {"pressure": 0.04, "duration": 20},
-    "step6_2": {"pressure": 0.04, "duration": 20},
-    "step6_3": {"pressure": 0.04, "duration": 60},
-    "step7": {"pressure": 0.05, "duration": 40},
-    "step8_1": {"pressure": 0.04, "duration": 16},
-    "step8_2": {"pressure": 0.02, "duration": 5},
-    "step9": {"pressure": 0.04, "duration": 100},
-    "step10": {"pressure": 0.07, "duration": 60},
-    "step11": {"pressure": 0.07, "duration": 60},
-    "step12": {"pressure": 0.03, "duration": 60},
-
-}
-
 HEAT_SETTING = [{"temperature": 70, "time": 10 * 60}, {"temperature": 52, "time": 60 * 60}]
 
 """
@@ -99,6 +81,17 @@ class DropMethod(Enum):
 class UserMode(Enum):
     Debugging = 1
     Running = 2
+
+
+def load_json(file_name):
+    with open(file_name, 'r') as file:
+        data = json.load(file)
+        return data
+
+
+def get_pressure_setting():
+    data = load_json('/data/testing_data/user_pressure.json')
+    return data
 
 
 class BayOmicsLib:
@@ -306,7 +299,7 @@ class BayOmicsLib:
         value = data[6:10]
         value = int(value, 16) / 1000
         value_mpa = 0.125 * value - 0.124
-        return value_mpa
+        return value_mpa + 0.003
 
     def set_motor_enable(self, y=True, z=True, r=True):
         """
@@ -359,6 +352,18 @@ class BayOmicsLib:
         elif "r" in axis:
             pass
 
+    def judge_rel_pos(self, axis: str):
+        """
+        判断位置变化
+        """
+        curr_1 = self.get_axis_position(axis)
+        self.opentrons_delay(1)
+        curr_2 = self.get_axis_position(axis)
+        if curr_1 == curr_2:
+            return False
+        else:
+            return True
+
     def home(self, y=True, z=True, r=True):
         """
         home motor, move axis to the default position
@@ -368,25 +373,48 @@ class BayOmicsLib:
         :return:
         """
         if r:
-            self.send_to_device("05 10 00 03 00 02 04 00 00 42 48", "Set Speed 192000", verify="")
-            self.send_to_device("05 10 00 01 00 02 04 FD 9C FF FF", "Move Relative", verify="")
-            self.send_to_device("050600000302", "Set R Axis Relative Position Mode", verify="")
-            self.opentrons_delay(5)
-            self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
+            def _r_move():
+                self.set_axis_speed('r')
+                self.send_to_device("05 10 00 01 00 02 04 FD 9C FF FF", "Move Relative", verify="")
+                self.send_to_device("050600000302", "Set R Axis Relative Position Mode", verify="")
+                self.opentrons_delay(1)
+                self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
+
+            for i in range(30):
+                _r_move()
+                ret = self.judge_rel_pos('r')
+                if ret:
+                    break
             self.judge_pos(60, 'r', "00000000")
         if z:
-            self.set_axis_speed('z')
-            self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
-            self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
-            self.opentrons_delay(0.5)
-            self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+            def _z_move():
+                # 相对运动模式向下走
+                self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
+                self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
+                self.opentrons_delay(0.5)
+                self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+
+            for i in range(30):
+                _z_move()
+                ret = self.judge_rel_pos('z')
+                current = self.get_axis_position('z')
+                if ret or current.strip() == '00000000':
+                    break
             self.judge_pos(30, 'z', "00000000")
         if y:
-            self.set_axis_speed('y')
-            self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
-            self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
-            self.opentrons_delay(1)
-            self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+            def _y_move():
+                self.set_axis_speed('y')
+                self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
+                self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
+                self.opentrons_delay(0.5)
+                self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+
+            for i in range(30):
+                _y_move()
+                ret = self.judge_rel_pos('y')
+                current = self.get_axis_position('y')
+                if ret or current.strip() == '00000000':
+                    break
             self.judge_pos(30, 'y', "00000000")
 
     def init_motors(self, y=True, z=True, r=True):
@@ -435,16 +463,11 @@ class BayOmicsLib:
         close_lid
         :return:
         """
-        self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
-        self.send_to_device(f"05 10 00 01 00 02 04 {self.CLOSE_POS}", "close lid", verify="")
-        ret = self.judge_pos(60, "r", self.CLOSE_POS, judge_method="")
-        if not ret:
-            for i in range(3):
-                judge_m = "Interrupt" if i >= 2 else ""
-                self.home(y=False, z=False)
-                self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
-                self.send_to_device(f"05 10 00 01 00 02 04 {self.CLOSE_POS}", "close lid", verify="")
-                self.judge_pos(60, "r", self.CLOSE_POS, judge_method=judge_m)
+        target = self.CLOSE_POS
+        current_pos = self.get_axis_position('r')
+        if current_pos.strip() == target:
+            return
+        self.move_r(target)
 
     def dark_incubation(self, dark_time: int, pressure=None, duration=None, pressure_setting=None):
         """
@@ -544,6 +567,7 @@ class BayOmicsLib:
         :return:
         """
         self.close_lid()
+        self.set_led_rounds(9999)
         for heat_setting in heat_list:
             temp = heat_setting["temperature"]
             keep_times = heat_setting["time"]
@@ -551,15 +575,14 @@ class BayOmicsLib:
                 self.stop_heat()
             else:
                 self.heat_device(temp)
-            for i in range(keep_times):
-                self.opentrons_delay(0.3)
-                self.set_led_rounds(i + 1)
+            self.opentrons_delay(keep_times)
             # compare temp
             if temp != 0:
                 set_temp = self.read_setting_temperature()
                 real_temp = self.read_real_temperature()
                 assert abs(set_temp - real_temp) < self.HEAT_TEMP_GAP, "heat device fail"
         self.stop_heat()
+        self.set_led_virtual_value()
         self.home(y=False, z=False)
 
     def move_y(self, position: str):
@@ -568,14 +591,38 @@ class BayOmicsLib:
         :param position:
         :return:
         """
-        for i in range(3):
+
+        def _move():
+            self.set_axis_speed('y')
             self.send_to_device("060600000301", "Set Y Axis Position Mode", verify="")
             self.send_to_device(f"06100001000204{position}", f"Move Y To {position}", verify="061000010002")
-            ret = self.judge_pos(30, 'y', position, judge_method="others")
-            if ret:
-                return 0
-        if not self.simulate:
-            raise TimeoutError("Move Y Time Out")
+
+        for i in range(30):
+            _move()
+            ret = self.judge_rel_pos('y')
+            current = self.get_axis_position('y')
+            if ret or current.strip() == position:
+                break
+        self.judge_pos(30, 'y', position)
+
+    def move_r(self, position: str):
+        """
+        移动 r轴
+        """
+
+        def _move():
+            self.set_axis_speed('r')
+            self.send_to_device("050600000301", "Set R Axis Speed Mode", verify="")  # 位置模式
+            self.send_to_device(f"05100001000204{position}", "close lid", verify="")
+
+        for i in range(30):
+            _move()
+            current_pos = self.get_axis_position('r')
+            ret = self.judge_rel_pos('r')
+            if ret or current_pos.strip() == position:
+                break
+
+        self.judge_pos(30, 'r', position)
 
     def move_z(self, position: str):
         """
@@ -583,14 +630,19 @@ class BayOmicsLib:
         :param position:
         :return:
         """
-        for i in range(3):
+
+        def _move():
+            self.set_axis_speed('z')
             self.send_to_device("070600000301", "Set Z Axis Position Mode", verify="")
             self.send_to_device(f"07100001000204{position}", f"Move Z To {position}", verify="071000010002")
-            ret = self.judge_pos(30, 'z', position, judge_method="others")
-            if ret:
-                return 0
-        if not self.simulate:
-            raise TimeoutError("Move Z Time Out")
+
+        for i in range(30):
+            _move()
+            current_pos = self.get_axis_position('z')
+            ret = self.judge_rel_pos('z')
+            if ret or current_pos.strip() == position:
+                break
+        self.judge_pos(30, 'z', position)
 
     def get_axis_position(self, axis: str):
         """
@@ -647,7 +699,7 @@ class BayOmicsLib:
         if _pressure <= 0:
             _pressure = 0
         self.set_led_pressure_value(_pressure)
-        self.opentrons_delay(duration)
+        self.opentrons_delay(duration - 3)
         # 关闭压力
         self.set_pressure_off()
         # 释放work position
@@ -669,7 +721,7 @@ class BayOmicsLib:
         :return:
         """
         self.move_z("00000000")
-        self.home(r=False)
+        self.move_y('00000000')
 
     def init_led(self):
         """
