@@ -454,37 +454,98 @@ class TC:
             print(f"Responds: {ret}")
 
         # 降温到4
-        print("开始降温 -> 4C")
+        print("条件准备:开始降温 -> 4C")
         self.serail.write_and_get_buffer("M104 S4", delay=3)
         ret = get_tem_and_break(4)
         assert ret, 'set temperature timeout'
 
         input("Plate Temperature & Light 开始测试...")
         # 升温到23
+        print("测试:开始升温 -> 4-23C")
         self.serail.write_and_get_buffer("M104 S23", delay=3)
-        get_tem_and_break(23)
-        show_responds()
-        ret = input('是否亮蓝色灯条（Y/N）?')
+        time.sleep(1)
+        ret = input('是否蓝色灯条闪烁（Y/N）?')
         if ret.strip().upper() == 'Y':
-            print('TEST PASS')
+            print('Pulsing blue : Changing to cool temperature (<23 °C) TEST PASS')
             self.test_result.append('Pass')
         else:
-            self.test_result.append('Fail')
-        # 升温到95
-        self.serail.write_and_get_buffer("M104 S95", delay=3)
-        get_tem_and_break(95)
-        show_responds()
-        ret = input('是否亮红色灯条（Y/N）?')
-        if ret.strip().upper() == 'Y':
-            print('TEST PASS')
-            self.test_result.append('Pass')
-        else:
-            print('TEST FAIL')
+            print('Pulsing blue : Changing to cool temperature (<23 °C) TEST FAIL')
             self.test_result.append('Fail')
 
+        ret = get_tem_and_break(23)
+        show_responds()
+        ret = input('是否亮蓝色灯条常亮（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('Solid blue : Holding at cool temperature (<23 °C) TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('Solid blue : Holding at cool temperature (<23 °C) TEST FAIL')
+            self.test_result.append('Fail')
+        # 升温到95
+        print("测试:开始升温 -> 23-95C")
+        self.serail.write_and_get_buffer("M104 S95", delay=3)
+        time.sleep(2)
+        ret = input('是否红色灯条闪烁（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('Pulsing red : Changing to hot temperature (>23 °C) TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('Pulsing red : Changing to hot temperature (>23 °C) TEST FAIL')
+            self.test_result.append('Fail')
+
+        get_tem_and_break(95)
+        show_responds()
+        ret = input('是否红色灯条常亮（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('Solid red : Holding at hot temperature (>23 °C) TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('Solid red : Holding at hot temperature (>23 °C) TEST FAIL')
+            self.test_result.append('Fail')
+
+
+        # 降温到24
+        print("测试:开始降温 -> 95-24C")
+        self.serail.write_and_get_buffer("M104 S24", delay=3)
+        time.sleep(2)
+        ret = input('是否红色灯条闪烁（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('Pulsing red : Changing to hot temperature (>23 °C) TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('Pulsing red : Changing to hot temperature (>23 °C) TEST FAIL')
+            self.test_result.append('Fail')
+        get_tem_and_break(95)
+        show_responds()
+
+        # 升温到23
+        print("测试:开始升温 -> 24-4C")
         self.serail.write_and_get_buffer("M104 S23", delay=3)
-        get_tem_and_break(23)
-        print("结束测试失能...")
+        time.sleep(2)
+        ret = input('是否蓝色灯条闪烁（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('Pulsing blue : Changing to cool temperature (<23 °C) TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('Pulsing blue : Changing to cool temperature (<23 °C) TEST FAIL')
+            self.test_result.append('Fail')
+        get_tem_and_break(95)
+        show_responds()
+
+        self.serail.write_and_get_buffer("M18", delay=3)
+        time.sleep(2)
+        ret = input('是否白色灯条常亮（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('Solid white : Idle TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('Solid white : Idle TEST FAIL')
+            self.test_result.append('Fail')
+
+        # print("结束测试:恢复温度23C")
+        # self.serail.write_and_get_buffer("M104 S23", delay=3)
+        # get_tem_and_break(23)
+        print("结束测试...")
         self.serail.write_and_get_buffer("M18", delay=3)
 
 

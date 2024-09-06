@@ -271,7 +271,7 @@ class BasicDriver:
                 self.set_axis_speed('r')
                 self.send_to_device("05 10 00 01 00 02 04 FD 9C FF FF", "Move Relative", verify="")
                 self.send_to_device("050600000302", "Set R Axis Relative Position Mode", verify="")
-                time.sleep(1)
+                time.sleep(0.5)
                 self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
 
             for i in range(30):
@@ -279,6 +279,7 @@ class BasicDriver:
                 ret = self.judge_rel_pos('r')
                 if ret:
                     break
+                time.sleep(3)
             self.judge_pos(60, 'r', "00000000")
         if z:
             def _z_move():
@@ -302,6 +303,7 @@ class BasicDriver:
                 self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
                 time.sleep(0.5)
                 self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+
             for i in range(30):
                 _y_move()
                 ret = self.judge_rel_pos('y')
@@ -588,9 +590,9 @@ if __name__ == '__main__':
     #     print(f"Round ---------------------------- {i + 1}")
     #     bd.set_pressure((i + 1) * 0.01, 10)
     bd.init_device()
-    bd.heat_incubation([{"temperature": 52, "time": 120}, {"temperature": 0, "time": 30}, {"temperature": 52, "time": 120}])
-
-    # bd.home()
+    # bd.heat_incubation([{"temperature": 52, "time": 120}, {"temperature": 0, "time": 30}, {"temperature": 52, "time": 120}])
+    for i in range(5):
+        bd.home()
     # bd.set_led_rounds(9999)
     # while True:
     #     bd.move_to_work_position()
