@@ -1,5 +1,5 @@
-from http_client import HttpClient
-from ot_type import PositionSel, Mount, Point, Target, Axis, LabWare, Instrument
+from oem_projects.burning_rock.http_client import HttpClient
+from oem_projects.burning_rock.ot_type import PositionSel, Mount, Point, Target, Axis, LabWare, Instrument
 from typing import Union, List
 import asyncio
 

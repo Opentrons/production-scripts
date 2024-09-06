@@ -3,7 +3,7 @@ import json
 import requests
 
 # Domain = "http://OT2CEP20230630R01-DEBUGGER:31950"
-Domain = "http://192.168.6.8:31950"
+Domain = "http://192.168.3.5:31950"
 headers = {
     "Content-Type": "application/json",
     "Opentrons-Version": "3"

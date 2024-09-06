@@ -19,8 +19,8 @@ ReportName = "TC-DiagnosticTest"
 
 
 class TC:
-    def __init__(self):
-        self.report = Report(ReportName)
+    def __init__(self, file_path):
+        self.report = Report(file_path, ReportName)
         self.serail = SerialDriver()
         self.test_result = []
 
@@ -31,39 +31,6 @@ class TC:
         """
         self.report.write_row(self.test_result)
 
-    def init_report(self):
-        """
-        init csv
-        :return:
-        """
-
-        head1 = ["Test: Barcode Scan", "Test: Get System Info", "Test: Get System Info", "Test: Get Board HW Revision",
-                 "Test: UI LED Test", "Test: Front Button LED", "Test: Seal Retracted Switch Test",
-                 "Test: Seal Retracted Switch Test",
-                 "Test: Plate Lift Test", "Test: Lid Open Switch Test", "Test: Lid Open Switch Test",
-                 "Test: Front Button Press", "Test: Front Button Press", "Test: Close Lid Extend Seal Switch Test",
-                 "Test: Close Lid Extend Seal Switch Test",
-                 "Test: Lid Thermistor Test", "Test: Lid Thermistor Test", "Test: Plate Thermistor Test",
-                 "Test: Plate Thermistor Test",
-                 "Test: Heatsink Fan Test", "Test: Heatsink Fan Test", "Test: Lid Heater Test", "Test: Lid Heater Test",
-                 "Test: Cold Peltier Test", "Test: Cold Peltier Test", "Test: Hot Peltier Test",
-                 "Test: Hot Peltier Test"]
-
-        head2 = ["Unit Barcode Number", "Unit Firmware Serial Number", "Unit Firmware Revision",
-                 "Unit Board HW Revision",
-                 "RESULT", "RESULT", "M901.D Response", "RESULT", "RESULT", "M901.D Response", "RESULT",
-                 "M901.D Response", "RESULT", "M901.D Response", "RESULT", "Lid Thermistor M141 Response", "RESULT",
-                 "Plate Thermistor M105.D Response", "RESULT", "Heatsink Fan M103.D Response", "RESULT",
-                 "M141 Response",
-                 "RESULT", "Cold Peltier Test M105.D Response", "RESULT", "Hot Peltier Test M105.D Response", "RESULT"
-                 ]
-        csv = ReportName + "-" + time.strftime("%Y%m%d") + '.csv'
-        if os.path.exists(csv):
-            pass
-        else:
-            self.report.write_row(head1)
-            self.report.write_row(head2)
-
     def init_serial(self):
         """
         init serial port connect
@@ -71,13 +38,13 @@ class TC:
         """
         self.serail.init()
 
-    def load_test_specification(self):
+    def load_test_specification(self, test_config=None):
         """
         load test guide
         :return:
         """
         import json
-        with open("tc_test_specificaition.json", "r", encoding='utf-8') as f:
+        with open("../../source/modules/tc_test_specification.json", "r", encoding='utf-8') as f:
             dict_res = json.load(f)
             f.close()
             return dict_res
@@ -365,13 +332,13 @@ class TC:
         else:
             print("PASS")
 
-    def test_unit(self):
+    def test_unit(self, test_config):
         """
         v-for test unit and write csv
         :return:
         """
         self.repair_to_start()
-        specification_dict: dict = self.load_test_specification()
+        specification_dict: dict = self.load_test_specification(test_config=test_config)
         self.get_barcode_number()
         result = ""
         for k, v in specification_dict.items():
@@ -455,29 +422,99 @@ class TC:
         self.lift_plate()
 
         self.serail.close()
-        self.write_csv()
+
+    def get_plate_tem(self):
+        responds = self.serail.write_and_get_buffer("M105", delay=3)
+        try:
+            idx = responds.index('C:')
+            temp = responds[idx+2:idx + 6]
+            temp = float(temp)
+            return temp
+        except Exception as e:
+            print(e)
+
+    def test_light_status(self, ):
+        """
+        pass
+        """
+
+        def get_tem_and_break(target_tem, time_out=3 * 60):
+            """
+            获得温度然后退出
+            """
+            for i in range(time_out):
+                time.sleep(1)
+                temp = self.get_plate_tem()
+                if abs(temp - target_tem) < 0.1:
+                    return True
+            return False
+
+        def show_responds():
+            ret = self.serail.write_and_get_buffer("M105", delay=3)
+            print(f"Responds: {ret}")
+
+        # 降温到4
+        print("开始降温 -> 4C")
+        self.serail.write_and_get_buffer("M104 S4", delay=3)
+        ret = get_tem_and_break(4)
+        assert ret, 'set temperature timeout'
+
+        input("Plate Temperature & Light 开始测试...")
+        # 升温到23
+        self.serail.write_and_get_buffer("M104 S23", delay=3)
+        get_tem_and_break(23)
+        show_responds()
+        ret = input('是否亮蓝色灯条（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            self.test_result.append('Fail')
+        # 升温到95
+        self.serail.write_and_get_buffer("M104 S95", delay=3)
+        get_tem_and_break(95)
+        show_responds()
+        ret = input('是否亮红色灯条（Y/N）?')
+        if ret.strip().upper() == 'Y':
+            print('TEST PASS')
+            self.test_result.append('Pass')
+        else:
+            print('TEST FAIL')
+            self.test_result.append('Fail')
+
+        self.serail.write_and_get_buffer("M104 S23", delay=3)
+        get_tem_and_break(23)
+        print("结束测试失能...")
+        self.serail.write_and_get_buffer("M18", delay=3)
 
 
-if __name__ == '__main__':
+def run_tc(project_path):
     while True:
         get_type = input("=====================\n"
                          "TC Diagnostic Test\n\n"
                          "type 1 to start(输入1开始测试)\n"
                          "type 2 to lift plate(输入2取96孔板)\n"
                          "type 3 to flash serial number(输入3开始烧录条码)\n"
-                         "type 4 to get error message(输入4查看当前错误信息)\n")
+                         "type 4 to get error message(输入4查看当前错误信息)\n"
+                         "type 5 to test plat temperature&light(输入5测试灯条颜色)\n")
         start_time = time.time()
-        tc = TC()
+        data_path = os.path.join(project_path, 'testing_data')
+        config = os.path.join(project_path, 'source', 'modules', 'tc_test_specification.json')
+        tc = TC(data_path)
         tc.init_serial()
         if str(get_type) == "1":
-            tc.init_report()
-            tc.test_unit()
+            tc.report.init_report()
+            tc.test_unit(config)
+            tc.test_light_status()
+            tc.write_csv()
         elif str(get_type) == "2":
             tc.lift_plate()
         elif str(get_type) == "3":
             tc.flash_sn()
         elif str(get_type) == "4":
             tc.get_error_message()
+        elif str(get_type) == "5":
+            tc.test_light_status()
         else:
             pass
         end_time = time.time()
@@ -486,3 +523,7 @@ if __name__ == '__main__':
         get_input = input("Test Complete, type 'q' to exit, others to continue...(测试结束, 输入‘q’退出，其它键继续...)")
         if get_input.strip().lower() == 'q':
             break
+
+
+if __name__ == '__main__':
+    pass

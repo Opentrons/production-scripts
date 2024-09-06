@@ -1,5 +1,5 @@
-from modules.module import ModuleBuilder
-from http_client import HttpClient
+from oem_projects.burning_rock.modules.module import ModuleBuilder
+from oem_projects.burning_rock.http_client import HttpClient
 import time
 
 
@@ -103,6 +103,26 @@ class ThermocyclerModule(ModuleBuilder):
         _data = {
             "data": {
                 "commandType": "thermocycler/deactivateBlock",
+                "params": {
+                    "moduleId": module_id
+                }
+            }
+        }
+        _params = {"waitUntilComplete": True}
+        ret = HttpClient.post(_url, data=_data, params=_params)
+        HttpClient.judge_state_code(ret)
+        return ret[1]
+
+    async def _post_deactivate_all(self, module_id):
+        """
+        deactivate block
+        :param module_id:
+        :return:
+        """
+        _url = self._url
+        _data = {
+            "data": {
+                "commandType": "thermocycler/awaitProfileComplete",
                 "params": {
                     "moduleId": module_id
                 }
@@ -239,6 +259,10 @@ class ThermocyclerModule(ModuleBuilder):
         """
         print("deactivate block")
         await self._post_deactivate_block(module_id)
+
+    async def deactivate_all(self, module_id):
+        print("deactivate all")
+        await self._post_deactivate_all(module_id)
 
     async def wait_for_block_temperature(self, module_id, time_out=300):
         """

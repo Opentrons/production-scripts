@@ -1,5 +1,5 @@
-from hardware_control.hardware_control import HttpClient
-from ot_type import ModuleName
+from oem_projects.burning_rock.hardware_control.hardware_control import HttpClient
+from oem_projects.burning_rock.ot_type import ModuleName
 
 
 class ModuleBuilder:

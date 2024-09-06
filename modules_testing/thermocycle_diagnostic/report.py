@@ -1,10 +1,45 @@
 import csv
+import os.path
 import time
 
 
 class Report:
-    def __init__(self, csv_name: str):
+    def __init__(self, file_path, csv_name: str):
         self.csv_name = csv_name + "-" + time.strftime("%Y%m%d") + '.csv'
+        self.csv_name = os.path.join(file_path, self.csv_name)
+
+    def init_report(self):
+        """
+        init csv
+        :return:
+        """
+
+        head1 = ["Test: Barcode Scan", "Test: Get System Info", "Test: Get System Info", "Test: Get Board HW Revision",
+                 "Test: UI LED Test", "Test: Front Button LED", "Test: Seal Retracted Switch Test",
+                 "Test: Seal Retracted Switch Test",
+                 "Test: Plate Lift Test", "Test: Lid Open Switch Test", "Test: Lid Open Switch Test",
+                 "Test: Front Button Press", "Test: Front Button Press", "Test: Close Lid Extend Seal Switch Test",
+                 "Test: Close Lid Extend Seal Switch Test",
+                 "Test: Lid Thermistor Test", "Test: Lid Thermistor Test", "Test: Plate Thermistor Test",
+                 "Test: Plate Thermistor Test",
+                 "Test: Heatsink Fan Test", "Test: Heatsink Fan Test", "Test: Lid Heater Test", "Test: Lid Heater Test",
+                 "Test: Cold Peltier Test", "Test: Cold Peltier Test", "Test: Hot Peltier Test",
+                 "Test: Hot Peltier Test", "Test: Plate Temperature&Light", "Test: Plate Temperature&Light"]
+
+        head2 = ["Unit Barcode Number", "Unit Firmware Serial Number", "Unit Firmware Revision",
+                 "Unit Board HW Revision",
+                 "RESULT", "RESULT", "M901.D Response", "RESULT", "RESULT", "M901.D Response", "RESULT",
+                 "M901.D Response", "RESULT", "M901.D Response", "RESULT", "Lid Thermistor M141 Response", "RESULT",
+                 "Plate Thermistor M105.D Response", "RESULT", "Heatsink Fan M103.D Response", "RESULT",
+                 "M141 Response",
+                 "RESULT", "Cold Peltier Test M105.D Response", "RESULT", "Hot Peltier Test M105.D Response", "RESULT",
+                 "RESULT Blue(<23C)", "RESULT Red(>23C)"
+                 ]
+        if os.path.exists(self.csv_name):
+            pass
+        else:
+            self.write_row(head1)
+            self.write_row(head2)
 
     def write_row(self, row: list):
         """
@@ -36,10 +71,4 @@ class Report:
 
 
 if __name__ == '__main__':
-    r = Report("test")
-    r.write_row(['n', 'c', 2])
-    r.write_row([3, 4, 3])
-    r.write_row([3, 4, 3])
-    r.write_row([3, 4, 3])
-    r.write_last_row([2, 3, 4])
-    r.write_last_row([1, 3, 4])
+    pass

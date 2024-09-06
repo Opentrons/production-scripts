@@ -14,6 +14,7 @@ from __version__ import get_version
 from gravimetric_testing.openwebapp import openweb
 from tools.reading_laser import ReadLaser
 from tools.high_voltage_test.main import run_high_voltage_test
+from modules_testing.thermocycle_diagnostic.tc_diagnostic import run_tc
 from __start_server__ import start_server
 
 addpathpat = os.path.dirname(__file__)
@@ -62,6 +63,8 @@ if __name__ == '__main__':
             start_server(None)
         elif '10' in test_name:
             run_high_voltage_test()
+        elif '11' in test_name:
+            run_tc(project_path)
         else:
             pass
 
