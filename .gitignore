@@ -1,6 +1,7 @@
 *.csv
 *.spec
 *.pyc
+*.exe
 .idea
 __pycache__
 build
