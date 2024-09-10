@@ -267,49 +267,82 @@ class BasicDriver:
         :return:
         """
         if r:
-            def _r_move():
+            def _r_move_rel():
                 self.set_axis_speed('r')
+                start_pos = self.get_axis_position('r')
                 self.send_to_device("05 10 00 01 00 02 04 FD 9C FF FF", "Move Relative", verify="")
                 self.send_to_device("050600000302", "Set R Axis Relative Position Mode", verify="")
-                time.sleep(0.5)
-                self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
+                time.sleep(1)
+                end_pos = self.get_axis_position('r')
+                if start_pos == end_pos:
+                    print("retry move r rel")
+                    return False
+                else:
+                    return True
 
-            for i in range(30):
-                _r_move()
-                ret = self.judge_rel_pos('r')
+            for _ in range(10):
+                ret = _r_move_rel()
                 if ret:
                     break
-                time.sleep(3)
+
+            self.send_to_device("050600000300", "Set R Axis Speed Mode", verify="")
+            for _ in range(10):
+                res = self.judge_rel_pos('r')
+                if res:
+                    break
+                print("retry to zero by r")
             self.judge_pos(60, 'r', "00000000")
         if z:
-            def _z_move():
-                # 相对运动模式向下走
+            def _z_move_rel():
+                self.set_axis_speed('z')
+                start_pos = self.get_axis_position('z')
                 self.send_to_device("070600000302", "Set Z Axis Relative Position Mode", verify="")
                 self.send_to_device("07 10 00 01 00 02 04 AC FF FF FF", "move relative", verify="")
                 time.sleep(0.5)
-                self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+                end_pos = self.get_axis_position('z')
+                if start_pos == end_pos:
+                    print("retry move z rel")
+                    return False
+                else:
+                    return True
 
-            for i in range(30):
-                _z_move()
-                ret = self.judge_rel_pos('z')
-                current = self.get_axis_position('z')
-                if ret or current.strip() == '00000000':
+            for _ in range(10):
+                ret = _z_move_rel()
+                if ret:
                     break
-            self.judge_pos(30, 'z', "00000000")
+
+            self.send_to_device("070600000300", "Set Z Axis Speed Mode", verify="")
+            for _ in range(10):
+                res = self.judge_rel_pos('z')
+                if res:
+                    break
+                print("retry to zero by z")
+            self.judge_pos(30, 'r', "00000000")
         if y:
-            def _y_move():
+            def _y_move_rel():
                 self.set_axis_speed('y')
+                start_pos = self.get_axis_position('y')
                 self.send_to_device("06 10 00 01 00 02 04 BA 24 FF FF", "Move Relative", verify="061000010002")
                 self.send_to_device("060600000302", "Set Y Axis Relative Position Mode", verify="")
-                time.sleep(0.5)
-                self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+                time.sleep(1)
+                end_pos = self.get_axis_position('y')
+                if start_pos == end_pos:
+                    print("retry move y rel")
+                    return False
+                else:
+                    return True
 
-            for i in range(30):
-                _y_move()
-                ret = self.judge_rel_pos('y')
-                current = self.get_axis_position('y')
-                if ret or current.strip() == '00000000':
+            for _ in range(10):
+                ret = _y_move_rel()
+                if ret:
                     break
+
+            self.send_to_device("060600000300", "Set Y Axis Speed Mode", verify="")
+            for _ in range(10):
+                res = self.judge_rel_pos('y')
+                if res:
+                    break
+                print("retry to zero by y")
             self.judge_pos(30, 'y', "00000000")
 
     def init_motors(self):

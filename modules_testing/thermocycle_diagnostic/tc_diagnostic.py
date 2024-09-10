@@ -454,7 +454,7 @@ class TC:
             print(f"Responds: {ret}")
 
         # 降温到4
-        print("条件准备:开始降温 -> 4C")
+        print("条件准备:开始降温 -> 4C,测试过程请盯着灯条")
         self.serail.write_and_get_buffer("M104 S4", delay=3)
         ret = get_tem_and_break(4)
         assert ret, 'set temperature timeout'
@@ -484,7 +484,7 @@ class TC:
         # 升温到95
         print("测试:开始升温 -> 23-95C")
         self.serail.write_and_get_buffer("M104 S95", delay=3)
-        time.sleep(2)
+        time.sleep(1)
         ret = input('是否红色灯条闪烁（Y/N）?')
         if ret.strip().upper() == 'Y':
             print('Pulsing red : Changing to hot temperature (>23 °C) TEST PASS')
@@ -515,12 +515,12 @@ class TC:
         else:
             print('Pulsing red : Changing to hot temperature (>23 °C) TEST FAIL')
             self.test_result.append('Fail')
-        get_tem_and_break(95)
+        get_tem_and_break(24)
         show_responds()
 
         # 升温到23
         print("测试:开始升温 -> 24-4C")
-        self.serail.write_and_get_buffer("M104 S23", delay=3)
+        self.serail.write_and_get_buffer("M104 S4", delay=3)
         time.sleep(2)
         ret = input('是否蓝色灯条闪烁（Y/N）?')
         if ret.strip().upper() == 'Y':
@@ -529,7 +529,7 @@ class TC:
         else:
             print('Pulsing blue : Changing to cool temperature (<23 °C) TEST FAIL')
             self.test_result.append('Fail')
-        get_tem_and_break(95)
+        get_tem_and_break(4)
         show_responds()
 
         self.serail.write_and_get_buffer("M18", delay=3)
