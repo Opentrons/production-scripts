@@ -1,5 +1,5 @@
-from protocol.protocol_context import ProtocolContext
-from ot_type import LabWare, LabwareResult, Axis, Mount, get_labware_name_by_value
+from oem_projects.burning_rock.protocol.protocol_context import ProtocolContext
+from oem_projects.burning_rock.ot_type import LabWare, LabwareResult, Axis, Mount, get_labware_name_by_value
 import utils
 
 FixedTrashSlot = 1

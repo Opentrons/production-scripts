@@ -1,9 +1,9 @@
 import asyncio
 import time
 
-from hardware_control.hardware_control import HardwareControl
-from http_client import HttpClient
-from ot_type import LabWare, Instrument, ModuleName, Mount, Target, Axis, Point, LabwareResult, PipetteResult
+from oem_projects.burning_rock.hardware_control.hardware_control import HardwareControl
+from oem_projects.burning_rock.http_client import HttpClient
+from oem_projects.burning_rock.ot_type import LabWare, Instrument, ModuleName, Mount, Target, Axis, Point, LabwareResult, PipetteResult
 from typing import Union, List
 
 

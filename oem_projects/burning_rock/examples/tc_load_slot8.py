@@ -1,7 +1,7 @@
-from modules.thermocycler import ThermocyclerModule
-from ot_type import ModuleName, Mount, Instrument, LabWare
+from oem_projects.burning_rock.modules.thermocycler import ThermocyclerModule
+from oem_projects.burning_rock.ot_type import ModuleName, Mount, Instrument, LabWare
 import asyncio
-from solutions.reconstruct_protocol import ReconstructProtocolContext
+from oem_projects.burning_rock.solutions.reconstruct_protocol import ReconstructProtocolContext
 import time
 
 Init_Labaware = {

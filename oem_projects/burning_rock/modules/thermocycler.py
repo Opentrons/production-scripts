@@ -166,7 +166,7 @@ class ThermocyclerModule(ModuleBuilder):
                 {"holdSeconds": 10, "celsius": 30},
                 {"holdSeconds": 10, "celsius": 30},
                 {"holdSeconds": 10, "celsius": 30},
-                {"holdSeconds": 10, "celsius": 30},
+                {"holdSeconds": 10, "celsius": 30}
             ]
 
         _url = self._url

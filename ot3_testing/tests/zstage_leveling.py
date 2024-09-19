@@ -234,10 +234,12 @@ class ZStageLeveling(TestBase):
 
         csv_title = []
         csv_list = []
+        csv_list_no_compensation = []
 
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
         csv_list.append(time_str + flex_name)
+        csv_list_no_compensation.append(time_str + flex_name)
         csv_title.append(time_str + flex_name)
 
         for mount in [Mount.RIGHT, Mount.LEFT]:
@@ -257,6 +259,8 @@ class ZStageLeveling(TestBase):
                 result = []
                 distance_list = list(value.values())
                 difference = round(abs(distance_list[0] - distance_list[1]), 3)
+                # 无补偿添加数据
+                csv_list_no_compensation.extend([round(distance_list[0], 3), round(distance_list[1], 3), difference])
                 compensation = ZStagePoint[self.mount][key]["compensation"]
                 if ApplyCompensationFlag:
                     compensation_idx = 0
@@ -265,18 +269,23 @@ class ZStageLeveling(TestBase):
                             f"apply offset {compensation_key} -> {compensation_value}  to {distance_list[compensation_idx]}")
                         result.append(compensation_value + distance_list[compensation_idx])
                         compensation_idx += 1
+
                     difference = round(abs(result[0] - result[1]), 3)
+                    # 添加补偿后的数据
+                    csv_list.extend([round(result[0], 3), round(result[1], 3), difference])
+                else:
+                    csv_list = csv_list_no_compensation
                 print(f"{key} --> {value} (mm) --> difference: {difference}(mm)")
                 for item_key, item_value in value.items():
                     csv_title.append(self.mount.name + " " + key + " " + item_key)
-                    csv_list.append(item_value)
+
                 csv_title.append(key + "-Result")
-                csv_list.append(difference)
 
         if project_path is not None:
             file_path = os.path.join(project_path, 'testing_data', 'z_stage_leveling.csv')
         else:
             file_path = '../../testing_data/z_stage_leveling.csv'
+        self.save_csv(file_path, csv_title, csv_list_no_compensation)
         self.save_csv(file_path, csv_title, csv_list)
         self.laser_sensor.close()
 

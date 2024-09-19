@@ -11,6 +11,9 @@ async def _main():
     this_module_id = thermo_v2[0]
 
     # await _thermo_module.set_lid_temperature(this_module_id, 90)
+    # for i in range(30):
+    #     time.sleep(1)
+
     # await _thermo_module.deactivate_all(this_module_id)
     # await _thermo_module.wait_for_lid_temperature(this_module_id)
     # await _thermo_module.set_block_temperature(this_module_id, 50)
@@ -27,13 +30,13 @@ async def _main():
 
     # run profile
     await _thermo_module.run_profile(this_module_id, profile=[
-        {"holdSeconds": 100, "celsius": 50},
-        {"holdSeconds": 100, "celsius": 95},
-        {"holdSeconds": 100, "celsius": 50},
-        {"holdSeconds": 100, "celsius": 95}
+        {"holdSeconds": 90, "celsius": 50},
+        {"holdSeconds": 90, "celsius": 95},
+        {"holdSeconds": 90, "celsius": 50},
+        {"holdSeconds": 90, "celsius": 95}
     ])
-
-    await _thermo_module.deactivate_all(this_module_id)
+    #
+    # await _thermo_module.deactivate_all(this_module_id)
 
     await _thermo_module.open_lid(this_module_id)
     lid_status = await _thermo_module.get_lid_status(this_module_id)
