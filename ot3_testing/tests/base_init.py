@@ -27,6 +27,7 @@ class TestBase:
         """
         diff = abs(max(result_list) - min(result_list))
         if diff > test_spec:
+            input(f"Difference - {diff} don't match test spec - {test_spec} (测试结果超过预期，请复测!)")
             raise ValueError(f"Difference - {diff} don't match test spec - {test_spec} (测试结果超过预期，请复测!)")
 
     def initial_server(self):
@@ -82,9 +83,16 @@ class TestBase:
             distance = k * voltage + b  # /mm
             return round(float(distance), 3)
 
+    async def get_device_mount(self, laser: LaserSensor):
+        """
+        获取设备是左还是右
+        """
+        mount = laser.get_mount()
+        return mount
+
     async def read_definition_distance(self, definition: List, channel_definition, laser: LaserSensor, mount,
                                        only_code=False,
-                                       send=False, add_compensation=True, wait_time=8) -> dict:
+                                       send=False, add_compensation=True, wait_time=8, read_times=5):
         """
         read distance, using one device id (please use same device_id in the positions)
         :param definition:
@@ -98,23 +106,64 @@ class TestBase:
         :return:
         """
         print("Reading Sensor...")
+        read_successful = True
         result = {}
         if wait_time >= 0:
             for i in range(wait_time):
                 time.sleep(1)
                 print(f"wait ({wait_time})/{i + 1}...")
+
         _channel_definition = channel_definition[mount]
         device_addr = _channel_definition[definition[0]]["device_addr"]
-        code_value_list = laser.read_sensor_low()
+        sensor_readers = []  # [{1: xx, 2: xx}, {1: xx, 2: xx}]
+        try:
+            # 读取五次，去掉最大最小，取平均值
+            for i in range(read_times):
+                print(f"Reading {i + 1} times...")
+                code_value_list = laser.read_sensor_low()
+                sensor_readers.append(code_value_list)  # {1: xx, 2: xx}
+        except:
+            read_successful = False
 
-        if only_code:
-            for item in definition:
-                result.update({item: code_value_list[_channel_definition[item]["channel"]]})
+        def sensor_readers_handler(sensor_readers):
+            """
+             去除最大最小取平均值
+            """
+            handler = {}
+            output = {}
+            for key in sensor_readers[0].keys():
+                output[key] = []
+            for ret_dict in sensor_readers:
+                for key, value in ret_dict.items():
+                    output[key].append(value)
+            for key, value in output.items():
+                _avg = round(sum(value) / len(value), 3)
+                if len(value) > 1:
+                    _min = min(value)
+                    _max = max(value)
+                    value.remove(_min)
+                    value.remove(_max)
+                else:
+                    _min = _avg
+                    _max = _avg
+                print(f"min: {_min}, max: {_max}, avg: {_avg}")
+                print(f"{key}: {value}")
 
-        else:
-            for item in definition:
-                code_value = code_value_list[_channel_definition[item]["channel"]]
-                distance_value = await self.read_distance_mm_from_code_value(code_value)
-                result.update({item: distance_value})
+                handler.update({key: _avg})
+            return handler
 
-        return result
+        code_value_list = sensor_readers_handler(sensor_readers)
+
+        if read_successful:
+
+            if only_code:
+                for item in definition:
+                    result.update({item: code_value_list[_channel_definition[item]["channel"]]})
+
+            else:
+                for item in definition:
+                    code_value = code_value_list[_channel_definition[item]["channel"]]
+                    distance_value = await self.read_distance_mm_from_code_value(code_value)
+                    result.update({item: distance_value})
+
+        return result, read_successful

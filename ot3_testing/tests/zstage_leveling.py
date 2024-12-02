@@ -1,5 +1,5 @@
 import threading
-
+from drivers.serial_driver import SerialDriver
 from ot3_testing.tests.base_init import TestBase
 from ot3_testing.ot_type import Mount, Point
 from devices.laser_stj_10_m0 import LaserSensor
@@ -15,11 +15,10 @@ RequestReadyFlag = False
 ApplyCompensationFlag = True
 
 TEST_SPEC = 0.3
-DefaultPort = False
 AdjustBeforeTest = True
 
 WAIT_TIME = 15
-DEBUGGING_READING = True
+DEBUGGING_READING = False
 
 
 class ZStageLeveling(TestBase):
@@ -31,15 +30,34 @@ class ZStageLeveling(TestBase):
         self.slot_location: ZStagePoint = slot_location
         self.approaching = False
         self.judge_complete = False
+        self.simulating = False
 
     def init_laser_sensor(self, send=False):
         """
         init 96ch device
         :return:
         """
-        self.laser_sensor = LaserSensor()
-        self.laser_sensor.accuracy = "low"
-        self.laser_sensor.init_device(select_default=DefaultPort)
+        self.laser_sensor = {}
+        port_list = SerialDriver.get_com_list()
+        for port in port_list:
+            device = port.device
+            print(f"Connect Port {device}...")
+            laser = LaserSensor()
+            laser.init_device(select_default=device)
+            try:
+                result = laser.get_mount()
+                if result == "left":
+                    self.laser_sensor.update({"left": laser})
+                elif result == "right":
+                    self.laser_sensor.update({"right": laser})
+                else:
+                    pass
+            except Exception as e:
+                print(e)
+        if len(list(self.laser_sensor.values())) == 2:
+            print("Find Sensor Successful")
+        else:
+            print("Failed to find sensors")
 
     async def move_to_test_point(self, p: Point):
         """
@@ -60,14 +78,10 @@ class ZStageLeveling(TestBase):
         :param gap:
         :return:
         """
-
         if method == CalibrateMethod.Dichotomy:
             step = step
-        elif method == CalibrateMethod.Approach and self.approaching:
-            step = 0.06
         elif method == CalibrateMethod.Approach and not self.approaching:
-            step = gap * 2
-            self.approaching = True
+            step = gap
 
         _point: Point = self.slot_location[self.mount][test_name]["point"]
 
@@ -87,7 +101,9 @@ class ZStageLeveling(TestBase):
         elif "Z" in test_name:
             if direction == "plus":  # x+
                 _point = _point + Point(0, 0, step)
+                print(f"Move Up: {step}")
             else:
+                print(f"Move Down: {step}")
                 _point = _point - Point(0, 0, step)
 
         print("move to: ", _point)
@@ -95,8 +111,8 @@ class ZStageLeveling(TestBase):
         self.slot_location[self.mount][test_name]["point"] = _point
 
     async def calibrate_to_zero(self, test_name: str, spec: float, read_definition: List[str], channel_definition,
-                                target_voltage=2.5,
-                                method=CalibrateMethod.Dichotomy):
+                                target_voltage=30,
+                                method=CalibrateMethod.Approach):
         """
         move fixture to zero (30mm)
         :param test_name:
@@ -108,26 +124,33 @@ class ZStageLeveling(TestBase):
         :return:
         """
         init_step = 2
+        init_gap = 0
         while True:
             # read voltage
-            ret_dict = await self.read_definition_distance(read_definition, channel_definition, self.laser_sensor,
-                                                           self.mount, only_code=True)
+            ret_dict, ret_success = await self.read_definition_distance(read_definition, channel_definition,
+                                                           self.laser_sensor[self.mount.value], self.mount,
+                                                           only_code=False, wait_time=8, read_times=1)
             # min_voltage = min(distance_list)
-            _min = list(ret_dict.values())[0]  # judge the first channel
-            min_voltage = await self.read_distance_mm_from_code_value(_min, get_voltage=True)
-            print("current min voltage is: ", min_voltage)
-            if spec >= (min_voltage - target_voltage) >= 0:
+            min_distance = list(ret_dict.values())[0]  # judge the first channel
+            # min_distance = await self.read_distance_mm_from_code_value(_min, get_voltage=True)
+            print("current min distance is: ", min_distance)
+            if init_gap == 0:
+                init_gap = (abs(min_distance - target_voltage)) / 1.1
+            if abs(min_distance - target_voltage) < spec:
                 break
             else:
-                if min_voltage > target_voltage:
-                    await self.move_step_with_test_name(test_name, "plus", step=init_step, method=method,
-                                                        gap=(abs(min_voltage - target_voltage)))
-                else:
+                if min_distance > target_voltage:
                     await self.move_step_with_test_name(test_name, "mimus", step=init_step, method=method,
-                                                        gap=(abs(min_voltage - target_voltage)))
+                                                        gap=init_gap)
+                else:
+                    await self.move_step_with_test_name(test_name, "plus", step=init_step, method=method,
+                                                        gap=init_gap)
             init_step = init_step / 1.2
+            init_gap = 0.06
             if init_step <= 0.05:
-                init_step = 0.05
+                init_step = 0.06
+            if init_gap <= 0.05:
+                init_gap = 0.06
         self.approaching = False
 
     async def run_test_slot(self, point: Point, slot_name: str, read_definition: List[str],
@@ -139,6 +162,7 @@ class ZStageLeveling(TestBase):
         :param read_definition:
         :param with_cal:
         :param project_path:
+        :param mount:
         :return:
         """
         if RequestReadyFlag:
@@ -151,15 +175,17 @@ class ZStageLeveling(TestBase):
         if with_cal:
             await self.calibrate_to_zero(slot_name, 0.1, read_definition, ZStageChannel,
                                          method=CalibrateMethod.Approach)
-        for _i in range(WAIT_TIME):
+        for _i in range(1):
             if DEBUGGING_READING:
                 print(f"Waiting {_i}...")
-                ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor,
+                ret_dict, ret_success = await self.read_definition_distance(read_definition, ZStageChannel,
+                                                               self.laser_sensor[self.mount.value],
                                                                self.mount, wait_time=1)
                 debug_front.append(list(ret_dict.values())[0])
                 debug_rear.append(list(ret_dict.values())[1])
             else:
-                ret_dict = await self.read_definition_distance(read_definition, ZStageChannel, self.laser_sensor,
+                ret_dict, ret_success = await self.read_definition_distance(read_definition, ZStageChannel,
+                                                               self.laser_sensor[self.mount.value],
                                                                self.mount, wait_time=WAIT_TIME)
         # save debugging result
         if DEBUGGING_READING:
@@ -177,8 +203,9 @@ class ZStageLeveling(TestBase):
 
     async def th_reading_c2(self):
         while True:
-            ret_dict = await self.read_definition_distance(ZStagePoint[Mount.RIGHT]['Z-C2']["channel_definition"],
-                                                           ZStageChannel, self.laser_sensor, self.mount, wait_time=0)
+            ret_dict, ret_success = await self.read_definition_distance(ZStagePoint[Mount.RIGHT]['Z-C2']["channel_definition"],
+                                                           ZStageChannel, self.laser_sensor[self.mount.value],
+                                                           self.mount, wait_time=0, read_times=1)
             _ret_list = list(ret_dict.values())
             _difference = round(abs(max(_ret_list) - min(_ret_list)), 3)
             difference = int(-_difference * 1500 + 1500)
@@ -187,7 +214,7 @@ class ZStageLeveling(TestBase):
             if difference > 1500:
                 difference = 1500
             fre = 100 if _difference > 0.03 else 1000
-            print(_difference, difference)
+            print(f"Diff: {_difference} (调节螺丝旋钮-> Diff = 0.03mm 后回车)")
             play_alarm_3(difference, fre)
             if self.judge_complete:
                 break
@@ -205,6 +232,7 @@ class ZStageLeveling(TestBase):
         _point = ZStagePoint[mount][slot_name]["point"]
         self.mount = mount
         await self.move_to_test_point(_point)
+        print(f"Test Point: {_point}")
         await self.calibrate_to_zero(slot_name, 0.1, _definition, ZStageChannel, method=CalibrateMethod.Approach)
 
         th = threading.Thread(target=self.run_th_reading_c2)
@@ -217,12 +245,15 @@ class ZStageLeveling(TestBase):
         main loop
         """
         self.judge_complete = False
-        if self.robot_ip is None:
-            addr = self.get_address().strip()
+        if self.simulating:
+            pass
         else:
-            addr = self.robot_ip
-        self.initial_api(addr, hc=True)
-        await self.api.home()
+            if self.robot_ip is None:
+                addr = self.get_address().strip()
+            else:
+                addr = self.robot_ip
+            self.initial_api(addr, hc=True)
+            await self.api.home()
         self.init_laser_sensor(send=False)
 
         # adjust
@@ -239,14 +270,20 @@ class ZStageLeveling(TestBase):
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
         csv_list.append(time_str + flex_name)
-        csv_list_no_compensation.append(time_str + flex_name)
+        csv_list_no_compensation.append(time_str + flex_name + "no_compensation")
         csv_title.append(time_str + flex_name)
 
-        for mount in [Mount.RIGHT, Mount.LEFT]:
-            self.mount = mount
+        for mount in ["Right", "Left"]:
+            self.mount = Mount.LEFT if mount == 'Left' else Mount.RIGHT
             test_result = {}
-            print(f"Start {self.mount.value} side...")
+            print(f"Start {mount} side...")
             for p_key, p_value in ZStagePoint[self.mount].items():
+                print(f"Test Slot: {p_key}")
+
+            select_defalut = input("select run slot, if run all please Enter").strip()
+            for p_key, p_value in ZStagePoint[self.mount].items():
+                if select_defalut != "" and select_defalut != p_key:
+                    continue
                 _point = p_value["point"]
                 _compensation = p_value["compensation"]
                 _channel_definition = p_value["channel_definition"]
@@ -280,14 +317,13 @@ class ZStageLeveling(TestBase):
                     csv_title.append(self.mount.name + " " + key + " " + item_key)
 
                 csv_title.append(key + "-Result")
-
+            self.laser_sensor[self.mount.value].close()
         if project_path is not None:
             file_path = os.path.join(project_path, 'testing_data', 'z_stage_leveling.csv')
         else:
             file_path = '../../testing_data/z_stage_leveling.csv'
         self.save_csv(file_path, csv_title, csv_list_no_compensation)
         self.save_csv(file_path, csv_title, csv_list)
-        self.laser_sensor.close()
 
     def save_csv(self, file_path, title, content):
         """
@@ -300,8 +336,11 @@ class ZStageLeveling(TestBase):
             Utils.write_to_csv(file_path, title)
         Utils.write_to_csv(file_path, content)
 
+    async def _run(self):
+        await self.run_z_stage_test('xxx')
+
 
 if __name__ == '__main__':
-    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.45")
-    for i in range(6):
-        asyncio.run(obj.run_z_stage_test(f"xxx_{i + 1}"))
+    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.39")
+    obj.simulating = False
+    asyncio.run(obj._run())

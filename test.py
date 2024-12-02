@@ -1,12 +1,15 @@
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+G_A = {"1": 1}
 
 
-def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler):
-    server_address = ('', 8000)  # 服务器监听的IP和端口
-    httpd = server_class(server_address, handler_class)
-    print('HTTP server running on port 8000')
-    httpd.serve_forever()
+def add_a(G_A: dict):
+    G_A['1'] = G_A['1'] + 1
+
+
+def run():
+    for i in range(10):
+        add_a(G_A)
 
 
 if __name__ == '__main__':
     run()
+    print(G_A)

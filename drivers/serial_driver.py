@@ -20,20 +20,20 @@ class SerialDriver:
         self.com = None
         self.receive_buffer = None
 
-    def get_device(self, select_default=False):
+    def get_device(self, select_default=''):
         """
         select device
         :return:
         """
-        port_list = SerialDriver.get_com_list()
-        print("=" * 5 + "PORT LIST" + "=" * 5)
-        for index, p in enumerate(port_list):
-            print(f"{index + 1} >>{p.device}")
-        if select_default:
-            select = '1'
+        if select_default != '':
+            self.device = select_default
         else:
+            port_list = SerialDriver.get_com_list()
+            print("=" * 5 + "PORT LIST" + "=" * 5)
+            for index, p in enumerate(port_list):
+                print(f"{index + 1} >>{p.device}")
             select = input("Select Port Number(输入串口号对应的数字):")
-        self.device = port_list[int(select.strip()) - 1].device
+            self.device = port_list[int(select.strip()) - 1].device
 
     def init_serial(self, baud):
 
@@ -59,7 +59,7 @@ class SerialDriver:
         self.com.close()
         print(f"{self.device} Closed! \n")
 
-    def init(self, baud, select_default=False):
+    def init(self, baud, select_default=''):
         """
         main
         :return:

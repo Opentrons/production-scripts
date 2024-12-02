@@ -55,9 +55,9 @@ ZStageChannel = {
     },
 
     Mount.RIGHT: {
-        "below_rear": {"device_addr": 1, "channel": 7},
-        "below_front": {"device_addr": 1, "channel": 6},
-        "left_rear": {"device_addr": 1, "channel": 5},
-        "left_front": {"device_addr": 1, "channel": 4}
+        "below_rear": {"device_addr": 1, "channel": 3},
+        "below_front": {"device_addr": 1, "channel": 2},
+        "left_rear": {"device_addr": 1, "channel": 1},
+        "left_front": {"device_addr": 1, "channel": 0}
     }
 }

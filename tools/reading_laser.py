@@ -8,15 +8,19 @@ import asyncio
 from utils import Utils
 from devices.laser_stj_10_m0 import LaserSensor as HighAccuracySensor
 import os
+from drivers.serial_driver import SerialDriver
 
 # _point = Point(195, 195, 357)  # C2 - Right
-Rounds = 30
-KeepReading = False
+Rounds = 30000
+KeepReading = True
 UseHighAccuracy = False
 
-WaitTime = 15
+WaitTime = 1
 
-_point = Point(20, 90, 357)  # D1 - Right
+# _point = Point(60, 90, 356.5)  # D1 - Right
+
+_point1 = Point(331.69, 217.3, 100.89)
+_point2 = Point(331.69, 278.29, 100.89)
 
 
 # _point = Point(55, 92, 356.5)
@@ -24,11 +28,12 @@ _point = Point(20, 90, 357)  # D1 - Right
 class ReadLaser(TestBase):
     def __init__(self, add_height):
         super(ReadLaser).__init__()
-        self.robot_ip = "192.168.6.84"
+        self.robot_ip = "192.168.31.70"
         self.laser_sensor = None
-        self.mount = Mount.RIGHT
+        self.mount = Mount.LEFT
         self.high_laser_sensor = None
-        self.point = _point + Point(0, 0, add_height)
+        self.accuracy = "low"
+        # self.point = _point + Point(0, 0, add_height)
 
     def init_laser_sensor(self, send=False):
         """
@@ -37,10 +42,10 @@ class ReadLaser(TestBase):
         """
         self.laser_sensor = HighAccuracySensor()
         self.laser_sensor.accuracy = "low"
-        self.laser_sensor.init_device(select_default=False)
-        if UseHighAccuracy:
-            self.high_laser_sensor = HighAccuracySensor()
-            self.high_laser_sensor.init_device()
+        COM_LIST = SerialDriver.get_com_list()
+        _com = COM_LIST[0].device
+        print(f"Com: {_com}")
+        self.laser_sensor.init_device(select_default=_com)
 
     async def build_reading(self):
         if self.robot_ip is None:
@@ -95,16 +100,38 @@ class ReadLaser(TestBase):
             if UseHighAccuracy:
                 result.update({"high": high_res})
             print(result)
-            if project_path is not None:
-                file_path = os.path.join(project_path, 'testing_data', 'reading_laser.csv')
-            else:
-                file_path = '../../testing_data/reading_laser.csv'
-            self.save_csv(file_path, [slot_name], list(result.values()))
-            if KeepReading is not True:
-                await self.api.home()
+            # if project_path is not None:
+            #     file_path = os.path.join(project_path, 'testing_data', 'reading_laser.csv')
+            # else:
+            #     file_path = '../../testing_data/reading_laser.csv'
+            # self.save_csv(file_path, [slot_name], list(result.values()))
+            # if KeepReading is not True:
+            #     await self.api.home()
+
+    async def move_to_and_read(self, p: Point, ch: int):
+        await self.move_to_test_point(p)
+        for _wait in range(10):
+            # print(f"wait {_wait + 1}...")
+            time.sleep(1)
+        low_res = self.laser_sensor.read_sensor_low(show_distance=True)
+        ch_res = low_res[ch]
+        return ch_res
+
+    async def _test2(self):
+        res_list = []
+        for p in [_point1, _point2]:
+            res = await self.move_to_and_read(p, 5)
+            res_list.append(res)
+            # print(f"RES: {round(res, 3)}")
+        diff = abs(max(res_list) - min(res_list))
+        print(f"DIFF: {round(diff, 3)}")
+
+    async def run_test2(self):
+        await self.build_reading()
+        while True:
+            await self._test2()
 
 
 if __name__ == '__main__':
-    pass
-    re = ReadLaser(4)
-    asyncio.run(re.run_test("RIGHT-D1", project_path=None))
+    l = ReadLaser(add_height=0)
+    asyncio.run(l.run_test2())

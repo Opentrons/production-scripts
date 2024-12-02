@@ -1,7 +1,0 @@
-BayOmicsLib.py
-README.md
-setup.py
-BayOmicsLib.egg-info/PKG-INFO
-BayOmicsLib.egg-info/SOURCES.txt
-BayOmicsLib.egg-info/dependency_links.txt
-BayOmicsLib.egg-info/top_level.txt
