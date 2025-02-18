@@ -20,7 +20,7 @@ class SerialDriver:
         self.com = None
         self.receive_buffer = None
 
-    def get_device(self, select_default=''):
+    def get_device(self, select_default='', device_name=""):
         """
         select device
         :return:
@@ -32,7 +32,7 @@ class SerialDriver:
             print("=" * 5 + "PORT LIST" + "=" * 5)
             for index, p in enumerate(port_list):
                 print(f"{index + 1} >>{p.device}")
-            select = input("Select Port Number(输入串口号对应的数字):")
+            select = input(f"Select Port Number(输入串口号对应的数字) -- {device_name}:")
             self.device = port_list[int(select.strip()) - 1].device
 
     def init_serial(self, baud):
@@ -44,6 +44,7 @@ class SerialDriver:
         """
         self.com = serial.Serial(self.device, baud, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
                                  bytesize=serial.EIGHTBITS, timeout=1)
+        assert self.com, "Init serial failed"
         if self.com.isOpen():
             print(f"{self.device} Opened! \n")
         # settings
@@ -59,12 +60,12 @@ class SerialDriver:
         self.com.close()
         print(f"{self.device} Closed! \n")
 
-    def init(self, baud, select_default=''):
+    def init(self, baud, select_default='', device_name=""):
         """
         main
         :return:
         """
-        self.get_device(select_default=select_default)
+        self.get_device(select_default=select_default, device_name=device_name)
         try:
             self.init_serial(baud)
         except:

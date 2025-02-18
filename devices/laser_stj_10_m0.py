@@ -24,10 +24,11 @@ class LaserSensor:
         get device
         :return:
         """
+        print(f"Init device: port - {select_default}")
         if self.accuracy == "high":
-            self.serial.init(115200, select_default=select_default)
+            self.serial.init(115200, select_default=select_default, device_name="Laser Sensor")
         else:
-            self.serial.init(9600, select_default=select_default)
+            self.serial.init(9600, select_default=select_default, device_name="Laser Sensor")
 
     def close(self):
         self.serial.close()
@@ -35,6 +36,7 @@ class LaserSensor:
     def get_mount(self):
         for _i in range(5):
             result = self.serial.write_and_get_buffer(GET_MOUNT, delay=3)
+            print(f"Getting Mount Result: {result}")
             if "ADS1115" in str(result):
                 continue
             if "L" in str(result).upper():
@@ -43,7 +45,7 @@ class LaserSensor:
                 return 'right'
             else:
                 pass
-        raise ValueError("Failed to find mount")
+        raise ValueError(f"Failed to find mount")
 
     def read_sensor_high(self):
         result = self.serial.write_and_get_buffer(MEASURE_CODE)
@@ -66,8 +68,14 @@ class LaserSensor:
 
     def read_sensor_low(self, show_distance=False):
         multi_value = {}
-        result = self.serial.write_and_get_buffer(LOW_MEASURE_CODE)
-        result = result.decode('utf-8')
+        result = None
+        for i in range(5):
+            result = self.serial.write_and_get_buffer(LOW_MEASURE_CODE)
+            if len(result) == 0:
+                continue
+            result = result.decode('utf-8')
+            break
+        assert result, "read sensor fail"
         for index, item in enumerate(result.split(',')):
             if ":" not in item:
                 continue
@@ -80,11 +88,12 @@ class LaserSensor:
 
 
 if __name__ == '__main__':
+
     ls = LaserSensor()
     ls.init_device()
 
-    # mount = ls.get_mount()
-    # print(f"Mount: {mount}")
+    mount = ls.get_mount()
+    print(f"Mount: {mount}")
     # while True:
     #     res = ls.read_sensor_low(show_distance=True)
     #     print(f"Distance: {res}")

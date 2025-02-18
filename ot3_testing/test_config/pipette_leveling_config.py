@@ -9,11 +9,11 @@ class CalibrateMethod(enum.Enum):
 
 SlotLocationCH96 = {"C1-Y": {"Point": Point(223, 203, 318), "compensation": {"left_rear": -0.189, "left_front": 0},
                              "definition": ["left_front", "left_rear"]},
-                    "C3-Y": {"Point": Point(207, 203, 318), "compensation": {"right_rear": -0.003, "right_front": 0},
+                    "C3-Y": {"Point": Point(207, 203, 318), "compensation": {"right_rear": -0.028, "right_front": 0},
                              "definition": ["left_front", "left_rear"]},
                     "A2-Y": {"Point": Point(387, 421, 318), "compensation": {"left_rear": -0.208, "left_front": 0},
                              "definition": ["left_front", "left_rear"]},
-                    "C1-X": {"Point": Point(50, 91, 300), "compensation": {"rear_left": 0, "rear_right": 0.207},
+                    "C1-X": {"Point": Point(50, 91, 300), "compensation": {"rear_left": 0, "rear_right": -0.078},
                              "definition": ["rear_left", "rear_right"]},
                     "C3-X": {"Point": Point(382, 91, 300), "compensation": {"rear_left": 0, "rear_right": 0.073},
                              "definition": ["rear_left", "rear_right"]},

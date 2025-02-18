@@ -7,6 +7,7 @@ import asyncio
 from typing import List
 from utils import Utils
 import os, datetime
+from ot3_testing.tests.base_init import DEBUGGING_MODE
 
 ApplyCompensationFlag = True
 CalibrateFlag = True
@@ -59,7 +60,7 @@ class GripperLeveling(TestBase):
         elif method == CalibrateMethod.Approach and self.approaching:
             step = 0.06
         elif method == CalibrateMethod.Approach and not self.approaching:
-            step = gap * 2
+            step = gap * 0.95
             self.approaching = True
 
         _point: Point = self.slot_location[self.mount][test_name]["point"]
@@ -186,9 +187,11 @@ class GripperLeveling(TestBase):
             csv_list = []
             now = datetime.datetime.now()
             time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
-            csv_list.append(time_str + flex_name)
-            csv_title.append(time_str + flex_name)
+            csv_list.append(flex_name)
+            csv_title.append(flex_name)
             compensation_tag = "" if index == 0 else "with_compensation"
+            if compensation_tag:
+                continue
             print(f"==== 测试结果 {compensation_tag} ====")
             for key, value in result.items():
                 difference = abs(list(value.values())[0] - list(value.values())[1])
@@ -211,5 +214,5 @@ class GripperLeveling(TestBase):
 
 
 if __name__ == '__main__':
-    _gripper = GripperLeveling(Gripper_Position, "192.168.6.33")
+    _gripper = GripperLeveling(Gripper_Position, "192.168.6.152")
     asyncio.run(_gripper.run_gripper_test("xxx"))

@@ -4,6 +4,8 @@ from typing import Union, List
 from devices.laser_stj_10_m0 import LaserSensor
 import time
 
+DEBUGGING_MODE = False
+
 
 class TestBase:
     def __init__(self):
@@ -120,7 +122,11 @@ class TestBase:
             # 读取五次，去掉最大最小，取平均值
             for i in range(read_times):
                 print(f"Reading {i + 1} times...")
-                code_value_list = laser.read_sensor_low()
+                while True:
+                    code_value_list = laser.read_sensor_low()
+                    if code_value_list != {}:
+                        break
+                    print(f"read wrong value: {code_value_list}")
                 sensor_readers.append(code_value_list)  # {1: xx, 2: xx}
         except:
             read_successful = False
@@ -146,8 +152,10 @@ class TestBase:
                 else:
                     _min = _avg
                     _max = _avg
-                print(f"min: {_min}, max: {_max}, avg: {_avg}")
-                print(f"{key}: {value}")
+                if DEBUGGING_MODE:
+                    print("各通道取平均如下：")
+                    print(f"{key}: {value}")
+                    print(f"min: {_min}, max: {_max}, avg: {_avg}")
 
                 handler.update({key: _avg})
             return handler

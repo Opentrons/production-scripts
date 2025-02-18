@@ -9,6 +9,7 @@ from drivers.serial_driver import SerialDriver
 from ot3_testing.test_config.pipette_leveling_config import *
 import datetime
 from utils import Utils
+from ot3_testing.tests.base_init import DEBUGGING_MODE
 
 MountDefinition = Mount.LEFT
 RequestReadyFlag = False
@@ -80,7 +81,7 @@ class PipetteLeveling(TestBase):
             if len(list(self.laser_sensor.values())) == 2:
                 print("Find Sensor Successful")
             else:
-                print("Failed to find sensors")
+                raise ConnectionError("Failed to find sensors")
 
     async def move_to_test_point(self, p: Point, mount: Mount):
         """
@@ -159,7 +160,7 @@ class PipetteLeveling(TestBase):
         elif method == CalibrateMethod.Approach and not self.approaching:
             step = gap / 0.9
             self.approaching = True
-        print(f"Move Step: {step}")
+        print(f"Move Step: {round(step, 3)}")
         _point: Point = self.slot_location[test_name]["Point"]
 
         if "Y" in test_name and "3" not in test_name:
@@ -189,8 +190,8 @@ class PipetteLeveling(TestBase):
                 _point = _point + Point(0, 0, step)
             else:
                 _point = _point - Point(0, 0, step)
-
-        print("move to: ", _point)
+        if DEBUGGING_MODE:
+            print("move to: ", _point)
         await self.move_to_test_point(_point, MountDefinition)
         self.slot_location[test_name]["Point"] = _point
 
@@ -285,17 +286,17 @@ class PipetteLeveling(TestBase):
             """
             Show messages
             """
-            print("==== 初始值 ====")
-            for key, value in ret_dict.items():
-                print(f"{test_slot_value}-{key}: {value}")
-            print(f"Difference: {round(max(_value_list) - min(_value_list), 3)}")
+            if DEBUGGING_MODE:
+                print("==== 初始值 ====")
+                for key, value in ret_dict.items():
+                    print(f"{test_slot_value}-{key}: {value}")
+                print(f"Difference: {round(max(_value_list) - min(_value_list), 3)}")
             if ApplyCompensationFlag:
                 compensation: dict = self.slot_location[test_slot_value]["compensation"]
                 for key, value in ret_dict.items():
                     add_compensation_result = value + compensation[key]
                     print(f"{key}: Apply {compensation[key]} to {value} -> {add_compensation_result}")
                     ret_with_compensation.update({key: add_compensation_result})
-            print("==== 补偿值 ====")
             _value_list_with_compensation = list(ret_with_compensation.values())
             for key, value in ret_with_compensation.items():
                 print(f"{test_slot_value}-{key}: {value}")
@@ -343,7 +344,8 @@ class PipetteLeveling(TestBase):
                                              with_cal=DoCalibrate)
         test_result.update(ret)
 
-        await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+        # await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+        await self.api.home()  # 复位拆卸
         # show result
         csv_list = []
         csv_list_no_compensation = []
@@ -351,9 +353,9 @@ class PipetteLeveling(TestBase):
         now = datetime.datetime.now()
         time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
 
-        csv_list.append(time_str + flex_name)
-        csv_list_no_compensation.append(time_str + flex_name + "no_compensation")
-        csv_title.append(time_str + flex_name)
+        csv_list.append(flex_name)
+        csv_list_no_compensation.append(flex_name + "no_compensation")
+        csv_title.append("Pipette 8CH Leveling")
         print("=" * 5 + "Test Result" + "=" * 5 + "\n")
         for key, value in test_result.items():
             result = []
@@ -377,14 +379,14 @@ class PipetteLeveling(TestBase):
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
             csv_title.append(key + "-Result")
-            self.laser_sensor[self.mount.value].close()
+        self.laser_sensor[self.mount.value].close()
 
         # save csv
         if project_path is not None:
             file_path = os.path.join(project_path, 'testing_data', 'pipette_8ch_leveling.csv')
         else:
             file_path = '../../testing_data/pipette_8ch_leveling.csv'
-        self.save_csv(file_path, csv_title, csv_list_no_compensation)
+        # self.save_csv(file_path, csv_title, csv_list_no_compensation)
         self.save_csv(file_path, csv_title, csv_list)
 
     def save_csv(self, file_path, title, content):
@@ -441,21 +443,23 @@ class PipetteLeveling(TestBase):
         for target in test_config:
             test_location = target["test_location"]
             print(f"run slot: {test_location}")
-            print("\n")
-
-        select_defalut = input("select slot of running, if you want to run all, please Enter: ").strip()
+        if DEBUGGING_MODE:
+            select_default = input("select slot of running, if you want to run all, please Enter: ").strip()
+        else:
+            select_default = ""
 
         for _test_config in test_config:
             test_name = _test_config['test_name']
             test_location = _test_config['test_location']
             test_define = _test_config['test_define']
-            if select_defalut != "" and select_defalut != test_location:
+            if select_default != "" and select_default != test_location:
                 continue
             ret, _ret = await self.run_test_slot(test_name, test_location, test_define, with_cal=DoCalibrate)
             test_result.update(ret)
             test_result_with_compensation.update(_ret)
 
         await self.move_to_test_slot("UninstallPos")  # 复位拆卸
+
         # show result
         for index, result in enumerate([test_result, test_result_with_compensation]):
             with_compensation = "" if index == 0 else "with compensation"
@@ -463,9 +467,10 @@ class PipetteLeveling(TestBase):
             csv_title = []
             now = datetime.datetime.now()
             time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
-
-            csv_title.append(time_str + flex_name + with_compensation)
-            csv_list.append(time_str + flex_name + with_compensation)
+            if not DEBUGGING_MODE and with_compensation == "":
+                continue
+            csv_title.append("Pipette 96CH Leveling")
+            csv_list.append(flex_name)
             print(f"==== Test Result - {with_compensation} ====")
             for slot, definition_data in result.items():
                 for pos, value in definition_data.items():
@@ -505,13 +510,13 @@ class PipetteLeveling(TestBase):
 if __name__ == '__main__':
     import asyncio
 
-    # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, )
-    # pipette_leveling.test_name = '96ch'
-    # asyncio.run(pipette_leveling.run_96ch_test("0527001"))
+    pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, )
+    pipette_leveling.test_name = '96ch'
+    asyncio.run(pipette_leveling.run_96ch_test("0527001"))
 
-    pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, )
-    pipette_leveling.test_name = '8ch'
-    asyncio.run(pipette_leveling.run_8ch_test("0527001"))
+    # pipette_leveling = PipetteLeveling(SlotLocationCH8, ChannelDefinitionCH8, )
+    # pipette_leveling.test_name = '8ch'
+    # asyncio.run(pipette_leveling.run_8ch_test("0527001"))
 
     # pipette_leveling = PipetteLeveling(SlotLocationCH96, ChannelDefinitionCH96, robot_ip="192.168.6.85")
     # pipette_leveling.test_name = '96ch'
