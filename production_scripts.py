@@ -10,6 +10,7 @@ from ot3_testing.test_config.gripper_leveling_config import Gripper_Position
 import asyncio
 from tools.inquirer import prompt_flex_name, prompt_test_name, prompt_exit, prompt_ip
 from tools import heat_96ch
+from tools import getlifetime
 from __version__ import get_version
 from gravimetric_testing.openwebapp import openweb
 from tools.reading_laser import ReadLaser
@@ -65,6 +66,8 @@ if __name__ == '__main__':
             run_high_voltage_test()
         elif '11' in test_name:
             run_tc(project_path)
+        elif '12' in test_name:
+            getlifetime.test_run()
         else:
             pass
 

@@ -8,3 +8,11 @@ build
 testing_data/*
 node_modules
 
+ot3_testing/hardware_control/__pycache__/__init__.cpython-37.pyc
+ot3_testing/hardware_control/__pycache__/hardware_control.cpython-37.pyc
+ot3_testing/protocol/__pycache__/__init__.cpython-37.pyc
+ot3_testing/protocol/__pycache__/protocol_context.cpython-37.pyc
+ot3_testing/tests/__pycache__/__init__.cpython-37.pyc
+ot3_testing/tests/__pycache__/base_init.cpython-37.pyc
+ot3_testing/tests/__pycache__/pipette_leveling.cpython-37.pyc
+devices/__pycache__/__init__.cpython-37.pyc

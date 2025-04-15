@@ -2,7 +2,7 @@ from PyInquirer import prompt
 
 test_choices = ['1.leveling-8ch', '2.leveling-96ch', '3.leveling-gantry', '4.leveling-z-stage', '5.leveling-gripper',
                 '6.leveling-reading-sensor', '7.heat-96ch', '8.grav-openweb', '9.start-server', '10.high-voltage-test',
-                '11.thermocycle-diagnostic-test']
+                '11.thermocycle-diagnostic-test','12.getlifetime']
 
 question_flex = {
     'type': 'input',
