@@ -72,7 +72,7 @@ class SSHClient:
 
 
 if __name__ == '__main__':
-    client = SSHClient('192.168.6.122')
+    client = SSHClient('192.168.6.125', use_key=False)
     client.connect()
     ret = client.exec_command('pwd', with_read=True)
     print(ret)
