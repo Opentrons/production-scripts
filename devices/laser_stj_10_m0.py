@@ -100,4 +100,5 @@ if __name__ == '__main__':
     #     time.sleep(1)
     while True:
         res = ls.read_sensor_low(show_distance=True)
-        print(res)
+        diff = res[3] - res[2]
+        print(res, diff)

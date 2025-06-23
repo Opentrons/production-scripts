@@ -127,9 +127,7 @@ def scan_flex():
     print(f"发现{len(reachable_ips)}个在线Flex")
     return reachable_ips
 
-
 if __name__ == '__main__':
     flex_group = scan_flex()
     for key, value in flex_group.items():
-        print(
-            f'ip: {key}, name: {value["name"]}, app_version: {value["api_version"]}, fw_version: {value["fw_version"]}')
+        print(f'ip: {key}, name: {value["name"]}, app_version: {value["api_version"]}, fw_version: {value["fw_version"]}')
