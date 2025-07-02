@@ -215,7 +215,15 @@ class ZStageLeveling(TestBase):
                 ZStagePoint[Mount.RIGHT]['Z-C2']["channel_definition"],
                 ZStageChannel, self.laser_sensor[self.mount.value],
                 self.mount, wait_time=0, read_times=1)
+
+            compensation = ZStagePoint[self.mount]['Z-C2']["compensation"]
+            compensation = list(compensation.values())
+
             _ret_list = list(ret_dict.values())
+            # add compensation
+            _ret_list[0] = _ret_list[0]  + compensation[0]
+            _ret_list[1] = _ret_list[1]  + compensation[1]
+
             _difference = round(abs(max(_ret_list) - min(_ret_list)), 3)
             difference = int(-_difference * 1500 + 1500)
             if difference < 200:
@@ -355,6 +363,6 @@ class ZStageLeveling(TestBase):
 
 
 if __name__ == '__main__':
-    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.152")
+    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.150")
     obj.simulating = False
     asyncio.run(obj._run())

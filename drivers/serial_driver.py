@@ -7,6 +7,7 @@ import serial.tools.list_ports
 
 ReceiveBuffer = 500
 
+print(serial.Serial)
 
 class SerialDriver:
 
@@ -68,8 +69,9 @@ class SerialDriver:
         self.get_device(select_default=select_default, device_name=device_name)
         try:
             self.init_serial(baud)
-        except:
+        except Exception as e:
             print("Can't find device")
+            print(e)
 
     def write_and_get_buffer(self, send: Union[str, int, bytes], only_write=False, delay=None, times=30):
         """
