@@ -1,3 +1,5 @@
+import time
+
 import paramiko
 import os
 
@@ -6,7 +8,7 @@ class Cli:
     def __init__(self, ip, username='root', password='root'):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect(ip, port=22, username=username, password=password, timeout=10)
+        self.ssh.connect(ip, port=22, username=username, password=password, timeout=5)
         self.sftp = self.ssh.open_sftp()
 
     def remove_remote_files(self, path_name='/opt/data-center-server'):
@@ -64,10 +66,26 @@ class Cli:
                 print(f'upload: {remote_item_path}')
                 self.sftp.put(local_item_path, remote_item_path)
 
+    def upload_local(self):
+        self.remove_remote_files()
+        self.upload_files(local_pathname='./files_server')
+        self.upload_files(local_pathname='./download_report_handler')
+        self.upload_files(local_pathname='./google_driver_handler')
+
+    def restart_server(self):
+        """
+        restart data-center server
+        """
+        stdin, stdout, stderr = self.ssh.exec_command('systemctl daemon-reload; systemctl restart data-center.service; systemctl status data-center.service')
+        print("Restarting data-center server...\n")
+        for line in stdout.readlines():
+            print(line.strip())  # 使用 strip() 去除多余的换行符和空格
+
+
 
 if __name__ == '__main__':
     cli = Cli('192.168.0.28')
-    cli.remove_remote_files()
-    cli.upload_files()
-    cli.upload_files(local_pathname='./download_report_handler')
-    cli.upload_files(local_pathname='./google_driver_handler')
+    cli.upload_local()
+    cli.restart_server()
+
+

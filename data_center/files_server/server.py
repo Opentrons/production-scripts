@@ -1,13 +1,15 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from files_server.api.download_files import router as download_router
+from files_server.api.api_flex import router as flex_router
+from files_server.api.api_google_drive import router as google_drive_router
 
 api_router = APIRouter()
 
 app = FastAPI()
 app.include_router(api_router)
-app.include_router(download_router, prefix='/api')
+app.include_router(flex_router, prefix='/api/flex')
+app.include_router(google_drive_router, prefix='/api/google/drive')
 
 _is_simulate = True
 

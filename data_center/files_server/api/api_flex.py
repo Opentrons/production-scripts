@@ -25,3 +25,33 @@ async def download_testing_data(data: DownloadRequest):
         "success": ret,
         "device": ret["pass"]
     }
+
+@router.get('/discover', status_code=200)
+async def flex_discover():
+    """
+    scan flex
+    """
+    return {
+        "success": True,
+        "message": "undo"
+    }
+
+@router.post('/update/date', status_code=200)
+async def flex_update_date():
+    """
+    update date of flex
+    """
+    return {
+        "success": True,
+        "message": "undo"
+    }
+
+@router.post('/run/script', status_code=200)
+async def flex_run_script():
+    """
+    update date of flex
+    """
+    return {
+        "success": True,
+        "message": "undo"
+    }
