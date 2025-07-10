@@ -31,9 +31,12 @@ async def flex_discover():
     """
     scan flex
     """
+    from download_report_handler.discover_flex import scan_flex
+    flex_group = scan_flex()
     return {
         "success": True,
-        "message": "undo"
+        "message": "done",
+        "flex_group": flex_group
     }
 
 @router.post('/update/date', status_code=200)
