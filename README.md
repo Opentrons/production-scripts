@@ -28,6 +28,17 @@ Pushing some Opentrons productions test scripts in SZ team, including Flex and M
   python3 -m __verison__
   ```
 
+## Make commands
+
+- make push-data-center host=<ip>
+  
+  ---update back end to server and restart service
+-  make push-web-ui host=<ip>
+  
+  ---update web files to sever
+  
+  
+
 ## Others
 
 Any question please be free to contact our test engineer in SZ.

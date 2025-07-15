@@ -2,6 +2,7 @@ import time
 
 import paramiko
 import os
+import argparse
 
 
 class Cli:
@@ -84,7 +85,14 @@ class Cli:
 
 
 if __name__ == '__main__':
-    cli = Cli('192.168.6.48')
+    # 创建解析器对象
+    parser = argparse.ArgumentParser(description='upload to server')
+    parser.add_argument('-host', '--host', type=str, required=False, help='host_name')
+    args = parser.parse_args()
+    host = args.host
+    if host is None:
+        host= "192.168.6.48"
+    cli = Cli(host)
     cli.upload_local()
     cli.restart_server()
 
