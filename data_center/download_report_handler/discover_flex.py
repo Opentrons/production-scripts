@@ -98,7 +98,8 @@ def check_ip(gateway, subnet_mask='24'):
 
 
 def scan_ip():
-    gateway = get_default_gateway()
+    # gateway = get_default_gateway()
+    gateway = "192.168.6.0"
     ip_list = check_ip(gateway)
     print(f"发现{len(ip_list)} 个在线IP")
     return ip_list

@@ -84,7 +84,7 @@ class Cli:
 
 
 if __name__ == '__main__':
-    cli = Cli('192.168.0.28')
+    cli = Cli('192.168.6.48')
     cli.upload_local()
     cli.restart_server()
 

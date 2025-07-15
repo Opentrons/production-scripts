@@ -32,11 +32,11 @@ class LinuxFileManager:
             self.ssh = paramiko.SSHClient()
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             if not self.password:
-                self.password = input(f"Enter SSH password for {self.username}@{self.host} (默认回车无密码) :")
+                self.password = ""
                 self.password = self.password if self.password != "" else "None"
             self.ssh.connect(self.host, port=self.port, username=self.username, password=self.password, timeout=timeout)
             self.sftp = self.ssh.open_sftp()
-            print("✅ SSH 连接成功！")
+            return True, "connect successfully"
         except Exception as e:
             if "publickey" in str(e):
                 try:
@@ -52,15 +52,23 @@ class LinuxFileManager:
                     self.ssh.connect(self.host, port=self.port, username=self.username, password=self.password,
                                      timeout=timeout, pkey=key)
                     self.sftp = self.ssh.open_sftp()
-                    print("✅ SSH 连接成功！")
+                    return True, "connect successfully"
                 except Exception as e:
-                    print(f"❌ SSH 密钥连接失败: \n")
-                    input("\n🚗 任意键退出...")
-                    raise
+                    return False, "connect failed"
             else:
-                print(f"❌ SSH 连接失败: \n")
-                input("\n🚗 任意键退出...")
-                raise
+                return False, "connect failed"
+
+    def update_date(self, your_time):
+        command = f'date -s "{your_time}"'
+        # 执行命令
+        stdin, stdout, stderr = self.ssh.exec_command(command, get_pty=True)
+        time.sleep(0.1)
+        return stdout.read().decode("utf-8")
+
+    def run_script(self, script):
+        stdin, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
+        time.sleep(0.1)
+        return stdout.read().decode("utf-8")
 
     def list_files(self, remote_dir, show=True):
         """列出远程目录的文件"""
@@ -77,7 +85,8 @@ class LinuxFileManager:
             self.sftp.get(remote_path, local_path)
             return True
         except Exception as e:
-            self.logger.error(f"❌ 下载失败: {e}")
+            print(e)
+            print(remote_path, local_path)
             return False
 
     def _is_dir(self, remote_path):
@@ -94,13 +103,13 @@ class LinuxFileManager:
         :param local_dir: 本地存储路径 (e.g. 'C:/Downloads/data')
         """
         files = self.sftp.listdir(remote_dir)
+        local_dir = local_dir + "_" + formatted_time
         if len(files) == 0:
-            self.logger.info("\n🤔 文件夹目录为空, 下载跳出...\n")
-            return
+            return True, "no files", ""
         try:
             os.makedirs(local_dir, exist_ok=True)
         except Exception as e:
-            print(e)
+            return False, "create dir failed", ""
 
         for item in files:
             remote_path = os.path.join(remote_dir, item).replace('\\', '/')
@@ -110,7 +119,7 @@ class LinuxFileManager:
                 self.download_dir(remote_path, local_path)  # 递归处理子目录
             else:
                 self.download_file(remote_path, local_path)
-        return True
+        return True, "download success", local_dir
 
     def delete_file(self, remote_path):
         """删除远程文件"""
@@ -152,5 +161,3 @@ class LinuxFileManager:
         if self.ssh:
             self.ssh.close()
         print("\n🔌 连接已关闭")
-
-
