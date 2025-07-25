@@ -25,7 +25,7 @@
 import { reactive, ref } from 'vue'
 import type { FormInstance, FormRules} from 'element-plus'
 import {ElMessage} from 'element-plus'
-import {$login} from "../api/user"
+import {$login} from "../../api/user"
 
 import { useRouter } from 'vue-router'
 

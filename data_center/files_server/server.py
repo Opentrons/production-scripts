@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from files_server.api.api_flex import router as flex_router
 from files_server.api.api_google_drive import router as google_drive_router
+from files_server.api.api_user import router as user_router
 
 api_router = APIRouter()
 
@@ -10,6 +11,7 @@ app = FastAPI()
 app.include_router(api_router)
 app.include_router(flex_router, prefix='/api/flex')
 app.include_router(google_drive_router, prefix='/api/google/drive')
+app.include_router(user_router, prefix='/api/user')
 
 _is_simulate = True
 
@@ -33,7 +35,7 @@ async def get_version():
 
 
 def start_sever():
-    uvicorn.run(app, host='127.0.0.1', port=8080)
+    uvicorn.run(app, host='0.0.0.0', port=8080)
 
 
 if __name__ == '__main__':

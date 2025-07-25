@@ -1,7 +1,10 @@
 import axios from "axios"
+import {getTokenExpiration} from '../utils/utils'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import type { Action } from 'element-plus'
 
 
-const URL = "http://127.0.0.1:8080"
+const URL = "http://192.168.0.103:8080"
 
 
 const instance = axios.create({
@@ -11,12 +14,32 @@ const instance = axios.create({
 })
 
 // 请求拦截器
-instance.interceptors.request.use(config => {
-    // 在发送请求之前做些什么
-    return config;
+instance.interceptors.request.use(async (config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    const isExpired = Date.now() >= getTokenExpiration(token);
+    if (isExpired) {
+      // 1. 先清除本地存储
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // 2. 显示提示（await 确保弹窗完成显示）
+      await ElMessageBox.alert('登录已过期，请重新登录', '提示', {
+        confirmButtonText: '确定',
+        callback: () => {
+          // 3. 跳转登录页
+          window.location.href = '/login?expired=1';
+        }
+      });
+      
+      // 4. 中断请求
+      return Promise.reject(new Error('Token expired'));
+    }
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 }, error => {
-    // 对请求错误做些什么
-    return Promise.reject(error);
+  return Promise.reject(error);
 });
 
 // 响应拦截器
@@ -45,28 +68,17 @@ export const $get = async (url: string, params: object = {}) => {
 
     let { data } = await instance.get(url, { params })
     return data
-    // await instance.get(url, {params})
-    //     .then(response => {
-    //         return response
-    //     })
-    //     .catch(error => {
-    //         return error
-    //     });
         
 }
 
 export const $post = async (url: string, params: object = {}) => {
 
-    let { data } = await instance.post(url, { params })
+    let { data } = await instance.post(url, params, {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
     return data
-    // await instance.post(url, {params})
-    //     .then(response => {
-    //         console.log(response)
-    //         return response
-    //     })
-    //     .catch(error => {
-    //         return error
-    //     });
 }
 
 export const $download = async(url: string, file_name: string) => {

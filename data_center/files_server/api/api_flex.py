@@ -5,7 +5,7 @@ from files_server.api.model import *
 import subprocess
 from fastapi.responses import JSONResponse
 import os
-from files_server.utils import zip_directory, delete_folder
+from files_server.utils.utils import zip_directory, delete_folder
 
 router = APIRouter()
 

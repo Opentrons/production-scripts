@@ -19,7 +19,7 @@
 
         <div class="device-control-content-box">
             <el-row :gutter="20">
-                <el-col :span="16">
+                <el-col :span="15">
                     <div class="grid-content control-box-left">
                         <div class="control-main-box">
                             <Jog :mount="mount_value" :device="device_id"></Jog>
@@ -28,45 +28,105 @@
                     </div>
 
                 </el-col>
-                <el-col :span="8">
-                    <div class="grid-content parameter-box-right">
+                <el-col :span="9">
+  <el-card class="control-card setting-card" shadow="hover">
+    <template #header>
+      <div class="card-header">
+        <el-icon><Setting /></el-icon>
+        <span class="panel-title">Device Setting</span>
+      </div>
+    </template>
 
-                        <div>
-                            <el-divider content-position="center">
-                                <el-text>Device Setting</el-text>
-                            </el-divider>
-                        </div>
+    <div class="setting-content">
+      <!-- Home 控制区 -->
+      <div class="control-group">
+        <el-button 
+          type="primary" 
+          class="action-btn"
+          @click="homeHandel"
+          :loading="home_button_loading"
+        >
+          <el-icon><HomeFilled /></el-icon>
+          Home
+        </el-button>
+        
+        <el-select 
+          v-model="axis_value" 
+          placeholder="Select Axis"
+          class="axis-select"
+          size="medium"
+        >
+          <el-option 
+            v-for="item in axis_options" 
+            :key="item.value" 
+            :label="item.label"
+            :value="item.value" 
+          />
+        </el-select>
+        
+        <el-button 
+          type="warning" 
+          class="action-btn"
+          @click="restartService"
+        >
+          <el-icon><Refresh /></el-icon>
+          重启服务
+        </el-button>
+      </div>
 
-                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                            <el-button style="margin-left: 10px;" type="primary" size="small" @click="homeHandel"
-                                :loading="home_button_loading"> Home </el-button>
-                            <el-select v-model="axis_value" placeholder="Select"
-                                style="width: 240px; margin-left: 10px;" size="small">
-                                <el-option v-for="item in axis_options" :key="item.value" :label="item.label"
-                                    :value="item.value" />
-                            </el-select>
-                            <el-button style="margin-left: 10px;" type="primary" size="small"> 重启服务 </el-button>
-
-
-
-                        </div>
-                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                            <el-button style="margin-left: 10px;" type="primary" size="small" @click="moveToPointHandel"
-                                :loading="moveToPoint_button_loading"> MoveToPoint </el-button>
-                            <el-text style="margin-left: 10px;">X</el-text>
-                            <el-input v-model="moveToX" style="margin-left: 10px; width: 60px" size="small"></el-input>
-                            <el-text style="margin-left: 10px;">Y</el-text>
-                            <el-input v-model="moveToY" style="margin-left: 10px; width: 60px" size="small"></el-input>
-                            <el-text style="margin-left: 10px;">Z</el-text>
-                            <el-input v-model="moveToZ" style="margin-left: 10px; width: 60px" size="small"></el-input>
-
-
-
-                        </div>
-                    </div>
-
-
-                </el-col>
+      <!-- MoveToPoint 控制区 - 单行布局 -->
+      <div class="control-group move-to-group">
+        <el-button 
+          type="success" 
+          class="move-to-btn"
+          @click="moveToPointHandel"
+          :loading="moveToPoint_button_loading"
+        >
+          <el-icon><Position /></el-icon>
+          MoveToPoint
+        </el-button>
+        
+        <div class="coordinate-inputs">
+          <div class="coordinate-item">
+            <span class="axis-label">X</span>
+            <el-input-number 
+              v-model="moveToX" 
+              :min="0" 
+              :max="1000" 
+              :step="1"
+              size="small"
+              controls-position="right"
+            />
+          </div>
+          
+          <div class="coordinate-item">
+            <span class="axis-label">Y</span>
+            <el-input-number 
+              v-model="moveToY" 
+              :min="0" 
+              :max="1000" 
+              :step="1"
+              size="small"
+              controls-position="right"
+            />
+          </div>
+          
+          <div class="coordinate-item">
+            <span class="axis-label">Z</span>
+            <el-input-number 
+              v-model="moveToZ" 
+              :min="0" 
+              :max="1000" 
+              :step="1"
+              size="small"
+              controls-position="right"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </el-card>
+</el-col>
             </el-row>
 
         </div>
@@ -274,5 +334,85 @@ const moveToPointHandel = async () => {
         }
 
     }
+
+.setting-card {
+  border-top: 4px solid #e6a23c;
+  height: 100%;
+  
+  .card-header {
+    .panel-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #409eff; // 与前面面板一致的蓝色
+      margin-left: 8px;
+    }
+  }
+  
+  .setting-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 15px;
+  }
+  
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    &.move-to-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+  }
+  
+  .action-btn, .move-to-btn {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    
+    .el-icon {
+      font-size: 16px;
+    }
+  }
+  
+  .axis-select {
+    width: 160px;
+  }
+  
+  .coordinate-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1;
+  }
+  
+  .coordinate-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    
+    .axis-label {
+      font-weight: bold;
+      color: #606266;
+      min-width: 18px;
+      font-size: 14px;
+    }
+    
+    .el-input-number {
+      width: 90px;
+      
+      &.is-controls-right {
+        ::v-deep .el-input__inner {
+          padding-left: 5px;
+          padding-right: 35px;
+        }
+      }
+    }
+  }
+}
 }
 </style>

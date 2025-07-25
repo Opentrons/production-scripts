@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+
+# flex
 class DownloadRequest(BaseModel):
     host: str
     user_name: str
@@ -12,3 +14,13 @@ class RobotRequest(BaseModel):
 class RunScriptResponse(BaseModel):
     host: str
     script: str
+
+
+# user
+
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+    rememberMe: bool
+
+

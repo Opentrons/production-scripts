@@ -27,7 +27,7 @@
                     </template>
 
                     <el-menu-item index="file_handler">上传下载</el-menu-item>
-                    <el-menu-item index="2-2">数据分析</el-menu-item>
+                    <el-menu-item index="data_analysis">数据分析</el-menu-item>
                     <el-menu-item index="2-23">数据统计</el-menu-item>
 
 
@@ -40,8 +40,8 @@
                         </el-icon>
                         <span>设备管理</span>
                     </template>
-
-                    <el-menu-item index="/device/status">设备状态</el-menu-item>
+                    <el-menu-item index="/device/online">在线设备</el-menu-item>
+                    <el-menu-item index="/device/status">设备整理</el-menu-item>
                     <el-menu-item index="/device/control">设备控制</el-menu-item>
 
 
@@ -108,10 +108,14 @@
 
                     <el-sub-menu index="3">
                        
-                        <template #title> <el-icon><user-filled /></el-icon>登录用户</template>
+                        <template #title> <el-icon><user-filled /></el-icon>
+                           <div v-if="savedUser">
+                            你好，{{savedUser}}
+                           </div> 
+                        </template>
                         <el-menu-item index="3-1">个人中心</el-menu-item>
                         <el-menu-item index="3-2">修改密码</el-menu-item>
-                        <el-menu-item index="3-3">退出登录</el-menu-item>
+                        <el-menu-item @click="loginOut">退出登录</el-menu-item>
                     </el-sub-menu>
 
                 </el-menu>
@@ -135,6 +139,12 @@ import { ref, Ref, computed } from "vue";
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import en from 'element-plus/dist/locale/en.mjs'
 
+// user
+import { useAuthStore } from '../stores/auth'
+
+const savedUser = localStorage.getItem('user')
+
+
 let active_uri: Ref<string> = ref("/home")
 
 const _lan = ref("语言")
@@ -151,6 +161,11 @@ const toChinese = () => {
     _lan.value = "语言"
 }
 
+const loginOut = () => {
+    const use_auth = useAuthStore()
+    use_auth.logout()
+}
+
 </script>
 
 <style scoped lang="scss">
@@ -158,6 +173,7 @@ const toChinese = () => {
     width: 100vw;
     height: 100vh;
     display: flex;
+    overflow: hidden; // 禁止外层容器滚动
 
     .left-box {
         width: 200px;
@@ -165,6 +181,10 @@ const toChinese = () => {
         color: white;
         font-size: 10px;
         text-align: center;
+        position: sticky; // 关键修改
+        top: 0;
+        height: 100vh; // 固定高度
+        overflow-y: auto; // 允许自身内容滚动（如果内容超长）
 
         .logo-main {
             width: 180px;
@@ -172,20 +192,19 @@ const toChinese = () => {
         }
 
         .el-menu {
-            border-right: none
+            border-right: none;
         }
 
         .el-menu-left {
             margin-top: 20px;
         }
-
-
     }
 
     .right-box {
         flex: 1;
         display: flex;
         flex-direction: column;
+        overflow: hidden; // 禁止右侧容器整体滚动
 
         .top-box {
             height: 60px;
@@ -193,6 +212,9 @@ const toChinese = () => {
             display: flex;
             justify-content: flex-end;
             padding-right: 10px;
+            position: sticky; // 固定顶部导航
+            top: 0;
+            z-index: 10;
 
             .el-menu {
                 border-bottom: none;
@@ -202,8 +224,8 @@ const toChinese = () => {
         .content-box {
             flex: 1;
             padding: 10px;
-            overflow: hidden;
-
+            overflow-y: auto; // 仅内容区域可滚动
+            height: calc(100vh - 60px); // 计算高度（视口高度 - 顶部导航高度）
         }
     }
 }
