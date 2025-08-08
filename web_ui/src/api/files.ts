@@ -27,7 +27,6 @@ export const $downloadFiles = async (file_name: string) => {
     //     alert('下载文件出错.');
     // }
 
-
 }
 
 export const $getFileList = async (file_name: string) => {}

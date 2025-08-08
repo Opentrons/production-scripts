@@ -54,7 +54,7 @@
          <el-button 
             type="primary" 
             :disabled="!isConnected"
-            @click="downloadFile"
+            @click="download_testing_data"
             :icon="Download"
             style="margin-left: 20px"
             >
@@ -327,6 +327,13 @@ const connectToDevice = async () => {
   } finally {
     isLoadingFiles.value = false
   }
+}
+
+// 下载目标OT3目录到服务器
+
+const download_testing_data = () => {
+    const response = await $post('/download/testing_data/', )
+
 }
 
 // 刷新文件列表
