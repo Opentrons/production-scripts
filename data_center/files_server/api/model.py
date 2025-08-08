@@ -24,3 +24,11 @@ class UserLoginRequest(BaseModel):
     rememberMe: bool
 
 
+# db
+
+class ReadDocumentRequest(BaseModel):
+    db_name: str
+    document_name: str
+    limit: int
+
+

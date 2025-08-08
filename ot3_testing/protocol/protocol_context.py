@@ -596,7 +596,7 @@ class ProtocolContext:
         return ret[1]
 
     async def _post_move_to(self, pipetteId, speed=12.3, position: Point = Point(400, 200, 100), mininumZ=35,
-                            forceDirect=True):
+                            forceDirect=False):
         """
         move to a coordinates
         :param pipetteId: 

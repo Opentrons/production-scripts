@@ -26,9 +26,9 @@
                         <span>数据处理</span>
                     </template>
 
-                    <el-menu-item index="file_handler">上传下载</el-menu-item>
-                    <el-menu-item index="data_analysis">数据分析</el-menu-item>
-                    <el-menu-item index="2-23">数据统计</el-menu-item>
+                    <el-menu-item index="/file_handler">上传下载</el-menu-item>
+                    <el-menu-item index="/data_analysis">数据分析</el-menu-item>
+                    <el-menu-item index="/data_summary">数据统计</el-menu-item>
 
 
                 </el-sub-menu>
@@ -56,7 +56,7 @@
                     <span>测试管理</span>
                 </template>
 
-                <el-menu-item index="/test_managment/status">测试状态</el-menu-item>
+                <el-menu-item index="/test_managment/status">测试面板</el-menu-item>
                 <el-sub-menu index="4-2">
                     <template #title>开始测试</template>
                     <el-menu-item index="/test_managment/test/ot3">OT3</el-menu-item>
@@ -93,7 +93,7 @@
                         </el-icon>
                         首页
                     </el-menu-item>
-                    <el-menu-item index="/test_manage">
+                    <el-menu-item index="/test_data">
                         <el-icon>
                             <Histogram />
                         </el-icon>

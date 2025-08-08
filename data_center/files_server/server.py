@@ -4,6 +4,7 @@ import uvicorn
 from files_server.api.api_flex import router as flex_router
 from files_server.api.api_google_drive import router as google_drive_router
 from files_server.api.api_user import router as user_router
+from files_server.api.api_db import router as db_router
 
 api_router = APIRouter()
 
@@ -12,6 +13,7 @@ app.include_router(api_router)
 app.include_router(flex_router, prefix='/api/flex')
 app.include_router(google_drive_router, prefix='/api/google/drive')
 app.include_router(user_router, prefix='/api/user')
+app.include_router(db_router, prefix='/api/db')
 
 _is_simulate = True
 

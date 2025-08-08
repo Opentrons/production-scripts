@@ -108,7 +108,7 @@ import { CirclePlusFilled } from '@element-plus/icons-vue'
 import { ref, reactive, nextTick, onMounted} from 'vue'
 import { ElInput } from 'element-plus'
 import { $get_current_time } from '../../../utils/utils'
-import { $create_run, $get_run} from '../../../api/tests'
+// import { $create_run, $get_run} from '../../../api/tests'
 
 // paramter tag
 const paramsTags = ref(['--chnannel 8', '--update', '--operator Andy'])
@@ -140,12 +140,12 @@ const dialogFormData = reactive({
 })
 
 const getRunForm96CH = async() => {
-    let ret = await $get_run(
-        {"type": "96ch"}
-    )
-    if (ret.success){
-        tableData96ch.value = ret.data
-    }
+    // let ret = await $get_run(
+    //     {"type": "96ch"}
+    // )
+    // if (ret.success){
+    //     tableData96ch.value = ret.data
+    // }
   
 }
 
@@ -180,9 +180,9 @@ const showInput = () => {
 
 const confirmNewRun = async() => {
 
-    let ret = await $create_run(dialogFormData)
-    getRunForm96CH()
-    dialogFormTest4Visible.value = false
+    // let ret = await $create_run(dialogFormData)
+    // getRunForm96CH()
+    // dialogFormTest4Visible.value = false
 }
 
 </script>

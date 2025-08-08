@@ -12,6 +12,24 @@ router = APIRouter()
 LOCAL_PATH = '/files_server/datas'
 
 
+@router.post('/connect', status_code=201)
+async def connect(request: RobotRequest):
+    """
+    connect ot3
+    """
+    host = request.host
+    dh = build_handler(host, 'root')
+    ret = dh.connect()
+    if ret[0]:
+        return {"success": True,
+                "message": "连接成功",}
+    else:
+        return {"success": False,
+                "message": "连接失败",}
+
+
+
+
 @router.post('/download/testing_data', status_code=200)
 async def download_testing_data(data: DownloadRequest):
     """

@@ -16,7 +16,6 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = true
       error.value = null
       const response = await loginUser(credentials)
-      console.log(response)
       user.value = response.user
       if (response.success){
         isAuthenticated.value = true

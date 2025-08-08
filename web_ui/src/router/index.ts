@@ -1,13 +1,18 @@
-import { createWebHistory, createRouter } from 'vue-router'
+import { createWebHistory, createRouter, RouteRecordRaw} from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const routes = [
+const routes : RouteRecordRaw[] = [
 
     // { path: '/', name: 'root', meta: {"title": "Opentrons-SZ测试平台"},component: () => import('../views/home/home.vue') },
     // { path: '/login', name: 'login', redirect: '/' },
     // { path: "/index", name: "Index", redirect: "/index/home"},
     {path: '/login', name: "Login", component: () => import('../views/login/LoginView.vue')},
     {path: '/register', name: "Register", component: () => import('../views/login/RegisterView.vue')},
+     // 重定向到home
+    { 
+      path: '/', 
+      redirect: '/home'  // 单独的重定向路由
+    },
     { 
       path: '/', name: "index", component: () => import('../views/index.vue'), meta: {requiresAuth: true},
       children: [
@@ -22,6 +27,12 @@ const routes = [
         {path: "test_managment/test/pipette", name: "test pipette", component:() => import("../views/test_manage/start_test/pipette_1_8 .vue")},
         {path: "test_managment/test/pipette/96ch", name: "test 96 pipette", component:() => import("../views/test_manage/start_test/pipette_96.vue")},
         {path: 'data_analysis', name: "Data Ana", component: () => import('../views/files/data_analysis.vue')},
+        {path: '/test_data', name: "Data", component: () => import('../views/test_data/raw_data.vue')},
+        
+
+
+        {path: 'document_detail', name: "Document Detail", component: () => import('../views/document/document_detail.vue')},
+        {path: 'data_summary', name: "Data Summary", component: () => import('../views/files/data_summary.vue')},
 
       ]
     },

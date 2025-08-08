@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Action } from 'element-plus'
 
 
-const URL = "http://192.168.0.103:8080"
+const URL = "http://127.0.0.1:8080"
 
 
 const instance = axios.create({
@@ -81,14 +81,14 @@ export const $post = async (url: string, params: object = {}) => {
     return data
 }
 
-export const $download = async(url: string, file_name: string) => {
+// export const $download = async(url: string, file_name: string) => {
     
 
-    const response = await fetch(`${URL}${url}/${file_name}`);
-    return response
+//     const response = await fetch(`${URL}${url}/${file_name}`);
+//     return response
    
 
-}
+// }
 
 
 

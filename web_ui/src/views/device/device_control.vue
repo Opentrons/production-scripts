@@ -54,7 +54,7 @@
           v-model="axis_value" 
           placeholder="Select Axis"
           class="axis-select"
-          size="medium"
+          
         >
           <el-option 
             v-for="item in axis_options" 
@@ -67,7 +67,7 @@
         <el-button 
           type="warning" 
           class="action-btn"
-          @click="restartService"
+          @click=""
         >
           <el-icon><Refresh /></el-icon>
           重启服务

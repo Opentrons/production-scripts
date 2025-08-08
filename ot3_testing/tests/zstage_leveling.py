@@ -355,6 +355,6 @@ class ZStageLeveling(TestBase):
 
 
 if __name__ == '__main__':
-    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.152")
+    obj = ZStageLeveling(ZStagePoint, robot_ip="192.168.6.63")
     obj.simulating = False
     asyncio.run(obj._run())
