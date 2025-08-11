@@ -4,7 +4,7 @@ import time
 udp_socket = socket(AF_INET, SOCK_DGRAM)
 
 # 2. 准备接收方的地址
-dest_addr = ('192.168.0.15', 64000)
+dest_addr = ('192.168.8.64', 64000)
 
 # 3. 从键盘获取数据
 send_data = "M0\r\n"

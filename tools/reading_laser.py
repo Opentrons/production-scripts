@@ -1,5 +1,11 @@
-import time
-
+import time,os,sys
+codepath = os.path.dirname(__file__)
+addpath = os.path.dirname(os.path.dirname(__file__))
+addpath2 = os.path.dirname(addpath)
+if addpath not in sys.path:
+    sys.path.append(addpath)
+if addpath2 not in sys.path:
+    sys.path.append(addpath2)
 from ot3_testing.tests.base_init import TestBase
 from ot3_testing.ot_type import Mount, Point
 from typing import Union, List

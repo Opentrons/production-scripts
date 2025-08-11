@@ -17,3 +17,7 @@ ot3_testing/tests/__pycache__/__init__.cpython-37.pyc
 ot3_testing/tests/__pycache__/base_init.cpython-37.pyc
 ot3_testing/tests/__pycache__/pipette_leveling.cpython-37.pyc
 devices/__pycache__/__init__.cpython-37.pyc
+# Google API credentials
+data_center/google_driver_handler/credentials.json
+data_center/google_driver_handler/token.json
+data_center/google_driver_handler/sheettoken.json

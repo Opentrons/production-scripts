@@ -3,14 +3,20 @@
 """
 
 import codecs
-import time
-
+import time,os,sys
+codepath = os.path.dirname(__file__)
+addpath = os.path.dirname(os.path.dirname(__file__))
+addpath2 = os.path.dirname(addpath)
+if addpath not in sys.path:
+    sys.path.append(addpath)
+if addpath2 not in sys.path:
+    sys.path.append(addpath2)
 from drivers.serial_driver import SerialDriver
 
 MEASURE_CODE = bytes.fromhex("024D45415355524503")
 LOW_MEASURE_CODE = "GetVolt"
 GET_MOUNT = 'GetMount'
-COM = 'COM9'
+COM = 'COM4'
 
 
 class LaserSensor:
