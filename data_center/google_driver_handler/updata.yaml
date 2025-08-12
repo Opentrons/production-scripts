@@ -1,0 +1,163 @@
+updatafile: #批量上传文件到谷歌网盘的某个文件夹
+  - googlefolderID: #谷歌网盘文件夹ID 链接后的一串编码 如： 
+    floderpath: #要上传的文件夹路径
+    filekeywords: #要上传的文件关键字 如.csv
+
+
+
+tabledataupdate: #表格数据更新
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "function" #做函数数据上传
+    updatafileid: #要更新的文件ID
+      - "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs"
+    ExcelSheetName: #可以把一个数据更新到多个sheet
+      - "Pip1" #要更新的表格sheet名称
+      - "Pip2" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+    filefrompath: "/upload/function/1" #数据来源的路径 里面的文件会循环获取
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #要复制的文件ID
+        copyExcelSheetName: "Pip1" #要更新的表格sheet名称
+        copyRange: 
+          - "!A1:E1" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "!A1:E1"
+        pastefileid: "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #粘贴的Excel文件ID
+        pastesheetname: "Pip3" #粘贴的sheet名称
+
+
+
+
+volumupdata_1ch: #单通道容量数据上传
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "VOLUME1CH" #做函数数据上传
+
+    ifcopytemplate:
+        off/on: true
+        copyTempExcelId: "1gqsjGK28rcBlMYmllbcdpNgBfEe9vuFusAKOlZJ92ws" #模版的ID
+        copynewfilename: "" #复制后的名字,以移液器条码命令
+  
+
+    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
+    ExcelSheetName: #可以把一个数据更新到多个sheet
+      - "Gravimetric Raw Data" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+    filefrompath: "/Users/yew/googledriver/upload/function/1" #数据来源的路径 里面的文件会循环获取
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "" #要复制的文件ID
+        copyExcelSheetName: "Volume" #要更新的表格sheet名称
+        copyRange: 
+          - "!I2:AR2" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "" #这里为空 自行判断是否为最后一行
+        pastefileid: "1jnXsICp4Z-bYci8CR5VfxHzsE-7SObuRhfzDmIQZTFE" #粘贴的Excel文件ID
+        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
+
+
+1ch_updata_volume: #生产单通道容量数据上传（测试模版）
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "VOLUME1CH" #做函数数据上传
+
+    ifcopytemplate:
+        off/on: true
+        copyTempExcelId: "1ky60lmsff6fw-7KGb7Rpyuge4Iv2Khvp4a35HMJvbSc" #模版的ID
+        copynewfilename: "" #复制后的名字,以移液器条码命令
+  
+
+    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
+    ExcelSheetName: #可以把一个数据更新到多个sheet
+      - "Gravimetric Raw Data" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+    filefrompath: "/upload/function/1ch" #数据来源的路径 里面的文件会循环获取
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "" #要复制的文件ID
+        copyExcelSheetName: "Volume" #要更新的表格sheet名称
+        copyRange: 
+          - "!I2:AR2" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "" #这里为空 自行判断是否为最后一行
+        pastefileid: "1s5Zvtsn8otWEQbysHtbdXu8fX9SXUt74e4MXBILUklA" #粘贴的Excel文件ID
+        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
+    
+    ifupdatarawdata: #是否上传原始数据到某个文件夹
+      - off/on: true
+        folder_id: "15akq6IUdjRYHqvxUTYf-zWN_JFva7fZ0" #上传的文件夹ID
+
+1ch_updata_qc_test: #生产单通诊断数据上传
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "1CH_AssemblyQC" #做函数数据上传
+
+    ifcopytemplate:
+        off/on: true
+        copyTempExcelId: "1cXcj9HKFK1H_axVKUTpy2suivS6gElki8ZIKEJLAVew" #模版的ID
+        copynewfilename: "" #复制后的名字,以移液器条码命令
+  
+
+    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
+    ExcelSheetName: #可以把一个数据更新到多个sheet
+      - "Assembly QC" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+      - "E"
+      - "F"
+      - "G"
+      - "H"
+      - "I"
+      - "J"
+    filefrompath: "" #数据来源的路径 文件服务提供
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "" #要复制的文件ID
+        copyExcelSheetName: "Assembly QC" #要更新的表格sheet名称
+        copyRange: 
+          - "!M11:AS11" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "" #这里为空 自行判断是否为最后一行
+        pastefileid: "1YwG3-OAjr8A5obKGlzxEZEQAbPTiwBlpEDFtjGezCMs" #粘贴的Excel文件ID
+        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
