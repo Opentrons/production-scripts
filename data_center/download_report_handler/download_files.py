@@ -5,9 +5,11 @@ import time
 import base64
 import io
 
-timestamp = time.time()
-local_time = time.localtime(timestamp)
-formatted_time = time.strftime("%Y-%m-%d-%H-%M-%S", local_time)
+def get_time_str():
+    timestamp = time.time()
+    local_time = time.localtime(timestamp)
+    formatted_time = time.strftime("%Y-%m-%d-%H-%M-%S", local_time)
+    return formatted_time
 
 LOAD_KEY_BY_STR = True
 
@@ -96,14 +98,29 @@ class LinuxFileManager:
         except IOError:
             return False
 
+    def check_remote_dir_exists(self, remote_path):
+        print("check_remote_dir_exists")
+        try:
+            self.sftp.stat(remote_path)
+            return True
+        except IOError as e:
+            print("IOError")
+            return False
+
+
     def download_dir(self, remote_dir, local_dir):
         """
         递归下载远程目录所有文件
         :param remote_dir: 远程目录路径 (e.g. '/home/user/data')
         :param local_dir: 本地存储路径 (e.g. 'C:/Downloads/data')
         """
+        print("remote_dir:", remote_dir)
+
+        if not self.check_remote_dir_exists(remote_dir):
+            return False, "no such directory", ""
+
         files = self.sftp.listdir(remote_dir)
-        local_dir = local_dir + "_" + formatted_time
+        local_dir = local_dir + "_" + get_time_str()
         if len(files) == 0:
             return True, "no files", ""
         try:

@@ -6,10 +6,15 @@ import subprocess
 from fastapi.responses import JSONResponse, FileResponse
 import os
 from files_server.utils.utils import zip_directory, delete_folder
+import platform
 
 router = APIRouter()
+system = platform.system().lower()
 
-LOCAL_PATH = '/files_server/datas'
+if  system == 'linux':
+    LOCAL_PATH = '/files_server/datas'
+else:
+    LOCAL_PATH = './data'
 
 
 @router.post('/connect', status_code=201)
@@ -49,35 +54,28 @@ async def download_testing_data(data: DownloadRequest):
 
     if not ret:
         raise HTTPException(status_code=404, detail=message)
-
     ret, message, local_dir = dh.download_dir(download_path, local_path)
+    print(ret, message)
     if not ret:
         raise HTTPException(status_code=404, detail=message)
-
+    dh.close()
     # Zip the directory
     zip_path = f"{local_dir}.zip"
     zip_directory(local_dir, zip_path)
     delete_folder(local_dir)
-
+    if '\\' in zip_path:
+        zip_path = zip_path.replace('\\', '/')
+    saved_name = zip_path.split('/')[-1]
     # Return the file as a stream
     if os.path.exists(zip_path):
         # Method 1: Using FileResponse (simpler)
         return FileResponse(
             zip_path,
-            filename=saved_name + '.zip',
+            filename=saved_name,
             media_type='application/zip',
-            headers={'Content-Disposition': f'attachment; filename="{saved_name}.zip"'}
+            headers={'Content-Disposition': f'attachment; filename="{saved_name}"',
+                     "Access-Control-Expose-Headers": "Content-Disposition"}
         )
-
-        # Method 2: Using StreamingResponse (more control)
-        # def iterfile():
-        #     with open(zip_path, 'rb') as f:
-        #         yield from f
-        # return StreamingResponse(
-        #     iterfile(),
-        #     media_type='application/zip',
-        #     headers={'Content-Disposition': f'attachment; filename="{saved_name}.zip"'}
-        # )
     else:
         raise HTTPException(status_code=404, detail="ZIP file not found")
 

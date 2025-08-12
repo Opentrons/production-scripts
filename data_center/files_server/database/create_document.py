@@ -63,7 +63,7 @@ class ExcelToMongoDB:
         """
         try:
             # 读取Excel文件
-            df = pd.read_excel(file_path, sheet_name='Z Stage Parallelism')
+            df = pd.read_excel(file_path)
 
             # 处理空值
             df = df.where(pd.notnull(df), None)
@@ -104,10 +104,10 @@ class ExcelToMongoDB:
 
 def main():
     # 配置参数
-    MONGODB_URI = "mongodb://192.168.6.48:27017/"  # MongoDB连接字符串
-    DB_NAME = "Test_Data_Flex"  # 数据库名称
-    COLLECTION_NAME = "Flex_Leveling_2025_Q1"  # 集合名称
-    EXCEL_FILE = "C:\\Users\\22192\\Downloads\\OT FLEX MP LEVELING TEST UNIT TRACKER.xlsx"  # Excel文件路径
+    MONGODB_URI = "mongodb://192.168.6.61:27017/"  # MongoDB连接字符串
+    DB_NAME = "ProductionDataSummary"  # 数据库名称
+    COLLECTION_NAME = "ProductionData2025"  # 集合名称
+    EXCEL_FILE = "C:\\Users\\22192\\Desktop\\数据汇总表.xlsx"  # Excel文件路径
 
     # 创建转换器实例
     converter = ExcelToMongoDB(MONGODB_URI, DB_NAME, COLLECTION_NAME)

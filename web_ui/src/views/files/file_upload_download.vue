@@ -41,29 +41,20 @@
             placeholder="/data/testing_data" 
             clearable
           />
-          <el-button 
-          type="info" 
-          :disabled="!isConnected"
-          @click="connectToDevice"
-          :icon="Connection"
-          style="margin-left: 20px"
-          >
-          连接设备
-          </el-button>
-          
+        
          <el-button 
             type="primary" 
-            :disabled="!isConnected"
+            :disabled="!isAvailable"
             @click="download_testing_data"
             :icon="Download"
             style="margin-left: 20px"
             >
-            下载目录
+            {{downloading}}
             </el-button>
 
             <el-button 
             type="danger" 
-            :disabled="!isConnected"
+            :disabled="!isAvailable"
             @click=""
             :icon="Delete"
             style="margin-left: 10px"
@@ -163,7 +154,7 @@
           :on-success="handleUploadSuccess"
           :on-error="handleUploadError"
           :show-file-list="false"
-          :disabled="!isConnected"
+          :disabled="!isAvailable"
         >
           <el-icon class="el-icon--upload"><upload-filled /></el-icon>
           <div class="el-upload__text">
@@ -225,6 +216,7 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import { $downloadFiles, $getFileList, $uploadFile } from '../../api/files'
 import { $get, $post } from '../../utils/request'
 import { tr } from 'element-plus/es/locales.mjs'
+import {URL} from '../../utils/request'
 
 // 设备连接相关
 const input_ip_address = ref('')
@@ -232,8 +224,10 @@ const input_download_path = ref('/data/testing_data')
 const flex_list = ref([])
 const isDiscover = ref(false)
 const use_secret = ref(true)
-const isConnected = ref(false)
+const isAvailable = ref(false)
 const currentPath = ref('/')
+
+const downloading = ref('下载目录')
 
 // 文件列表相关
 const fileList = ref([])
@@ -287,7 +281,8 @@ async function fetchFlexList() {
     const device_len = Object.keys(flex_group).length;
     if (device_len > 0)
     {
-      input_ip_address.value = flex_list.value[0]
+      input_ip_address.value = flex_list.value[0].value
+      isAvailable.value = true
       
     }
     ElMessage.info(`找到${device_len}个设备!`)
@@ -302,10 +297,10 @@ async function fetchFlexList() {
 // 设备变更处理
 const handleDeviceChange = (value) => {
   if (value) {
-    isConnected.value = true;
+    isAvailable.value = true;
     
   } else {
-    isConnected.value = false;
+    isAvailable.value = false;
   }
 }
 
@@ -317,7 +312,7 @@ interface ConnectResponse {
 const connectToDevice = async () => {
   try {
     isLoadingFiles.value = true
-    const response: ConnectResponse =await $post('/api/flex/connect', {'host': input_ip_address.value})
+    const response: ConnectResponse =await $post(`/api/flex/connect`, {'host': input_ip_address.value})
     if (response.success)
     {ElMessage.success('连接成功')} else
     {ElMessage.error('连接失败')}
@@ -347,7 +342,8 @@ interface DownloadResponse {
 
 const download_testing_data = async () => {
     ElMessage.info("开始下载")
-    
+    downloading.value = '正在下载'
+    isAvailable.value = false
     const this_download: DownloadRequest = {
       host: input_ip_address.value,
       user_name: 'root',
@@ -355,7 +351,7 @@ const download_testing_data = async () => {
       saved_name: 'testing_data'
     }
     console.log(this_download)
-    const response = await fetch('/api/flex/download/testing_data', {
+    const response = await fetch(`${URL}/api/flex/download/testing_data`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -366,14 +362,21 @@ const download_testing_data = async () => {
 
     });
     if (!response.ok) {
-      throw new Error(`Server returned ${response.status}`);
+      const errorData = await response.json();
+      ElMessage.error(`下载失败, ${errorData.detail}`)
+      downloading.value = '下载目录'
+      isAvailable.value = true
+
+       
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
 
     // Get filename from Content-Disposition header or use default
     const contentDisposition = response.headers.get('Content-Disposition');
+   
     const filename = contentDisposition?.match(/filename="?(.+?)"?$/)?.[1] 
-      || this_download.saved_name || 'download.zip';
-
+    || 'download.zip';
+  
     // Create download link
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
@@ -382,13 +385,14 @@ const download_testing_data = async () => {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    
+    ElMessage.success("下载成功")
+    downloading.value = '下载目录'
+    isAvailable.value = true
     // Cleanup
     setTimeout(() => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     }, 100);
-
 
 }
 
