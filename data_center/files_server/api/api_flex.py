@@ -3,7 +3,7 @@ from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from datetime import datetime
 from files_server.api.model import *
 import subprocess
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 import os
 from files_server.utils.utils import zip_directory, delete_folder
 
@@ -33,31 +33,53 @@ async def connect(request: RobotRequest):
 @router.post('/download/testing_data', status_code=200)
 async def download_testing_data(data: DownloadRequest):
     """
-    download files
-    :return
+    Download files as a stream
+    Returns:
+        StreamingResponse: The ZIP file as a downloadable stream
     """
     host = data.host
     user_name = data.user_name
     download_path = data.download_path
     saved_name = data.saved_name
-    local_path = os.path.join(LOCAL_PATH, saved_name)
-    if '\\' in local_path:
-        local_path = local_path.replace('\\', '/')
+
+    local_path = os.path.join(LOCAL_PATH, saved_name).replace('\\', '/')
+
     dh = build_handler(host, user_name)
     ret, message = dh.connect()
-    if ret:
-        ret, message, local_dir = dh.download_dir(download_path, local_path)
-        # zip and delete
-        zip_directory(local_dir, local_dir)
-        delete_folder(local_dir)
-        return {
-            "success": ret,
-            "message": message,
-            "dir": local_dir
-        }
+
+    if not ret:
+        raise HTTPException(status_code=404, detail=message)
+
+    ret, message, local_dir = dh.download_dir(download_path, local_path)
+    if not ret:
+        raise HTTPException(status_code=404, detail=message)
+
+    # Zip the directory
+    zip_path = f"{local_dir}.zip"
+    zip_directory(local_dir, zip_path)
+    delete_folder(local_dir)
+
+    # Return the file as a stream
+    if os.path.exists(zip_path):
+        # Method 1: Using FileResponse (simpler)
+        return FileResponse(
+            zip_path,
+            filename=saved_name + '.zip',
+            media_type='application/zip',
+            headers={'Content-Disposition': f'attachment; filename="{saved_name}.zip"'}
+        )
+
+        # Method 2: Using StreamingResponse (more control)
+        # def iterfile():
+        #     with open(zip_path, 'rb') as f:
+        #         yield from f
+        # return StreamingResponse(
+        #     iterfile(),
+        #     media_type='application/zip',
+        #     headers={'Content-Disposition': f'attachment; filename="{saved_name}.zip"'}
+        # )
     else:
-        data = {"success": ret, "message": message}
-        return JSONResponse(data, status_code=404)
+        raise HTTPException(status_code=404, detail="ZIP file not found")
 
 
 @router.get('/discover', status_code=200)

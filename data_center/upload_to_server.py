@@ -91,7 +91,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     host = args.host
     if host is None:
-        host= "192.168.6.48"
+        host= "192.168.6.61"
     cli = Cli(host)
     cli.upload_local()
     cli.restart_server()

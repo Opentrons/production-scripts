@@ -127,7 +127,7 @@
                 v-if="row.type === 'file'"
                 size="small" 
                 type="primary" 
-                @click.stop="downloadFile(row)"
+                @click.stop="downloadFile()"
                 :icon="Download"
               >
                 下载
@@ -136,7 +136,7 @@
                 v-else
                 size="small" 
                 type="info"
-                @click.stop="enterDirectory(row)"
+                @click.stop=""
                 :icon="Right"
               >
                 进入
@@ -329,10 +329,66 @@ const connectToDevice = async () => {
   }
 }
 
+interface DownloadRequest {
+  host: string,
+  user_name: string,
+  download_path: string,
+  saved_name: string
+}
+
+interface DownloadResponse {
+  success: boolean,
+  message: string,
+  dir: string
+}
+
+
 // 下载目标OT3目录到服务器
 
-const download_testing_data = () => {
-    const response = await $post('/download/testing_data/', )
+const download_testing_data = async () => {
+    ElMessage.info("开始下载")
+    
+    const this_download: DownloadRequest = {
+      host: input_ip_address.value,
+      user_name: 'root',
+      download_path: input_download_path.value,
+      saved_name: 'testing_data'
+    }
+    console.log(this_download)
+    const response = await fetch('/api/flex/download/testing_data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add authorization header if needed
+        // 'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(this_download)
+
+    });
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers.get('Content-Disposition');
+    const filename = contentDisposition?.match(/filename="?(.+?)"?$/)?.[1] 
+      || this_download.saved_name || 'download.zip';
+
+    // Create download link
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
 
 }
 
@@ -373,13 +429,13 @@ const navigateToPath = (index) => {
 
 // 下载文件
 const downloadFile = async () => {
-  try {
-    ElMessage.info(`开始下载`)
-    await $downloadFiles()
-    ElMessage.success(`下载完成: ${file.name}`)
-  } catch (error) {
-    ElMessage.error(`下载失败: ${error.message}`)
-  }
+  // try {
+  //   ElMessage.info(`开始下载`)
+  //   // await $downloadFiles()
+  //   ElMessage.success(`下载完成: ${file.name}`)
+  // } catch (error) {
+  //   ElMessage.error(`下载失败: ${error.message}`)
+  // }
 }
 
 // 上传前处理

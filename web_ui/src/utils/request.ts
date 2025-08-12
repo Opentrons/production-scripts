@@ -10,7 +10,7 @@ const URL = "http://127.0.0.1:8080"
 const instance = axios.create({
     baseURL: URL,
     timeout: 30000*4,
-    headers: { 'Access-Control-Allow-origin': '*', "accept": "application/json"}
+    headers: { 'Content-Type': 'application/json', "accept": "application/json"}
 })
 
 // 请求拦截器
