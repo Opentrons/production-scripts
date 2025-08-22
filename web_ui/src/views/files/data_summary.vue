@@ -63,14 +63,20 @@
       width="50%"
     >
       <el-form :model="form"  ref="formRef" label-width="100px">
-        <el-form-item label="产品名" prop="product">
-          <el-input v-model="form.product" placeholder="请输入产品名" />
+        <el-form-item label="产品名" prop="Production">
+          <el-input v-model="form.Production" placeholder="请输入产品名" />
         </el-form-item>
         <el-form-item label="测试名" prop="testName">
-          <el-input v-model="form.testName" placeholder="请输入测试名" />
+          <el-input v-model="form.TestName" placeholder="请输入测试名" />
         </el-form-item>
-        <el-form-item label="数据链接" prop="dataLink">
-          <el-input v-model="form.dataLink" placeholder="请输入数据链接" />
+         <el-form-item label="NPI" prop="NPI">
+          <el-input v-model="form.NPI" placeholder="请输入NPI" />
+        </el-form-item>
+        <el-form-item label="链接名" prop="LinkLabel">
+          <el-input v-model="form.LinkLabel" placeholder="请输入数据链接名" />
+        </el-form-item>
+        <el-form-item label="数据链接" prop="Link">
+          <el-input v-model="form.Link" placeholder="请输入链接" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -111,20 +117,22 @@ const totalItems = ref(0)
 const dialogVisible = ref(false)
 const dialogTitle = ref('新建数据')
 const form = ref({
-  id: '',
-  product: '',
-  testName: '',
-  dataLink: ''
+  Production: '',
+  TestName: '',
+  NPI: '',
+  Link: '',
+  LinkLabel: '',
+  CreateTime: ''
 })
 const formRef = ref()
-// const rules = {
-//   product: [{ required: true, message: '请输入产品名', trigger: 'blur' }],
-//   testName: [{ required: true, message: '请输入测试名', trigger: 'blur' }],
-//   dataLink: [
-//     { required: true, message: '请输入数据链接', trigger: 'blur' },
-//     { type: 'url', message: '请输入有效的URL链接', trigger: ['blur', 'change'] }
-//   ]
-// }
+const rules = {
+  Production: [{ required: true, message: '请输入产品名', trigger: 'blur' }],
+  TestName: [{ required: true, message: '请输入测试名', trigger: 'blur' }],
+  Link: [
+    { required: true, message: '请输入数据链接', trigger: 'blur' },
+    { type: 'url', message: '请输入有效的URL链接', trigger: ['blur', 'change'] }
+  ]
+}
 
 interface DataResponse{
   success: boolean,
@@ -148,45 +156,14 @@ const fetchData = async () => {
     // tableData.value = res.data
     // totalItems.value = res.total
     
-    // // 模拟数据
-    // const mockData: TableItem[] = [
-    //   {
-    //     id: '1',
-    //     product: '智能手机X',
-    //     testName: '电池续航测试',
-    //     dataLink: 'https://example.com/data/smartphone-x-battery',
-    //     createTime: '2023-05-15 10:30'
-    //   },
-    //   {
-    //     id: '2',
-    //     product: '智能手表Y',
-    //     testName: '防水性能测试',
-    //     dataLink: 'https://example.com/data/watch-y-waterproof',
-    //     createTime: '2023-05-16 14:20'
-    //   },
-    //   {
-    //     id: '3',
-    //     product: '笔记本电脑Z',
-    //     testName: '散热性能测试',
-    //     dataLink: 'https://example.com/data/laptop-z-thermal',
-    //     createTime: '2023-05-17 09:15'
-    //   },
-    //   {
-    //     id: '4',
-    //     product: '智能手机X',
-    //     testName: '屏幕显示测试',
-    //     dataLink: 'https://example.com/data/smartphone-x-display',
-    //     createTime: '2023-05-18 11:45'
-    //   }
-    // ]
-    
+   
     // 模拟搜索
-    // let filtered = mockData
-    // if (searchQuery.value) {
-    //   filtered = mockData.filter(item => 
-    //     item.product.toLowerCase().includes(searchQuery.value.toLowerCase())
-    //   )
-    // }
+    let filtered = tableData
+    if (searchQuery.value) {
+      filtered.value = tableData.value.filter(item => 
+        item.Production.toLowerCase().includes(searchQuery.value.toLowerCase())
+      )
+    }
     
     // // 模拟分页
     // const start = (currentPage.value - 1) * pageSize.value
@@ -226,12 +203,23 @@ const handleCurrentChange = (val: number) => {
 const handleCreate = () => {
   dialogTitle.value = '新建数据'
   form.value = {
-    id: '',
-    product: '',
-    testName: '',
-    dataLink: ''
+    Production: '',
+    TestName: '',
+    NPI: '',
+    Link: '',
+    LinkLabel: '',
+    CreateTime: ''
   }
   dialogVisible.value = true
+}
+
+function getCurrentDate(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 }
 
 const handleEdit = (row: TableItem) => {
@@ -240,22 +228,24 @@ const handleEdit = (row: TableItem) => {
   // dialogVisible.value = true
 }
 
+interface InsertCollectionResponse {
+  status_code: number
+  detail: string
+}
+
 const submitForm = () => {
   formRef.value.validate(async (valid: boolean) => {
     if (valid) {
       try {
         // 模拟API调用
-        // if (form.value.id) {
-        //   await $put(`/api/data-summary/${form.value.id}`, form.value)
-        //   ElMessage.success('更新成功')
-        // } else {
-        //   await $post('/api/data-summary', form.value)
-        //   ElMessage.success('创建成功')
-        // }
-        
-        ElMessage.success(form.value.id ? '更新成功' : '创建成功')
+        form.value.CreateTime = getCurrentDate();
+        if (form.value.Link) {
+        const response: InsertCollectionResponse = await $post('/api/db/insert/document', {
+          "db_name": "ProductionDataSummary", "document_name": "ProductionData2025", "collections": form.value})
+        console.log(response)
+        ElMessage.success(form.value.Link ? '更新成功' : '创建成功')
         dialogVisible.value = false
-        fetchData()
+        fetchData()}
       } catch (error) {
         ElMessage.error('操作失败: ' + error.message)
       }

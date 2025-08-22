@@ -1,31 +1,46 @@
 import { fi } from "element-plus/es/locales.mjs";
 import { $get, $post } from "../utils/request"
+import {URL} from '../utils/request'
 
 
 // 下载
-export const $downloadFiles = async (file_name: string) => {
-    // try {
-    //     // 使用 fetch 请求下载文件
-    //     const response = await $post('/files/download', file_name);
-    //     console.log("OK?", response)
-    //     if (response.status) {
-    //         // 将文件转换为 Blob
-    //         const blob = await response.blob();
+export const $downloadFiles = async (uri: string, datas: Object) => {
+const response = await fetch(`${URL}${uri}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add authorization header if needed
+        // 'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(datas)
 
-    //         // 创建一个链接并设置下载属性
-    //         const link = document.createElement('a');
-    //         link.href = window.URL.createObjectURL(blob);
-    //         link.download = file_name;
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+    
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
 
-    //         // 模拟点击下载链接
-    //         link.click();
-    //     } else {
-    //         alert('从后端downloadfile目录里下载此文件失败.');
-    //     }
-    // } catch (error) {
-    //     console.error(error);
-    //     alert('下载文件出错.');
-    // }
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers.get('Content-Disposition');
+   
+    const filename = contentDisposition?.match(/filename="?(.+?)"?$/)?.[1] 
+    || 'download.zip';
+  
+    // Create download link
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+   
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
 
 }
 

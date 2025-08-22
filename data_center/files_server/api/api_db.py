@@ -21,10 +21,82 @@ def clean_data(data):
         return str(data)  # 转换 ObjectId
     return data
 
+
+@router.post('/insert/document', status_code=201)
+async def insert_document(request: InsertDocumentRequest):
+    """
+    Insert a document into the specified collection after checking if Link field already exists
+
+    Args:
+        request: InsertDocumentRequest containing:
+            - db_name: Name of the database
+            - document_name: Name of the collection
+            - collections: The document data to insert (dict or list of dicts)
+
+    Returns:
+        The ID of the inserted document or error if Link exists
+    """
+    db_name = request.db_name
+    document_name = request.document_name
+    document_data = request.collections
+    reader = MongoDBReader(
+        uri=URI,
+        db_name=db_name,
+        collection_name=document_name
+    )
+
+    if not reader.connect():
+        raise HTTPException(status_code=404, detail="Failed to connect to MongoDB")
+
+    try:
+        # Check if Link field exists in the collection
+        if isinstance(document_data, dict):
+            if 'Link' in document_data:
+                existing = reader.collection.find_one({"Link": document_data['Link']})
+                if existing:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Document with Link '{document_data['Link']}' already exists"
+                    )
+            print("inserting document: ", document_data)
+            # Insert single document
+            reader.collection.insert_one(document_data)
+
+
+        elif isinstance(document_data, list):
+            # Check each document in the list for duplicate Links
+            links = [doc['Link'] for doc in document_data if 'Link' in doc]
+            if links:
+                existing_links = reader.collection.find(
+                    {"Link": {"$in": links}},
+                    {"Link": 1}
+                ).distinct("Link")
+
+                if existing_links:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Documents with these Links already exist: {', '.join(existing_links)}"
+                    )
+
+            # Insert multiple documents
+            result = reader.collection.insert_many(document_data)
+            inserted_id = result.inserted_ids
+        else:
+            raise HTTPException(status_code=400, detail="Invalid document format")
+
+        return {"status_code": 200}
+
+    except HTTPException:
+        raise  # Re-raise the HTTPException we created
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to insert document: {str(e)}")
+
+
+
 @router.post('/read/document', status_code=200)
 async def read_document(request: ReadDocumentRequest):
     """
-    connect ot3
+    read document
     """
     db_name = request.db_name
     document_name = request.document_name

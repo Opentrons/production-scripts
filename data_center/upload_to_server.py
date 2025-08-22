@@ -77,11 +77,11 @@ class Cli:
         """
         restart data-center server
         """
-        stdin, stdout, stderr = self.ssh.exec_command('systemctl daemon-reload; systemctl restart data-center.service; systemctl status data-center.service')
+        stdin, stdout, stderr = self.ssh.exec_command(
+            'systemctl daemon-reload; systemctl restart data-center.service; systemctl status data-center.service')
         print("Restarting data-center server...\n")
         for line in stdout.readlines():
             print(line.strip())  # 使用 strip() 去除多余的换行符和空格
-
 
 
 if __name__ == '__main__':
@@ -91,9 +91,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     host = args.host
     if host is None:
-        host= "192.168.6.61"
+        host = ("192.168.6.61")
     cli = Cli(host)
     cli.upload_local()
     cli.restart_server()
-
-

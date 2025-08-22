@@ -1,4 +1,4 @@
-import os,sys
+import os, sys
 import io
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -6,50 +6,54 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.http import MediaIoBaseDownload
-from globalconfig import DOWNLOAD_DIR
-codepath = os.path.dirname(__file__)
-addpath = os.path.dirname(os.path.dirname(__file__))
-addpath2 = os.path.dirname(addpath)
-if addpath not in sys.path:
-    sys.path.append(addpath)
-if addpath2 not in sys.path:
-    sys.path.append(addpath2)
+import platform
+
+system = platform.system()
+# from globalconfig import DOWNLOAD_DIR
+
+# codepath = os.path.dirname(__file__)
+# addpath = os.path.dirname(os.path.dirname(__file__))
+# addpath2 = os.path.dirname(addpath)
+# if addpath not in sys.path:
+#     sys.path.append(addpath)
+# if addpath2 not in sys.path:
+#     sys.path.append(addpath2)
+
+if system == "Linux":
+    BaseURL = '/files_server/'
+else:
+    BaseURL = './'
+
 
 class googledrive():
     def __init__(self) -> None:
-        # # Replace with the path of your client secret file
-        # self.CLIENT_SECRET_PATH = 'credentials.json'
-        # # Replace with the ID of the folder you want to upload to
-        # self.UPLOAD_FOLDER_ID = '1hGwqcTVyG_beQ3qRoTnmKFGYyuZKqFyO'
-        # # Replace with the file path of the file you want to upload
-        # self.FILE_PATH = 'token.json'
-        #self.googleservice = None
-        self.tokenpath = os.path.join(codepath,'token.json')
-        self.credentialspath = os.path.join(codepath,'credentials.json')
+        self.tokenpath = os.path.join(BaseURL, 'token.json')
+        self.credentialspath = os.path.join(BaseURL, 'credentials.json')
+        self.creds = None
         self.get_drive_service()
-    def get_drive_service(self):
-    
-        SCOPES = [
-        'https://www.googleapis.com/auth/drive','https://www.googleapis.com/auth/drive.appdata','https://www.googleapis.com/auth/drive.file']
-        creds = None
-        #'https://www.googleapis.com/auth/drive.metadata.readonly','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/drive.appdata'
-        if os.path.exists(self.tokenpath):
-            creds = Credentials.from_authorized_user_file(self.tokenpath, SCOPES)
 
-        
-        if not creds or not creds.valid:
+
+    def get_drive_service(self):
+
+        SCOPES = [
+            'https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/drive.appdata',
+            'https://www.googleapis.com/auth/drive.file']
+        # 'https://www.googleapis.com/auth/drive.metadata.readonly','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/drive.appdata'
+        if os.path.exists(self.tokenpath):
+            self.creds = Credentials.from_authorized_user_file(self.tokenpath, SCOPES)
+
+        if not self.creds or not self.creds.valid:
             flow = InstalledAppFlow.from_client_secrets_file(
                 self.credentialspath, SCOPES)
-            creds = flow.run_local_server(port=0)
+            self.creds = flow.run_local_server(port=0)
 
             # Save the credentials for the next run
             with open(self.tokenpath, 'w') as token:
-                token.write(creds.to_json())
+                token.write(self.creds.to_json())
         # Create an authorized Drive API client
-        self.googleservice = build('drive', 'v3', credentials=creds)
-        return self.googleservice
-    
-    def upload_to_drive(self,file_path, folder_id):
+        self.googleservice = build('drive', 'v3', credentials=self.creds)
+
+    def upload_to_drive(self, file_path, folder_id):
         """
         上传文件到网盘
         param file_path : 要上传的文件路径
@@ -69,18 +73,18 @@ class googledrive():
                                     mimetype='application/octet-stream',
                                     resumable=True)
             file = self.googleservice.files().create(body=file_metadata,
-                                        media_body=media,
-                                        supportsAllDrives=True,  # 如果是共享驱动器需启用
-                                        fields='id').execute()
+                                                     media_body=media,
+                                                     supportsAllDrives=True,  # 如果是共享驱动器需启用
+                                                     fields='id').execute()
 
             upfileid = file.get('id')
             print('File ID: {}'.format(file.get('id')))
             return upfileid
         except Exception as err:
             print("上传文件失败{}".format(err))
-            return upfileid    
-    
-    def dowload_fail_drive(self,fileid,newname=''):
+            return upfileid
+
+    def download_file(self, fileid, newname=''):
         """从谷歌网盘下载文件  Excel world文件不适合
         param fileid 网盘ID
         param newname 保存文件的名称，空则为下载名称
@@ -97,8 +101,8 @@ class googledrive():
                 file_name = file['name']
             else:
                 file_name = newname
-            
-            save_fail_path = os.path.join(DOWNLOAD_DIR,file_name)
+
+            save_fail_path = os.path.join(DOWNLOAD_DIR, file_name)
             request = self.googleservice.files().get_media(fileId=file_id)
             file = io.BytesIO()
             downloader = MediaIoBaseDownload(file, request)
@@ -106,18 +110,18 @@ class googledrive():
             while done is False:
                 status, done = downloader.next_chunk()
                 print(F'Download {int(status.progress() * 100)}.')
-            
+
             # 将文件内容保存到本地磁盘
             with open(save_fail_path, 'wb') as f:
                 f.write(file.getvalue())
-            
+
             print(f"文件已下载到本地磁盘，文件名：{file_name},路径{save_fail_path}")
-            return file_name,save_fail_path
+            return file_name, save_fail_path
         except HttpError as error:
             print(f"发生错误：{error}")
-            return None,None
-    
-    def execute_file(self,fileid,extype='xlsx',newname=''):
+            return None, None
+
+    def execute_file(self, fileid, extype='xlsx', newname=''):
         """导出Google Workspace 文档 like world Excel
         param fileid 要导出的文件ID
         param extype 需要保存的文件格式
@@ -126,34 +130,34 @@ class googledrive():
         """
 
         MIMEDICT = {
-            "csv":"text/csv",
-            "docx":"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "pdf":"application/pdf",
-            "txt":"text/plain",
-            "xlsx":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "pptx":"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "json":"application/vnd.google-apps.script+json",
-            "jpg":"image/jpeg",
+            "csv": "text/csv",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "pdf": "application/pdf",
+            "txt": "text/plain",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "json": "application/vnd.google-apps.script+json",
+            "jpg": "image/jpeg",
 
         }
         # 要导出的 Google Drive 文件的 ID 以及导出格式（Excel 文件为 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'）
         file_id = fileid
-       
+
         file = self.googleservice.files().get(fileId=file_id).execute()
         if newname == '':
-                
-                file_name = file['name']
+
+            file_name = file['name']
         else:
             file_name = newname
-        
+
         mimetypeval = MIMEDICT[extype]
 
-        excutepath = os.path.join(DOWNLOAD_DIR,str(file_name)+"."+str(extype))
+        excutepath = os.path.join(DOWNLOAD_DIR, str(file_name) + "." + str(extype))
 
         try:
-        
+
             request = self.googleservice.files().export_media(fileId=file_id,
-                                                mimeType=mimetypeval)
+                                                              mimeType=mimetypeval)
             file = io.BytesIO()
             downloader = MediaIoBaseDownload(file, request)
             done = False
@@ -164,12 +168,12 @@ class googledrive():
             with open(excutepath, 'wb') as f:
                 f.write(file.getvalue())
             print(f"文件已下载到本地磁盘，文件名:{file_name},路径:{excutepath}")
-            return file_name,excutepath
+            return file_name, excutepath
         except HttpError as error:
             print(f'导出文件出错: {error}')
-            return None,None
+            return None, None
 
-    def get_folder_data(self,folder_id):
+    def get_folder_data(self, folder_id):
         """
         获取网盘文件夹内的文件 名称 ID
         param folder_id : google网盘文件夹ID
@@ -185,7 +189,8 @@ class googledrive():
             #                             fields="nextPageToken, files(id, name)").execute()
             # items = results.get("files", [])
             query = f"'{folder_id}' in parents and trashed=false"
-            results = self.googleservice.files().list(q=query, fields="nextPageToken, files(id, name, mimeType)").execute()
+            results = self.googleservice.files().list(q=query,
+                                                      fields="nextPageToken, files(id, name, mimeType)").execute()
             items = results.get('files', [])
 
             # Print out the names and IDs of all files in the folder
@@ -196,13 +201,13 @@ class googledrive():
                 for item in items:
                     itemlist.append([item["name"], item["id"]])
                     print("{0} ({1})".format(item["name"], item["id"]))
-            
+
             return itemlist
         except Exception as err:
             print("上传文件失败{}".format(err))
             return itemlist
 
-    def get_folder_data_share(self,folder_id,name):
+    def get_folder_data_share(self, folder_id, name):
         """
         获取共享网盘文件夹内的文件名称ID
         param folder_id : google网盘文件夹ID
@@ -211,7 +216,8 @@ class googledrive():
         itemlist = []
         try:
             query = "sharedWithMe = true and mimeType != 'application/vnd.google-apps.folder'"
-            results = self.googleservice.files().list(q=query, fields="nextPageToken, files({}, {})".format(folder_id,name)).execute()
+            results = self.googleservice.files().list(q=query, fields="nextPageToken, files({}, {})".format(folder_id,
+                                                                                                            name)).execute()
             items = results.get('files', [])
             # results = self.googleservice.files().list(q=query, fields="nextPageToken, files(id, name)").execute()
             # items = results.get('files', [])
@@ -222,7 +228,6 @@ class googledrive():
                 for item in items:
                     itemlist.append([item["name"], item["id"]])
                     print("{0} ({1})".format(item["name"], item["id"]))
-            
 
             # 列出与你共享的所有文件
             results = self.googleservice.files().list(
@@ -237,13 +242,13 @@ class googledrive():
                 print('与你共享的文件：')
                 for file in results['files']:
                     print(f"{file['name']} ({file['id']})")
-                    
+
             return itemlist
         except Exception as err:
             print("上传文件失败{}".format(err))
             return itemlist
 
-    def get_coppy_file(self,old_file_id,new_file_name):
+    def get_coppy_file(self, old_file_id, new_file_name):
         """
         复制文件夹内的文件
         param old_file_id :要复制的文件ID
@@ -255,21 +260,21 @@ class googledrive():
             request_body = {
                 "name": new_file_name
             }
-            #origin_file = self.googleservice.files().get(fileId=old_file_id).execute()
+            # origin_file = self.googleservice.files().get(fileId=old_file_id).execute()
             response = self.googleservice.files().copy(
                 fileId=old_file_id,
                 body=request_body,
                 supportsAllDrives=True
             ).execute()
-            #print(f"{response.get('name')} copied to {response.get('id')}.")
+            # print(f"{response.get('name')} copied to {response.get('id')}.")
             newname = response.get('name')
             newid = response.get('id')
             print(f'复制文件成功 name:{newname} id{newid}')
-            return newname,newid
+            return newname, newid
         except Exception as err:
             print("复制文件出错: {}".format(err))
-    
-    def creat_Folders(self,newname,parentfolderid=""):
+
+    def create_folders(self, newname, parentfolderid=""):
         """
         在文件夹内创建新的文件夹
         param newname : 要创建的新文件夹名称
@@ -290,9 +295,9 @@ class googledrive():
                 'driveId': parent_folder_id,
                 'supportsAllDrives': True
             }
-            
+
             # 执行创建操作
-            folder =  self.googleservice.files().create(
+            folder = self.googleservice.files().create(
                 body=file_metadata,
                 fields='id, name, webViewLink',
                 supportsAllDrives=True  # 必须开启此参数
@@ -306,11 +311,12 @@ class googledrive():
         except Exception as err:
             print("创建文件夹出错：{}".format(err))
             return folder_id
-    def show_shared_files(self,sharedfileid):
+
+    def show_shared_files(self, sharedfileid):
         """列出共享文件夹内文件"""
 
         nameidlist = []
-        folder_id = sharedfileid #'共享文件夹的ID'  # 替换为共享文件夹的ID
+        folder_id = sharedfileid  # '共享文件夹的ID'  # 替换为共享文件夹的ID
         # results = self.googleservice.files().list(
         #     q=f"'{folder_id}' in parents",  # 查询条件：列出该文件夹下的文件
         #     fields="files(id, name)"
@@ -334,14 +340,13 @@ class googledrive():
             print('Files:')
             for item in items:
                 print(f"{item['name']} ({item['id']})")
-                nameidlist.append({"name":item['name'],'id':item['id']})
+                nameidlist.append({"name": item['name'], 'id': item['id']})
         return nameidlist
 
-   
-    def move_files(self, moveitemid,dest_folder_id):
+    def move_files(self, moveitemid, dest_folder_id):
         """移动文件"""
         # 移动每个文件
-        
+
         try:
             # 获取当前父文件夹
             # file = self.googleservice.files().get(
@@ -350,9 +355,9 @@ class googledrive():
             # ).execute()
 
             result = self.googleservice.files().get(
-            fileId=dest_folder_id,
-            fields='id, name, mimeType, parents',
-            supportsAllDrives=True
+                fileId=dest_folder_id,
+                fields='id, name, mimeType, parents',
+                supportsAllDrives=True
             ).execute()
             # 获取当前父文件夹
             current_parents = ",".join(result.get('parents', []))
@@ -368,17 +373,118 @@ class googledrive():
         except HttpError as error:
             print(f"Error moving {moveitemid}: {error}")
 
+    def rename(self, file_id, new_name):
+        result = self.verify_file(file_id)
+        if not result:
+            print(f"{file_id} not found.")
+            return None
+        try:
+            # 构建更新请求
+            body = {
+                'name': new_name
+            }
+
+            # 更新文件元数据
+            result = self.googleservice.files().update(
+                fileId=file_id,
+                body=body,
+                fields='id, name',
+                supportsAllDrives=True
+            ).execute()
+
+            print(f"✅ 成功将文件重命名为: '{result.get('name')}'")
+            print(f"📄 文件ID: {result.get('id')}")
+            return True
+        except HttpError as err:
+            print("rename 失败: {}".format(err))
+            return None
+
+    def verify_file(self, _id):
+        try:
+            file_info = self.googleservice.files().get(
+                fileId=_id,
+                fields='id, name, mimeType',
+                supportsAllDrives=True
+            ).execute()
+            print(f"✅ 文件存在: {file_info.get('name')}")
+            return True
+        except HttpError as err:
+            return False
+
+    def check_rename_permission(self, file_id):
+        """
+        检查是否具有重命名文件的权限
+
+        返回:
+        bool - 是否有重命名权限
+        dict - 权限详细信息
+        """
+        file_id.strip()
+        if '.' in file_id:
+            file_id = file_id.replace('.', '')
+        try:
+            # 1. 首先获取文件的基本信息
+            file_info = self.googleservice.files().get(
+                fileId=file_id,
+                fields='id, name, mimeType, capabilities/canRename',
+                supportsAllDrives=True
+            ).execute()
+
+            print(f"📄 文件: {file_info.get('name')}")
+
+            # 2. 检查文件的canRename能力
+            capabilities = file_info.get('capabilities', {})
+            if capabilities.get('canRename'):
+                print("✅ 文件支持重命名")
+            else:
+                print("❌ 文件不支持重命名（可能是只读文件）")
+                return False, {}
+
+            # 3. 获取详细的权限信息
+            permissions = self.googleservice.permissions().list(
+                fileId=file_id,
+                fields='permissions(id, emailAddress, role, type, displayName)',
+                supportsAllDrives=True
+            ).execute()
+
+            service_account_email = self.creds.service_account_email
+            print(f"👤 当前服务账号: {service_account_email}")
+
+            # 4. 检查服务账号的权限
+            has_rename_permission = False
+            permission_details = {}
+
+            print("\n🔍 权限列表:")
+            for perm in permissions.get('permissions', []):
+                perm_email = perm.get('emailAddress', '')
+                perm_role = perm.get('role', '')
+                perm_type = perm.get('type', '')
+
+                print(f"   - {perm_email}: {perm_role} ({perm_type})")
+
+                if perm_email == service_account_email:
+                    has_rename_permission = perm_role in ['owner', 'writer']
+                    permission_details = perm
+                    break
+
+            if has_rename_permission:
+                print(f"✅ 有重命名权限: {permission_details.get('role')}")
+            else:
+                print("❌ 没有重命名权限")
+                print("💡 需要的权限: writer 或 owner")
+
+            return has_rename_permission, permission_details
+
+        except HttpError as err:
+            print(f"❌ 检查权限时发生HTTP错误: {err}")
+            if err.resp.status == 403:
+                print("💡 错误403: 没有查看权限的权限")
+            return False, {}
+        except Exception as err:
+            print(f"❌ 检查权限时发生错误: {err}")
+            return False, {}
+
+
 if __name__ == "__main__":
     aa = googledrive()
-    #https://drive.google.com/file/d/1wNysMbZp9X_bkzPwwYL43bYqzg7VHopI/view?usp=share_link
-    #aa.dowload_fail_drive("1wNysMbZp9X_bkzPwwYL43bYqzg7VHopI","")
-    #aaa,bbb=aa.execute_file("17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs","xlsx")
-    #aa.get_folder_data_share("19GUr0JdUFE8CqSrTgR_baYzlwA9DsePY","GEN3 1CH PIPETTE - DVT - LIFE TESTING-SZ")
-    # aaaa = aa.get_folder_data("1BXVEz7RjofiwuDNi3UsQdBUgi7q1loSs")
-    # aa.creat_excel("testcreatflo","1myDqYlCuxK7TGBUD53RIxDaRZ_B062lg")
-    #aa.get_coppy_file("1p_Z_eVt5fouws_gBYR0INqEejncHodFJad9dh1YBlpw","csssss")
-    #aa.show_shared_files("193bdhoabDdf4wGnet-lRdTyM-j2BQHWd")
-    #aa.creat_Folders("cs","17o2ZbcHkbDl_DFcEYDqN0OHqGR9W0X1I")
-    #aa.upload_to_drive("/Users/yew/googledriver/upload/function/1ch/gravimetric-ot3-p1000-single_run-25-04-23-14-22-40_CSVReport-P1KSV3620250415M05-qc.csv","1FHXTa-vhujNoy33WjbbqqKu3F8e2stcH")
-    aa.creat_Folders("测试","1FHXTa-vhujNoy33WjbbqqKu3F8e2stcH")
-    #aa.get_coppy_file("1f8e7X_u3807OIFOC6-6BWXBryKO2bnr2DNsCxq3Piek","cs")
+    print(aa.check_rename_permission("1vpZ6x2PZvdih1brnz6SOEPNpBJG1YuLo6CCNnSoROok"))

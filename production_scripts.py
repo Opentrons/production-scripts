@@ -16,7 +16,7 @@ from gravimetric_testing.openwebapp import openweb
 from tools.reading_laser import ReadLaser
 from tools.high_voltage_test.main import run_high_voltage_test
 from modules_testing.thermocycle_diagnostic.tc_diagnostic import run_tc
-from __start_server__ import start_server
+# from __start_server__ import start_server
 
 addpathpat = os.path.dirname(__file__)
 addpath = os.path.dirname(os.path.dirname(__file__))
@@ -60,8 +60,8 @@ if __name__ == '__main__':
             reader.robot_ip = prompt_ip()
             reader.add_height = add_height
             asyncio.run(reader.run_test("RIGHT-D1", project_path))
-        elif '9' in test_name:
-            start_server(None)
+        # elif '9' in test_name:
+        #     start_server(None)
         elif '10' in test_name:
             run_high_voltage_test()
         elif '11' in test_name:

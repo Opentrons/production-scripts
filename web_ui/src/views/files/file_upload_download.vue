@@ -71,7 +71,7 @@
       <el-card class="file-browser" shadow="hover">
         <template #header>
           <div class="browser-header">
-            <span>上传目录浏览器</span>
+            <span>文件服务器</span>
             <div class="path-navigator">
               <el-breadcrumb separator="/">
                 <el-breadcrumb-item 
@@ -93,7 +93,7 @@
           @row-click=""
           v-loading="isLoadingFiles"
         >
-          <el-table-column prop="name" label="名称" width="300">
+          <el-table-column prop="name" label="名称" width="400">
             <template #default="{ row }">
               <div class="file-item">
                 <el-icon v-if="row.type === 'directory'">
@@ -111,37 +111,137 @@
               {{ row.type === 'directory' ? '-' : formatFileSize(row.size) }}
             </template>
           </el-table-column>
-          <el-table-column prop="modified" label="修改时间" width="180" />
-          <el-table-column label="操作" width="150" fixed="right">
-            <template #default="{ row }">
-              <el-button 
-                v-if="row.type === 'file'"
-                size="small" 
-                type="primary" 
-                @click.stop="downloadFile()"
-                :icon="Download"
-              >
-                下载
-              </el-button>
-              <el-button 
-                v-else
-                size="small" 
-                type="info"
-                @click.stop=""
-                :icon="Right"
-              >
-                进入
-              </el-button>
-            </template>
-          </el-table-column>
+          <el-table-column prop="modified" label="修改时间" width="200" />
+          <el-table-column label="操作" width="220" fixed="right">
+          <template #default="{ row }">
+            <el-button 
+              size="small" 
+              type="primary" 
+              @click.stop="handleDownload(row)"
+              title="下载"
+            >
+              下载
+            </el-button>
+            <el-button 
+              size="small" 
+              type="danger"
+              @click.stop="handleDelete(row)"
+              title="删除"
+              style="margin-left: 8px"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
         </el-table>
       </el-card>
       
       <!-- 上传面板 -->
       <el-card class="upload-panel" shadow="hover">
-        <template #header>
-          <span>上传文件</span>
-        </template>
+       
+
+        <!-- 产品名称下拉框 -->
+      <span style="margin-bottom: 12px;">上传到Google Drive</span>
+      <div class="upload-row">
+        
+        <el-select style="margin-right: 10px; width: 220px;" v-model="selectedProduct" placeholder="请选择产品" clearable>
+          <el-option
+            v-for="product in productList"
+            :key="product.value"
+            :label="product.label"
+            :value="product.value"
+          />
+        </el-select>
+        <el-select v-model="selectedTest" placeholder="请选择测试名" clearable>
+          <el-option
+            v-for="product in TestList"
+            :key="product.value"
+            :label="product.label"
+            :value="product.value"
+          />
+        </el-select>
+      </div>
+
+      <!-- 年份和季度选择 -->
+      <div class="upload-row">
+        <span class="upload-label">季度：</span>
+       
+        <el-select v-model="selectedQuarter" placeholder="选择季度" style="width: 150px; margin-left: 2px; margin-right: 10px;">
+          <el-option
+            v-for="quarter in quarterList"
+            :key="quarter.value"
+            :label="quarter.label"
+            :value="quarter.value"
+            
+          />
+      </el-select>
+
+      <el-tooltip content="请输入条码，如果为空，默认上传文件内所有的测试结果" placement="top">
+      <el-input
+        v-model="serial_number"
+        type=""
+        placeholder="输入条码"
+       
+        style="width: 200px; margin-left: auto;"
+      />
+    </el-tooltip>
+      </div>
+
+        
+        <el-upload
+          class="upload-area"
+          drag
+          multiple
+          :action="uploadUrlGoogle"
+          :headers="uploadHeaders"
+          :data="uploadData"
+          :before-upload="beforeUpload"
+          :on-success="handleUploadSuccessGoogle"
+          :on-error="handleUploadError"
+          :show-file-list="false"
+        
+        >
+          <el-icon class="el-icon--upload2"><upload-filled /></el-icon>
+          <div class="el-upload__text">
+            拖拽文件到此处或<em>点击上传到Google Drive</em>
+          </div>
+          <template #tip>
+            <div class="el-upload__tip">
+              请选择下载的 testing_data.zip 上传
+            </div>
+          </template>
+        </el-upload>
+        
+        <div class="upload-queue">
+          <div v-for="(file, index) in uploadQueueGoogleDrive" :key="file.name + index" class="queue-item">
+            <div class="file-info">
+              <el-icon><Document /></el-icon>
+              <span>{{ file.name }}</span>
+            </div>
+            <div class="file-progress">
+              <el-progress 
+                :percentage="file.progress" 
+                :status="file.status"
+                :stroke-width="12"
+              />
+            </div>
+            <div class="file-actions">
+              <el-button 
+                v-if="file.status === 'uploading'" 
+                size="small" 
+                type="danger" 
+                @click="cancelUpload(index)"
+                :icon="Close"
+                circle
+              />
+            </div>
+          </div>
+        </div>
+
+
+        
+        <span style="margin-bottom: 6px;">上传到文件服务器</span>
+    
         
         <el-upload
           class="upload-area"
@@ -154,7 +254,7 @@
           :on-success="handleUploadSuccess"
           :on-error="handleUploadError"
           :show-file-list="false"
-          :disabled="!isAvailable"
+    
         >
           <el-icon class="el-icon--upload"><upload-filled /></el-icon>
           <div class="el-upload__text">
@@ -193,6 +293,8 @@
           </div>
         </div>
       </el-card>
+
+      
     </div>
   </div>
 </template>
@@ -217,6 +319,9 @@ import { $downloadFiles, $getFileList, $uploadFile } from '../../api/files'
 import { $get, $post } from '../../utils/request'
 import { tr } from 'element-plus/es/locales.mjs'
 import {URL} from '../../utils/request'
+import { List, number } from 'echarts'
+
+
 
 // 设备连接相关
 const input_ip_address = ref('')
@@ -227,6 +332,8 @@ const use_secret = ref(true)
 const isAvailable = ref(false)
 const currentPath = ref('/')
 
+const serial_number = ref('')
+
 const downloading = ref('下载目录')
 
 // 文件列表相关
@@ -234,7 +341,7 @@ const fileList = ref([])
 const isLoadingFiles = ref(false)
 
 // 上传相关
-const uploadUrl = computed(() => `/api/files/upload?device=${input_ip_address.value}&path=${currentPath.value}`)
+const uploadUrl = computed(() => `${URL}/api/files/upload?file=${currentPath.value}`)
 const uploadHeaders = computed(() => ({
   'Authorization': use_secret.value ? 'Bearer your-secret-token' : ''
 }))
@@ -242,6 +349,12 @@ const uploadData = computed(() => ({
   path: currentPath.value
 }))
 const uploadQueue = ref([])
+
+// 上传到google相关
+const uploadUrlGoogle = computed(() => `${URL}/api/files/upload/testing_data?file=${currentPath.value}`)
+const uploadQueueGoogleDrive = ref([])
+
+
 
 // 格式化文件大小
 const formatFileSize = (bytes) => {
@@ -332,9 +445,8 @@ interface DownloadRequest {
 }
 
 interface DownloadResponse {
-  success: boolean,
-  message: string,
-  dir: string
+  status_code: number,
+  detail: string,
 }
 
 
@@ -350,7 +462,6 @@ const download_testing_data = async () => {
       download_path: input_download_path.value,
       saved_name: 'testing_data'
     }
-    console.log(this_download)
     const response = await fetch(`${URL}/api/flex/download/testing_data`, {
       method: 'POST',
       headers: {
@@ -396,22 +507,22 @@ const download_testing_data = async () => {
 
 }
 
+
 // 刷新文件列表
 const refreshFileList = async () => {
-  // if (!input_ip_address.value) return
-  
-  // try {
-  //   isLoadingFiles.value = true
-  //   const response = await $getFileList(input_ip_address.value, currentPath.value)
-  //   fileList.value = response.files.map(file => ({
-  //     ...file,
-  //     modified: new Date(file.modified).toLocaleString()
-  //   }))
-  // } catch (error) {
-  //   ElMessage.error('获取文件列表失败: ' + error.message)
-  // } finally {
-  //   isLoadingFiles.value = false
-  // }
+
+  try {
+    isLoadingFiles.value = true
+    const response = await $get('/api/files/fetch/filelist')
+    fileList.value = response.files.map(file => ({
+      ...file,
+      modified: file.modified
+    }))
+  } catch (error) {
+    ElMessage.error('获取文件列表失败: ' + error.message)
+  } finally {
+    isLoadingFiles.value = false
+  }
 }
 
 // 进入目录
@@ -432,15 +543,98 @@ const navigateToPath = (index) => {
 }
 
 // 下载文件
-const downloadFile = async () => {
-  // try {
-  //   ElMessage.info(`开始下载`)
-  //   // await $downloadFiles()
-  //   ElMessage.success(`下载完成: ${file.name}`)
-  // } catch (error) {
-  //   ElMessage.error(`下载失败: ${error.message}`)
-  // }
+
+interface handleDownloadRequest {
+  url: string
+  file_name: string
 }
+
+const handleDownload = async (row) => {
+  const this_handledownload_request = {
+    url: row.url,
+    file_name: row.name
+  }
+  await $downloadFiles('/api/files/download', this_handledownload_request)
+
+
+}
+
+const handleDelete = async (row) => {
+  try {
+    // 1. 显示确认对话框
+    await ElMessageBox.confirm(
+      `确定要删除文件 "${row.name}" 吗？此操作不可恢复！`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    // 2. 用户确认后执行删除
+    interface DeleteResponse {
+      status_code: number
+      detail: string
+    }
+
+    const deleteRequest = {
+      url: row.url,
+      file_name: row.name
+    }
+
+    const response: DeleteResponse = await $post('api/files/delete', deleteRequest)
+    
+    if (response.status_code === 200) {
+      ElMessage.success("删除成功")
+      await refreshFileList()
+    } else {
+      ElMessage.error(`删除失败: ${response.detail}`)
+    }
+
+  } catch (error) {
+    // 3. 处理用户取消或删除失败的情况
+    if (error !== 'cancel') {  // 不是用户主动取消的情况
+      console.error('删除出错:', error)
+      ElMessage.error(`删除操作出错: ${error.message || error}`)
+    }
+    // 用户点击取消不需要特殊处理
+  }
+}
+
+//上传相关
+
+// 产品列表
+const productList = ref([
+  { label: 'PVT-Robot', value: 'product_a' },
+  { label: 'PVT-Robot-Ultima', value: 'product_b' },
+  { label: 'PVT-Pipette', value: 'product_c' },
+]);
+const selectedProduct = ref('');
+const selectedTest = ref('');
+
+const TestList = ref([
+  { label: 'belt-calibration-ot3', value: 'belt-calibration-ot3' },
+  { label: 'robot-assembly-qc-ot3', value: 'robot-assembly-qc-ot3' },
+  { label: 'stress-test-qc-ot3', value: 'stress-test-qc-ot3' },
+]);
+
+
+// 年份列表（动态生成最近5年）
+const currentYear = new Date().getFullYear();
+const yearList = ref(Array.from({ length: 5 }, (_, i) => currentYear - i));
+const selectedYear = ref(currentYear);
+
+// 季度列表
+
+const quarterList = ref([
+  { label: `${currentYear}-Q1 (1-3月)`, value: `${currentYear}-Q1` },
+  { label:  `${currentYear}-Q2 (4-6月)`, value: `${currentYear}-Q2` },
+  { label:  `${currentYear}-Q3 (7-9月)`, value: `${currentYear}-Q3` },
+  { label:  `${currentYear}-Q4 (10-12月)`, value: `${currentYear}-Q4`},
+]);
+const selectedQuarter = ref('2025-Q1');
+
 
 // 上传前处理
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
@@ -471,6 +665,45 @@ const handleUploadSuccess: UploadProps['onSuccess'] = (response, file) => {
   ElMessage.success(`${file.name} 上传成功`)
 }
 
+// google drive 上传
+
+const handleUploadSuccessGoogle: UploadProps['onSuccess'] = async (response, file) => {
+  const index = uploadQueue.value.findIndex(item => item.name === file.name)
+  if (index !== -1) {
+    uploadQueue.value[index].progress = 100
+    uploadQueue.value[index].status = 'success'
+  }
+  const status = response.status
+  const files_list = response.files_list
+  if (status != "success")
+  {
+    ElMessage.error("上传失败")
+    return
+  }else
+  {
+    interface UploadToGoogleDrive {
+      product_name: string
+      quarter_name: string
+      sn: string
+      test_name: string
+      files_list: List
+    }
+
+    const upload_testing_data_request: UploadToGoogleDrive = {
+      product_name: selectedProduct.value,
+      quarter_name: selectedQuarter.value,
+      sn: serial_number.value,
+      test_name: selectedTest.value,
+      files_list: files_list
+    };
+
+    const response = await $post('/api/google/drive/upload/report', upload_testing_data_request)
+
+
+    ElMessage.success(`${file.name} 上传成功`)
+  }
+}
+
 // 上传错误处理
 const handleUploadError: UploadProps['onError'] = (error, file) => {
   const index = uploadQueue.value.findIndex(item => item.name === file.name)
@@ -490,6 +723,7 @@ const cancelUpload = (index) => {
 // 初始化
 onMounted(() => {
   fetchFlexList()
+  refreshFileList()
 })
 </script>
 
@@ -563,6 +797,7 @@ onMounted(() => {
       min-width: 350px;
       display: flex;
       flex-direction: column;
+
       
       .upload-area {
         margin-bottom: 20px;
@@ -574,6 +809,11 @@ onMounted(() => {
         .el-icon--upload {
           font-size: 50px;
           color: var(--el-color-primary);
+          margin: 20px 0;
+        }
+        .el-icon--upload2 {
+          font-size: 50px;
+          color: var(--el-color-warning-light-3);
           margin: 20px 0;
         }
         
@@ -632,5 +872,21 @@ onMounted(() => {
 
 .el-table {
   flex: 1;
+}
+
+.upload-row {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.upload-label {
+  margin-right: 10px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+
+.upload-area {
+  margin-top: 20px;
 }
 </style>

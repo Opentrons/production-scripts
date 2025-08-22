@@ -72,12 +72,8 @@ export const $get = async (url: string, params: object = {}) => {
 }
 
 export const $post = async (url: string, params: object = {}) => {
-
-    let { data } = await instance.post(url, params, {
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
+    console.log(params)
+    let { data } = await instance.post(url, params)
     return data
 }
 

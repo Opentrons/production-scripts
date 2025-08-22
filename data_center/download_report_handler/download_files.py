@@ -98,8 +98,32 @@ class LinuxFileManager:
         except IOError:
             return False
 
+    def remote_dir_exists(
+            self,
+            dir_path: str
+    ) -> bool:
+        """
+        检查远程目录是否存在
+
+        Args:
+            sftp: 已连接的SFTP客户端
+            dir_path: 远程目录绝对路径
+
+        Returns:
+            bool: 目录是否存在
+        """
+        try:
+            # 获取目录属性（会跟随符号链接）
+            attrs = self.sftp.stat(dir_path)
+            return attrs.st_mode & 0o40000  # 检查是否是目录
+        except FileNotFoundError:
+            return False
+        except Exception as e:
+            print(f"检查目录出错: {e}")
+            return False
+
     def check_remote_dir_exists(self, remote_path):
-        print("check_remote_dir_exists")
+
         try:
             self.sftp.stat(remote_path)
             return True
@@ -107,6 +131,16 @@ class LinuxFileManager:
             print("IOError")
             return False
 
+    def re_name_dir(self,local_dir, re_name):
+        """
+        rename
+        """
+        print("rename ", local_dir, re_name)
+        if self.remote_dir_exists(local_dir):
+            self.sftp.rename(local_dir, re_name)
+            return True
+        else:
+            return False
 
     def download_dir(self, remote_dir, local_dir):
         """
@@ -114,13 +148,14 @@ class LinuxFileManager:
         :param remote_dir: 远程目录路径 (e.g. '/home/user/data')
         :param local_dir: 本地存储路径 (e.g. 'C:/Downloads/data')
         """
+        # 判断远程目录是否存在
+
         print("remote_dir:", remote_dir)
 
         if not self.check_remote_dir_exists(remote_dir):
             return False, "no such directory", ""
 
         files = self.sftp.listdir(remote_dir)
-        local_dir = local_dir + "_" + get_time_str()
         if len(files) == 0:
             return True, "no files", ""
         try:
