@@ -1,3 +1,4 @@
+
 from files_server.remote import build_handler
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from typing import List
@@ -12,25 +13,31 @@ async def google_drive_update_data(_request: FileUploadRequest):
     """
     update data
     """
-    product_name = _request.product_name
-    quarter = _request.quarter_name
-    sn = _request.sn
-    file_list = _request.files_list
-    test_name = _request.test_name
-    test_name_list = []
-    if isinstance(test_name, str):
-        test_name_list.append(test_name)
-    else:
-        test_name_list = test_name
-    ug = UploadToGoogleDrive(product_name)
-    for test_name in test_name_list:
-        file_path_list = file_list[test_name]
-        for file_path in file_path_list:
-            ug.upload_production_data(quarter, sn, file_path, test_name)
+    try:
+        product_name = _request.product_name
+        quarter = _request.quarter_name
+        sn = _request.sn
+        file_list = _request.files_list
+        test_name = _request.test_name
+        test_name_list = []
+        if isinstance(test_name, str):
+            test_name_list.append(test_name)
+        else:
+            test_name_list = test_name
+        ug = UploadToGoogleDrive(product_name)
+        for test_name in test_name_list:
+            file_path_list = file_list[test_name]
+            for file_path in file_path_list:
+                ug.upload_production_data(quarter, sn, file_path, test_name)
+        _message = "success"
+        success = True
+    except Exception as e:
+        _message = e
+        success = False
 
     return {
-        "success": True,
-        "message": "success",
+        "success": success,
+        "message": _message,
     }
 
 

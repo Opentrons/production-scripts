@@ -43,7 +43,7 @@ class LinuxFileManager:
             self.ssh = paramiko.SSHClient()
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             if not self.password:
-                self.password = input(f"Enter SSH password for {self.username}@{self.host} (默认回车无密码) :")
+                # self.password = input(f"Enter SSH password for {self.username}@{self.host} (默认回车无密码) :")
                 self.password = self.password if self.password is not "" else "None"
             self.ssh.connect(self.host, port=self.port, username=self.username, password=self.password, timeout=timeout)
             self.sftp = self.ssh.open_sftp()
@@ -232,4 +232,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    LinuxFileManager("192.168.6.55", 'root').connect()

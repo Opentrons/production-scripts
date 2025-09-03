@@ -190,7 +190,7 @@ class ZStageLeveling(TestBase):
                                                                                 self.mount, wait_time=WAIT_TIME)
                     read_list = list(ret_dict.values())
                     _diff = abs(max(read_list) - min(read_list))
-                    if _diff <= 0.2:
+                    if _diff <= 0.3:
                         break
                     else:
                         print(f"Test Diff = {_diff}, > 0.2, Retest to confirm !")

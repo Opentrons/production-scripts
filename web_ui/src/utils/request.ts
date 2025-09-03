@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Action } from 'element-plus'
 
 
-export const URL = "http://127.0.0.1:8080"
+export const URL = "http://192.168.6.21:8080"
 
 
 const instance = axios.create({

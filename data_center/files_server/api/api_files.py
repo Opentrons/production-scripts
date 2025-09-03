@@ -15,7 +15,7 @@ from download_report_handler.testing_data_ana import Ana
 
 if system == "Linux":
     UPLOAD_DIR = '/files_server/uploads'
-    UPLOAD_DIR_TestingData = '/files_server/datas_to_upload'
+    UPLOAD_DIR_TestingData = '/files_server/datas'
 else:
     UPLOAD_DIR = './data'
     UPLOAD_DIR_TestingData = './data'

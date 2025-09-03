@@ -326,15 +326,15 @@ class PipetteLeveling(TestBase):
 
         ret, _ret = await self.run_test_slot("Test A2-right", "Y-A2-Right", ["right_front", "right_rear"],
                                              with_cal=DoCalibrate)
-        test_result.update(ret)
+        test_result.update(_ret)
 
         ret, _ret = await self.run_test_slot("Test C1-right", "Y-C1-Right", ["right_front", "right_rear"],
                                              with_cal=DoCalibrate)
-        test_result.update(ret)
+        test_result.update(_ret)
 
         ret, _ret = await self.run_test_slot("Test C3-right", "Y-C3-Right", ["right_front", "right_rear"],
                                              with_cal=DoCalibrate)
-        test_result.update(ret)
+        test_result.update(_ret)
 
         print("Test Left Side...")
         MountDefinition = Mount.LEFT
@@ -342,7 +342,7 @@ class PipetteLeveling(TestBase):
         self.mount = MountDefinition
         ret, _ret = await self.run_test_slot("Test C1-left", "Y-C1-Left", ["left_front", "left_rear"],
                                              with_cal=DoCalibrate)
-        test_result.update(ret)
+        test_result.update(_ret)
 
         # await self.move_to_test_slot("UninstallPos")  # 复位拆卸
         await self.api.home()  # 复位拆卸
@@ -358,23 +358,22 @@ class PipetteLeveling(TestBase):
         csv_title.append("Pipette 8CH Leveling")
         print("=" * 5 + "Test Result" + "=" * 5 + "\n")
         for key, value in test_result.items():
-            result = []
             distance_list = list(value.values())
             difference = round(abs(distance_list[0] - distance_list[1]), 3)
-            csv_list_no_compensation.extend([round(distance_list[0], 3), round(distance_list[1], 3), difference])
+            csv_list.extend([round(distance_list[0], 3), round(distance_list[1], 3), difference])
 
-            compensation = self.slot_location[key]["compensation"]
-            if ApplyCompensationFlag:
-                compensation_idx = 0
-                for compensation_key, compensation_value in compensation.items():
-                    print(
-                        f"apply offset {compensation_key} -> {compensation_value}  to {distance_list[compensation_idx]}")
-                    result.append(compensation_value + distance_list[compensation_idx])
-                    compensation_idx += 1
-                difference = round(abs(result[0] - result[1]), 3)
-                csv_list.extend([round(result[0], 3), round(result[1], 3), difference])
-            else:
-                csv_list = csv_list_no_compensation
+            #compensation = self.slot_location[key]["compensation"]
+            # if ApplyCompensationFlag:
+            #     compensation_idx = 0
+            #     for compensation_key, compensation_value in compensation.items():
+            #         print(
+            #             f"apply offset {compensation_key} -> {compensation_value}  to {distance_list[compensation_idx]}")
+            #         result.append(compensation_value + distance_list[compensation_idx])
+            #         compensation_idx += 1
+            #     difference = round(abs(result[0] - result[1]), 3)
+            #     csv_list.extend([round(result[0], 3), round(result[1], 3), difference])
+            # else:
+            #     csv_list = csv_list_no_compensation
             print(f"{key} --> {value} (mm) --> difference: {difference}(mm)")
             for item_key, item_value in value.items():
                 csv_title.append(key + " " + item_key)
@@ -462,13 +461,16 @@ class PipetteLeveling(TestBase):
 
         # show result
         for index, result in enumerate([test_result, test_result_with_compensation]):
-            with_compensation = "" if index == 0 else "with compensation"
+            # with_compensation = "" if index == 0 else "with compensation"
+            if index == 0:
+                continue
+            with_compensation = 'with_compensation'
             csv_list = []
             csv_title = []
             now = datetime.datetime.now()
             time_str = now.strftime("%Y-%m-%d %H:%M:%S ")
-            if not DEBUGGING_MODE and with_compensation == "":
-                continue
+            # if not DEBUGGING_MODE and with_compensation == "":
+            #     continue
             csv_title.append("Pipette 96CH Leveling")
             csv_list.append(flex_name)
             print(f"==== Test Result - {with_compensation} ====")

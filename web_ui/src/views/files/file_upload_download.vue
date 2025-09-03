@@ -320,6 +320,7 @@ import { $get, $post } from '../../utils/request'
 import { tr } from 'element-plus/es/locales.mjs'
 import {URL} from '../../utils/request'
 import { List, number } from 'echarts'
+import { StarTwoToneIconType } from '@ant-design/icons-vue/lib/icons/StarTwoTone'
 
 
 
@@ -606,9 +607,9 @@ const handleDelete = async (row) => {
 
 // 产品列表
 const productList = ref([
-  { label: 'PVT-Robot', value: 'product_a' },
-  { label: 'PVT-Robot-Ultima', value: 'product_b' },
-  { label: 'PVT-Pipette', value: 'product_c' },
+  { label: 'PVT-Robot', value: 'Robot' },
+  { label: 'PVT-Robot-Ultima', value: 'PVT-Robot-Ultima' },
+  { label: 'PVT-Pipette', value: 'PVT-Pipette' },
 ]);
 const selectedProduct = ref('');
 const selectedTest = ref('');
@@ -679,8 +680,14 @@ const handleUploadSuccessGoogle: UploadProps['onSuccess'] = async (response, fil
   {
     ElMessage.error("上传失败")
     return
-  }else
+  } else
   {
+    ElMessage.info("开始上传")
+    interface UploadResponse {
+      success: boolean
+      message: string
+    }
+
     interface UploadToGoogleDrive {
       product_name: string
       quarter_name: string
@@ -698,9 +705,16 @@ const handleUploadSuccessGoogle: UploadProps['onSuccess'] = async (response, fil
     };
 
     const response = await $post('/api/google/drive/upload/report', upload_testing_data_request)
-
-
-    ElMessage.success(`${file.name} 上传成功`)
+    if (response.success)
+    { 
+      ElMessage.success(`${file.name} 上传成功`)
+    }
+    else
+    {
+      ElMessage.error(`上传失败 ${response.message}`)
+      console.log(response)
+    }
+     
   }
 }
 

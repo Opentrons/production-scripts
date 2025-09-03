@@ -8,7 +8,7 @@ from bson.objectid import ObjectId
 
 router = APIRouter()
 
-URI = "mongodb://192.168.6.61:27017/"
+URI = "mongodb://192.168.6.21:27017/"
 
 def clean_data(data):
     if isinstance(data, dict):

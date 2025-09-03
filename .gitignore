@@ -2,6 +2,7 @@
 *.spec
 *.pyc
 *.exe
+*.txt
 .idea
 __pycache__
 build
