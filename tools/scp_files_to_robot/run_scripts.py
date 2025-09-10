@@ -45,7 +45,7 @@ class RunScripts(FlexConnector):
     def run_command(self, _command):
         if self.connected:
             try:
-                print(f"🔍 执行命令 {command}")
+                print(f"🔍 执行命令 {_command}")
                 stdin, stdout, stderr = self.ssh.exec_command(_command)
 
                 # 等待命令完成
@@ -114,7 +114,8 @@ class RunScripts(FlexConnector):
 
 
 if __name__ == '__main__':
-    command = "rm -rf /data/testing_data/finished_number.json"
+    # command1 = "rm -rf /data/testing_data/finished_number.json"
+    command2 = "cat /data/testing_data/finished_number.json"
     script = "python3 -m hardware_testing.scripts.tip_pick_up"
     robot_list = ['192.168.31.129', '192.168.31.144', '192.168.31.16', '192.168.31.230',
                   '192.168.31.87', '192.168.31.32', '192.168.31.103']
@@ -122,8 +123,8 @@ if __name__ == '__main__':
         run_scripts = RunScripts(robot_name)
         if run_scripts.connected:
             print(f'Robot {robot_name} is connected')
-            run_scripts.run_command(command)
-            run_scripts.execute_with_nohup_detached(script)
+            run_scripts.run_command(command2)
+            # run_scripts.execute_with_nohup_detached(script)
             run_scripts.release()
         else:
             print(f'Robot {robot_name} is not connected')

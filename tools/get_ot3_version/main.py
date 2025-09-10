@@ -313,7 +313,6 @@ def get_version(_test_name_list, production: Production, csv_name):
     versions.update(pipette)
     for key, value in versions.items():
         print(f"{key}: {value}")
-
     try:
         _get_version.save_to_csv(versions, test_name, z_sn=sn, file_name=csv_name, test_name_list=_test_name_list)
     except Exception as e:

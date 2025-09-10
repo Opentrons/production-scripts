@@ -11,40 +11,39 @@ robot_test_name_list = [
 ]
 
 ch1_pipette_test_name_list = [
-    '1. Speed & Current',
-    '2. AssemblyQC Diagnostic',
-    '3. Gravimetric',
-    '4. Shipping Firmware',
+    '1. CURRENT & SPEED TEST',
+    '2. DIAGNOSTICS',
+    '3. GRAVIMETRIC TEST',
+    '4. SHIPPING FIRMWARE',
 ]
 
 ch8_pipette_test_name_list = [
-    '1. Speed & Current',
-    '2. AssemblyQC Diagnostic',
-    '3. Gravimetric',
-    '4. Shipping Firmware',
+    '1. CURRENT & SPEED TEST',
+    '2. DIAGNOSTICS',
+    '3. GRAVIMETRIC TEST',
+    '4. SHIPPING FIRMWARE',
 ]
 
 ch96_pipette_p1000_test_name_list = [
-    '1. Speed & Current',
-    '2. AssemblyQC Diagnostic',
-    '3. Protocol QC',
-    '4. Gravimetric',
-    '5. Photometric',
-    '7. Shipping Firmware',
+    '1. DIAGNOSTICS AND SERIAL NUMBER TOUCHPOINT',
+    '2. PROTOCOL TEST',
+    '3. PHOTOMETRIC TOUCHPOINT',
+    '4. GRAVIMETRIC TOUCHPOINT',
+    '5. SHIPPING FIRMWARE TOUCHPOINT',
 ]
 
 ch96_pipette_p200_test_name_list = [
-    '1. Speed & Current',
-    '2. AssemblyQC Diagnostic',
-    '3. Protocol QC',
-    '4. Gravimetric',
-    '5. Photometric',
-    '7. Shipping Firmware',
+    '1. DIAGNOSTICS AND SERIAL NUMBER TOUCHPOINT',
+    '2. DROPOUT & PROTOCOL TEST TOUCHPOINT',
+    '3. PHOTOMETRIC TOUCHPOINT',
+    '4. GRAVIMETRIC TOUCHPOINT',
+    '5. PREHEATING TOUCHPOINT',
+    '6. BASELINE & DILUENT FILLING TOUCHPOINT',
+    '7. SHIPPING FIRMWARE TOUCHPOINT',
 ]
 
 gripper_test_name_list = [
-    '1. AssemblyQC Diagnostic',
-    '2. AssemblyQC Diagnostic Finished',
-    '3. Protocol QC',
-    '4. Shipping Firmware',
+    '1. DIAGNOSTICS SOFTWARE FIRMWARE',
+    '2. QC PROTOCOL',
+    '3. SHIPPING SOFTWARE FIRMWARE',
 ]
