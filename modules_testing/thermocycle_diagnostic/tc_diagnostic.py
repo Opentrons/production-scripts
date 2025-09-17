@@ -44,7 +44,7 @@ class TC:
         :return:
         """
         import json
-        with open("../../source/modules/tc_test_specification.json", "r", encoding='utf-8') as f:
+        with open("../../shared_data/modules/tc_test_specification.json", "r", encoding='utf-8') as f:
             dict_res = json.load(f)
             f.close()
             return dict_res
@@ -560,7 +560,7 @@ def run_tc(project_path):
                          "type 5 to test plat temperature&light(输入5测试灯条颜色)\n")
         start_time = time.time()
         data_path = os.path.join(project_path, 'testing_data')
-        config = os.path.join(project_path, 'source', 'modules', 'tc_test_specification.json')
+        config = os.path.join(project_path, 'shared_data', 'modules', 'tc_test_specification.json')
         tc = TC(data_path)
         tc.init_serial()
         if str(get_type) == "1":
