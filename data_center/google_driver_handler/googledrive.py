@@ -33,24 +33,27 @@ class googledrive():
         self.get_drive_service()
 
     def get_drive_service(self):
+        try:
 
-        SCOPES = [
-            'https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/drive.appdata',
-            'https://www.googleapis.com/auth/drive.file']
-        # 'https://www.googleapis.com/auth/drive.metadata.readonly','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/drive.appdata'
-        if os.path.exists(self.tokenpath):
-            self.creds = Credentials.from_authorized_user_file(self.tokenpath, SCOPES)
+            SCOPES = [
+                'https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/drive.appdata',
+                'https://www.googleapis.com/auth/drive.file']
+            # 'https://www.googleapis.com/auth/drive.metadata.readonly','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/drive.appdata'
+            if os.path.exists(self.tokenpath):
+                self.creds = Credentials.from_authorized_user_file(self.tokenpath, SCOPES)
 
-        if not self.creds or not self.creds.valid:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                self.credentialspath, SCOPES)
-            self.creds = flow.run_local_server(port=0)
+            if not self.creds or not self.creds.valid:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    self.credentialspath, SCOPES)
+                self.creds = flow.run_local_server(port=0)
 
-            # Save the credentials for the next run
-            with open(self.tokenpath, 'w') as token:
-                token.write(self.creds.to_json())
-        # Create an authorized Drive API client
-        self.googleservice = build('drive', 'v3', credentials=self.creds)
+                # Save the credentials for the next run
+                with open(self.tokenpath, 'w') as token:
+                    token.write(self.creds.to_json())
+            # Create an authorized Drive API client
+            self.googleservice = build('drive', 'v3', credentials=self.creds)
+        except Exception as e:
+            raise e
 
     def upload_to_drive(self, file_path, folder_id):
         """

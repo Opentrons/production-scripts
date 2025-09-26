@@ -12,15 +12,32 @@ from typing import List, Dict
 import mimetypes
 import time
 from download_report_handler.testing_data_ana import Ana
+UPLOAD_DIR = "/files_server/uploads"
+UPLOAD_DIR_TestingData = "/files_server/datas"
 
-if system == "Linux":
-    UPLOAD_DIR = '/files_server/uploads'
-    UPLOAD_DIR_TestingData = '/files_server/datas'
-else:
-    UPLOAD_DIR = './data'
-    UPLOAD_DIR_TestingData = './data'
-
-
+def check_system_dir_call_back():
+    global UPLOAD_DIR
+    global UPLOAD_DIR_TestingData
+    try:
+        if system == "Linux":
+            upload_dir = '/files_server/uploads'
+            upload_dir_tesing_data = '/files_server/datas'
+        else:
+            upload_dir = './data'
+            upload_dir_tesing_data = './data'
+        if os.path.exists(upload_dir):
+            pass
+        else:
+            os.makedirs(upload_dir)
+        if os.path.exists(upload_dir_tesing_data):
+            pass
+        else:
+            os.makedirs(upload_dir_tesing_data)
+        UPLOAD_DIR = upload_dir
+        UPLOAD_DIR_TestingData = upload_dir_tesing_data
+    except Exception as e:
+        pass
+    
 
 def get_file_info(directory: str = UPLOAD_DIR) -> List[Dict[str, str]]:
     """
@@ -104,6 +121,7 @@ async def upload_file(file: UploadFile = File(...)):
     """
     文件上传接口
     """
+    check_system_dir_call_back()
     try:
         # 保存文件到本地
         file_path = os.path.join(UPLOAD_DIR_TestingData, file.filename)

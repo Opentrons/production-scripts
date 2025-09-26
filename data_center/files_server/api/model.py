@@ -54,3 +54,4 @@ class FileUploadRequest(BaseModel):
     sn: str
     test_name: str
     files_list: dict
+    finished: bool

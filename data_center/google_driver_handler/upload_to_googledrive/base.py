@@ -45,8 +45,13 @@ class UploadToGoogleDrive:
         self.product_id = Productions[product]["parent_id"]
         self.data_template = Productions[product]["data_template"]
         self.unit_tracker = Productions[product]["unit_tracker"]
-        self.gdrive = googledrive()
-        self.sheet_drive = sheetdrive()
+        self.error = None
+        try:
+            self.gdrive = googledrive()
+            self.sheet_drive = sheetdrive()
+        except Exception as e:
+            self.error = e
+            raise e
 
     def create_new_quarter(self, quarter):
         """
@@ -118,7 +123,7 @@ class UploadToGoogleDrive:
             serial_number = match2.group(1)
         else:
             raise HTTPException(status_code=404, detail="cannot find serial number")
-        if sn is not '':
+        if sn != '':
             if serial_number != sn:
                 return
         df = get_df_from_csv(this_file_name)
@@ -135,7 +140,7 @@ class UploadToGoogleDrive:
                     break
         try:
             if file_id is None:
-                file_id = self.copy_template(folder_id, sn)
+                file_id = self.copy_template(folder_id, serial_number)
             self.copy_data_to_template(df, file_id, sheet_title)
         except HTTPException as e:
             raise HTTPException(status_code=e.status_code, detail=e.detail)
