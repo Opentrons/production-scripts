@@ -115,18 +115,22 @@ class RunScripts(FlexConnector):
 
 if __name__ == '__main__':
     command1 = "rm -rf /data/testing_data/finished_number.json"
-    command2 = "cat /data/testing_data/finished_number.json"
-    script = "python3 -m hardware_testing.scripts.tip_pick_up"
-    robot_list = ['192.168.31.129', '192.168.31.28', '192.168.31.243','192.168.31.144', '192.168.31.16', '192.168.31.230',
-                  '192.168.31.87', '192.168.31.32', '192.168.31.103', '192.168.31.101',  '192.168.31.103',]
+    command2 = "cat /data/testing_data/finished_plunger.json"
+    # script = "python3 -m hardware_testing.scripts.tip_pick_up"
+    script = "python3 -m hardware_testing.scripts.plunger_lifetime --trials 450000"
+    # robot_list = ['192.168.31.129', '192.168.31.28', '192.168.31.243','192.168.31.144', '192.168.31.16', '192.168.31.230',
+    #               '192.168.31.87', '192.168.31.32', '192.168.31.103', '192.168.31.101',  '192.168.31.103',]
+    robot_list = [
+        '192.168.31.28', '192.168.31.129', '192.168.31.16',  '192.168.31.32',  '192.168.31.103'
+    ]
 
     robot_list2 = ['192.168.31.101', '192.168.31.103']
-    for robot_name in robot_list2:
+    for robot_name in robot_list:
         run_scripts = RunScripts(robot_name)
         if run_scripts.connected:
             print(f'Robot {robot_name} is connected')
-            run_scripts.run_command(command1)
-            run_scripts.execute_with_nohup_detached(script)
+            run_scripts.run_command(command2)
+            # run_scripts.execute_with_nohup_detached(script)
             run_scripts.release()
         else:
             print(f'Robot {robot_name} is not connected')

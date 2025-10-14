@@ -1,6 +1,6 @@
 import os.path
 import time
-#import winsound
+import winsound
 
 from playsound import playsound
 from utils import Utils
@@ -49,12 +49,12 @@ def play_alarm_2(project_path=None):
 
 def play_alarm_3(frequency, duration):
     pass
-    #winsound.Beep(frequency, duration)
+    winsound.Beep(frequency, duration)
 
 
 if __name__ == '__main__':
     print(root_path)
-    # play_alarm_3(3000, 500)
+    play_alarm_3(3000, 500)
 
     import threading
 
