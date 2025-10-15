@@ -9,18 +9,18 @@ import socket
 
 system = platform.system()
 
-# codepath = os.path.dirname(__file__)
-# addpath = os.path.dirname(os.path.dirname(__file__))
-# addpath2 = os.path.dirname(addpath)
-# if addpath not in sys.path:
-#     sys.path.append(addpath)
-# if addpath2 not in sys.path:
-#     sys.path.append(addpath2)
+codepath = os.path.dirname(__file__)
+addpath = os.path.dirname(os.path.dirname(__file__))
+addpath2 = os.path.dirname(addpath)
+if addpath not in sys.path:
+    sys.path.append(addpath)
+if addpath2 not in sys.path:
+    sys.path.append(addpath2)
 
 if system == "Linux":
     BaseURL = '/files_server/'
 else:
-    BaseURL = './'
+    BaseURL = codepath
 
 
 class sheetdrive():
@@ -301,7 +301,7 @@ class sheetdrive():
         return 返回数据内容 list
         """
         # Update the cells with the new values
-        rangeval = str(range_name) + str(range)
+        rangeval = f"{range_name}{range}"
         try:
             request = self.sheetservice.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
@@ -318,6 +318,54 @@ class sheetdrive():
 
         except Exception as errval:
             print("更新数据失败{}".format(errval))
+            return False
+
+    def update_excel_sheet_page_batch(self, spreadsheet_id, sheet_name, ranges, new_values, ValueInputOption='USER_ENTERED'):
+        """
+        更新 Google 表格数据内容（支持单个或多个范围）
+
+        :param spreadsheet_id: 表格ID
+        :param sheet_name: 工作表名称（如 "Gravimetric Raw Data"）
+        :param ranges: 更新的范围（字符串或列表） 如 '!A1:D1000' 或 ['!A1:D1000','!A1001:D1696']
+        :param new_values: 更新的数据（二维数组或二维数组列表）
+        :param ValueInputOption: USER_ENTERED / RAW
+        """
+        try:
+            #情况 1：单个范围
+            if isinstance(ranges, str):
+                full_range = f"{sheet_name}{ranges}"
+                request = self.sheetservice.spreadsheets().values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=full_range,
+                    valueInputOption=ValueInputOption,
+                    body={'values': new_values}
+                ).execute()
+            
+            #情况 2：多个范围
+            elif isinstance(ranges, list):
+                data = []
+                for r, v in zip(ranges, new_values):
+                    data.append({
+                        "range": f"{sheet_name}{r}",
+                        "values": v
+                    })
+
+                body = {
+                    "valueInputOption": ValueInputOption,
+                    "data": data
+                }
+                request = self.sheetservice.spreadsheets().values().batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body=body
+                ).execute()
+            else:
+                raise TypeError("参数 ranges 必须是 str 或 list 类型")
+
+            print("更新成功:", request)
+            return True
+
+        except Exception as err:
+            print(f"更新数据失败: {err}")
             return False
 
     def copy_sheet_excel(self, source_spreadsheet_id, target_spreadsheet_id, sheet_id):

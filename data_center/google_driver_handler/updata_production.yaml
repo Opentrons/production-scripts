@@ -1,83 +1,3 @@
-updatafile: #批量上传文件到谷歌网盘的某个文件夹
-  - googlefolderID: #谷歌网盘文件夹ID 链接后的一串编码 如： 
-    floderpath: #要上传的文件夹路径
-    filekeywords: #要上传的文件关键字 如.csv
-
-
-
-tabledataupdate: #表格数据更新
-  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
-  - ifupdata: true #是否执行更新该数据配置
-    explanation: "function" #做函数数据上传
-    updatafileid: #要更新的文件ID
-      - "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs"
-    ExcelSheetName: #可以把一个数据更新到多个sheet
-      - "Pip1" #要更新的表格sheet名称
-      - "Pip2" #要更新的表格sheet名称
-    Range: #要更新Excel的 列 范围 
-      - "A"
-      - "B"
-      - "C"
-      - "D"
-    filefrompath: "/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
-
-    ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
-        copyExcelId: "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #要复制的文件ID
-        copyExcelSheetName: "Pip1" #要更新的表格sheet名称
-        copyRange: 
-          - "!A1:E1" #复制的范围 左闭右开
-
-    
-    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
-        pasteRange:  #粘贴的范围 左闭右开
-          - "!A1:E1"
-        pastefileid: "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #粘贴的Excel文件ID
-        pastesheetname: "Pip3" #粘贴的sheet名称
-
-
-
-
-volumupdata_1ch: #单通道容量数据上传
-  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
-  - ifupdata: true #是否执行更新该数据配置
-    explanation: "VOLUME1CH" #做函数数据上传
-
-    ifcopytemplate:
-        off/on: true
-        copyTempExcelId: "1gqsjGK28rcBlMYmllbcdpNgBfEe9vuFusAKOlZJ92ws" #模版的ID
-        copynewfilename: "" #复制后的名字,以移液器条码命令
-  
-
-    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
-    ExcelSheetName: #可以把一个数据更新到多个sheet
-      - "Gravimetric Raw Data" #要更新的表格sheet名称
-    Range: #要更新Excel的 列 范围 
-      - "A"
-      - "B"
-      - "C"
-      - "D"
-    filefrompath: "/Users/yew/googledriver/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
-
-    ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
-        copyExcelId: "" #要复制的文件ID
-        copyExcelSheetName: "Volume" #要更新的表格sheet名称
-        copyRange: 
-          - "!I2:AR2" #复制的范围 左闭右开
-
-    
-    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
-        pasteRange:  #粘贴的范围 左闭右开
-          - "" #这里为空 自行判断是否为最后一行
-        pastefileid: "1jnXsICp4Z-bYci8CR5VfxHzsE-7SObuRhfzDmIQZTFE" #粘贴的Excel文件ID
-        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
-
-
 1ch_updata_volume: #生产单通道容量数据上传（测试模版）
   #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
   - ifupdata: true #是否执行更新该数据配置
@@ -85,7 +5,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     ifcopytemplate:
         off/on: true
-        copyTempExcelId: "1ky60lmsff6fw-7KGb7Rpyuge4Iv2Khvp4a35HMJvbSc" #模版的ID
+        copyTempExcelId: "1_zbRlxFUoQXrCTXUntfwCytZ637Mwx3mY7acrJRYBjY" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 
@@ -112,46 +32,46 @@ volumupdata_1ch: #单通道容量数据上传
       - off/on: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
-        pastefileid: "1s5Zvtsn8otWEQbysHtbdXu8fX9SXUt74e4MXBILUklA" #粘贴的Excel文件ID
+        pastefileid: "1tFhr3Bsy24up1dNiN91ple-ER1YelmLQHHwMUdeq2tg" #粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
-          star: "D" #粘贴的开始
-          end: "AN" #粘贴的结束
-          note: "AT" #备注
+          star: "E" #粘贴的开始
+          end: "AO" #粘贴的结束
+          note: "AU" #备注
           
     
     movetestfail:
       2025:
-        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        1: ""
-        2: ""
-        3: ""
-        4: ""
-        5: ""
-        6: ""
-        7: ""
-        8: ""
-        9: ""
-        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        11: ""
-        12: ""
+        fumulu: "1U6gBa0poRvKdcwgY9E4398XkbTAsMvz3"
+        1: "1_WJt5V823ODjUIYcoWE84cGJJ2zVvlpW"
+        2: "1A29cKwG94OzdwJv4K5qgO12UydJPqE-k"
+        3: "1WvUmTLOyX6lEyY7_0_Gt_5Z6gvTDr3at"
+        4: "1vHc-Ni-9iVfkVDeStR4_HuLgYsc7ZOI4"
+        5: "1u0ZgpBsIr6DNZTjiM8CRVJTMvfXYDyrc"
+        6: "1yrcKTO5ZFUQ-t555_WEbz4ss92631Diz"
+        7: "16hZ1FuhMZ6uXMT_EEGA11cby5Ig46Hgo"
+        8: "1wy6_HTU81oM04QuTvgm7yk_66YlClr3r"
+        9: "1wofm5iaC8VCXq9Hpy8n0nzuqcMP0VZNG"
+        10: "1y6jqhPVPUAMFAfDhg9mYr0fQHDKJYEIN"
+        11: "16gPVwjqexubHDTmt48HD3ETs2AHHbrpz"
+        12: "1ngI_O9cR28YqxIkO4cm5M31rrDRA4eOZ"
       2026:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
-        1: ""
-        2: ""
-        3: ""
-        4: ""
-        5: ""
-        6: ""
-        7: ""
-        8: ""
-        9: ""
-        10: ""
-        11: ""
-        12: ""
+        fumulu: "1RhPfi19ibaXBfEd9k3vW1F3ervZRqbvL" #年份目录
+        1: "1KGhiF5vOcPxYu-kmXzYt1va0ZmfwBId9"
+        2: "1YRNFYaLeTV8r8iYZNmouPn0cNQofgrFC"
+        3: "1WEX5eUCtYNnff7Mv8SKyrCm9rgQsGERi"
+        4: "1Hp4KfkojiOVsqtTWyWknqPiHbo7dn1pf"
+        5: "1HCU2uqc1tSD2zJxJp2fdRSyAgKdDFu94"
+        6: "1GZoGMpVVJfOxMCIX1XkTQBKuNU46Jn5t"
+        7: "1fpmdSGesy02j4Zmbev8m4uT7W1Bd7Mdr"
+        8: "1NHqgFUeJYlltHZToA1ZfQfxDSQp9Lopn"
+        9: "1tyoXGG_QfZTfkrOhB1jL2wHmCLpT6j2D"
+        10: "1kdRVMaZLWcDOFSp2dh9ydYOyxIrwsMjA"
+        11: "1NScQvyNxi12-bY8zZIQvgsHLoW5ZXiUi"
+        12: "1JcNA_qAkqOqoq2-gQV91a2_Qfvgtw4ww"
     ifupdatarawdata: #上传源文件
       2025:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
+        fumulu: "14S4qzYKeS8sJ2RHyKKMXqlRYF0dH-Xrh" #父目录
         1: ""
         2: ""
         3: ""
@@ -161,23 +81,23 @@ volumupdata_1ch: #单通道容量数据上传
         7: ""
         8: ""
         9: ""
-        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        11: ""
-        12: ""
+        10: "1es_jXtKBrREHyOSCpmHidmMSk5eVAR-f"
+        11: "1L57JvMJJBEUOywLL-zy7t9iGzI-dd231"
+        12: "1zeMfXJJAwQzqmKAgzXI_x9PVB_ENhbhi"
       2026:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
-        1: ""
-        2: ""
-        3: ""
-        4: ""
-        5: ""
-        6: ""
-        7: ""
-        8: ""
-        9: ""
-        10: ""
-        11: ""
-        12: ""
+        fumulu:  #父目录
+        1: "1K7-vk0NfyeKsRvQ08udRBuK4Q8aaci7e"
+        2: "1b75HN0tMBTIX6Nx3ht2mPX5GKZsf0Zrc"
+        3: "1RdlpTjEzhw3Pj8BJ-jf09XesA5U9fh8k"
+        4: "1XYtkiUjXzc6_LnNY3v2jao3Yr-SdFnyT"
+        5: "1CQcFVFk1m8SNwojOtthV5DcbAKO_bfwN"
+        6: "1oCVPR1HnfEsF64wXaRu2segh3ygXjAAb"
+        7: "1S4uT_DW3lP7RhVdcDlcyKao6Zpy0LE-d"
+        8: "1DuTHcDGyOJb-s0NfM2ExQc12NzFfniVa"
+        9: "1T6nTw56idMwzVAQ7JOC7645PpKjDbxN2"
+        10: "1cCVMg9C8CFwqeIGhhV210MTJSXpDK177"
+        11: "1s3X62PE1Y-WzhbTX4shVpkJOxPzCjxds"
+        12: "1fYPQsXDXlElFFQ-pRmTiOqlaOKimgStv"
 
 1ch_updata_qc_test: #生产单通诊断数据上传
   #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
@@ -223,9 +143,6 @@ volumupdata_1ch: #单通道容量数据上传
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
 
 
-
-
-
 8ch_updata_volume:
 #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
   - ifupdata: true #是否执行更新该数据配置
@@ -233,7 +150,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     ifcopytemplate:
         off/on: true
-        copyTempExcelId: "1g8sgqzK0yPUkA9ffE6JZb4ffnf7OTif57FtYylZD5Dk" #模版的ID
+        copyTempExcelId: "1bTJrXux5x7ivYtUTXpDrWo6j-TJN-DiB1bsR5RQhMn4" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 
@@ -260,7 +177,7 @@ volumupdata_1ch: #单通道容量数据上传
       - off/on: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
-        pastefileid: "1_Rxe8ntNc4SeVXo9q88O_TZNNBFWU2hWC-Rw-tuJ2r0" #粘贴的Excel文件ID
+        pastefileid: "1EF9pjiWkZAk1AO-e4sAFp1KyfGaJI3I3BfcYkqNOmJQ" #粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
           star: "F" #粘贴的开始
@@ -269,7 +186,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     movetestfail:
       2025:
-        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        fumulu: "1VO40ZoluKcRFd2kbu2f1_6jcS296_Ftn"
         1: ""
         2: ""
         3: ""
@@ -279,26 +196,26 @@ volumupdata_1ch: #单通道容量数据上传
         7: ""
         8: ""
         9: ""
-        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        11: ""
-        12: ""
+        10: "1LNUOOgsaStPgffqJouyAqkOn9U53AMEL"
+        11: "1aIh9TXmI4VbDGexKudXKCNdOeEh2I0ZC"
+        12: "1QcrHRLJ9eoNh5epJnIdDdI6ECYCorEr6"
       2026:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
-        1: ""
-        2: ""
-        3: ""
-        4: ""
-        5: ""
-        6: ""
-        7: ""
-        8: ""
-        9: ""
-        10: ""
-        11: ""
-        12: ""
+        fumulu: "1EveJae-GJfuuNpyottkldn9IXMnPeKz_"
+        1: "1mJcAU4A_c8-yVLCQY91pry-C4YNJcv18"
+        2: "1pVED5xLkpteAMnwLeqw27TSIfMTO86Rn"
+        3: "1DUBmL5_CylU222k4Dg05063Y8flqgp8S"
+        4: "15j8xMJ4orsV78XK_7mcvaVt3zKOi7UYG"
+        5: "1m6ugz7KR_yP9kKG5us-8VgAueCglD8ch"
+        6: "1f9HfEhI10e0laX7rHB5z9P4EklF-tmPR"
+        7: "1B6qYF7kznooyIPo-ecymgPtZmlu-6ucv"
+        8: "1q53HKF4HDLn0UeN-SA5YZd-zQhVQ-BVk"
+        9: "1OKDCYyEWwxfeGemUYWCkQxlxu8tMdQtS"
+        10: "1qRmIZVvbDDDPDA4BlnO7UNfkOlrqFAdb"
+        11: "1AmLq3uvf6ox4NJovQrRF_h5NUUdK8y0Z"
+        12: "1_W0u_SrMjpUFBVbUyNwa-6YwaP_O8tte"
     ifupdatarawdata: #上传源文件
       2025:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
+        fumulu: "1EfwXaC9vgv28gSt2c_DIpFZ1qUQLl-Ja" #父目录
         1: ""
         2: ""
         3: ""
@@ -308,20 +225,20 @@ volumupdata_1ch: #单通道容量数据上传
         7: ""
         8: ""
         9: ""
-        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        11: ""
-        12: ""
+        10: "1eAjRMy8HnkmyFhEjR57Ot6R18gkh9PTS"
+        11: "1bEqrCVRwJiWYc9gCzarM-Rkg3jrsSZqG"
+        12: "1Xzeyg1_aTOLzgyb6sar7-XGQ5WGgNJ88"
       2026:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
-        1: ""
-        2: ""
-        3: ""
-        4: ""
-        5: ""
-        6: ""
-        7: ""
-        8: ""
-        9: ""
-        10: ""
-        11: ""
-        12: ""
+        fumulu: "1WD2gI8ky-mxo08igNLYR2abAPzYsKMkx" #父目录
+        1: "1cwaar-MaknkWFMzHs73SjECOesZs_l6Z"
+        2: "18BHBQCwFlQ5uUZbu90rcFzePv9DIhDqH"
+        3: "1ID8uSuPnx8QO_GkNTfOjD4M14iRBOnQb"
+        4: "1CLHJhW_l66y8N7xTVNCc0u8-pte-uAoO"
+        5: "1R6ZzsHXL3Fco88Vll-Mzcx0OM-S8ijzU"
+        6: "12s-7HE874wnaE1bMvRMJQU6Nmvxj3Yeh"
+        7: "1efAodyYtkPqHxjayhC1o8yj3ZY-8lvq8"
+        8: "1UFLT6XTOmueeMCWs2BMIFU8M-rgjkOL-"
+        9: "1_In56X0cPwsajAQgYUz2vmcLDJgAL1ss"
+        10: "1F3Z6IV3zH7OdjwRJtL0jgw_tC4AYYHct"
+        11: "1v4nerxhKm4K4SyQIfkjELXCVKjMXE5kf"
+        12: "1NOl0_mVqHL5vrj6M0SE2TeOuvuAW__ds"
