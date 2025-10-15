@@ -70,7 +70,7 @@ class googledrive():
                 print("自动刷新 token 成功。")
             else:
                 # 无有效token，重新授权
-                print("未找到有效 token，开始授权...")
+                print("未找到有效 token,开始授权...")
                 flow = InstalledAppFlow.from_client_secrets_file(self.credentialspath, scopes)
                 creds = flow.run_local_server(port=0)
                 print("授权成功。")
@@ -82,7 +82,7 @@ class googledrive():
             self.creds = creds
 
     def get_drive_service_threading(self):
-        """初始化Google Drive和Sheets服务，并启动后台token刷新"""
+        """初始化Google Drive和Sheets服务,并启动后台token刷新"""
         try:
             SCOPES = [
                 "https://www.googleapis.com/auth/drive",
@@ -110,12 +110,12 @@ class googledrive():
     def stop_auto_refresh(self):
         """手动停止后台自动刷新"""
         self._stop_refresh = True
-        print("🛑 已停止后台自动刷新。")
+        print("已停止后台自动刷新。")
 
     def get_drive_service(self):
         """
         获取 Google Drive 和 Google Sheets 服务对象。
-        自动刷新 token，如无 token 则自动弹出授权。
+        自动刷新 token,如无 token 则自动弹出授权。
         """
         try:
             creds = None
