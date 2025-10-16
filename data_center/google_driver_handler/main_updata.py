@@ -49,7 +49,7 @@ class updata_class():
         Args:
             upfilepath (str): 原始数据的地址
             pipettesn (str): 要上传数据的移液器SN
-            pipettetype (str): 移液器的类型 只支持（对应TRACKING SHEET里面的sheet名称）: P50S, P1000S, P50M, P1000M, P50S Millipore,P1000S  Millipore,P50M Ultima,P1000M Ultima 
+            pipettetype (str): 移液器的类型 只支持（对应TRACKING SHEET里面的sheet名称）: P50S, P1000S, P50M, P1000M, P50S Millipore,P1000S  Millipore,P50M Ultima,P1000M Ultima , P50M Millipore , P1000M Millipore 
             Note_str (str):  TRACKING SHEET备注信息
         return:
         [uptemp = None #上传数据状态
@@ -65,15 +65,18 @@ class updata_class():
         move_success = "False" #移动数据状态
         upfailpass = "False" #上传源文件状态
 
+        List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
+        List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
+        
         # 更新容量数据demo
-        if pipettetype == "P50S" or pipettetype == "P1000S":
+        if pipettetype in List_1ch: #== "P50S" or pipettetype == "P1000S" or pipettetype =="P50S Millipore" or pipettetype =="P1000S  Millipore":
             if isinstance(self.yamldata, dict) and "1ch_updata_volume" in self.yamldata and isinstance(
                 self.yamldata["1ch_updata_volume"], list):
                 u = self.yamldata["1ch_updata_volume"][0]
             else:
                 raise ValueError("self.yamldata 中不存在 '1ch_updata_volume' 键，或其对应值不是列表类型")
         
-        elif pipettetype == "P50M" or pipettetype == "P1000M":
+        elif pipettetype in List_8ch: #== "P50M" or pipettetype == "P1000M"or pipettetype =="P50M Ultima"or pipettetype =="P1000M Ultima"or pipettetype =="P50M Millipore"or pipettetype =="P1000M Millipore":
             if isinstance(self.yamldata, dict) and "8ch_updata_volume" in self.yamldata and isinstance(
                     self.yamldata["8ch_updata_volume"], list):
                 u = self.yamldata["8ch_updata_volume"][0]
