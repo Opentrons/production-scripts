@@ -7,7 +7,9 @@ from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.http import MediaIoBaseDownload
 import platform
-
+from google.auth.transport.requests import Request
+import threading
+import time
 system = platform.system()
 from globalconfig import DOWNLOAD_DIR
 
@@ -24,34 +26,132 @@ if system == "Linux":
 else:
     BaseURL = codepath
 
+SCOPES = [
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/spreadsheets"
+        ]
 
 class googledrive():
     def __init__(self) -> None:
         self.tokenpath = os.path.join(BaseURL, 'token.json')
         self.credentialspath = os.path.join(BaseURL, 'credentials.json')
         self.creds = None
-        self.get_drive_service()
+        self.sheetservice = None
+        self.sheet_service = None
+        self.googleservice = None
+        self.get_drive_service_threading()
+    
+    def _auto_refresh_thread(self):
+        """后台定时检查token是否过期并刷新"""
+        while not self.stop_auto_refresh:
+            try:
+                if self.creds and self.creds.expired and self.creds.refresh_token:
+                    self.creds.refresh(Request())
+                    self._save_token()
+                    print("后台自动刷新 token 完成。")
+            except Exception as e:
+                print(f"自动刷新 token 失败: {e}")
+            time.sleep(self.check_interval)
+    def _save_token(self):
+        """保存token到文件"""
+        with open(self.tokenpath, "w") as token_file:
+            token_file.write(self.creds.to_json())
+
+    def _load_credentials(self, scopes):
+        """加载或刷新凭证"""
+        creds = None
+        if os.path.exists(self.tokenpath):
+            creds = Credentials.from_authorized_user_file(self.tokenpath, scopes)
+
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                # 自动刷新 token
+                creds.refresh(Request())
+                print("自动刷新 token 成功。")
+            else:
+                # 无有效token，重新授权
+                print("未找到有效 token,开始授权...")
+                flow = InstalledAppFlow.from_client_secrets_file(self.credentialspath, scopes)
+                creds = flow.run_local_server(port=0)
+                print("授权成功。")
+
+            # 保存新token
+            self.creds = creds
+            self._save_token()
+        else:
+            self.creds = creds
+
+    def get_drive_service_threading(self):
+        """初始化Google Drive和Sheets服务,并启动后台token刷新"""
+        try:
+            SCOPES = [
+                "https://www.googleapis.com/auth/drive",
+                "https://www.googleapis.com/auth/spreadsheets",
+            ]
+
+            # 加载/刷新凭证
+            self._load_credentials(SCOPES)
+
+            # 构建服务对象
+            self.googleservice = build("drive", "v3", credentials=self.creds)
+            self.sheetservice = build("sheets", "v4", credentials=self.creds)
+            self.sheet_service = self.sheetservice.spreadsheets()
+
+            # 启动后台刷新线程
+            refresh_thread = threading.Thread(target=self._auto_refresh_thread, daemon=True)
+            refresh_thread.start()
+
+            print("Google Drive & Sheets 服务初始化成功。")
+            return self.googleservice, self.sheetservice, self.sheet_service
+
+        except Exception as e:
+            raise RuntimeError(f"初始化 Google 服务失败: {e}")
+
+    def stop_auto_refresh(self):
+        """手动停止后台自动刷新"""
+        self._stop_refresh = True
+        print("已停止后台自动刷新。")
 
     def get_drive_service(self):
+        """
+        获取 Google Drive 和 Google Sheets 服务对象。
+        自动刷新 token,如无 token 则自动弹出授权。
+        """
         try:
+            creds = None
 
-            SCOPES = [
-                'https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/drive.appdata',
-                'https://www.googleapis.com/auth/drive.file']
+            # ① 尝试读取本地 token 文件
             if os.path.exists(self.tokenpath):
-                self.creds = Credentials.from_authorized_user_file(self.tokenpath, SCOPES)
+                creds = Credentials.from_authorized_user_file(self.tokenpath, SCOPES)
 
-            if not self.creds or not self.creds.valid:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentialspath, SCOPES)
-                self.creds = flow.run_local_server(port=0)
+            # ② 检查 token 是否有效
+            if not creds or not creds.valid:
+                if creds and creds.expired and creds.refresh_token:
+                    # 自动刷新 token
+                    creds.refresh(Request())
+                    print("Token 已自动刷新")
+                else:
+                    # 没有 token 或刷新失败，重新走 OAuth 授权
+                    print("正在打开浏览器进行 Google 授权...")
+                    flow = InstalledAppFlow.from_client_secrets_file(self.credentialspath, SCOPES)
+                    creds = flow.run_local_server(port=0)
+                    print("授权完成")
 
-                # Save the credentials for the next run
-                with open(self.tokenpath, 'w') as token:
-                    token.write(self.creds.to_json())
-            # Create an authorized Drive API client
-            self.googleservice = build('drive', 'v3', credentials=self.creds)
+                # ③ 保存（更新）token.json 文件
+                with open(self.tokenpath, "w") as token_file:
+                    token_file.write(creds.to_json())
+                    print(f"Token 已保存至 {self.tokenpath}")
+
+            # ④ 创建 Google Drive 与 Sheets 服务
+            self.googleservice = build("drive", "v3", credentials=creds)
+            self.sheetservice = build("sheets", "v4", credentials=creds)
+            self.sheet_service = self.sheetservice.spreadsheets()
+
+            print("Google Drive 与 Sheets 服务初始化完成")
+            return self.googleservice, self.sheetservice, self.sheet_service
+
         except Exception as e:
+            print(f"获取 Google 服务失败: {e}")
             raise e
 
     def upload_to_drive(self, file_path, folder_id):
@@ -544,6 +644,377 @@ class googledrive():
         except Exception as err:
             print(f"❌ 检查权限时发生错误: {err}")
             return False, {}
+    
+
+    ###########以下为谷歌表格相关###########
+    def create_excel(self, excelname, parentf_older_id):
+        """
+        创建新表格
+        param excelname 要创建的文件名称
+        param parentf_older_id 父文件夹ID  为空则在根目录创建
+        return spreadsheet_id
+        """
+        # 创建新表格
+        spreadsheet_id = ''
+        try:
+            file_metadata = {
+                "name": excelname,
+                "parents": [parentf_older_id],
+                "mimeType": "application/vnd.google-apps.spreadsheet"
+            }
+
+            response = self.sheetservice.spreadsheets().create(
+                body=file_metadata
+            ).execute()
+
+            # 打印新表格的ID
+            spreadsheet_id = response['spreadsheetId']
+            print(f"已创建新表格，ID为{spreadsheet_id}")
+            return spreadsheet_id
+        except Exception as e:
+            print("创建表格失败：{}".format(e))
+            return spreadsheet_id
+
+    def get_excel_sheet(self, spreadsheetId, range, majorDimensionval='ROWS'):
+        # Call the Sheets API
+        """
+        获取表格全部数据内容
+        param spreadsheetId : 表格的ID
+        param range : 表格的sleep名称
+        param majorDimensionval : 检索模式 ROWS COLUMNS
+        return 返回数据内容 list
+        """
+        values = []
+        try:
+            sheet = self.sheetservice.spreadsheets()
+            result = sheet.values().get(
+                spreadsheetId=spreadsheetId,
+                range=range,
+                majorDimension=majorDimensionval,
+            ).execute()
+            values = result.get('values', [])
+            return values
+        except Exception as err:
+            print("获取数据失败{}".format(err))
+            return values
+
+    def get_excel_sheet_page(self, spreadsheetId, range, majorDimensionval='ROWS',
+                             page_size=["!A1:A1000", "!B1:B1000"]):
+        # Call the Sheets API
+        """
+        获取表格某个区域的数据内容 分段获取 (超1000行必须使用这个分段获取)
+        param spreadsheetId : 表格的ID
+        param range : 表格的sleep名称
+        param majorDimensionval : 检索模式 ROWS COLUMNS
+        return 返回数据内容 list
+        """
+        # 遍历每一页并读取数据
+
+        value_ = []
+        try:
+            for page in page_size:
+                rangesval = range + page
+                # Pip1!A1:E1
+                # Pip1!A1:E1
+                # 发送分页请求
+                result = self.sheetservice.spreadsheets().values().batchGet(
+                    spreadsheetId=spreadsheetId,
+                    ranges=rangesval,
+                    majorDimension=majorDimensionval
+                ).execute()
+                for value_range in result["valueRanges"]:
+                    values = value_range.get("values", [])
+                    value_.append(values)
+            # 处理响应结果
+            print("已读取完所有数据。")
+            return value_
+        except Exception as err:
+            print("获取Excel表格数据出错:{}".format(err))
+            return value_
+
+    def update_excel_sheet(self, spreadsheet_id, range_name, range, new_values, ValueInputOption='RAW'):
+        """
+        更新表格数据内容
+        param spreadsheet_id : 表格的ID
+        param range_name : 表格的sleep名称
+        param range : 更新的范围 [!A1:A1000]
+        param ValueInputOption 确定应如何解释输入数据 (RAW 系统将不会解析用户输入的值，并会按原样存储这些值。 USER_ENTERED 系统会解析这些值，就像用户在界面中输入这些值一样。数字会保留为数字，但字符串可能会转换为与通过 Google 表格界面在单元格中输入文本时适用的规则相同的数字、日期等。)
+        param new_values : 更新的数据 []
+        return 返回数据内容 list
+        """
+        # Update the cells with the new values
+        rangeval = str(range_name) + str(range)
+        try:
+            request = self.sheetservice.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=rangeval,
+                valueInputOption=ValueInputOption,
+                body={
+                    'values': new_values
+                }
+            ).execute()
+            response = request.execute()
+
+            return response
+
+        except Exception as errval:
+            print("更新数据失败{}".format(errval))
+
+    def update_excel_sheet_page_list(self, spreadsheet_id, range_name, rangelist, new_values,
+                                     ValueInputOption='USER_ENTERED'):
+        """
+        分页更新表格数据内容(数据超1000 多段式）  list
+        param spreadsheet_id : 表格的ID
+        param range_name : 表格的sheet名称
+        param rangelist : 更新的范围 [!A1:A1000,!B1:B1000]
+        param ValueInputOption 确定应如何解释输入数据 (RAW 系统将不会解析用户输入的值，并会按原样存储这些值。 USER_ENTERED 系统会解析这些值，就像用户在界面中输入这些值一样。数字会保留为数字，但字符串可能会转换为与通过 Google 表格界面在单元格中输入文本时适用的规则相同的数字、日期等。)
+        param new_values : 更新的数据 [,]
+        return 返回数据内容 list
+        """
+        try:
+            for ii, r in enumerate(rangelist):
+                rangeval = str(range_name) + str(r)
+                request = self.sheetservice.spreadsheets().values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=rangeval,
+                    valueInputOption=ValueInputOption,
+                    body={
+                        'values': new_values[ii]
+                    }
+                ).execute()
+                # response = request.execute()
+
+                print(request)
+            return True
+
+        except Exception as errval:
+            print("更新数据失败{}".format(errval))
+            return False
+
+    def check_sheet_exists(self, spreadsheet_id, sheet_name):
+        """
+        检查工作表是否存在
+        """
+        try:
+            spreadsheet = self.sheet_service.get(spreadsheetId=spreadsheet_id).execute()
+            sheets = spreadsheet.get('sheets', [])
+
+            for sheet in sheets:
+                if sheet['properties']['title'] == sheet_name:
+                    return True
+            return False
+
+        except Exception as e:
+            print(f"❌ 检查工作表存在性失败: {e}")
+            return False
+
+    def copy_df_to_sheet(self, clean_df, spreadsheet_id, sheet_name, start_cell='A1'):
+        def create_sheet_if_not_exists(_spreadsheet_id, _sheet_name):
+            """
+            如果工作表不存在，则创建它
+            """
+            if not self.check_sheet_exists(_spreadsheet_id, _sheet_name):
+                try:
+                    body = {
+                        'requests': [{
+                            'addSheet': {
+                                'properties': {
+                                    'title': sheet_name
+                                }
+                            }
+                        }]
+                    }
+
+                    self.sheet_service.batchUpdate(
+                        spreadsheetId=spreadsheet_id,
+                        body=body
+                    ).execute()
+
+                    print(f"✅ 已创建新工作表: '{sheet_name}'")
+                    return True
+
+                except Exception as e:
+                    print(f"❌ 创建工作表失败: {e}")
+                    return False
+            return True
+
+        def format_range_name(sheet_name, cell_range):
+            """
+            格式化范围名称，处理特殊字符
+            """
+            # 如果工作表名称包含空格或特殊字符，需要加单引号
+            if any(char in sheet_name for char in [' ', '-', "'", '"']):
+                return f"'{sheet_name}'!{cell_range}"
+            else:
+                return f"{sheet_name}!{cell_range}"
+
+        if not create_sheet_if_not_exists(spreadsheet_id, sheet_name):
+            return False
+        range_name = format_range_name(sheet_name, start_cell)
+
+        # 清理数据（处理NaN值等）
+        data = [clean_df.columns.tolist()]  # 表头
+        data.extend(clean_df.values.tolist())  # 数据行
+
+        print(f"📤 准备写入数据到: {range_name}")
+        print(f"  总行数: {len(data)}")
+        print(f"  总列数: {len(data[0]) if data else 0}")
+
+        body = {
+            'values': data
+        }
+
+        # 写入数据
+        result = self.sheet_service.values().update(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+            valueInputOption='USER_ENTERED',
+            body=body
+        ).execute()
+
+        print(f"✅ 成功写入 {result.get('updatedCells')} 个单元格")
+        print(f"🎉 数据已成功导入到工作表 '{sheet_name}'")
+
+        return True
+
+    def update_excel_sheet_page(self, spreadsheet_id, range_name, range, new_values, ValueInputOption='USER_ENTERED'):
+        """
+        更新表格数据内容  list
+        param spreadsheet_id : 表格的ID
+        param range_name : 表格的sleep名称
+        param rangelist : 更新的范围 [!A1:A1000,!B1:B1000]
+        param ValueInputOption 确定应如何解释输入数据 (RAW 系统将不会解析用户输入的值，并会按原样存储这些值。 USER_ENTERED 系统会解析这些值，就像用户在界面中输入这些值一样。数字会保留为数字，但字符串可能会转换为与通过 Google 表格界面在单元格中输入文本时适用的规则相同的数字、日期等。)
+        param new_values : 更新的数据 [,]
+        return 返回数据内容 list
+        """
+        # Update the cells with the new values
+        rangeval = f"{range_name}{range}"
+        try:
+            request = self.sheetservice.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=rangeval,
+                valueInputOption=ValueInputOption,
+                body={
+                    'values': new_values
+                }
+            ).execute()
+            # response = request.execute()
+
+            print(request)
+            return True
+
+        except Exception as errval:
+            print("更新数据失败{}".format(errval))
+            return False
+
+    def update_excel_sheet_page_batch(self, spreadsheet_id, sheet_name, ranges, new_values, ValueInputOption='USER_ENTERED'):
+        """
+        更新 Google 表格数据内容（支持单个或多个范围）
+
+        :param spreadsheet_id: 表格ID
+        :param sheet_name: 工作表名称（如 "Gravimetric Raw Data"）
+        :param ranges: 更新的范围（字符串或列表） 如 '!A1:D1000' 或 ['!A1:D1000','!A1001:D1696']
+        :param new_values: 更新的数据（二维数组或二维数组列表）
+        :param ValueInputOption: USER_ENTERED / RAW
+        """
+        try:
+            #情况 1：单个范围
+            if isinstance(ranges, str):
+                full_range = f"{sheet_name}{ranges}"
+                request = self.sheetservice.spreadsheets().values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=full_range,
+                    valueInputOption=ValueInputOption,
+                    body={'values': new_values}
+                ).execute()
+            
+            #情况 2：多个范围
+            elif isinstance(ranges, list):
+                data = []
+                for r, v in zip(ranges, new_values):
+                    data.append({
+                        "range": f"{sheet_name}{r}",
+                        "values": v
+                    })
+
+                body = {
+                    "valueInputOption": ValueInputOption,
+                    "data": data
+                }
+                request = self.sheetservice.spreadsheets().values().batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body=body
+                ).execute()
+            else:
+                raise TypeError("参数 ranges 必须是 str 或 list 类型")
+
+            print("更新成功:", request)
+            return True
+
+        except Exception as err:
+            print(f"更新数据失败: {err}")
+            return False
+
+    def copy_sheet_excel(self, source_spreadsheet_id, target_spreadsheet_id, sheet_id):
+        """
+        复制工作表
+        param source_spreadsheet_id 源文件ID
+        param target_spreadsheet_id 目标文件ID
+        param sheet_id 要复制的工作表ID
+        return title,copied_sheet_id
+        """
+        try:
+            # 获取源和目标文件的ID
+            SOURCE_SPREADSHEET_ID = source_spreadsheet_id
+            TARGET_SPREADSHEET_ID = target_spreadsheet_id
+            sheet_id_ = sheet_id  # 要复制的工作表ID
+
+            # 复制工作表
+            request_body = {
+                "destinationSpreadsheetId": TARGET_SPREADSHEET_ID,
+            }
+            response = self.sheetservice.spreadsheets().sheets().copyTo(
+                spreadsheetId=SOURCE_SPREADSHEET_ID,
+                sheetId=sheet_id_,
+                body=request_body
+            ).execute()
+
+            # 打印复制后的工作表信息
+            copied_sheet_id = response['sheetId']
+            copied_sheet_title = response['title']
+
+            print(f"工作表已复制到目标文件，ID为:{copied_sheet_id}，名称为:{copied_sheet_title}")
+
+            return copied_sheet_title, copied_sheet_id
+
+
+        except Exception as err:
+            print("复制sheet 出错{}".format(err))
+            return False
+
+    def get_sheet_info(self, spreadsheet_id):
+        """
+        获取在线excel文件内的所有工作表名称及其ID
+        """
+        try:
+            spreadsheet = self.sheetservice.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            sheets = spreadsheet.get('sheets', [])
+            sheets_info = []
+            for sheet in sheets:
+                properties = sheet.get('properties', {})
+                sheet_info = {
+                    'sheet_id': properties.get('sheetId'),  # 这就是工作表的ID
+                    'title': properties.get('title'),  # 工作表名称
+                    'index': properties.get('index'),  # 工作表索引位置
+                    'grid_properties': properties.get('gridProperties', {}),  # 网格属性
+                    'sheet_type': properties.get('sheetType', 'GRID')  # 工作表类型
+                }
+                sheets_info.append(sheet_info)
+
+            return sheets_info
+        except HttpError as error:
+            print(f"获取工作表信息时出错: {error}")
+            return None
 
 
 if __name__ == "__main__":
