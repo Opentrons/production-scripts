@@ -280,7 +280,12 @@ class LinuxFileManager:
             a = Ana(zip_name)
             res = a.ana_testing_data_zip()
             for test_name in TEST_NAME_SETTING[test_plan.product][test_plan.test_name]:
-                data_files = res[test_name]
+                data_files = res[test_name]  # 当前产品下的测试下的所有CSV
+                for data_file in data_files:
+                    if sn in data_file:
+                        # TODO：分析当前数据是否为测试完整文件
+                        # TODO：分析operator信息是否为半成品测试结果
+                        pass
 
                 return
 
