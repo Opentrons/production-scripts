@@ -1,4 +1,5 @@
 
+import { ExpandOutlined } from '@ant-design/icons-vue';
 import {jwtDecode} from 'jwt-decode';
 
 export const $get_current_time = (): string => {
@@ -33,3 +34,8 @@ export function getTokenExpiration(token: string): number | null {
     return null;
   }
 }
+
+export const delay = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+

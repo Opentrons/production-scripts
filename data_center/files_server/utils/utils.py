@@ -1,6 +1,9 @@
 import shutil
 import os
+import json
+from typing import Any
 
+PROJECT_NAME = 'files_server'
 
 def zip_directory(src_dir, output_path):
     """
@@ -37,4 +40,19 @@ def delete_zip(zip_path):
         os.remove(zip_path)  # 删除文件
     else:
         pass
+
+def require_config() -> dict[str: Any]:
+    """
+    获取当前config
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    root_path = current_dir.split(PROJECT_NAME)[0]
+    config_file = os.path.join(root_path, PROJECT_NAME, 'server_config.json')
+    if '\\' in config_file:
+        config_file = config_file.replace('\\', '/')
+    with open(config_file) as f:
+        data = json.load(f)
+    return data
+
+
 

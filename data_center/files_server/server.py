@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -7,7 +6,6 @@ from files_server.api.api_google_drive import router as google_drive_router
 from files_server.api.api_user import router as user_router
 from files_server.api.api_db import router as db_router
 from files_server.api.api_files import router as files_router
-
 
 api_router = APIRouter()
 

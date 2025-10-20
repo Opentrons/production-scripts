@@ -23,6 +23,7 @@ const routes : RouteRecordRaw[] = [
         {path: "device/online", name: "device online", component:() => import("../views/device/device_online.vue")},
         {path: "/device/control", name: "device control", component:() => import("../views/device/device_control.vue")},
         {path: "test_managment/status", name: "test status", component:() => import("../views/test_manage/test_status.vue")},
+        {path: "test_managment/plan", name: "test plan", component:() => import("../views/test_manage/test_plan.vue")},
         {path: "test_managment/test/ot3", name: "test ot3", component:() => import("../views/test_manage/start_test/ot3.vue")},
         {path: "test_managment/test/pipette", name: "test pipette", component:() => import("../views/test_manage/start_test/pipette_1_8 .vue")},
         {path: "test_managment/test/pipette/96ch", name: "test 96 pipette", component:() => import("../views/test_manage/start_test/pipette_96.vue")},

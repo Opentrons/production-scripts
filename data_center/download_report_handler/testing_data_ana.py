@@ -4,11 +4,27 @@ from typing import List
 import re
 from datetime import datetime
 
-DataInTestingData = [
-    "1. robot-assembly-qc-ot3",
-    "2. stress-test-qc-ot3",
-    "3. belt-calibration-ot3"
-]
+TEST_NAME_SETTING = {
+    "robot": {
+        "assembly_qc": "",
+        "gantry_stress": "",
+        "xy_belt_calibration": ""
+    },
+    "ch96_pipette_200": {
+        "assembly_qc"
+    },
+    "ch96_pipette_1000": {
+        "assembly_qc"
+    },
+    "ch1_pipette": {
+        "assembly_qc": "",
+        "speed_current_test": "",
+        "grav_test": ""
+    },
+
+}
+
+
 def get_time_str():
     # 获取当前时间
     now = datetime.now()

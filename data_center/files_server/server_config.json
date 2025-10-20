@@ -1,0 +1,6 @@
+{
+
+  "db_url": "mongodb://192.168.6.21:27017/",
+  "files_uploads": "/files_server/uploads",
+  "files_saving": "/files_server/datas"
+}

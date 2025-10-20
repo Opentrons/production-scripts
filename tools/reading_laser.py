@@ -17,11 +17,11 @@ import os
 from drivers.serial_driver import SerialDriver
 
 # _point = Point(195, 195, 357)  # C2 - Right
-Rounds = 30000
-KeepReading = True
+Rounds = 30
+KeepReading = False
 UseHighAccuracy = False
 
-WaitTime = 1
+WaitTime = 8
 
 # _point = Point(60, 90, 356.5)  # D1 - Right
 
@@ -29,16 +29,17 @@ _point1 = Point(331.69, 217.3, 100.89)
 _point2 = Point(331.69, 278.29, 100.89)
 
 
-# _point = Point(55, 92, 356.5)
+_point = Point(203.68, 213.29, 453.86)
 
 class ReadLaser(TestBase):
     def __init__(self, add_height):
         super(ReadLaser).__init__()
-        self.robot_ip = "192.168.31.70"
+        self.robot_ip = "192.168.8.46"
         self.laser_sensor = None
         self.mount = Mount.LEFT
         self.high_laser_sensor = None
         self.accuracy = "low"
+        self.point = _point
         # self.point = _point + Point(0, 0, add_height)
 
     def init_laser_sensor(self, send=False):
@@ -86,13 +87,14 @@ class ReadLaser(TestBase):
         if KeepReading:
             await self.move_to_test_point(self.point)
         for i in range(Rounds):
-            print(f"Round --------------------------------- {i + 1}")
+            # print(f"Round --------------------------------- {i + 1}")
+            await self.api.home()
             if not KeepReading:
                 await self.move_to_test_point(self.point)
 
             result = {}
             for _wait in range(WaitTime):
-                print(f"wait {_wait + 1}...")
+                # print(f"wait {_wait + 1}...")
                 time.sleep(1)
             low_res = self.laser_sensor.read_sensor_low()
             if UseHighAccuracy:
@@ -105,7 +107,7 @@ class ReadLaser(TestBase):
                 result.update({key: distance_value})
             if UseHighAccuracy:
                 result.update({"high": high_res})
-            print(result)
+            print(f"{i+1} -> Time: {result['time']} 前:{result[2]}，后:{result[3]}")
             # if project_path is not None:
             #     file_path = os.path.join(project_path, 'testing_data', 'reading_laser.csv')
             # else:
@@ -140,4 +142,4 @@ class ReadLaser(TestBase):
 
 if __name__ == '__main__':
     l = ReadLaser(add_height=0)
-    asyncio.run(l.run_test2())
+    asyncio.run(l.run_test("", ""))

@@ -12,8 +12,12 @@ from typing import List, Dict
 import mimetypes
 import time
 from download_report_handler.testing_data_ana import Ana
-UPLOAD_DIR = "/files_server/uploads"
-UPLOAD_DIR_TestingData = "/files_server/datas"
+from files_server.utils.utils import require_config
+
+__config = require_config()
+
+UPLOAD_DIR = __config["files_uploads"]
+UPLOAD_DIR_TestingData = __config["files_saving"]
 
 def check_system_dir_call_back():
     global UPLOAD_DIR
@@ -24,7 +28,7 @@ def check_system_dir_call_back():
             upload_dir_tesing_data = '/files_server/datas'
         else:
             upload_dir = './data'
-            upload_dir_tesing_data = './data'
+            upload_dir_tesing_data = './data/testing_data'
         if os.path.exists(upload_dir):
             pass
         else:
@@ -35,6 +39,7 @@ def check_system_dir_call_back():
             os.makedirs(upload_dir_tesing_data)
         UPLOAD_DIR = upload_dir
         UPLOAD_DIR_TestingData = upload_dir_tesing_data
+        return UPLOAD_DIR, UPLOAD_DIR_TestingData
     except Exception as e:
         pass
     

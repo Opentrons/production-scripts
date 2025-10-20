@@ -5,6 +5,9 @@ import logging
 from bson import ObjectId
 from datetime import datetime
 import pandas as pd  # 可选，用于转换为DataFrame
+from files_server.utils.utils import require_config
+
+DB_URL = require_config()["db_url"]
 
 # 配置日志
 logging.basicConfig(
@@ -16,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class MongoDBReader:
     def __init__(self,
-                 uri: str = "mongodb://localhost:27017/",
+                 uri: str = DB_URL,
                  db_name: str = "test_db",
                  collection_name: str = "test_collection"):
         """
@@ -111,7 +114,6 @@ class MongoDBReader:
     def count_documents(self, condition: Optional[Dict] = None) -> int:
         """
         统计文档数量
-
         :param condition: 查询条件
         :return: 文档数量
         """
@@ -120,6 +122,12 @@ class MongoDBReader:
         except Exception as e:
             logger.error(f"统计文档失败: {e}")
             return 0
+
+    def delete_document(self, request_key: dict) -> int:
+
+        result = self.collection.delete_one(request_key)
+
+        return result.deleted_count
 
     def close(self):
         """关闭连接"""

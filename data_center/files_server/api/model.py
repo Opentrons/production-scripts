@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Any
 
 
 # flex
@@ -31,6 +31,11 @@ class ReadDocumentRequest(BaseModel):
     db_name: str
     document_name: str
     limit: int
+
+class DeleteDocumentRequest(BaseModel):
+    db_name: str
+    document_name: str
+    require_key: dict[Any, Any]
 
 class InsertDocumentRequest(BaseModel):
     db_name: str

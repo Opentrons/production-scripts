@@ -2,9 +2,10 @@ import axios from "axios"
 import {getTokenExpiration} from '../utils/utils'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Action } from 'element-plus'
+import { el } from "element-plus/es/locales.mjs"
 
 
-export const URL = "http://192.168.6.21:8080"
+export const URL = "http://127.0.0.1:8080"
 
 
 const instance = axios.create({
@@ -15,8 +16,12 @@ const instance = axios.create({
 
 // 请求拦截器
 instance.interceptors.request.use(async (config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
+  if (config.url?.includes('/login') || config.url?.includes('/auth')) {
+    return config;
+  }
+
+  if (typeof window !== 'undefined'){
+    const token = localStorage.getItem('token');
     const isExpired = Date.now() >= getTokenExpiration(token);
     if (isExpired) {
       // 1. 先清除本地存储
@@ -31,12 +36,15 @@ instance.interceptors.request.use(async (config) => {
           window.location.href = '/login?expired=1';
         }
       });
-      
       // 4. 中断请求
       return Promise.reject(new Error('Token expired'));
     }
     config.headers.Authorization = `Bearer ${token}`;
   }
+  else{
+    console.log("Debug Mode, We are using Node")
+  }
+ 
   return config;
 }, error => {
   return Promise.reject(error);
@@ -66,15 +74,31 @@ axios.interceptors.response.use(response => {
 
 export const $get = async (url: string, params: object = {}) => {
 
-    let { data } = await instance.get(url, { params })
-    return data
+    const response = await instance.get(url, { params })
+     return {
+        status_code: response.status,  // 添加状态码
+        ...response.data               // 展开原有的数据
+    }
         
 }
 
 export const $post = async (url: string, params: object = {}) => {
-    console.log(params)
-    let { data } = await instance.post(url, params)
-    return data
+  try {
+    const response = await instance.post(url, params)
+    return {
+        status_code: response.status,  // 添加状态码
+        ...response.data               // 展开原有的数据
+    }
+  } catch (error) {
+    if (error.response) {
+      return {
+        status_code: error.response.status,
+        detail: error.response.data.detail,
+        success: false
+      }
+    }
+  }
+
 }
 
 // export const $download = async(url: string, file_name: string) => {

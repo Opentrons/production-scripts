@@ -55,7 +55,8 @@
                     </el-icon>
                     <span>测试管理</span>
                 </template>
-
+                
+                <el-menu-item index="/test_managment/plan">测试计划</el-menu-item>
                 <el-menu-item index="/test_managment/status">测试面板</el-menu-item>
                 <el-sub-menu index="4-2">
                     <template #title>开始测试</template>
