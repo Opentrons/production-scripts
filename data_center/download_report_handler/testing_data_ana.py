@@ -5,20 +5,20 @@ import re
 from datetime import datetime
 
 TEST_NAME_SETTING = {
-    "robot": {
+    "Robot": {
         "assembly_qc": "",
         "gantry_stress": "",
         "xy_belt_calibration": ""
     },
-    "ch96_pipette_200": {
+    "P200CH96": {
         "assembly_qc"
     },
-    "ch96_pipette_1000": {
+    "P1000CH96": {
         "assembly_qc"
     },
-    "ch1_pipette": {
-        "assembly_qc": "",
-        "speed_current_test": "",
+    "P50S": {
+        "assembly_qc": "pipette-assembly-qc-ot3",
+        "speed_current_test": "pipette-current-speed-ot3",
         "grav_test": ""
     },
 

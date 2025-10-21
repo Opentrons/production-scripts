@@ -17,7 +17,7 @@ scp-web-ui:
 	ssh -t root@$(host) "sudo systemctl restart nginx"
 
 .PHONY: push-web-ui
-host ?= 192.168.6.48
+host ?= 192.168.6.21
 push-web-ui:
 	@echo "push-web-ui"
 	$(MAKE) build-ui

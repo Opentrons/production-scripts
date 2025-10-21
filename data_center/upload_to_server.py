@@ -1,5 +1,3 @@
-import time
-
 import paramiko
 import os
 import argparse

@@ -12,6 +12,12 @@ from dataclasses import dataclass
 from datetime import datetime, date
 from download_report_handler.discover_flex import scan_flex
 from download_report_handler.testing_data_ana import Ana, TEST_NAME_SETTING
+from google_driver_handler.main_updata import updata_class as UploadData
+from google_driver_handler.main_updata import Productions
+
+from files_server.database.read_data_base import MongoDBReader
+from threading import Thread
+from typing import Any, Tuple
 
 
 def get_time_str():
@@ -30,6 +36,7 @@ LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0NCmIzQmxibk56YUMxclpYa3RkakVBQUFB
 
 @dataclass(kw_only=True)
 class TestPlanInterface:
+    _id: str
     date: str
     product: str
     test_name: list[str]
@@ -235,7 +242,7 @@ class LinuxFileManager:
             self.ssh.close()
         print("\n🔌 连接已关闭")
 
-    def download_testing_data_to_server(self, get_local_path: Callable[[], str]) -> str:
+    def download_testing_data_to_server(self, get_local_path: Callable[[], str]) -> Tuple[str, str]:
         """
         download the testing data and zip the data, saving to server
         """
@@ -243,7 +250,7 @@ class LinuxFileManager:
         _ret, _message, local_dir = self.download_dir("/data/testing_data", download_path)
         rename_dir = local_dir + "_" + get_time_str()
         self.re_name_dir(download_path, rename_dir)
-        if not ret:
+        if not _ret:
             raise FileExistsError("Download Fail")
         self.close()
         # Zip the directory
@@ -253,9 +260,18 @@ class LinuxFileManager:
         if '\\' in zip_path:
             zip_path = zip_path.replace('\\', '/')
         saved_name = zip_path.split('/')[-1]
-        return saved_name
+        return saved_name, zip_path
 
-    def run_test_plan_trial(self, test_plan: TestPlanInterface):
+    def upload_target(self, db: MongoDBReader, drive: UploadData, file_name: str, production: Productions, sn: str,
+                      zip_file: str):
+        def function_callback(progress: int):
+            callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
+            if callback_result is not None:
+                print("sat progress")
+
+        drive.upload_testing_data_demo(file_name, sn, production, zip_file, progress_callback=function_callback)
+
+    def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
         # 判断是否已上传或者是否为今日的日期
         auto_upload = test_plan.auto_upload
         if auto_upload:
@@ -273,37 +289,60 @@ class LinuxFileManager:
                     robot_ip = _ip
         assert robot_ip != "", "Can not search the robot ip"
         self.host = robot_ip
+        self.username = 'root'
         _ret, _message = self.connect()
+        assert _ret, "connect to robot fail"
         sn = test_plan.barcode
+        production = test_plan.product
+        value_to_enum = {member.value: member for member in Productions}
         if _ret:
-            zip_name = self.download_testing_data_to_server(check_system_dir_call_back)
-            a = Ana(zip_name)
+            zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
+            a = Ana(zip_path)
             res = a.ana_testing_data_zip()
-            for test_name in TEST_NAME_SETTING[test_plan.product][test_plan.test_name]:
-                data_files = res[test_name]  # 当前产品下的测试下的所有CSV
+            for test_name in test_plan.test_name:
+                test_key = TEST_NAME_SETTING[test_plan.product][test_name]
+                data_files = res[test_key]  # 当前产品下的测试下的所有CSV
                 for data_file in data_files:
+                    # format data_file
+                    if "\\" in data_file:
+                        data_file = data_file.replace("\\", "/")
                     if sn in data_file:
                         # TODO：分析当前数据是否为测试完整文件
                         # TODO：分析operator信息是否为半成品测试结果
-                        pass
-
+                        google_drive_obj = UploadData(Test_environment="Production")
+                        google_drive_obj.star_int()
+                        th = Thread(target=self.upload_target, args=(db, google_drive_obj, data_file,
+                                                                     value_to_enum[production], sn, zip_name))
+                        th.start()
+                        th.join()
                 return
 
-
-    def run_test_plan_trials(self):
-        reader = MongoDBReader(db_name="TestPlan", collection_name="Index")
+    def run_test_plan_trials(self, db: MongoDBReader):
+        reader = db
+        reader.db_name = "TestPlan"
+        reader.collection_name = "Index"
+        reader.connect()
         collections = reader.find_all(limit=10000)
         for collection in collections:
             try:
-                self.run_test_plan_trial(TestPlanInterface(**collection))
+                self.run_test_plan_trial(reader, TestPlanInterface(**collection))
             except Exception as e:
                 raise Exception(e)
 
+def download_load_and_upload_cycling():
+    """
+    循环读取和上传
+    :return:
+    """
+    from files_server.logs import logger
+    # step1 读取开关状态，是否需要打开自动上传开关
+    reader = MongoDBReader()
+    is_turn_on = reader.auto_upload
+    if is_turn_on:
+        # step2 读取test plan table
+        handler = LinuxFileManager("", "", logger)
+        handler.run_test_plan_trials(reader)
+
 
 if __name__ == '__main__':
-    from files_server.logs import logger
-
-    handler = LinuxFileManager("192.168.6.118", "root", logger)
-    ret, message = handler.connect()
-    result = handler.download_testing_data_to_server(check_system_dir_call_back)
-    print(result)
+    download_load_and_upload_cycling()
