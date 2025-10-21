@@ -1,4 +1,5 @@
 import pymongo
+from numpy.ma.core import masked_invalid
 from pymongo import MongoClient
 from typing import Dict, List, Any, Optional
 import logging
@@ -35,6 +36,7 @@ class MongoDBReader:
         self.client = None
         self.db = None
         self.collection = None
+        self.__auto_upload = True
 
     def connect(self) -> bool:
         """建立MongoDB连接"""
@@ -58,6 +60,32 @@ class MongoDBReader:
         except Exception as e:
             logger.error(f"未知连接错误: {e}")
         return False
+
+    @property
+    def auto_upload(self):
+        self.db_name = "Params"
+        self.collection_name = "Index"
+        self.connect()
+        result = self.find_all()[0]
+        current_status = result["auto_upload_data"]
+        if current_status == "true":
+            self.__auto_upload = True
+        else:
+            self.__auto_upload = False
+        return self.__auto_upload
+
+    @auto_upload.setter
+    def auto_upload(self, value: bool):
+        if isinstance(value, bool):
+            self.__auto_upload = value
+            self.db_name = "Params"
+            self.collection_name = "Index"
+            self.connect()
+            auto_upload = "true" if self.__auto_upload else "false"
+            self.set_database_filed({"index": 1}, {"auto_upload_data": auto_upload})
+        else:
+            raise TypeError("value should be a bool value")
+
 
     def find_all(self,
                  limit: int = 10,
@@ -126,8 +154,32 @@ class MongoDBReader:
     def delete_document(self, request_key: dict) -> int:
 
         result = self.collection.delete_one(request_key)
-
         return result.deleted_count
+
+    def set_database_filed(self, search_value: dict, update_value: dict[str, Any]):
+        """
+        update filed in a collection
+        :param search_value:
+        :param update_value:
+        :return:
+        """
+        try:
+            # 假设 self.collection 是你的 MongoDB 集合对象
+            result = self.collection.update_one(
+                search_value,  # 查询条件：搜索 SN 字段
+                {"$set": update_value}  # 更新操作：设置指定字段的值
+            )
+
+            if result.matched_count > 0:
+                print(f"成功更新 {result.modified_count} 个文档")
+                return result
+            else:
+                print(f"未找到文档")
+                return None
+
+        except Exception as e:
+            print(f"更新失败: {e}")
+            return None
 
     def close(self):
         """关闭连接"""
@@ -144,42 +196,9 @@ class MongoDBReader:
 # 使用示例
 if __name__ == "__main__":
     # 1. 初始化读取器
-    reader = MongoDBReader(
-        uri="mongodb://192.168.6.48:27017/",
-        db_name="Test_Data_Flex",
-        collection_name="Flex_Leveling_2025_Q1"
-    )
+    reader = MongoDBReader()
+    reader.auto_upload = True
+    reader.close()
 
-    if not reader.connect():
-        exit(1)
 
-    try:
-        # 2. 查询所有文档（前10条）
-        all_docs = reader.find_all(limit=10)
-        print(f"前10条文档:\n{all_docs[:2]}...")  # 只打印前2条示例
 
-        # 3. 条件查询
-        condition = {"status": "active", "age": {"$gt": 18}}
-        filtered_docs = reader.find_by_condition(condition, sort_field="age")
-        print(f"条件查询结果数: {len(filtered_docs)}")
-
-        # 4. 聚合查询示例
-        pipeline = [
-            {"$match": {"status": "active"}},
-            {"$group": {"_id": "$category", "count": {"$sum": 1}}}
-        ]
-        agg_result = reader.aggregate(pipeline)
-        print(f"聚合结果: {agg_result}")
-
-        # 5. 统计文档
-        doc_count = reader.count_documents({"status": "active"})
-        print(f"活跃文档数量: {doc_count}")
-
-        # 6. 转换为DataFrame (可选)
-        if filtered_docs:
-            df = reader.to_dataframe(filtered_docs)
-            print("\nDataFrame示例:")
-            print(df.head(2))
-
-    finally:
-        reader.close()

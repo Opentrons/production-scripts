@@ -11,7 +11,7 @@ from google.auth.transport.requests import Request
 import threading
 import time
 system = platform.system()
-from globalconfig import DOWNLOAD_DIR
+from google_driver_handler.globalconfig import DOWNLOAD_DIR
 
 codepath = os.path.dirname(__file__)
 addpath = os.path.dirname(os.path.dirname(__file__))

@@ -1,11 +1,29 @@
-from googledriveM import googledrive
-from csvdriver import CsvFunc
-from sheetdrive import sheetdrive
-from yamldrive import yamlfunc
+from google_driver_handler.googledriveM import googledrive
+from google_driver_handler.csvdriver import CsvFunc
+# from sheetdrive import sheetdrive
+from google_driver_handler.yamldrive import yamlfunc
 import os, sys
 import re
-from globalconfig import ROWSINDEX
+from google_driver_handler.globalconfig import ROWSINDEX
 from datetime import datetime
+from enum import Enum, auto
+from typing import Optional, Callable
+
+class Productions(Enum):
+    Robot = "Robot"
+    P50S = "P50S"
+    P1000S = "P1000S"
+    P50M = "P50M"
+    P1000M = "P1000M"
+    P50S_Millipore = "P50S Millipore"
+    P1000S_Millipore = "P1000S Millipore"
+    P50M_Ultima = "P50M Ultima"
+    P1000M_Ultima = "P1000M Ultima"
+    P50M_Millipore = "P50M Millipore"
+    P1000M_Millipore = "P1000M Millipore"
+
+
+
 
 codepath = os.path.dirname(__file__)
 addpath = os.path.dirname(os.path.dirname(__file__))
@@ -29,15 +47,15 @@ class updata_class():
         """
         # 更新数据
         if Test_environment == "debug":
-            self.yamldata = yamldr.readyaml(failpath=codepath, nama="updata.yaml")
+            self.yamldata = yamldr.readyaml(failpath=codepath, nama="google_driver_handler/updata.yaml")
         elif Test_environment == "Production":
-            self.yamldata = yamldr.readyaml(failpath=codepath, nama="updata_production.yaml")
+            self.yamldata = yamldr.readyaml(failpath=codepath, nama="google_driver_handler/updata_production.yaml")
         self.nowyear,self.nowmonth = self.get_current_month()
 
     def star_int(self):
         #self.shedrive = sheetdrive()
         self.gdrive = googledrive()
-        
+
     def get_current_month(self):
         """获取服务器当前月份（1~12）"""
         now = datetime.now()   # 获取当前服务器本地时间
@@ -67,7 +85,7 @@ class updata_class():
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
-        
+
         # 更新容量数据demo
         if pipettetype in List_1ch: #== "P50S" or pipettetype == "P1000S" or pipettetype =="P50S Millipore" or pipettetype =="P1000S  Millipore":
             if isinstance(self.yamldata, dict) and "1ch_updata_volume" in self.yamldata and isinstance(
@@ -75,14 +93,14 @@ class updata_class():
                 u = self.yamldata["1ch_updata_volume"][0]
             else:
                 raise ValueError("self.yamldata 中不存在 '1ch_updata_volume' 键，或其对应值不是列表类型")
-        
+
         elif pipettetype in List_8ch: #== "P50M" or pipettetype == "P1000M"or pipettetype =="P50M Ultima"or pipettetype =="P1000M Ultima"or pipettetype =="P50M Millipore"or pipettetype =="P1000M Millipore":
             if isinstance(self.yamldata, dict) and "8ch_updata_volume" in self.yamldata and isinstance(
                     self.yamldata["8ch_updata_volume"], list):
                 u = self.yamldata["8ch_updata_volume"][0]
             else:
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_volume' 键，或其对应值不是列表类型")
-        
+
         if u["ifupdata"]:
             #创建原始文件的文件夹（SN命名）
             now = datetime.now()
@@ -181,7 +199,7 @@ class updata_class():
                         pase["pasteRange"][0] = f"!{star}{last_row_index}:{end}{last_row_index}"
                         rangeval = pase["pasteRange"][0]
                         NOTES = f"!{Noteval}{last_row_index}:{Noteval}{last_row_index}"
-                        
+
 
                         pasedata = copydatalist[cs]
                         sheetlink = f"https://docs.google.com/spreadsheets/d/{copyExcelID}/edit#gid=0"  # 表格链接
@@ -193,7 +211,7 @@ class updata_class():
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_success=self.gdrive.move_file_Multi_level(updatafileid, monthid)
 
-                        
+
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
 
@@ -207,30 +225,51 @@ class updata_class():
 
         return [uptemp,testpass,testall,move_success["success"],upfailpass]
 
+    def upload_testing_data_demo(self, file_name: str, sn: str, production: Productions, zip_file: str,
+                                 note_str="AUTO-UPLOAD-TE", progress_callback: Optional[Callable[[int], None]] = None):
+        """
+        upload datas
+        :param file_name:
+        :param sn:
+        :param production:
+        :param zip_file:
+        :param note_str:
+        :param progress_callback:
+        :return:
+        """
+        print(f"Upload: \n"
+              f"File Name: {file_name}\n"
+              f"Production: {production.name}\n"
+              f"SN: {sn}\n"
+              f"Raw Data: {zip_file}")
+        for i in range(100):
+            if (i + 1) %10 == 0 and progress_callback is not None:
+                progress_callback(i+1)
+
 
 if __name__ == "__main__":
     aa = updata_class()
     import time
 
-    T1 = time.time() 
-    T2 = time.time() 
+    T1 = time.time()
+    T2 = time.time()
     aa.star_int()
     # while T2 - T1 <= 3600:
     #     time.sleep(2)
     #     pass
-       
+
     # typelist=aa.updatavolume_1CH(
     #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.csv",
     #     "P1KSV3520230727A04", "P1000S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
-    
+
     # print(typelist)
 
     # typelist=aa.updatavolume_1CH(
     #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv",
     #     "P50SV3520241218A50", "P50S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.csv"])
-    
+
     # print(typelist)
 
 
@@ -238,12 +277,12 @@ if __name__ == "__main__":
     #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv",
     #     "P50SV3520241218A50", "P50S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.csv"])
-    
+
     # print(typelist)
 
     typelist=aa.updatavolume_1CH_8CH(
         "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv",
         "P1KMV3520240110A04", "P1000M",
         ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
-    
+
     print(typelist)

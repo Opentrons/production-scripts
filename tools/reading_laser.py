@@ -29,14 +29,17 @@ _point1 = Point(331.69, 217.3, 100.89)
 _point2 = Point(331.69, 278.29, 100.89)
 
 
-_point = Point(203.68, 213.29, 453.86)
+# _point = Point(203.68, 213.29, 453.86)
+# _point = Point(207.73, 243.32, 454.26)
+# _point = Point(200.73, 233.32, 433.21)
+_point = Point(202.73, 233.32, 435.16)
 
 class ReadLaser(TestBase):
     def __init__(self, add_height):
         super(ReadLaser).__init__()
         self.robot_ip = "192.168.8.46"
         self.laser_sensor = None
-        self.mount = Mount.LEFT
+        self.mount = Mount.RIGHT
         self.high_laser_sensor = None
         self.accuracy = "low"
         self.point = _point
@@ -107,7 +110,7 @@ class ReadLaser(TestBase):
                 result.update({key: distance_value})
             if UseHighAccuracy:
                 result.update({"high": high_res})
-            print(f"{i+1} -> Time: {result['time']} 前:{result[2]}，后:{result[3]}")
+            print(f"{i+1} -> Time: {result['time']},{result[2]},{result[3]}")
             # if project_path is not None:
             #     file_path = os.path.join(project_path, 'testing_data', 'reading_laser.csv')
             # else:

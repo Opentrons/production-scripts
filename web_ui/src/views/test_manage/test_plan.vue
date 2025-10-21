@@ -80,24 +80,32 @@ const production_value = ref('');
 
 const product_options = [
   {
-    value: 'ot3',
+    value: 'Robot',
     label: 'OT3',
   },
   {
-    value: 'ch96_pipette_200',
+    value: 'P200CH96',
     label: '96CH Pipette 200',
   },
   {
-    value: 'ch96_pipette_1000',
+    value: 'P1000CH96',
     label: '96CH Pipette 1000',
   },
   {
-    value: 'ch1_pipette',
-    label: '1CH Pipette',
+    value: 'P50S',
+    label: '1CH Pipette P50',
   },
   {
-    value: 'ch8_pipette',
-    label: '8CH Pipette',
+    value: 'P1000S',
+    label: '1CH Pipette P1000',
+  },
+  {
+    value: 'P50M',
+    label: '8CH Pipette P50',
+  },
+   {
+    value: 'P1000M',
+    label: '8CH Pipette P1000',
   }
 ];
 
@@ -235,7 +243,7 @@ const handleEdit = (index: number, row: TestPlanInterface) => {
   // 填充表单数据
   Object.assign(formData.value, { ...row })
   production_value.value = row.product
-  test_name_value.value = row.test_name
+  // test_name_value.value = row.test_name
   
   
 

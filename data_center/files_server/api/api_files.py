@@ -25,23 +25,23 @@ def check_system_dir_call_back():
     try:
         if system == "Linux":
             upload_dir = '/files_server/uploads'
-            upload_dir_tesing_data = '/files_server/datas'
+            upload_dir_testing_data = '/files_server/datas'
         else:
             upload_dir = './data'
-            upload_dir_tesing_data = './data/testing_data'
+            upload_dir_testing_data = './data/testing_data'
         if os.path.exists(upload_dir):
             pass
         else:
             os.makedirs(upload_dir)
-        if os.path.exists(upload_dir_tesing_data):
+        if os.path.exists(upload_dir_testing_data):
             pass
         else:
-            os.makedirs(upload_dir_tesing_data)
+            os.makedirs(upload_dir_testing_data)
         UPLOAD_DIR = upload_dir
-        UPLOAD_DIR_TestingData = upload_dir_tesing_data
+        UPLOAD_DIR_TestingData = upload_dir_testing_data
         return UPLOAD_DIR, UPLOAD_DIR_TestingData
     except Exception as e:
-        pass
+        raise e
     
 
 def get_file_info(directory: str = UPLOAD_DIR) -> List[Dict[str, str]]:
