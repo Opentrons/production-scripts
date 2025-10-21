@@ -179,14 +179,14 @@ volumupdata_1ch: #单通道容量数据上传
         11: ""
         12: ""
 
-1ch_updata_qc_test: #生产单通诊断数据上传
+1ch_updata_qc: #生产单通诊断数据上传
   #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
   - ifupdata: true #是否执行更新该数据配置
     explanation: "1CH_AssemblyQC" #做函数数据上传
 
     ifcopytemplate:
         off/on: true
-        copyTempExcelId: "1cXcj9HKFK1H_axVKUTpy2suivS6gElki8ZIKEJLAVew" #模版的ID
+        copyTempExcelId: "1evVmo4Sf2RsoivpiZY2ZsMx9qRLaZFhUV2H-PLfaDwg" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 
@@ -207,20 +207,66 @@ volumupdata_1ch: #单通道容量数据上传
     filefrompath: "" #数据来源的路径 文件服务提供
     filekeywords: ".csv" #数据来源文件关键字 如.csv
 
+    UpCurrentSpeedTest:
+      Range: #要更新Excel的 列 范围 
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+      ExcelSheetName: "Current/Speed Test"
+  
+
+
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
         copyExcelId: "" #要复制的文件ID
-        copyExcelSheetName: "Assembly QC" #要更新的表格sheet名称
+        copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
         copyRange: 
-          - "!M11:AS11" #复制的范围 左闭右开
+          - "!M11:AV11" #复制的范围 左闭右开
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
       - off/on: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
-        pastefileid: "1YwG3-OAjr8A5obKGlzxEZEQAbPTiwBlpEDFtjGezCMs" #粘贴的Excel文件ID
+        pastefileid: "1tFhr3Bsy24up1dNiN91ple-ER1YelmLQHHwMUdeq2tg" #粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
+        pastelineRange: 
+          star: "D" #粘贴的开始
+          end: "AQ" #粘贴的结束
+    
+    movetestfail:
+      2025:
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        11: ""
+        12: ""
+      2026:
+        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: ""
+        11: ""
+        12: ""
 
 
 
