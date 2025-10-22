@@ -32,7 +32,8 @@ _point2 = Point(331.69, 278.29, 100.89)
 # _point = Point(203.68, 213.29, 453.86)
 # _point = Point(207.73, 243.32, 454.26)
 # _point = Point(200.73, 233.32, 433.21)
-_point = Point(202.73, 233.32, 435.16)
+# _point = Point(202.73, 233.32, 435.16)
+_point = Point(157.73, 233.32, 427.06)
 
 class ReadLaser(TestBase):
     def __init__(self, add_height):

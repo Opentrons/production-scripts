@@ -11,6 +11,7 @@ export interface TestPlanInterface {
     fixture_name: string
     fixture_ip?: string
     auto_upload: boolean | string
+    link: string
 
 }
 export interface RequireKeyInterface {
