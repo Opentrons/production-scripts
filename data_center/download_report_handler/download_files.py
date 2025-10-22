@@ -262,14 +262,15 @@ class LinuxFileManager:
         saved_name = zip_path.split('/')[-1]
         return saved_name, zip_path
 
-    def upload_target(self, db: MongoDBReader, drive: UploadData, file_name: str, production: Productions, sn: str,
-                      zip_file: str):
+    def upload_target(self, db: MongoDBReader, drive: UploadData, file_name: str, production: Productions,
+                      test_name: str, sn: str, zip_file: str, csv_id=None):
         def function_callback(progress: int):
             callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
             if callback_result is not None:
                 print("sat progress")
 
-        drive.upload_testing_data_demo(file_name, sn, production, zip_file, progress_callback=function_callback)
+        drive.upload_testing_data_demo(file_name, sn, production, test_name, zip_file,
+                                       progress_callback=function_callback, link=csv_id)
 
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
         # 判断是否已上传或者是否为今日的日期
@@ -295,27 +296,31 @@ class LinuxFileManager:
         sn = test_plan.barcode
         production = test_plan.product
         value_to_enum = {member.value: member for member in Productions}
-        if _ret:
-            zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
-            a = Ana(zip_path)
-            res = a.ana_testing_data_zip()
-            for test_name in test_plan.test_name:
-                test_key = TEST_NAME_SETTING[test_plan.product][test_name]
-                data_files = res[test_key]  # 当前产品下的测试下的所有CSV
-                for data_file in data_files:
-                    # format data_file
-                    if "\\" in data_file:
-                        data_file = data_file.replace("\\", "/")
-                    if sn in data_file:
-                        # TODO：分析当前数据是否为测试完整文件
-                        # TODO：分析operator信息是否为半成品测试结果
-                        google_drive_obj = UploadData(Test_environment="Production")
-                        google_drive_obj.star_int()
-                        th = Thread(target=self.upload_target, args=(db, google_drive_obj, data_file,
-                                                                     value_to_enum[production], sn, zip_name))
-                        th.start()
-                        th.join()
-                return
+        zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
+        a = Ana(zip_path)
+        res = a.ana_testing_data_zip()
+        _link = db.find_by_condition({"barcode": sn})[0]["link"]
+        if _link == "":
+            _link = None
+        for test_name in test_plan.test_name:
+            test_key = TEST_NAME_SETTING[test_plan.product][test_name]
+            data_files = res[test_key]  # 当前产品下的测试下的所有CSV
+            for data_file in data_files:
+                # format data_file
+                if "\\" in data_file:
+                    data_file = data_file.replace("\\", "/")
+                if sn in data_file:
+                    # TODO：分析当前数据是否为测试完整文件
+                    # TODO：分析operator信息是否为半成品测试结果
+                    google_drive_obj = UploadData(Test_environment="Production")
+                    google_drive_obj.star_int()
+
+                    th = Thread(target=self.upload_target, args=(db, google_drive_obj, data_file,
+                                                                 value_to_enum[production], test_key, sn, zip_name),
+                                kwargs={'csv_id': _link})
+                    th.start()
+                    th.join()
+            return
 
     def run_test_plan_trials(self, db: MongoDBReader):
         reader = db
@@ -328,6 +333,7 @@ class LinuxFileManager:
                 self.run_test_plan_trial(reader, TestPlanInterface(**collection))
             except Exception as e:
                 raise Exception(e)
+
 
 def download_load_and_upload_cycling():
     """

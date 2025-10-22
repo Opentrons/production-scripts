@@ -19,6 +19,11 @@
         <el-table-column prop="fixture_name" label="测试工装名" min-width="50" />
         <el-table-column prop="fixture_ip" label="测试工装IP" min-width="50" />
         <el-table-column prop="auto_upload" label="数据状态" min-width="50" />
+        <el-table-column prop="link" label="数据链接">
+        <template #default="{ row }">
+          <el-link type="primary" :href="row.Link" target="_blank">{{ row.LinkLabel }}</el-link>
+        </template>
+      </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="scope">
             <el-button size="small" @click="handleEdit(scope.$index, scope.row)">编辑</el-button>
@@ -165,7 +170,8 @@ const formData = ref<TestPlanInterface>({
   barcode: '',
   fixture_name: '',
   fixture_ip: '',
-  auto_upload: ''
+  auto_upload: '',
+  link: ''
 })
 
 const formRules = reactive<FormRules>({
