@@ -1,8 +1,13 @@
 from PyInquirer import prompt
+from prompt_toolkit import prompt as tp
+from typing import Any
 
 test_choices = ['1.leveling-8ch', '2.leveling-96ch', '3.leveling-gantry', '4.leveling-z-stage', '5.leveling-gripper',
                 '6.leveling-reading-sensor', '7.heat-96ch', '8.grav-openweb', '9.start-server', '10.high-voltage-test',
                 '11.thermocycle-diagnostic-test','12.getlifetime']
+
+leveling_choices = ['1.ch8_leveling_test', '2.ch96_leveling_test', '3.gantry_leveling_test', '4.z_leveling_test',
+                    '5.gripper_leveling_test', "6.read-sensor", "7.exit."]
 
 question_flex = {
     'type': 'input',
@@ -35,6 +40,13 @@ question_test = {
     'name': 'test',
     'message': 'Please select test name (请选择开始测试内容):',
     'choices': test_choices
+}
+
+question_leveling = {
+    'type': 'list',
+    'name': 'test',
+    'message': 'Please select test name (请选择开始测试内容):',
+    'choices': leveling_choices
 }
 
 question_exit = {
@@ -72,6 +84,11 @@ def prompt_test_name():
     return ret['test'].strip()
 
 
+def prompt_leveling():
+    ret = prompt(question_leveling)
+    return ret['test'].strip()
+
+
 def prompt_connect_method():
     ret = prompt(question_ssh_connection)
     return ret['connection'].strip()
@@ -85,3 +102,6 @@ def prompt_exit():
 def prompt_openweb():
     ret = prompt(question_openweb)
     return ret['openweb'].strip()
+
+def input_with_default(note_text: str, default_value: Any):
+    return tp(note_text, default=default_value)

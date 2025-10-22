@@ -86,11 +86,36 @@ class ReadLaser(TestBase):
         """
         await self.api.move_to(self.mount, p, target="pipette", )
 
-    async def run_test(self, slot_name, project_path):
+    async def run_test(self, robot_ip):
+        self.robot_ip = robot_ip
+        while True:
+            answer = input("Select mount(L/R)?").upper().strip()
+            if "L" in answer:
+                self.mount = Mount.LEFT
+                break
+            elif "R" in answer:
+                self.mount = Mount.RIGHT
+                break
+            else:
+                print("请重新输入!")
+        while True:
+            try:
+                times = int(input("Reading times (default 30 times):"))
+                break
+            except Exception as e:
+                print(e)
+        while True:
+            try:
+                point = input("Define reading point (example: 200,200,500):").strip()
+                point_list = list(map(lambda x: float(x), point.split(',')))
+                self.point = Point(*point_list)
+                break
+            except Exception as e:
+                print(e)
         await self.build_reading()
         if KeepReading:
             await self.move_to_test_point(self.point)
-        for i in range(Rounds):
+        for i in range(int(times)):
             # print(f"Round --------------------------------- {i + 1}")
             await self.api.home()
             if not KeepReading:
@@ -112,13 +137,7 @@ class ReadLaser(TestBase):
             if UseHighAccuracy:
                 result.update({"high": high_res})
             print(f"{i+1} -> Time: {result['time']},{result[2]},{result[3]}")
-            # if project_path is not None:
-            #     file_path = os.path.join(project_path, 'testing_data', 'reading_laser.csv')
-            # else:
-            #     file_path = '../../testing_data/reading_laser.csv'
-            # self.save_csv(file_path, [slot_name], list(result.values()))
-            # if KeepReading is not True:
-            #     await self.api.home()
+        await self.api.home()
 
     async def move_to_and_read(self, p: Point, ch: int):
         await self.move_to_test_point(p)
