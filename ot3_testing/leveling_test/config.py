@@ -173,11 +173,11 @@ LevelingSetting = {
         Mount.LEFT: {
             SlotName.C1: {
                 Direction.Y: {
-                    "point": Point(215, 197, 357),
-                    "compensation": {"below_rear": 0.014, "below_front": 0},
+                    "point": Point(215.42, 198.33, 299.16),
+                    "compensation": {"right_rear": 0.014, "right_front": 0},
                     "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
+                        "right_front": 0,
+                        "right_rear": 1
                     }
                 },
                 Direction.X: {},
@@ -187,11 +187,11 @@ LevelingSetting = {
         Mount.RIGHT: {
             SlotName.A2: {
                 Direction.Y: {
-                    "point": Point(5, 410, 357),
-                    "compensation": {"below_rear": -0.056, "below_front": 0},
+                    "point": Point(335.94, 412.22, 299.16),
+                    "compensation": {"right_rear": -0.056, "right_front": 0},
                     "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
+                        "right_front": 0,
+                        "right_rear": 1
                     }
                 },
                 Direction.X: {},
@@ -199,11 +199,11 @@ LevelingSetting = {
             },
             SlotName.C1: {
                 Direction.Y: {
-                    "point": Point(175, 410, 357),
-                    "compensation": {"below_rear": -0.07, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
+                    "point": Point(172.07,197.18,299.16),
+                    "compensation": {"right_rear": -0.07, "right_front": 0},
+                     "channel_definition": {
+                        "right_front": 0,
+                        "right_rear": 1
                     }
                 },
                 Direction.X: {},
@@ -212,11 +212,11 @@ LevelingSetting = {
             },
             SlotName.C3: {
                 Direction.Y: {
-                    "point": Point(335, 410, 357),
-                    "compensation": {"below_rear": -0.062, "below_front": 0},
+                    "point": Point(499.83, 197.18, 299.16),
+                    "compensation": {"right_rear": -0.062, "right_front": 0},
                     "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
+                        "right_front": 0,
+                        "right_rear": 1
                     }
                 },
                 Direction.X: {},

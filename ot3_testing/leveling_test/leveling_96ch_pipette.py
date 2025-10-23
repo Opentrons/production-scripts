@@ -10,15 +10,12 @@ from ot3_testing.leveling_test.csv.report import LevelingCSV
 
 class CH96_Leveling(LevelingBase):
     def __init__(self, robot_ip_address: str, test_name= TestNameLeveling.CH96_Leveling):
-        super().__init__(robot_ip_address, test_name)
+        super().__init__(robot_ip_address)
         self.test_name = test_name
         self.judge_complete = False
         self.__spec_xy = 0.25
         self.__spec_z = 0.35
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.report = LevelingCSV("CH96_Leveling_Test.csv",
-                                  os.path.join(script_dir, 'testing_data'),
-                                  self.test_name, self.robot_sn)
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.__direction = Direction.X
 
     def __str__(self):
@@ -78,22 +75,26 @@ class CH96_Leveling(LevelingBase):
             self.show_result(result, difference, with_compensation=True)
             # step4: set spec
             self.spec = self.__spec
+            csv_result = result.copy()
             if self.is_pass:
-                result.update({"result": difference})
-                self.report.write_new_results(result)
+                csv_result.update({"result": difference})
+                self.report.write_new_results(csv_result)
+                # home
+                await self.home_z()
                 break
             else:
                 if i < 2:
                     print(f"The test result out of the spec, {self.spec}, try to retest {i + 1} times")
-                    await self.home_z()
                 else:
-                    result.update({"result": difference})
-                    self.report.write_new_results(result)
+                    csv_result.update({"result": difference})
+                    self.report.write_new_results(csv_result)
+                await self.home_z()
 
     async def run(self):
         try:
             #  定义初始化参数
             self.add_compensation = True
+            self.build_report("CH96_Leveling_Test.csv", self.script_dir, self.test_name)
             slot_list = {
                Mount.LEFT: {
                    Direction.Y: [SlotName.A2, SlotName.C1, SlotName.C3],
@@ -104,14 +105,11 @@ class CH96_Leveling(LevelingBase):
             }
             self.report.create_csv_path()
             await self.home()
+            # 初始化laser
+            self.build_reader()
+            self.report.init_title()
             # 遍历所有slot
             for mount in [Mount.RIGHT, Mount.LEFT]:
-                # build reader
-                if mount == self.slot_config.mount and self.laser is not None:
-                    pass
-                else:
-                    if not self.build_reader():
-                        raise Exception("Build Reader Failed")
                 direction_setting = slot_list[mount]
                 for direction, slot_name_list in direction_setting:
                     self.__direction = direction
@@ -122,10 +120,7 @@ class CH96_Leveling(LevelingBase):
                     for slot_name in slot_name_list:
                         # build api and init slot config
                         await self.init_slot(self.test_name, mount, slot_name, self.__direction)
-                        # home
-                        await self.home_z()
                         # run trial
-                        self.report.init_title()
                         await self.run_trials()
         except KeyboardInterrupt("Customer exit"):
             pass
@@ -136,14 +131,12 @@ class CH96_Leveling(LevelingBase):
             await self.maintenance_api.delete_run()
 
     def build_reader(self):
-        reader_type = self._reader_type
-        if reader_type is LaserSensor:
-            if self.laser is not None:
-                self.laser.close()
-            self.laser = Reader.init_laser_stj_10m0(self.slot_config.mount)
-            if self.laser is not None or NotImplemented:
-                return True
-        return False
+        for mount in [Mount.LEFT]:
+            reader_type = self._reader_type
+            if reader_type is LaserSensor:
+                self.laser = Reader.init_laser_stj_10m0(mount)
+                if self.laser is not None or NotImplemented:
+                    self.lasers[mount] = self.laser
 
 if __name__ == '__main__':
     ch96_leveling = CH96_Leveling(robot_ip_address="192.168.6.15")

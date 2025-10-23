@@ -54,7 +54,6 @@ class LevelingCSV:
                 print("先关闭正在查看的Report !")
                 print(e)
                 time.sleep(1)
-                return False
 
     def write_rows(self, rows: list[list[Any]]):
         """
@@ -62,16 +61,16 @@ class LevelingCSV:
         :param rows:
         :return:
         """
-        try:
-            with open(self.file_name, 'w', newline='', encoding='utf-8') as file:
-                writer = csv_module.writer(file)
-                writer.writerows(rows)
-                return True
-        except PermissionError as e:
-            print("先关闭正在查看的Report !")
-            print(e)
-            time.sleep(1)
-            return False
+        while True:
+            try:
+                with open(self.file_name, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv_module.writer(file)
+                    writer.writerows(rows)
+                    return True
+            except PermissionError as e:
+                print("先关闭正在查看的Report !")
+                print(e)
+                time.sleep(1)
 
     def init_title(self) -> None:
         """
@@ -86,6 +85,8 @@ class LevelingCSV:
                 break
             for slot_name, slots_setting in slots.items():
                 for direction, direction_config in slots_setting.items():
+                    if direction_config == {}:
+                        break
                     channel_definition = direction_config["channel_definition"]
                     channel_list: list[str] = list(channel_definition.keys())
                     _pre_title_str = f"{mount.value}_{slot_name.name}_{direction.value}"
@@ -102,6 +103,7 @@ class LevelingCSV:
         :param result:
         :return:
         """
+        print("Writing to CSV \n")
         data_list = list(result.values())
         if not os.path.exists(self.file_name):
             raise FileExistsError(f"{self.file_name} should be initialed first !")

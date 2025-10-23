@@ -44,7 +44,7 @@ class LinuxFileManager:
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             if not self.password:
                 # self.password = input(f"Enter SSH password for {self.username}@{self.host} (默认回车无密码) :")
-                self.password = self.password if self.password is not "" else "None"
+                self.password = self.password if self.password != "" else "None"
             self.ssh.connect(self.host, port=self.port, username=self.username, password=self.password, timeout=timeout)
             self.sftp = self.ssh.open_sftp()
             print("✅ SSH 连接成功！")
@@ -204,7 +204,7 @@ def main():
     )
 
     files = manager.list_files(remote_dir, show=False)
-    if len(files) is not 0:
+    if len(files) != 0:
         # 选择要下载的文件
         question_files = get_downloads(files)
         answer = prompt(question_files)['files']

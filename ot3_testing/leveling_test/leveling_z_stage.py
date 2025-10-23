@@ -7,19 +7,15 @@ import asyncio
 import threading
 import traceback
 import os
-from ot3_testing.leveling_test.csv.report import LevelingCSV
 
 
 class Z_Leveling(LevelingBase):
-    def __init__(self, robot_ip_address: str, test_name= TestNameLeveling.Z_Leveling):
-        super().__init__(robot_ip_address, test_name)
+    def __init__(self, robot_ip_address: str, test_name=TestNameLeveling.Z_Leveling):
+        super().__init__(robot_ip_address)
         self.test_name = test_name
         self.judge_complete = False
-        self.___spec = 0.15
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.report = LevelingCSV("Z_Leveling_Test.csv",
-                                  os.path.join(script_dir, 'testing_data'),
-                                  self.test_name, self.robot_sn)
+        self.__spec = 0.25
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
 
     def __str__(self):
         return self.test_name.name.upper()
@@ -74,17 +70,20 @@ class Z_Leveling(LevelingBase):
             self.show_result(result, difference, with_compensation=True)
             # step4: set spec
             self.spec = self.__spec
+            csv_result = result.copy()
             if self.is_pass:
-                result.update({"result": difference})
-                self.report.write_new_results(result)
+                csv_result.update({"result": difference})
+                self.report.write_new_results(csv_result)
+                # home
+                await self.home_z()
                 break
             else:
                 if i < 2:
                     print(f"The test result out of the spec, {self.spec}, try to retest {i + 1} times")
-                    await self.home_z()
                 else:
-                    result.update({"result": difference})
-                    self.report.write_new_results(result)
+                    csv_result.update({"result": difference})
+                    self.report.write_new_results(csv_result)
+                await self.home_z()
 
     async def judge_z_stage(self):
         """
@@ -93,12 +92,11 @@ class Z_Leveling(LevelingBase):
         """
         await self.init_slot(self.test_name, Mount.RIGHT, SlotName.C2, Direction.Z)
         # build reader
-        if not self.build_reader():
-            raise Exception("Build Reader Failed")
+        self.laser = self.lasers[Mount.RIGHT]
         await self.move_to_slot(calibration_func_callback=self.calibration_callback)
 
         def read_result():
-            result = Reader.read_sensor(self.laser)
+            result = Reader.read_sensor(self.laser, delay=0)
             _, diff = self.reader_handler(result)
             _, diff = self.apply_compensation()
             return _, diff
@@ -127,6 +125,7 @@ class Z_Leveling(LevelingBase):
         try:
             #  定义初始化参数
             self.add_compensation = True
+            self.build_report("Z_Leveling_Test.csv", self.script_dir, self.test_name)
             slot_list = {
                 Mount.LEFT: [SlotName.C2],
                 Mount.RIGHT: [SlotName.A1, SlotName.A2, SlotName.A3,
@@ -136,26 +135,24 @@ class Z_Leveling(LevelingBase):
             }
             self.report.create_csv_path()
             await self.home()
+            # 初始化laser
+            print("Initialing the serial devices")
+            self.build_reader()
             # 调节C2里面Z轴平行
             await self.judge_z_stage()
-            await self.home_z()
+            await self.home()
+            self.report.init_title()
             # 遍历所有slot
             for mount in [Mount.RIGHT, Mount.LEFT]:
-                # build reader
-                if mount == self.slot_config.mount and self.laser is not None:
-                    pass
-                else:
-                    if not self.build_reader():
-                        raise Exception("Build Reader Failed")
                 _slot_list = slot_list[mount]
+                self.laser = self.lasers[mount]
                 for slot_name in _slot_list:
                     # build api and init slot config
                     await self.init_slot(self.test_name, mount, slot_name, Direction.Z)
-                    # home
-                    await self.home_z()
                     # run tria
-                    self.report.init_title()
                     await self.run_trials()
+                await self.home()
+            self.release_laser()
         except KeyboardInterrupt("Customer exit"):
             pass
         except Exception():
@@ -165,14 +162,13 @@ class Z_Leveling(LevelingBase):
             await self.maintenance_api.delete_run()
 
     def build_reader(self):
-        reader_type = self._reader_type
-        if reader_type is LaserSensor:
-            if self.laser is not None:
-                self.laser.close()
-            self.laser = Reader.init_laser_stj_10m0(self.slot_config.mount)
-            if self.laser is not None or NotImplemented:
-                return True
-        return False
+        for mount in [Mount.RIGHT, Mount.LEFT]:
+            reader_type = self._reader_type
+            if reader_type is LaserSensor:
+                self.laser = Reader.init_laser_stj_10m0(mount)
+                if self.laser is not None or NotImplemented:
+                    self.lasers[mount] = self.laser
+
 
 if __name__ == '__main__':
     z_leveling = Z_Leveling(robot_ip_address="192.168.6.15")

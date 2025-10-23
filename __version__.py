@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-VERSION = '1.5.7'
+VERSION = '1.5.8(ForV8.6.0)'
 
 
 def get_version():
@@ -30,8 +30,7 @@ def explore_requirement():
 
 
 def build():
-    cmd = f'pyinstaller -F --ico="source/logo.ico"  --name=Productions-{VERSION} ' \
-          f'--hidden-import passlib.handlers.bcrypt production_scripts.py'
+    cmd = f'pyinstaller -F --ico="shared_data/logo.ico"  --name=Productions-{VERSION} production_scripts.py'
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     while True:
         line = process.stdout.readline()

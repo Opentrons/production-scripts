@@ -14,8 +14,8 @@ class ReadableSensor(Protocol):
 @dataclass
 class Reader:
     @staticmethod
-    def read_sensor(laser: ReadableSensor) -> dict[int, float]:
-        for i in range(6):
+    def read_sensor(laser: ReadableSensor, delay=6) -> dict[int, float]:
+        for i in range(delay):
             print(f"Waiting {i + 1}/(6) s...")
             time.sleep(1)
         result = laser.read_sensor_low(show_distance=True) # duck typing

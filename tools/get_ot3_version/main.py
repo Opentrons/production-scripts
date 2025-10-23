@@ -101,10 +101,15 @@ class GetVersion:
             else:
                 key_data = base64.b64decode(key_str.strip())
                 key = paramiko.RSAKey.from_private_key(io.StringIO(key_data.decode("utf-8")))
-            self.ssh.connect(host, port=port, username=username, password=password, timeout=timeout, pkey=key)
-            self.sftp = self.ssh.open_sftp()
-            print("✅ SSH 连接成功！")
-            return True
+            try:
+                self.ssh.connect(host, port=port, username=username, password=password, timeout=timeout, pkey=key)
+                self.sftp = self.ssh.open_sftp()
+                print("✅ SSH 连接成功！")
+                return True
+            except Exception as e:
+                print("connect to robot fail, break this step\n")
+                print(e)
+                return False
         except Exception as e:
             print(f"❌ SSH 密钥连接失败: \n")
             print(e)

@@ -84,7 +84,7 @@ def prompt_test_name():
     return ret['test'].strip()
 
 
-def prompt_leveling():
+def prompt_leveling() -> str:
     ret = prompt(question_leveling)
     return ret['test'].strip()
 
