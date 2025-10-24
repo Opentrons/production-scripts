@@ -1,8 +1,6 @@
 import yaml
 import os
 import shutil
-
-from multipart import file_path
 import platform
 
 MY_PROJECT = "google_driver_handler"
@@ -41,7 +39,7 @@ class yamlfunc():
             # 读取YAML文件
             with open(self.fullpath, "r") as yaml_file:
                 data = yaml.load(yaml_file, Loader=yaml.FullLoader)
-                print(data)
+                #print(data)
             return data
         except Exception as errval:
             print("读取yaml出错", errval)
