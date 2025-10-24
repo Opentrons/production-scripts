@@ -72,7 +72,8 @@ class updata_class():
 
 
     # 1CH 8CH通道容量数据上传
-    def updatavolume_1CH_8CH(self, upfilepath, pipettesn, pipettetype, upfailelist,Note_str="AUTO-UPLOAD-TE"):
+    def updatavolume_1CH_8CH(self, upfilepath, pipettesn, pipettetype, zip_file, func_callback=None,
+                                 Note_str="AUTO-UPLOAD-TE"):
         """_summary_
 
         Args:
@@ -112,7 +113,8 @@ class updata_class():
                 u = self.yamldata["8ch_updata_volume"][0]
             else:
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_volume' 键，或其对应值不是列表类型")
-
+        #进度
+        func_callback(10)
         if u["ifupdata"]:
             #创建原始文件的文件夹（SN命名）
             now = datetime.now()
@@ -229,12 +231,11 @@ class updata_class():
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
 
                         # 上传原始文件到文件夹
-                        for file_path in upfailelist:
-                            upfaileid = self.gdrive.upload_to_drive(file_path, upid)
-                            if upfaileid != '':
-                                upfailpass = "True"
-                            else:
-                                upfailpass = "False"
+                        upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
+                        if upfaileid != '':
+                            upfailpass = "True"
+                        else:
+                            upfailpass = "False"
 
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
 
@@ -260,7 +261,7 @@ class updata_class():
                 progress_callback(i+1)
     
     # 1CH 8CH通道诊断数据上传
-    def UpdateAssemblyQC_1CH_8CH(self, qcfilepath,currentpath, pipettesn, pipettetype, zip_file, func_callback=None,
+    def UpdateAssemblyQC_1CH_8CH(self, qcfilepath, pipettesn, pipettetype, zip_file, func_callback=None,
                                  csv_link=None):
         """_summary_
 
@@ -293,6 +294,8 @@ class updata_class():
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
+        #进度
+        func_callback(10)
         
         # 更新容量数据demo
         if pipettetype in List_1ch: #== "P50S" or pipettetype == "P1000S" or pipettetype =="P50S Millipore" or pipettetype =="P1000S  Millipore":
@@ -423,17 +426,17 @@ class updata_class():
                         # 上传原始文件到文件夹
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
-                        for file_path in upfailelist:
-                            upfaileid = self.gdrive.upload_to_drive(file_path, upid)
-                            if upfaileid != '':
-                                upfailpass = "True"
-                            else:
-                                upfailpass = "False"
+                        upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
+                        if upfaileid != '':
+                            upfailpass = "True"
+                        else:
+                            upfailpass = "False"
 
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
     
     # 1CH 8CH通道电流数据上传
-    def UpdateSpeedCurrent_1CH_8CH(self,currentpath, pipettesn, pipettetype, upfailelist,csv_link=None):
+    def UpdateSpeedCurrent_1CH_8CH(self,currentpath, pipettesn, pipettetype, zip_file, func_callback=None,
+                                 csv_link=None):
         """_summary_
 
         Args:
@@ -481,7 +484,8 @@ class updata_class():
                 u = self.yamldata["8ch_updata_qc"][0]
             else:
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_qc' 键，或其对应值不是列表类型")
-        
+        #进度
+        func_callback(10)
         if u["ifupdata"]:
 
             if csv_link == None:
@@ -598,12 +602,12 @@ class updata_class():
                         # 上传原始文件到文件夹
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
-                        for file_path in upfailelist:
-                            upfaileid = self.gdrive.upload_to_drive(file_path, upid)
-                            if upfaileid != '':
-                                upfailpass = "True"
-                            else:
-                                upfailpass = "False"
+                        
+                        upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
+                        if upfaileid != '':
+                            upfailpass = "True"
+                        else:
+                            upfailpass = "False"
 
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
 
@@ -634,9 +638,9 @@ class updata_class():
         """
         test_res = []
         if test_type == "assembly_qc":
-            test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file, )
+            test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,func_callback=func_callback)
         elif test_type == "grav_test":
-            test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,Note_str)
+            test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,func_callback=func_callback,Note_str=Note_str)
         elif test_type == "speed_current_test":
             test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
         return test_res
