@@ -260,7 +260,8 @@ class updata_class():
                 progress_callback(i+1)
     
     # 1CH 8CH通道诊断数据上传
-    def UpdateAssemblyQC_1CH_8CH(self, qcfilepath,currentpath, pipettesn, pipettetype, upfailelist,csv_link=None):
+    def UpdateAssemblyQC_1CH_8CH(self, qcfilepath,currentpath, pipettesn, pipettetype, zip_file, func_callback=None,
+                                 csv_link=None):
         """_summary_
 
         Args:
@@ -276,7 +277,6 @@ class updata_class():
         move_success = None #移动数据状态
         upfailpass = None #上传源文件状态]
         """
-
         nametypedict = {
             "P1000S":"P1000S-template-v1.5",
             "P50S":"P50S-template-v1.5",
@@ -608,7 +608,8 @@ class updata_class():
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
 
 
-    def update_data_to_google_drive(self,upfile_path, pipette_sn, pipette_type, upfaile_path_list,test_type,csv_link=None,Note_str="AUTO-UPLOAD-TE"):
+    def update_data_to_google_drive(self,upfile_path, pipette_sn, pipette_type, zip_file,test_type,
+                                    func_callback=None, csv_link=None, Note_str="AUTO-UPLOAD-TE"):
         """testtypelist = ["assembly_qc","speed_current_test","grav_test"]
         
 
@@ -616,7 +617,7 @@ class updata_class():
             upfile_path (str): 测试原始数据的服务器路径地址
             pipettesn (str): 要上传数据的移液器SN
             pipette_type (str): 移液器的类型 只支持（对应TRACKING SHEET里面的sheet名称）: P50S, P1000S, P50M, P1000M, P50S Millipore,P1000S  Millipore,P50M Ultima,P1000M Ultima , P50M Millipore , P1000M Millipore 
-            upfaile_path_list:需要上传的测试原文件服务器路径地址
+            zip_file:需要上传的测试原文件的压缩包
             test_type (str): 测试类型 like: "assembly_qc","speed_current_test","grav_test"
             csv_link (str): 诊断数据报告链接
             Note_str (str): TRACKER SHEET 中的备注
@@ -633,11 +634,11 @@ class updata_class():
         """
         test_res = []
         if test_type == "assembly_qc":
-            test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,upfaile_path_list,csv_link)
+            test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file, )
         elif test_type == "grav_test":
-            test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,upfaile_path_list,Note_str)
+            test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,Note_str)
         elif test_type == "speed_current_test":
-            test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,upfaile_path_list,csv_link)
+            test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
         return test_res
 
 
