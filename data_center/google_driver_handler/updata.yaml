@@ -409,6 +409,7 @@ volumupdata_1ch: #单通道容量数据上传
     ifcopytemplate:
         off/on: true
         copyTempExcelId: "1evVmo4Sf2RsoivpiZY2ZsMx9qRLaZFhUV2H-PLfaDwg" #模版的ID
+        UltimacopyTempExcelId: "1SGAdpQQ1WqXVe9iWolf9Lb9qp6YKdGvcjYwvlVGWuWc" #PEEK的模版
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 

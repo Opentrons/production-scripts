@@ -102,11 +102,11 @@
 1ch_updata_qc: #生产单通诊断数据上传
   #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
   - ifupdata: true #是否执行更新该数据配置
-    explanation: "1CH_AssemblyQC" #做函数数据上传
+    explanation: "1ch_updata_qc" #做函数数据上传
 
     ifcopytemplate:
         off/on: true
-        copyTempExcelId: "1evVmo4Sf2RsoivpiZY2ZsMx9qRLaZFhUV2H-PLfaDwg" #模版的ID
+        copyTempExcelId: "1X1PVs2MI5QHx5qX9kDFi_sfYRuGfVdM4SXTUmOdKfYc" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 
@@ -180,16 +180,16 @@
         3: "1CkTtBXXDc-H8ES_6keA_7mT-sDfcCr7a"
         4: "15qOkSZePv_BMZFTkSqiU6R_niTFU0Yy2"
         5: "1d4HrvNdhHsXztXqW-rGqXFegN-aD3WeS"
-        6: ""
-        7: ""
-        8: ""
-        9: ""
-        10: ""
-        11: ""
-        12: ""
+        6: "1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY"
+        7: "1EC-I3fwAJm9LDVD-jlVJLJaqMJhnVOqs"
+        8: "1vx3Q9V6OziFn0cWNcjaEC4LYlvX5cg4I"
+        9: "19JGPweXtmcWHzJ0HNjg8GYRMUlm0081a"
+        10: "1ahT9GFLomners7kQpd_-CwUEOL5haMfx"
+        11: "1nbflqZTBEDgWnyIoefCQkd1sWjBvBjuO"
+        12: "1gzvWGl8JnTIkyCUhzNmed0g7lqIP-U-1"
     ifupdatarawdata: #上传源文件
       2025:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
         1: ""
         2: ""
         3: ""
@@ -203,7 +203,7 @@
         11: ""
         12: ""
       2026:
-        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
         1: ""
         2: ""
         3: ""
@@ -317,3 +317,126 @@
         10: "1F3Z6IV3zH7OdjwRJtL0jgw_tC4AYYHct"
         11: "1v4nerxhKm4K4SyQIfkjELXCVKjMXE5kf"
         12: "1NOl0_mVqHL5vrj6M0SE2TeOuvuAW__ds"
+
+8ch_updata_qc: #生产单通诊断数据上传
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "8ch_updata_qc" #做函数数据上传
+
+    ifcopytemplate:
+        off/on: true
+        copyTempExcelId: "1hDc3e7L0JS1T758k3-3yx0iRzDzk8XxYJii7dyMEiW8" #模版的ID
+        UltimacopyTempExcelId: "1rz63RON6C2g1MX_WzaWCgV6RRp9xw3Fs0DuGg-Kyq9Y" #PEEK的模版
+        copynewfilename: "" #复制后的名字,以移液器条码命令
+  
+
+    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
+    ExcelSheetName: #可以把一个数据更新到多个sheet
+      - "Assembly QC" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+      - "E"
+      - "F"
+      - "G"
+      - "H"
+      - "I"
+      - "J"
+    filefrompath: "" #数据来源的路径 文件服务提供
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    UpCurrentSpeedTest:
+      Range: #要更新Excel的 列 范围 
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+      ExcelSheetName: "Current/Speed Test"
+  
+
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "" #要复制的文件ID
+        copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
+        copyRange: 
+          - "!M11:BS11" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "" #这里为空 自行判断是否为最后一行
+        pastefileid: "1XeyLEGn5x22XuvABFVyNFYpDjHes55VOYxlGRS7feus" #粘贴的Excel文件ID
+        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
+        pastelineRange: 
+          star: "C" #粘贴的开始
+          end: "BJ" #粘贴的结束
+        UltimapastelineRange:
+          star: "H" #粘贴的开始
+          end: "BY" #粘贴的结束
+
+    
+    movetestfail:
+      2025:
+        fumulu: "1ln3vgPTivPQB3U2u3qzPkwWuoTDhHbH9"
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: "1vYp6G1MH6me7mpPgNVjaJaDnWWSlEXxr"
+        11: "1YKGOqxGvaaniDI3ddWYIE0bs-5fdB1sF"
+        12: "1ImuLzIJztiG8Fk3DGLycKoH4lPxZONSo"
+      2026:
+        fumulu: "1Dxx5G3GQ5mDD7h7Lj5Eshz1P72YPtmTd"
+        1: "1CxyCVgyI7BUWufo9pMVpTb_wVECl2cr0"
+        2: "1ZgjHCpVwTqqDKQmnn80EJA7VkWVr1CM4"
+        3: "1-LXp_s6hyRYwsUxIUQqQxsQigYSj2P9N"
+        4: "1kibsqOzAtxg7DPoYbjMkYNVi3l8YiIIM"
+        5: "1ZvXdZsZrp0b8QyFKxmnUl3JeejHm1TbB"
+        6: "1sb-8hXNrPUddHYOTsqtBWYuUFTSFicu8"
+        7: "1rwXJCpA9grubRj73ff61J85FiXdCY8Aw"
+        8: "1Ysisdi8Mvlc28boHDa_x_cID3HdmEXZc"
+        9: "1A-e--CsJYwU5FOnVKlsADbfDf_KcdiX-"
+        10: "1uROH4pINFJm3CslIi_1d_s8EOyEVDcmR"
+        11: "1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i"
+        12: "1GbMma_5sf4l_3bJ_tvFvQF-OCmaAjWhY"
+    ifupdatarawdata: #上传源文件
+      2025:
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        11: ""
+        12: ""
+      2026:
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: ""
+        11: ""
+        12: ""
