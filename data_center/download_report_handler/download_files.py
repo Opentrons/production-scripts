@@ -44,6 +44,7 @@ class TestPlanInterface:
     fixture_name: str
     fixture_ip: str
     auto_upload: bool
+    link: str
 
 
 class LinuxFileManager:
@@ -268,9 +269,15 @@ class LinuxFileManager:
             callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
             if callback_result is not None:
                 print("sat progress")
-
-        drive.upload_testing_data_demo(file_name, sn, production, test_name, zip_file,
-                                       progress_callback=function_callback, link=csv_id)
+        print("Debug Parameters: ")
+        print(file_name),
+        print(sn)
+        print(production.value)
+        print(zip_file)
+        print(test_name)
+        result = drive.update_data_to_google_drive(file_name, sn, production.value, zip_file, test_name,
+                                       func_callback=function_callback, csv_link=csv_id)
+        print(result)
 
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
         # 判断是否已上传或者是否为今日的日期
@@ -316,7 +323,7 @@ class LinuxFileManager:
                     google_drive_obj.star_int()
 
                     th = Thread(target=self.upload_target, args=(db, google_drive_obj, data_file,
-                                                                 value_to_enum[production], test_key, sn, zip_name),
+                                                                 value_to_enum[production], test_key, sn, zip_path),
                                 kwargs={'csv_id': _link})
                     th.start()
                     th.join()
