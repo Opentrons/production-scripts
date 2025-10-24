@@ -637,7 +637,7 @@ class updata_class():
         
         """
         test_res = []
-        if test_type == "assembly_qc":
+        if test_type == "pipette-assembly-qc-ot3":
             test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,func_callback=func_callback)
         elif test_type == "grav_test":
             test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,func_callback=func_callback,Note_str=Note_str)
