@@ -110,15 +110,10 @@ class LevelingBase(ABC):
         apply compensation
         :return:
         """
-        print("DEBUG")
         if self.add_compensation:
             compensation = self.slot_config.compensation
-            print(compensation)
-            print(self.laser_result)
             for key, value in self.laser_result.items():
                 self.laser_result[key] = value + compensation[key]
-            print(self.laser_result)
-            input("continue...")
         return self.laser_result, round(
             abs(max(list(self.laser_result.values())) - min(list(self.laser_result.values()))), 3)
 
@@ -145,6 +140,7 @@ class LevelingBase(ABC):
         :return: the result and the difference
         """
         channel = self.slot_config.channel
+        self.laser_result.clear()
         for key, value in channel.items():
             self.laser_result.update({key: result[value]})
         return self.laser_result, round(

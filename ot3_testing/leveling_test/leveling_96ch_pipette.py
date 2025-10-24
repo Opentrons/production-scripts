@@ -46,7 +46,10 @@ class CH96_Leveling(LevelingBase):
             if cli:
                 break
             if self.__direction == Direction.Y:
-                await self.move_left(abs(step)) if step >0 else await self.move_right(abs(step))
+                if self.slot_config.slot_name == SlotName.C3:
+                    await self.move_left(abs(step)) if step < 0 else await self.move_right(abs(step))
+                else:
+                    await self.move_left(abs(step)) if step >0 else await self.move_right(abs(step))
             elif self.__direction == Direction.X:
                 await self.move_forward(abs(step)) if step > 0 else await self.move_back(abs(step))
             elif self.__direction == Direction.Z:
@@ -73,8 +76,6 @@ class CH96_Leveling(LevelingBase):
             self.show_result(result, difference, with_compensation=False)
             result, difference = self.apply_compensation()
             self.show_result(result, difference, with_compensation=True)
-            # step4: set spec
-            self.spec = self.__spec
             csv_result = result.copy()
             if self.is_pass:
                 csv_result.update({"result": difference})
@@ -109,9 +110,9 @@ class CH96_Leveling(LevelingBase):
             self.build_reader()
             self.report.init_title()
             # 遍历所有slot
-            for mount in [Mount.RIGHT, Mount.LEFT]:
+            for mount in [Mount.LEFT]:
                 direction_setting = slot_list[mount]
-                for direction, slot_name_list in direction_setting:
+                for direction, slot_name_list in direction_setting.items():
                     self.__direction = direction
                     if self.__direction in [Direction.X, Direction.Y]:
                         self.spec = self.__spec_xy

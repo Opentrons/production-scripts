@@ -106,13 +106,13 @@ class GetVersion:
                 self.sftp = self.ssh.open_sftp()
                 print("✅ SSH 连接成功！")
                 return True
-            except Exception as e:
+            except Exception as _e:
                 print("connect to robot fail, break this step\n")
-                print(e)
+                print(_e)
                 return False
-        except Exception as e:
+        except Exception as error:
             print(f"❌ SSH 密钥连接失败: \n")
-            print(e)
+            print(error)
             return False
 
     def detect_instrument(self, instrument: str):

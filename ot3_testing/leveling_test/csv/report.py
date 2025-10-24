@@ -1,19 +1,20 @@
 import os
 import time
-
+from typing import Optional
 from ot3_testing.leveling_test.type import TestNameLeveling
 import csv as csv_module
 from typing import Any
 from ot3_testing.leveling_test.config import LevelingSetting
-
+import platform
 TITLE_START = "START_TIME"
+SYSTEM_PLATFORM = platform.system()
 
 
 class LevelingCSV:
     def __init__(self, csv_name: str, saving_path: str, test_name: TestNameLeveling, robot_sn: str):
         self.csv_name = csv_name
         self.saving_path = saving_path
-        self.file_name = os.path.join(self.saving_path, self.csv_name)
+        self.file_name: Optional[str] = None
         self.format_file_name()
         self.test_name = test_name
         self.__start_time = self.__class__.create_start_time()
@@ -34,8 +35,13 @@ class LevelingCSV:
         return time_str
 
     def format_file_name(self):
-        if '\\' in self.file_name:
-            self.file_name = self.file_name.replace('\\', '/')
+        self.file_name = os.path.join(self.saving_path, self.csv_name)
+        if "Windows" in SYSTEM_PLATFORM and "/" in self.file_name:
+            self.file_name = self.file_name.replace('/', '\\')
+        else:
+            if "\\" in self.file_name:
+                self.file_name = self.file_name.replace('\\', '/')
+        print("CSV PATH: ", self.file_name)
 
     def is_file_exist(self) -> bool:
         if os.path.exists(self.file_name) and os.path.isfile(self.file_name):
