@@ -182,7 +182,7 @@ volumupdata_1ch: #单通道容量数据上传
 1ch_updata_qc: #生产单通诊断数据上传
   #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
   - ifupdata: true #是否执行更新该数据配置
-    explanation: "1CH_AssemblyQC" #做函数数据上传
+    explanation: "1ch_updata_qc" #做函数数据上传
 
     ifcopytemplate:
         off/on: true
@@ -342,6 +342,124 @@ volumupdata_1ch: #单通道容量数据上传
           end: "AO" #粘贴的结束
           note: "AU" #备注
 
+    movetestfail:
+      2025:
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        11: ""
+        12: ""
+      2026:
+        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: ""
+        11: ""
+        12: ""
+    ifupdatarawdata: #上传源文件
+      2025:
+        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        11: ""
+        12: ""
+      2026:
+        fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf #父目录
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: ""
+        11: ""
+        12: ""
+
+8ch_updata_qc: #生产单通诊断数据上传
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "8ch_updata_qc" #做函数数据上传
+
+    ifcopytemplate:
+        off/on: true
+        copyTempExcelId: "1evVmo4Sf2RsoivpiZY2ZsMx9qRLaZFhUV2H-PLfaDwg" #模版的ID
+        copynewfilename: "" #复制后的名字,以移液器条码命令
+  
+
+    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
+    ExcelSheetName: #可以把一个数据更新到多个sheet
+      - "Assembly QC" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+      - "E"
+      - "F"
+      - "G"
+      - "H"
+      - "I"
+      - "J"
+    filefrompath: "" #数据来源的路径 文件服务提供
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    UpCurrentSpeedTest:
+      Range: #要更新Excel的 列 范围 
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+      ExcelSheetName: "Current/Speed Test"
+  
+
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "" #要复制的文件ID
+        copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
+        copyRange: 
+          - "!M11:AV11" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "" #这里为空 自行判断是否为最后一行
+        pastefileid: "1MVFo3Ph2R1S5W8obS1-kSvbZbikSpWCR-fteHtYGnF8" #粘贴的Excel文件ID
+        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
+        pastelineRange: 
+          star: "D" #粘贴的开始
+          end: "AO" #粘贴的结束
+    
     movetestfail:
       2025:
         fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
