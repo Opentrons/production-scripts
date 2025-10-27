@@ -326,7 +326,7 @@
     ifcopytemplate:
         off/on: true
         copyTempExcelId: "1hDc3e7L0JS1T758k3-3yx0iRzDzk8XxYJii7dyMEiW8" #模版的ID
-        UltimacopyTempExcelId: "1rz63RON6C2g1MX_WzaWCgV6RRp9xw3Fs0DuGg-Kyq9Y" #PEEK的模版
+        UltimacopyTempExcelId: "1rz63RON6C2g1MX_WzaWCgV6RRp9xw3Fs0DuGg-Kyq9Y" #PEEK的模版1rz63RON6C2g1MX_WzaWCgV6RRp9xw3Fs0DuGg-Kyq9Y
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 
@@ -366,6 +366,8 @@
         copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
         copyRange: 
           - "!M11:BS11" #复制的范围 左闭右开
+        UltimacopyRange: 
+          - "!M11:CC11" #复制的范围 左闭右开
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
@@ -373,6 +375,7 @@
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1XeyLEGn5x22XuvABFVyNFYpDjHes55VOYxlGRS7feus" #粘贴的Excel文件ID
+        Ultimapastefileid: "1XeyLEGn5x22XuvABFVyNFYpDjHes55VOYxlGRS7feus" #Ultima粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
           star: "C" #粘贴的开始

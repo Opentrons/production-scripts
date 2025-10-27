@@ -449,6 +449,8 @@ volumupdata_1ch: #单通道容量数据上传
         copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
         copyRange: 
           - "!M11:AV11" #复制的范围 左闭右开
+        UltimacopyRange: 
+          - "!M11:CC11" #复制的范围 左闭右开
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
@@ -456,10 +458,14 @@ volumupdata_1ch: #单通道容量数据上传
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1MVFo3Ph2R1S5W8obS1-kSvbZbikSpWCR-fteHtYGnF8" #粘贴的Excel文件ID
+        Ultimapastefileid: "1ML3NXyPst4jYIsFft7ozEV7zQnYSnCX2gFhZ7pKh_s0" #Ultima粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
           star: "D" #粘贴的开始
           end: "AO" #粘贴的结束
+        UltimapastelineRange:
+          star: "H" #粘贴的开始
+          end: "BY" #粘贴的结束
     
     movetestfail:
       2025:

@@ -115,7 +115,8 @@ class updata_class():
             else:
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_volume' 键，或其对应值不是列表类型")
         #进度
-        func_callback(10)
+        if func_callback != None:
+            func_callback(10)
         if u["ifupdata"]:
             #创建原始文件的文件夹（SN命名）
             now = datetime.now()
@@ -126,6 +127,9 @@ class updata_class():
             newfilename = pipettesn + "-qc" + f"-{current_time_str}"
             pastesheetname = pipettetype
             fz = self.gdrive.get_coppy_file(u["ifcopytemplate"]["copyTempExcelId"], newfilename)
+            #进度
+            if func_callback != None:
+                func_callback(20)
             if fz:
                 u["updatafileid"] = fz[1]
                 updatafileid = u["updatafileid"]
@@ -173,6 +177,9 @@ class updata_class():
                 else:
                     uptemp = "FAIL"
                     print("更新文件:失败", u)
+                #进度
+                if func_callback != None:
+                    func_callback(50)
             if uptemp == "PASS":
                 copydatalist = []
                 for cop in u["ifcopydata"]:
@@ -185,6 +192,9 @@ class updata_class():
                         testpass = copydata[0][0][2] #测试结果
                         testall = copydata
                         copydatalist.append(copydata)
+                        #进度
+                        if func_callback != None:
+                            func_callback(60)
 
                 for cs, pase in enumerate(u["ifpaste"]):
                     if pase["off/on"]:
@@ -224,6 +234,9 @@ class updata_class():
                         ret2 = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=NOTES, new_values=[[Note_str]])
                         if ret1:
                             pasestate = True
+                        #进度
+                        if func_callback != None:
+                            func_callback(80)
                         
                         
                         # 移动数据到每月文件夹
@@ -231,7 +244,9 @@ class updata_class():
                         move_success_list=self.gdrive.move_file_Multi_level(updatafileid, monthid)
                         move_success = move_success_list["success"]
 
-
+                        #进度
+                        if func_callback != None:
+                            func_callback(90)
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
 
@@ -241,13 +256,17 @@ class updata_class():
                             upfailpass = True
                         else:
                             upfailpass = False
+                        #进度
+                        if func_callback != None:
+                            func_callback(95)
 
         if uptemp == "False" or move_success == "False" or upfailpass == "False" or pasestate == "False":
             upload_status = False
         else:
             upload_status = True
         
-
+        if func_callback != None:
+            func_callback(100) #进度
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
 
     def upload_testing_data_demo(self, file_name: str, sn: str, production: Productions, zip_file: str,
@@ -289,11 +308,17 @@ class updata_class():
         move_success = None #移动数据状态
         upfailpass = None #上传源文件状态]
         """
+        #产品类型对应TRACKER里面sheet的名称
         nametypedict = {
             "P1000S":"P1000S-template-v1.5",
             "P50S":"P50S-template-v1.5",
             "P1000S Millipore":"Millipore P50S-template-v1.5",
             "P50S Millipore":"Millipore P50S-template-v1.5",
+            "P50M":"P50M",
+            "P1000M":"P1000M",
+            "P1000M Millipore":"Millipore P1000M",
+            "P50M Millipore":"Millipore  P1000M",
+            "P1000M Ultima":"Ultima P1000M"
         }
 
         uptemp = "False" #上传数据状态
@@ -306,8 +331,6 @@ class updata_class():
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
-        #进度
-        func_callback(10)
         
         # 更新容量数据demo
         if pipettetype in List_1ch: #== "P50S" or pipettetype == "P1000S" or pipettetype =="P50S Millipore" or pipettetype =="P1000S  Millipore":
@@ -329,18 +352,18 @@ class updata_class():
             CopyTemplateId = u["ifcopytemplate"]["UltimacopyTempExcelId"]
         else:
             CopyTemplateId = u["ifcopytemplate"]["copyTempExcelId"]
-
-
+        if func_callback != None:
+            func_callback(10) #进度
         if u["ifupdata"]:
+            pastesheetname = nametypedict[pipettetype]
+
+            now = datetime.now()
+            # 格式化为 YYYYMMDDHHMMSS
+            current_time_str = now.strftime("%Y%m%d%H%M%S")
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
-                now = datetime.now()
-                # 格式化为 YYYYMMDDHHMMSS
-                current_time_str = now.strftime("%Y%m%d%H%M%S")
                 # 获取源数据文件路径
                 newfilename = pipettesn + "-QC-SPEED" + f"-{current_time_str}"
-                pastesheetname = nametypedict[pipettetype]
-                
                 fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
@@ -357,6 +380,8 @@ class updata_class():
                 datalen = len(ranglist)
                 # 获取QC源数据
                 exdata = csvdr.Read_csv_all(path=qcfilepath)
+                if func_callback != None:
+                    func_callback(30) #进度
                 alldatalist = []
                 allrangelist = []
                 starrange = 1
@@ -379,7 +404,8 @@ class updata_class():
                         alldatalist.append(setdata)
                         allrangelist.append(rangel)
                         starrange = i + 1 + 1
-
+                if func_callback != None:
+                    func_callback(40) #进度
                 getret = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=updatafileid,
                                                                     sheet_name=sheetname, ranges=allrangelist,
                                                                     new_values=alldatalist)
@@ -389,7 +415,8 @@ class updata_class():
                 else:
                     uptemp = "Fales"
                     print("更新文件:失败", u)
-
+                if func_callback != None:
+                    func_callback(50) #进度
                 
             if uptemp == "Ture":
                 copydatalist = []
@@ -399,17 +426,25 @@ class updata_class():
                             cop['copyExcelId'] = updatafileid
                             copyExcelID = cop['copyExcelId']
                             stname = cop['copyExcelSheetName']
-                            rangeval = cop["copyRange"]
+                            if pipettetype == "P1000M Ultima":
+                                rangeval =  cop["UltimacopyRange"]
+                            else:
+                                rangeval = cop["copyRange"]
                             copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
                             testpass = copydata[0][0][2] #测试结果
                             testall = copydata
                             copydatalist.append(copydata)
-
+                if func_callback != None:
+                    func_callback(60) #进度
                 for cs, pase in enumerate(u["ifpaste"]):
                     if pase["off/on"]:
                         if csv_link != None:
                             #复制测试结果到TRACKING SHEET 
-                            paseexcelid = pase["pastefileid"]
+                            
+                            if pipettetype == "P1000M Ultima":
+                                paseexcelid = pase["Ultimapastefileid"]
+                            else:
+                                paseexcelid = pase["pastefileid"]
                             pase["pastesheetname"] = pastesheetname
                             pasesheetname = pase["pastesheetname"]
                             values = self.gdrive.get_excel_sheet(spreadsheetId=paseexcelid, range=pasesheetname)
@@ -424,8 +459,13 @@ class updata_class():
                                         if "P1000S" not in row and "P50S" not in row and "P50M" not in row and "P1000M" not in row:
                                             break
                                 last_row_index = found_index
-                                star=pase["pastelineRange"]["star"]
-                                end = pase["pastelineRange"]["end"]
+                                if pipettetype == "P1000M Ultima":
+                                    star=pase["UltimapastelineRange"]["star"]
+                                    end = pase["UltimapastelineRange"]["end"]
+
+                                else: 
+                                    star=pase["pastelineRange"]["star"]
+                                    end = pase["pastelineRange"]["end"]
                                 last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
                                 #print("最后一行范围：", last_row_range)
 
@@ -436,13 +476,14 @@ class updata_class():
                             pasedata[0][0].insert(0, sheetlink)
                             #print(pasedata)
                             self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
-                        
+                            if func_callback != None:
+                                func_callback(70) #进度
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_successlist=self.gdrive.move_file_Multi_level(updatafileid, monthid)
                         move_success = move_successlist["success"]
-                        
-
+                        if func_callback != None:
+                            func_callback(80) #进度
                         # 上传原始文件到文件夹
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
@@ -451,13 +492,14 @@ class updata_class():
                             upfailpass = True
                         else:
                             upfailpass = False
-
+                        if func_callback != None:   
+                            func_callback(90) #进度
         if uptemp == "False" or move_success == "False" or upfailpass == "False":
             upload_status = False
         else:
             upload_status = True
-        
-
+        if func_callback != None:
+            func_callback(100) #进度
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
     
     # 1CH 8CH通道电流数据上传
@@ -484,6 +526,11 @@ class updata_class():
             "P50S":"P50S-template-v1.5",
             "P1000S Millipore":"Millipore P50S-template-v1.5",
             "P50S Millipore":"Millipore P50S-template-v1.5",
+            "P50M":"P50M",
+            "P1000M":"P1000M",
+            "P1000M Millipore":"Millipore P1000M",
+            "P50M Millipore":"Millipore  P1000M",
+            "P1000M Ultima":"Ultima P1000M"
         }
 
         uptemp = "False" #上传数据状态
@@ -511,17 +558,24 @@ class updata_class():
             else:
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_qc' 键，或其对应值不是列表类型")
         #进度
-        func_callback(10)
+        if func_callback != None:
+            func_callback(10)
+        CopyTemplateId = ''
+        if pipettetype == "P1000M Ultima":
+            CopyTemplateId = u["ifcopytemplate"]["UltimacopyTempExcelId"]
+        else:
+            CopyTemplateId = u["ifcopytemplate"]["copyTempExcelId"]
+        
         if u["ifupdata"]:
+            pastesheetname = nametypedict[pipettetype]
+            now = datetime.now()
+            # 格式化为 YYYYMMDDHHMMSS
+            current_time_str = now.strftime("%Y%m%d%H%M%S")
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
-                now = datetime.now()
-                # 格式化为 YYYYMMDDHHMMSS
-                current_time_str = now.strftime("%Y%m%d%H%M%S")
                 # 获取源数据文件路径
                 newfilename = pipettesn + "-QC-SPEED" + f"-{current_time_str}"
-                pastesheetname = nametypedict[pipettetype]
-                fz = self.gdrive.get_coppy_file(u["ifcopytemplate"]["copyTempExcelId"], newfilename)
+                fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
                 csv_id = str(csv_link).split("/")
@@ -537,6 +591,8 @@ class updata_class():
                 datalen = len(ranglist)
                 # 获取SPEED源数据
                 speed_exdata = csvdr.Read_csv_all(path=currentpath)
+                if func_callback != None:
+                    func_callback(30) #进度
                 alldatalist = []
                 allrangelist = []
                 starrange = 1
@@ -559,7 +615,8 @@ class updata_class():
                         alldatalist.append(setdata)
                         allrangelist.append(rangel)
                         starrange = i + 1 + 1
-
+                if func_callback != None:
+                    func_callback(40) #进度
                 getret = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=updatafileid,
                                                                     sheet_name=sheetname, ranges=allrangelist,
                                                                     new_values=alldatalist)
@@ -569,7 +626,8 @@ class updata_class():
                 else:
                     speeduptemp = "FAIL"
                     print("SPEED CURRENT 更新文件:失败", u)
-
+                if func_callback != None:
+                    func_callback(50) #进度
 
 
             if speeduptemp == "PASS":
@@ -580,17 +638,25 @@ class updata_class():
                             cop['copyExcelId'] = updatafileid
                             copyExcelID = cop['copyExcelId']
                             stname = cop['copyExcelSheetName']
-                            rangeval = cop["copyRange"]
+                            if pipettetype == "P1000M Ultima":
+                                rangeval =  cop["UltimacopyRange"]
+                            else:
+                                rangeval = cop["copyRange"]
                             copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
                             testpass = copydata[0][0][2] #测试结果
                             testall = copydata
                             copydatalist.append(copydata)
+                            if func_callback != None:
+                                func_callback(60) #进度
 
                 for cs, pase in enumerate(u["ifpaste"]):
                     if pase["off/on"]:
                         if csv_link != None:
                             #复制测试结果到TRACKING SHEET 
-                            paseexcelid = pase["pastefileid"]
+                            if pipettetype == "P1000M Ultima":
+                                paseexcelid = pase["Ultimapastefileid"]
+                            else:
+                                paseexcelid = pase["pastefileid"]
                             pase["pastesheetname"] = pastesheetname
                             pasesheetname = pase["pastesheetname"]
                             values = self.gdrive.get_excel_sheet(spreadsheetId=paseexcelid, range=pasesheetname)
@@ -605,8 +671,12 @@ class updata_class():
                                         if "P1000S" not in row and "P50S" not in row and "P50M" not in row and "P1000M" not in row:
                                             break
                                 last_row_index = found_index
-                                star=pase["pastelineRange"]["star"]
-                                end = pase["pastelineRange"]["end"]
+                                if pipettetype == "P1000M Ultima":
+                                    star=pase["UltimapastelineRange"]["star"]
+                                    end = pase["UltimapastelineRange"]["end"]
+                                else:
+                                    star=pase["pastelineRange"]["star"]
+                                    end = pase["pastelineRange"]["end"]
                                 last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
                                #print("最后一行范围：", last_row_range)
 
@@ -617,12 +687,14 @@ class updata_class():
                             pasedata[0][0].insert(0, sheetlink)
                             #print(pasedata)
                             self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
-                        
+                            if func_callback != None:
+                                func_callback(70) #进度
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_successlist=self.gdrive.move_file_Multi_level(updatafileid, monthid)
                         move_success = move_successlist["success"]
-                        
+                        if func_callback != None:
+                            func_callback(80) #进度
 
                         # 上传原始文件到文件夹
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
@@ -633,12 +705,14 @@ class updata_class():
                             upfailpass = True
                         else:
                             upfailpass = False
-
+                        if func_callback != None:
+                            func_callback(90) #进度
         if uptemp == "False" or move_success == "False" or upfailpass == "False":
             upload_status = False
         else:
             upload_status = True
-        
+        if func_callback != None:
+            func_callback(100) #进度
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
 
 
@@ -740,8 +814,9 @@ if __name__ == "__main__":
     # print(typelist)
     typelist=aa.UpdateSpeedCurrent_1CH_8CH(
         "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-current-speed-qc-ot3_run-25-10-17-02-12-26_CSVReport-P1KMV3520250828A03.csv",
-        "P50SV3520240914A02", "P50S",
-        ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"]
+        "P50SV3520240914A02", "P1000M Ultima",
+        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv",
+        csv_link="https://docs.google.com/spreadsheets/d/1P9T3jrSqMxb1e9WeFJszUf6O7-fn6aeVH6P5vsD7IU0/edit?gid=859846748#gid=859846748"
     )
     print(typelist)
 
