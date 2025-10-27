@@ -95,6 +95,7 @@ class updata_class():
         move_success = "False" #移动数据状态
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #测试报告链接
+        pasestate = "False" #把测试结果复制到总表
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -219,8 +220,12 @@ class updata_class():
                         sheetlink = f"https://docs.google.com/spreadsheets/d/{copyExcelID}/edit#gid=0"  # 表格链接
                         pasedata[0][0].insert(0, sheetlink)
                         #print(pasedata)
-                        self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
-                        self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=NOTES, new_values=[[Note_str]])
+                        ret1 = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
+                        ret2 = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=NOTES, new_values=[[Note_str]])
+                        if ret1:
+                            pasestate = True
+                        
+                        
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_success_list=self.gdrive.move_file_Multi_level(updatafileid, monthid)
@@ -233,11 +238,17 @@ class updata_class():
                         # 上传原始文件到文件夹
                         upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
                         if upfaileid != '':
-                            upfailpass = "True"
+                            upfailpass = True
                         else:
-                            upfailpass = "False"
+                            upfailpass = False
 
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
+        if uptemp == "False" or move_success == "False" or upfailpass == "False" or pasestate == "False":
+            upload_status = False
+        else:
+            upload_status = True
+        
+
+        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
 
     def upload_testing_data_demo(self, file_name: str, sn: str, production: Productions, zip_file: str,
                                  note_str="AUTO-UPLOAD-TE", progress_callback: Optional[Callable[[int], None]] = None):
@@ -291,6 +302,7 @@ class updata_class():
         move_success = "False" #移动数据状态
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #报告链接
+        upload_status = False #上传成功状态
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -312,6 +324,13 @@ class updata_class():
             else:
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_qc' 键，或其对应值不是列表类型")
         
+        CopyTemplateId = ''
+        if pipettetype == "P1000M Ultima":
+            CopyTemplateId = u["ifcopytemplate"]["UltimacopyTempExcelId"]
+        else:
+            CopyTemplateId = u["ifcopytemplate"]["copyTempExcelId"]
+
+
         if u["ifupdata"]:
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
@@ -321,7 +340,8 @@ class updata_class():
                 # 获取源数据文件路径
                 newfilename = pipettesn + "-QC-SPEED" + f"-{current_time_str}"
                 pastesheetname = nametypedict[pipettetype]
-                fz = self.gdrive.get_coppy_file(u["ifcopytemplate"]["copyTempExcelId"], newfilename)
+                
+                fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
                 csv_id = str(csv_link).split("/")
@@ -364,14 +384,14 @@ class updata_class():
                                                                     sheet_name=sheetname, ranges=allrangelist,
                                                                     new_values=alldatalist)
                 if getret:
-                    uptemp = "PASS"
+                    uptemp = "Ture"
                     print("更新文件:成功", u)
                 else:
-                    uptemp = "FAIL"
+                    uptemp = "Fales"
                     print("更新文件:失败", u)
 
                 
-            if uptemp == "PASS":
+            if uptemp == "Ture":
                 copydatalist = []
                 for cop in u["ifcopydata"]:
                     if cop["off/on"]:
@@ -428,11 +448,17 @@ class updata_class():
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
                         upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
                         if upfaileid != '':
-                            upfailpass = "True"
+                            upfailpass = True
                         else:
-                            upfailpass = "False"
+                            upfailpass = False
 
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
+        if uptemp == "False" or move_success == "False" or upfailpass == "False":
+            upload_status = False
+        else:
+            upload_status = True
+        
+
+        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
     
     # 1CH 8CH通道电流数据上传
     def UpdateSpeedCurrent_1CH_8CH(self,currentpath, pipettesn, pipettetype, zip_file, func_callback=None,
@@ -487,7 +513,6 @@ class updata_class():
         #进度
         func_callback(10)
         if u["ifupdata"]:
-
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
                 now = datetime.now()
@@ -605,11 +630,16 @@ class updata_class():
                         
                         upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
                         if upfaileid != '':
-                            upfailpass = "True"
+                            upfailpass = True
                         else:
-                            upfailpass = "False"
+                            upfailpass = False
 
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall]
+        if uptemp == "False" or move_success == "False" or upfailpass == "False":
+            upload_status = False
+        else:
+            upload_status = True
+        
+        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
 
 
     def update_data_to_google_drive(self,upfile_path, pipette_sn, pipette_type, zip_file,test_type,
@@ -627,23 +657,46 @@ class updata_class():
             Note_str (str): TRACKER SHEET 中的备注
         
         return:
-        [uptemp = None #上传数据状态
-        testpass = None #测试结果
-        upfailpass = None #上传源文件状态
-        sheetlink =None #数据结果文件链接
-        move_success = None #移动数据状态
-        testall = None #所有测试结果
-        ]
+        {
+        "success": True,
+        "test_result": "PASS",
+        "zip_success": True,
+        "sheet_link": "http:xx",
+        "move_success": True,
+        "test_all_items":list
+        }
+
         
         """
-        test_res = []
-        if test_type == "pipette-assembly-qc-ot3":
-            test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,func_callback=func_callback)
-        elif test_type == "grav_test":
-            test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,func_callback=func_callback,Note_str=Note_str)
-        elif test_type == "speed_current_test":
-            test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
-        return test_res
+        test_res = {
+        "success": False,
+        "test_result": "FAIL",
+        "zip_success": False,
+        "sheet_link": "http:xx",
+        "move_success": False,
+        "test_all_items":[]
+        }
+        try:
+            if test_type == "pipette-assembly-qc-ot3":
+                test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,func_callback=func_callback)
+            elif test_type == "grav_test":
+                test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,func_callback=func_callback,Note_str=Note_str)
+            elif test_type == "speed_current_test":
+                test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
+            #return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
+            test_res.update({
+                "success": test_res[-1],
+                "test_result": test_res[1],
+                "zip_success": test_res[2],
+                "sheet_link": test_res[3],
+                "move_success": test_res[4],
+                "test_all_items":test_res[-2]
+                })
+
+            return test_res
+        except Exception as errval:
+            print(errval)
+            return test_res
 
 
 if __name__ == "__main__":
