@@ -267,7 +267,8 @@ class LinuxFileManager:
     def upload_target(db: MongoDBReader, drive: UploadData, file_name: str, production: Productions,
                       test_name: str, sn: str, zip_file: str, csv_id=None) -> Optional[dict[Any, Any]]:
         # filter the CSV file
-        if 'csv' or "CSV" not in file_name:
+        if '.csv' not in file_name:
+            print(f"Ignore {file_name}")
             return
 
         def function_callback(progress: int):
@@ -292,6 +293,7 @@ class LinuxFileManager:
             return
         plan_date = test_plan.date
         current_date = datetime.now().strftime("%Y-%m-%d")
+        print(plan_date)
         if plan_date != current_date:
             return
         # download

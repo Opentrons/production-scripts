@@ -60,7 +60,7 @@ class Ana:
                 item_path = os.path.join(extract_to, item)
                 if os.path.isdir(item_path):
                     all_paths.append(item)
-        os.remove(self.testing_data_zip)
+        # os.remove(self.testing_data_zip)
         return extract_to, all_paths
 
     def judge_paths(self, test_name_list: List[str], _path: str, files_list: List[str]):
