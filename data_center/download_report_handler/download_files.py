@@ -328,9 +328,8 @@ class LinuxFileManager:
                     google_drive_obj = UploadData()
                     google_drive_obj.star_int()
 
-                    th = Thread(target=self.__class__.upload_target, args=(db, google_drive_obj, data_file,
-                                                                           value_to_enum[production], test_key, sn,
-                                                                           zip_path),
+                    th = Thread(target=self.__class__.upload_target,
+                                args=(db, google_drive_obj, data_file,value_to_enum[production], test_key, sn,zip_path),
                                 kwargs={'csv_id': _link})
                     th.start()
                     th.join()
