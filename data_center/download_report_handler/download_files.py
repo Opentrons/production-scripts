@@ -4,7 +4,7 @@ import stat
 import time
 import base64
 import io
-from typing import Callable
+from typing import Callable, Optional
 from files_server.utils.utils import zip_directory, delete_folder
 from files_server.api.api_files import check_system_dir_call_back
 from files_server.database.read_data_base import MongoDBReader
@@ -263,12 +263,19 @@ class LinuxFileManager:
         saved_name = zip_path.split('/')[-1]
         return saved_name, zip_path
 
-    def upload_target(self, db: MongoDBReader, drive: UploadData, file_name: str, production: Productions,
-                      test_name: str, sn: str, zip_file: str, csv_id=None):
+    @staticmethod
+    def upload_target(db: MongoDBReader, drive: UploadData, file_name: str, production: Productions,
+                      test_name: str, sn: str, zip_file: str, csv_id=None) -> Optional[dict[Any, Any]]:
+        # filter the CSV file
+        if '.csv' not in file_name:
+            print(f"Ignore {file_name}")
+            return
+
         def function_callback(progress: int):
             callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
             if callback_result is not None:
                 print("sat progress")
+
         print("Debug Parameters: ")
         print(file_name),
         print(sn)
@@ -276,7 +283,7 @@ class LinuxFileManager:
         print(zip_file)
         print(test_name)
         result = drive.update_data_to_google_drive(file_name, sn, production.value, zip_file, test_name,
-                                       func_callback=function_callback, csv_link=csv_id)
+                                                   func_callback=function_callback, csv_link=csv_id)
         print(result)
 
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
@@ -286,6 +293,7 @@ class LinuxFileManager:
             return
         plan_date = test_plan.date
         current_date = datetime.now().strftime("%Y-%m-%d")
+        print(plan_date)
         if plan_date != current_date:
             return
         # download
@@ -319,11 +327,11 @@ class LinuxFileManager:
                 if sn in data_file:
                     # TODO：分析当前数据是否为测试完整文件
                     # TODO：分析operator信息是否为半成品测试结果
-                    google_drive_obj = UploadData(Test_environment="Production")
+                    google_drive_obj = UploadData()
                     google_drive_obj.star_int()
 
-                    th = Thread(target=self.upload_target, args=(db, google_drive_obj, data_file,
-                                                                 value_to_enum[production], test_key, sn, zip_path),
+                    th = Thread(target=self.__class__.upload_target,
+                                args=(db, google_drive_obj, data_file,value_to_enum[production], test_key, sn,zip_path),
                                 kwargs={'csv_id': _link})
                     th.start()
                     th.join()
@@ -341,21 +349,21 @@ class LinuxFileManager:
             except Exception as e:
                 raise Exception(e)
 
-
-def download_load_and_upload_cycling():
-    """
-    循环读取和上传
-    :return:
-    """
-    from files_server.logs import logger
-    # step1 读取开关状态，是否需要打开自动上传开关
-    reader = MongoDBReader()
-    is_turn_on = reader.auto_upload
-    if is_turn_on:
-        # step2 读取test plan table
-        handler = LinuxFileManager("", "", logger)
-        handler.run_test_plan_trials(reader)
+    @staticmethod
+    def download_load_and_upload_cycling():
+        """
+        循环读取和上传
+        :return:
+        """
+        from files_server.logs import logger
+        # step1 读取开关状态，是否需要打开自动上传开关
+        reader = MongoDBReader()
+        is_turn_on = reader.auto_upload
+        if is_turn_on:
+            # step2 读取test plan table
+            handler = LinuxFileManager("", "", logger)
+            handler.run_test_plan_trials(reader)
 
 
 if __name__ == '__main__':
-    download_load_and_upload_cycling()
+    LinuxFileManager.download_load_and_upload_cycling()

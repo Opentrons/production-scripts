@@ -25,10 +25,10 @@ def check_system_dir_call_back():
     try:
         if system == "Linux":
             upload_dir = '/files_server/uploads'
-            upload_dir_testing_data = '/files_server/datas'
+            upload_dir_testing_data = '/files_server/datas/testing_data'
         else:
             upload_dir = './data'
-            upload_dir_testing_data = './data/testing_data'
+            upload_dir_testing_data = './datas/testing_data'
         if os.path.exists(upload_dir):
             pass
         else:
