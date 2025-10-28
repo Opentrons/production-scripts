@@ -140,7 +140,7 @@ class googledrive():
                 # ③ 保存（更新）token.json 文件
                 with open(self.tokenpath, "w") as token_file:
                     token_file.write(creds.to_json())
-                    print(f"Token 已保存至 {self.tokenpath}")
+                    #print(f"Token 已保存至 {self.tokenpath}")
 
             # ④ 创建 Google Drive 与 Sheets 服务
             self.googleservice = build("drive", "v3", credentials=creds)
@@ -179,7 +179,7 @@ class googledrive():
                                                      fields='id').execute()
 
             upfileid = file.get('id')
-            print('update File ID: {}'.format(file.get('id')))
+            #print('update File ID: {}'.format(file.get('id')))
             return upfileid
         except Exception as err:
             print("上传文件失败{}".format(err))
@@ -301,7 +301,7 @@ class googledrive():
                 print("Files:")
                 for item in items:
                     itemlist.append([item["name"], item["id"]])
-                    print("{0} ({1})".format(item["name"], item["id"]))
+                    #print("{0} ({1})".format(item["name"], item["id"]))
 
             return itemlist
         except Exception as err:
@@ -328,7 +328,7 @@ class googledrive():
                 print("Files:")
                 for item in items:
                     itemlist.append([item["name"], item["id"]])
-                    print("{0} ({1})".format(item["name"], item["id"]))
+                    #print("{0} ({1})".format(item["name"], item["id"]))
 
             # 列出与你共享的所有文件
             results = self.googleservice.files().list(
@@ -370,7 +370,7 @@ class googledrive():
             # print(f"{response.get('name')} copied to {response.get('id')}.")
             newname = response.get('name')
             newid = response.get('id')
-            print(f'复制文件成功 name:{newname} id{newid}')
+            #print(f'复制文件成功 name:{newname} id{newid}')
             return newname, newid
         except Exception as err:
             print("复制文件出错: {}".format(err))
@@ -407,7 +407,7 @@ class googledrive():
             folder_id = folder['id']
 
             # 打印新文件夹的ID
-            print(f"已创建新文件夹，ID为{folder_id}")
+            #print(f"已创建新文件夹，ID为{folder_id}")
             return folder_id
         except Exception as err:
             print("创建文件夹出错：{}".format(err))
@@ -553,8 +553,8 @@ class googledrive():
                 supportsAllDrives=True
             ).execute()
 
-            print(f"✅ 成功将文件重命名为: '{result.get('name')}'")
-            print(f"📄 文件ID: {result.get('id')}")
+            #print(f"✅ 成功将文件重命名为: '{result.get('name')}'")
+            #print(f"📄 文件ID: {result.get('id')}")
             return True
         except HttpError as err:
             print("rename 失败: {}".format(err))
@@ -567,7 +567,7 @@ class googledrive():
                 fields='id, name, mimeType',
                 supportsAllDrives=True
             ).execute()
-            print(f"✅ 文件存在: {file_info.get('name')}")
+            #print(f"✅ 文件存在: {file_info.get('name')}")
             return True
         except HttpError as err:
             return False
@@ -948,7 +948,7 @@ class googledrive():
             else:
                 raise TypeError("参数 ranges 必须是 str 或 list 类型")
 
-            print("更新成功:", request)
+            print("更新成功:")
             return True
 
         except Exception as err:
@@ -983,7 +983,7 @@ class googledrive():
             copied_sheet_id = response['sheetId']
             copied_sheet_title = response['title']
 
-            print(f"工作表已复制到目标文件，ID为:{copied_sheet_id}，名称为:{copied_sheet_title}")
+            #print(f"工作表已复制到目标文件，ID为:{copied_sheet_id}，名称为:{copied_sheet_title}")
 
             return copied_sheet_title, copied_sheet_id
 

@@ -328,7 +328,7 @@ class updata_class():
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #报告链接
         upload_status = False #上传成功状态
-        copytestdata == True #复制数据到总表的状态
+        copytestdata = True #复制数据到总表的状态
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -745,7 +745,7 @@ class updata_class():
 
         
         """
-        test_res = {
+        test_res_dict = {
         "success": False,
         "test_result": "FAIL",
         "zip_success": False,
@@ -761,7 +761,7 @@ class updata_class():
             elif test_type == "speed_current_test":
                 test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
             #return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
-            test_res.update({
+            test_res_dict.update({
                 "success": test_res[-1],
                 "test_result": test_res[1],
                 "zip_success": test_res[2],
@@ -770,10 +770,10 @@ class updata_class():
                 "test_all_items":test_res[-2]
                 })
 
-            return test_res
+            return test_res_dict
         except Exception as errval:
             print(errval)
-            return test_res
+            return test_res_dict
 
 
 if __name__ == "__main__":
