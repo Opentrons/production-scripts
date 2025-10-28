@@ -328,7 +328,7 @@ class updata_class():
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #报告链接
         upload_status = False #上传成功状态
-        copytestdata == True #复制数据到总表的状态
+        copytestdata = True #复制数据到总表的状态
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
