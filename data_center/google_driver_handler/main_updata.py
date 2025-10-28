@@ -328,6 +328,7 @@ class updata_class():
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #报告链接
         upload_status = False #上传成功状态
+        copytestdata == True #复制数据到总表的状态
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -475,7 +476,7 @@ class updata_class():
                             pasedata = copydatalist[cs]
                             pasedata[0][0].insert(0, sheetlink)
                             #print(pasedata)
-                            self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
+                            copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                             if func_callback != None:
                                 func_callback(70) #进度
                         # 移动数据到每月文件夹
@@ -494,7 +495,7 @@ class updata_class():
                             upfailpass = False
                         if func_callback != None:   
                             func_callback(90) #进度
-        if uptemp == "False" or move_success == "False" or upfailpass == "False":
+        if uptemp == "False" or move_success == "False" or upfailpass == "False" or copytestdata == False:
             upload_status = False
         else:
             upload_status = True
@@ -539,6 +540,8 @@ class updata_class():
         move_success = "False" #移动数据状态
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #报告链接
+        copytestdata = False #复制测试结果到总表的状态
+        
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -686,7 +689,7 @@ class updata_class():
                             pasedata = copydatalist[cs]
                             pasedata[0][0].insert(0, sheetlink)
                             #print(pasedata)
-                            self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
+                            copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                             if func_callback != None:
                                 func_callback(70) #进度
                         # 移动数据到每月文件夹
@@ -707,7 +710,7 @@ class updata_class():
                             upfailpass = False
                         if func_callback != None:
                             func_callback(90) #进度
-        if uptemp == "False" or move_success == "False" or upfailpass == "False":
+        if uptemp == "False" or move_success == "False" or upfailpass == "False" or copytestdata == False:
             upload_status = False
         else:
             upload_status = True
