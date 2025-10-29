@@ -3,6 +3,7 @@
 *.pyc
 *.exe
 *.txt
+*.zip
 .idea
 __pycache__
 build
@@ -10,6 +11,7 @@ testing_data/*
 node_modules
 venv
 dist
+
 
 ot3_testing/hardware_control/__pycache__/__init__.cpython-37.pyc
 ot3_testing/hardware_control/__pycache__/hardware_control.cpython-37.pyc

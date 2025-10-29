@@ -4,10 +4,9 @@ import stat
 import time
 import base64
 import io
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 from files_server.utils.utils import zip_directory, delete_folder
 from files_server.api.api_files import check_system_dir_call_back
-from files_server.database.read_data_base import MongoDBReader
 from dataclasses import dataclass
 from datetime import datetime, date
 from download_report_handler.discover_flex import scan_flex
@@ -45,6 +44,15 @@ class TestPlanInterface:
     fixture_ip: str
     auto_upload: bool
     link: str
+
+@dataclass()
+class UploadResult:
+    success: bool
+    test_result: Optional[str]
+    zip_success: bool
+    sheet_link: str
+    move_success: Union[str, bool]
+    test_all_items: Optional[bool]
 
 
 class LinuxFileManager:
@@ -274,17 +282,15 @@ class LinuxFileManager:
         def function_callback(progress: int):
             callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
             if callback_result is not None:
-                print("sat progress")
+                print(f"sat progress: {progress}")
 
-        print("Debug Parameters: ")
-        print(file_name),
-        print(sn)
-        print(production.value)
-        print(zip_file)
-        print(test_name)
         result = drive.update_data_to_google_drive(file_name, sn, production.value, zip_file, test_name,
                                                    func_callback=function_callback, csv_link=csv_id)
-        print(result)
+        result_handler = UploadResult(**result)
+        if result_handler.success:
+            # TODO: set link
+            # TODO: set 已上传
+            pass
 
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
         # 判断是否已上传或者是否为今日的日期
