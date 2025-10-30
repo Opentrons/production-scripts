@@ -17,7 +17,7 @@ scp-web-ui:
 	ssh -t root@$(host) "sudo systemctl restart nginx"
 
 .PHONY: push-web-ui
-host ?= 192.168.6.21
+host ?= 192.168.50.44
 push-web-ui:
 	@echo "push-web-ui"
 	$(MAKE) build-ui
@@ -25,7 +25,7 @@ push-web-ui:
 	@echo "Complete!"
 
 .PHONY: push-data-center
-host ?=192.168.6.48
+host ?=192.168.50.44
 push-data-center:
 	@echo "push-data-center"
 	@cd data_center && python upload_to_server.py --host $(host)

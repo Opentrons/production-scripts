@@ -13,11 +13,13 @@ from download_report_handler.discover_flex import scan_flex
 from download_report_handler.testing_data_ana import Ana, TEST_NAME_SETTING
 from google_driver_handler.main_updata import updata_class as UploadData
 from google_driver_handler.main_updata import Productions
-
+from files_server.logs import get_logger
 from files_server.database.read_data_base import MongoDBReader
 from threading import Thread
 from typing import Any, Tuple
 
+
+logger = get_logger('remote.handler')
 
 def get_time_str():
     timestamp = time.time()
@@ -56,14 +58,13 @@ class UploadResult:
 
 
 class LinuxFileManager:
-    def __init__(self, host, username, logger, password=None, port=22):
+    def __init__(self, host, username, password=None, port=22):
         self.host = host
         self.username = username
         self.password = password
         self.port = port
         self.ssh = None
         self.sftp = None
-        self.logger = logger
 
     def connect(self, timeout=10):
         """建立 SSH 和 SFTP 连接"""
@@ -79,13 +80,13 @@ class LinuxFileManager:
         except Exception as e:
             if "publickey" in str(e):
                 try:
-                    print("ssh with publickey...")
+                    logger.info("ssh with publickey...")
                     if LOAD_KEY_BY_STR:
                         key_data = base64.b64decode(key_str.strip())
                         key = paramiko.RSAKey.from_private_key(io.StringIO(key_data.decode("utf-8")))
                     else:
                         key_file = os.path.join(os.getcwd(), 'robot_key').replace('\\', '/')
-                        print(f'key path: {key_file}')
+                        logger.info(f'key path: {key_file}')
                         key = paramiko.RSAKey.from_private_key_file(key_file)
 
                     self.ssh.connect(self.host, port=self.port, username=self.username, password=self.password,
@@ -115,7 +116,7 @@ class LinuxFileManager:
             files = self.sftp.listdir(remote_dir)
             return files
         except Exception as e:
-            self.logger.error(f"❌ 无法列出文件: {e}")
+            logger.error(f"❌ 无法列出文件: {e}")
             return []
 
     def download_file(self, remote_path, local_path):
@@ -124,8 +125,8 @@ class LinuxFileManager:
             self.sftp.get(remote_path, local_path)
             return True
         except Exception as e:
-            print(e)
-            print(remote_path, local_path)
+            logger.info(e)
+            logger.info(remote_path, local_path)
             return False
 
     def _is_dir(self, remote_path):
@@ -156,23 +157,24 @@ class LinuxFileManager:
         except FileNotFoundError:
             return False
         except Exception as e:
-            print(f"检查目录出错: {e}")
+            logger.info(f"检查目录出错: {e}")
             return False
 
     def check_remote_dir_exists(self, remote_path):
 
         try:
             self.sftp.stat(remote_path)
+            logger.info(f"Find Remote Path: {remote_path}")
             return True
         except IOError as e:
-            print("IOError")
+            logger.info("IOError")
             return False
 
     def re_name_dir(self, local_dir, re_name):
         """
         rename
         """
-        print("rename ", local_dir, re_name)
+        logger.info(f"rename:  {local_dir} -> {re_name}")
         if self.remote_dir_exists(local_dir):
             self.sftp.rename(local_dir, re_name)
             return True
@@ -187,7 +189,7 @@ class LinuxFileManager:
         """
         # 判断远程目录是否存在
 
-        print("remote_dir:", remote_dir)
+        logger.info(f"remote_dir: {remote_dir}")
 
         if not self.check_remote_dir_exists(remote_dir):
             return False, "no such directory", ""
@@ -214,16 +216,16 @@ class LinuxFileManager:
         """删除远程文件"""
         try:
             self.sftp.remove(remote_path)
-            self.logger.info(f"🗑️ 删除成功: {remote_path}")
+            logger.info(f"删除成功: {remote_path}")
             return True
         except Exception as e:
-            self.logger.error(f"❌ 删除失败: {e}")
+            logger.error(f"删除失败: {e}")
             return False
 
     def delete_dir(self, remote_dir):
         files = self.sftp.listdir(remote_dir)
         if len(files) == 0:
-            print("\n🤔 文件夹目录为空, 删除跳出...\n")
+            logger.info("文件夹目录为空, 删除跳出...")
             return
 
         for item in self.sftp.listdir(remote_dir):
@@ -237,9 +239,9 @@ class LinuxFileManager:
                 if len(files) == 0:
                     try:
                         self.sftp.rmdir(remote_dir)
-                        print(f"🗑️ 删除成功: {remote_dir}")
+                        logger.info(f"删除成功: {remote_dir}")
                     except Exception as e:
-                        print(f"❌ 删除失败: {e}")
+                        logger.info(f"删除失败: {e}")
                 else:
                     pass
 
@@ -249,18 +251,21 @@ class LinuxFileManager:
             self.sftp.close()
         if self.ssh:
             self.ssh.close()
-        print("\n🔌 连接已关闭")
+        logger.info("连接已关闭")
 
     def download_testing_data_to_server(self, get_local_path: Callable[[], str]) -> Tuple[str, str]:
         """
         download the testing data and zip the data, saving to server
         """
         _, download_path = get_local_path()
+        remote_dir = "/data/testing_data"
+        logger.info(f"Ready to download from {remote_dir} -> {download_path}")
         _ret, _message, local_dir = self.download_dir("/data/testing_data", download_path)
         rename_dir = local_dir + "_" + get_time_str()
         self.re_name_dir(download_path, rename_dir)
         if not _ret:
             raise FileExistsError("Download Fail")
+        logger.info("Download files successful")
         self.close()
         # Zip the directory
         zip_path = f"{rename_dir}.zip"
@@ -271,36 +276,82 @@ class LinuxFileManager:
         saved_name = zip_path.split('/')[-1]
         return saved_name, zip_path
 
+    def list_files_in_folder(self, folder):
+        """
+        递归列出远程文件夹下的所有文件
+
+        Args:
+            folder: 文件夹路径
+
+        Returns:
+            list: 所有文件的完整路径列表
+        """
+        all_files = []
+
+        try:
+            # 获取当前文件夹下的文件和文件夹列表
+            files = self.list_files(folder)
+
+            for file in files:
+                file_path = folder + '/' + file
+
+                if self._is_dir(file_path):
+                    # 如果是文件夹，递归调用，并合并结果
+                    sub_files = self.list_files_in_folder(file_path)
+                    all_files.extend(sub_files)
+                else:
+                    # 如果是文件，添加到结果列表
+                    all_files.append(file_path)
+
+        except Exception as e:
+            print(f"访问文件夹 {folder} 时出错: {e}")
+
+        return all_files
+
+
+    def is_production_exist(self, production, test_name, sn):
+        folder_name = TEST_NAME_SETTING[production][test_name]
+        root_folder = f'/data/testing_data/{folder_name}'
+        if self.check_remote_dir_exists(root_folder):
+            files = self.list_files_in_folder(root_folder)
+            for file in files:
+                if sn in file:
+                    logger.info(f"Find {file}")
+                    return True
+        else:
+            return False
+
+
     @staticmethod
     def upload_target(db: MongoDBReader, drive: UploadData, file_name: str, production: Productions,
                       test_name: str, sn: str, zip_file: str, csv_id=None) -> Optional[dict[Any, Any]]:
         # filter the CSV file
         if '.csv' not in file_name:
-            print(f"Ignore {file_name}")
+            logger.info(f"Ignore {file_name}")
             return
-
+        logger.info(f"Ready to upload {file_name}")
         def function_callback(progress: int):
             callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
             if callback_result is not None:
-                print(f"sat progress: {progress}")
+                logger.info(f"sat progress: {progress}")
 
         result = drive.update_data_to_google_drive(file_name, sn, production.value, zip_file, test_name,
                                                    func_callback=function_callback, csv_link=csv_id)
         result_handler = UploadResult(**result)
         if result_handler.success:
-            # TODO: set link
-            # TODO: set 已上传
-            pass
-
+            db.set_database_filed({"barcode": sn}, {"link": result_handler.sheet_link})
+            logger.info(f"Upload successful, sheet link: {result_handler.sheet_link}")
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
         # 判断是否已上传或者是否为今日的日期
         auto_upload = test_plan.auto_upload
         if auto_upload:
+            logger.info("already uploaded")
             return
         plan_date = test_plan.date
         current_date = datetime.now().strftime("%Y-%m-%d")
-        print(plan_date)
+        logger.info(plan_date)
         if plan_date != current_date:
+            logger.info("out of date")
             return
         # download
         robot_ip = test_plan.fixture_ip
@@ -314,16 +365,22 @@ class LinuxFileManager:
         self.username = 'root'
         _ret, _message = self.connect()
         assert _ret, "connect to robot fail"
+        logger.info(f"connect to {self.host} successful")
         sn = test_plan.barcode
         production = test_plan.product
         value_to_enum = {member.value: member for member in Productions}
-        zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
-        a = Ana(zip_path)
-        res = a.ana_testing_data_zip()
-        _link = db.find_by_condition({"barcode": sn})[0]["link"]
-        if _link == "":
-            _link = None
         for test_name in test_plan.test_name:
+            # 判断当前文件是否生成
+            if not self.is_production_exist(production, test_name, sn):
+                logger.info(f"No {production}-{sn} Found yet")
+                return
+            zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
+            a = Ana(zip_path)
+            res = a.ana_testing_data_zip()
+            _link = db.find_by_condition({"barcode": sn})[0]["link"]
+            if _link == "":
+                _link = None
+
             test_key = TEST_NAME_SETTING[test_plan.product][test_name]
             data_files = res[test_key]  # 当前产品下的测试下的所有CSV
             for data_file in data_files:
@@ -333,8 +390,15 @@ class LinuxFileManager:
                 if sn in data_file:
                     # TODO：分析当前数据是否为测试完整文件
                     # TODO：分析operator信息是否为半成品测试结果
-                    google_drive_obj = UploadData()
-                    google_drive_obj.star_int()
+                    try:
+                        logger.info("初始化google driver")
+                        google_drive_obj = UploadData()
+                        google_drive_obj.star_int()
+                        logger.info("初始化google driver successful")
+                    except Exception as e:
+                        logger.error("初始化google driver failed")
+                        logger.error(e)
+                        raise
 
                     th = Thread(target=self.__class__.upload_target,
                                 args=(db, google_drive_obj, data_file,value_to_enum[production], test_key, sn,zip_path),
@@ -351,9 +415,12 @@ class LinuxFileManager:
         collections = reader.find_all(limit=10000)
         for collection in collections:
             try:
+                logger.info(f"run upload trial: "
+                            f"Production: {collection['product']}, "
+                            f"SerialNumber: {collection['barcode']}")
                 self.run_test_plan_trial(reader, TestPlanInterface(**collection))
             except Exception as e:
-                raise Exception(e)
+                logger.error(e)
 
     @staticmethod
     def download_load_and_upload_cycling():
@@ -361,15 +428,15 @@ class LinuxFileManager:
         循环读取和上传
         :return:
         """
-        from files_server.logs import logger
-        # step1 读取开关状态，是否需要打开自动上传开关
-        reader = MongoDBReader()
-        is_turn_on = reader.auto_upload
-        if is_turn_on:
-            # step2 读取test plan table
-            handler = LinuxFileManager("", "", logger)
-            handler.run_test_plan_trials(reader)
-
-
-if __name__ == '__main__':
-    LinuxFileManager.download_load_and_upload_cycling()
+        while True:
+            # step1 读取开关状态，是否需要打开自动上传开关
+            reader = MongoDBReader()
+            is_turn_on = reader.auto_upload
+            if is_turn_on:
+                # step2 读取test plan table
+                handler = LinuxFileManager("", "")
+                handler.run_test_plan_trials(reader)
+            else:
+                logger.debug("auto upload closed")
+            reader.close()
+            time.sleep(1*60*5)

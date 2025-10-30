@@ -4,6 +4,11 @@ import json
 from typing import Any
 
 PROJECT_NAME = 'files_server'
+from enum import Enum
+
+class PlatformInfo(Enum):
+    Windows = "Windows"
+    Linux = "Linux"
 
 def zip_directory(src_dir, output_path):
     """
@@ -33,6 +38,13 @@ def delete_folder(folder_path):
     else:
         pass
 
+def require_platform():
+    import platform
+    system_ = platform.system()
+    if "Windows" in system_:
+        return PlatformInfo.Windows
+    else:
+        return PlatformInfo.Linux
 
 def delete_zip(zip_path):
     """删除指定的 .zip 文件"""

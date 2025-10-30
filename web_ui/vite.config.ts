@@ -22,7 +22,6 @@ export default defineConfig({
   build: {
     outDir: '../dist/' // 指定编译后文件的输出目录
   },
-  base: './',
   plugins: [
     // legacy({
     //   targets:['defaults','not IE 11'],

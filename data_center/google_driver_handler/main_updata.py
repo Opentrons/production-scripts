@@ -16,6 +16,11 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import Optional, Callable
 
+from files_server.logs import get_logger, setup_logging
+
+setup_logging()
+logger = get_logger("upload.to.google.driver")
+
 class Productions(Enum):
     Robot = "Robot"
     P50S = "P50S"
@@ -714,7 +719,7 @@ class updata_class():
             upload_status = False
         else:
             upload_status = True
-        if func_callback != None:
+        if func_callback is not None:
             func_callback(100) #进度
         return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
 
@@ -753,12 +758,14 @@ class updata_class():
         "move_success": False,
         "test_all_items":[]
         }
+        logger.info(f"test type is {test_type}, try to upload to google driver")
         try:
             if test_type == "pipette-assembly-qc-ot3":
                 test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,func_callback=func_callback)
             elif test_type == "grav_test":
                 test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,func_callback=func_callback,Note_str=Note_str)
-            elif test_type == "speed_current_test":
+            elif test_type == "pipette-current-speed-qc-ot3":
+                logger.info("pipette-current-speed-qc-ot3 handling")
                 test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
             #return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
             test_res_dict.update({
@@ -769,10 +776,10 @@ class updata_class():
                 "move_success": test_res[4],
                 "test_all_items":test_res[-2]
                 })
-
+            logger.info(f"Result: {test_res_dict}")
             return test_res_dict
         except Exception as errval:
-            print(errval)
+            logger.error(errval)
             return test_res_dict
 
 

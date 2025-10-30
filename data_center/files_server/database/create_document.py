@@ -1,16 +1,10 @@
 import pandas as pd
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
-import sys
 from typing import List, Dict, Any
 import logging
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('database.document')
 
 
 class ExcelToMongoDB:
@@ -101,46 +95,3 @@ class ExcelToMongoDB:
             self.client.close()
             logger.info("MongoDB连接已关闭")
 
-
-def main():
-    # 配置参数
-    MONGODB_URI = "mongodb://192.168.6.61:27017/"  # MongoDB连接字符串
-    DB_NAME = "ProductionDataSummary"  # 数据库名称
-    COLLECTION_NAME = "ProductionData2025"  # 集合名称
-    EXCEL_FILE = "C:\\Users\\22192\\Desktop\\数据汇总表.xlsx"  # Excel文件路径
-
-    # 创建转换器实例
-    converter = ExcelToMongoDB(MONGODB_URI, DB_NAME, COLLECTION_NAME)
-
-    try:
-        # 1. 连接MongoDB
-        if not converter.connect_to_mongodb():
-            sys.exit(1)
-
-        # 2. 创建集合
-        if not converter.create_collection():
-            sys.exit(1)
-
-        # 3. 读取Excel数据
-        data = converter.read_excel(EXCEL_FILE)
-        if not data:
-            logger.warning("Excel文件中没有数据")
-            sys.exit(1)
-
-        # 4. 插入数据到MongoDB
-        inserted_count = converter.insert_data(data)
-        if inserted_count == 0:
-            logger.error("没有数据被插入")
-            sys.exit(1)
-
-        logger.info(f"成功导入 {inserted_count} 条记录到 {DB_NAME}.{COLLECTION_NAME}")
-
-    except Exception as e:
-        logger.error(f"程序运行出错: {e}")
-        sys.exit(1)
-    finally:
-        converter.close_connection()
-
-
-if __name__ == "__main__":
-    main()

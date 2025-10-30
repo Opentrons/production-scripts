@@ -5,7 +5,7 @@ import type { Action } from 'element-plus'
 import { el } from "element-plus/es/locales.mjs"
 
 
-export const URL = "http://127.0.0.1:8080"
+export const URL = "/api"
 
 
 const instance = axios.create({

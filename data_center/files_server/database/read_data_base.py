@@ -1,21 +1,13 @@
 import pymongo
-from numpy.ma.core import masked_invalid
 from pymongo import MongoClient
 from typing import Dict, List, Any, Optional
 import logging
-from bson import ObjectId
-from datetime import datetime
 import pandas as pd  # 可选，用于转换为DataFrame
 from files_server.utils.utils import require_config
-
+from files_server.logs import get_logger
 DB_URL = require_config()["db_url"]
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger("database.data")
 
 
 class MongoDBReader:
@@ -171,14 +163,14 @@ class MongoDBReader:
             )
 
             if result.matched_count > 0:
-                print(f"成功更新 {result.modified_count} 个文档")
+                logger.info(f"成功更新 {result.modified_count} 个文档")
                 return result
             else:
-                print(f"未找到文档")
+                logger.info(f"未找到文档")
                 return None
 
         except Exception as e:
-            print(f"更新失败: {e}")
+            logger.info(f"更新失败: {e}")
             return None
 
     def close(self):

@@ -18,7 +18,7 @@ TEST_NAME_SETTING = {
     },
     "P50S": {
         "assembly_qc": "pipette-assembly-qc-ot3",
-        "speed_current_test": "pipette-current-speed-ot3",
+        "speed_current_test": "pipette-current-speed-qc-ot3",
         "grav_test": ""
     },
 

@@ -1,3 +1,6 @@
+import time
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -6,10 +9,33 @@ from files_server.api.api_google_drive import router as google_drive_router
 from files_server.api.api_user import router as user_router
 from files_server.api.api_db import router as db_router
 from files_server.api.api_files import router as files_router
+from files_server.logs import setup_logging
+from download_report_handler.download_files import LinuxFileManager
+from threading import Thread
+from files_server.logs import get_logger
+
+# 开启logger
+setup_logging()
+logger = get_logger("server")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # start up
+    logger.info("Start Download Cycling")
+
+    def run_in_thread():
+        LinuxFileManager.download_load_and_upload_cycling()
+        time.sleep(10)
+
+    thread = Thread(target=run_in_thread, daemon=True)
+    thread.start()
+    yield
+
 
 api_router = APIRouter()
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 app.include_router(api_router)
 app.include_router(flex_router, prefix='/api/flex')
 app.include_router(google_drive_router, prefix='/api/google/drive')
