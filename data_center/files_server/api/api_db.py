@@ -4,8 +4,8 @@ from files_server.api.model import *
 from files_server.database.read_data_base import MongoDBReader
 import math
 from bson.objectid import ObjectId
-from fastapi.responses import JSONResponse
 from files_server.utils.utils import require_config
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 URI = require_config()["db_url"]
@@ -21,6 +21,38 @@ def clean_data(data):
     elif isinstance(data, ObjectId):
         return str(data)  # 转换 ObjectId
     return data
+
+@router.get("/require/upload_switch")
+async def require_upload_switch():
+    try:
+        reader = MongoDBReader(
+            uri=URI
+        )
+        result = reader.auto_upload
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": result
+            }
+        )
+    except Exception as e:
+        return HTTPException(status_code=400, detail=e)
+
+@router.get("/require/upload_switch/{value}")
+async def require_upload_switch(value: bool):
+    try:
+        reader = MongoDBReader(
+            uri=URI
+        )
+        reader.auto_upload = value
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": reader.auto_upload
+            }
+        )
+    except Exception as e:
+        return HTTPException(status_code=400, detail=e)
 
 
 @router.post('/insert/document', status_code=201)

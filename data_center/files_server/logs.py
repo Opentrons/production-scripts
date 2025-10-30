@@ -12,7 +12,7 @@ LOG_LEVELS = {
     logging.CRITICAL: 'CRITICAL', # 50 - 严重错误，可能导致系统崩溃
 }
 
-LOG_FILE = "logs/app.log" if require_platform() == PlatformInfo.Windows else "/opt/data-center-server/logs/app.log"
+LOG_FILE = "logs/app.log" if require_platform() != PlatformInfo.Linux else "/opt/data-center-server/logs/app.log"
 
 def setup_logging():
     """设置日志配置"""
@@ -39,7 +39,7 @@ def setup_logging():
                 "formatter": "detailed",
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": LOG_FILE,
-                "maxBytes": 10485760,  # 10MB
+                "maxBytes": 10485760*10,  # 100MB
                 "backupCount": 5,
             }
         },

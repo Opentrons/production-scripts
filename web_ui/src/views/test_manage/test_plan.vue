@@ -3,8 +3,9 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <span style="font-weight: bolder;">每日测试计划 <em>（注意：请每日及时更新，保证数据自动上传！）</em></span>
-          <el-button type="primary" :icon="Plus" @click="handleCreate">
+          <span class="span1" style="font-weight: bolder;">每日测试计划 <em>（注意：请每日及时更新，保证数据自动上传！）</em></span>
+          <span class="span2"> AutoUpload Switch <el-switch v-model="turn_on_upload" @change="handleUploadSwitchChange"/></span>
+          <el-button class="el-button" type="primary" :icon="Plus" @click="handleCreate">
             新建测试产品
           </el-button>
         </div>
@@ -73,8 +74,8 @@ import { ref, reactive, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import {
-  add_test_plan, fetch_test_plan, TestPlanInterface,
-  delete_test_plan
+  add_test_plan, fetch_test_plan, TestPlanInterface, require_upload_status,
+  delete_test_plan, set_upload_status
 } from '../../api/require_db'
 import { $get_current_time, delay } from '../../utils/utils'
 import { da } from 'element-plus/es/locales.mjs'
@@ -147,7 +148,8 @@ const test_name_options = [
   }
 ]
 
-
+// 数据上传
+const turn_on_upload = ref(false)
 
 
 // 表格数据
@@ -214,6 +216,29 @@ const refreshTableData = () => {
       console.error('异步操作发生错误:', error);
     });
 };
+// 数据上传
+async function refreshUploadSwitch(value?:boolean)  {
+  if (value !== undefined) {
+    const result = await set_upload_status(value)
+    if (result.status_code == 200){
+      if (value) ElMessage.success("打开自动上传")
+       else ElMessage.success("关闭自动上传")
+    }
+  }
+
+  const result = await require_upload_status()
+  if (result.status_code == 200){
+    turn_on_upload.value = result.status
+  }
+  else {
+    ElMessage.error("监控自动上传开关失败")
+  }
+
+} 
+
+const handleUploadSwitchChange = async () =>{
+  await refreshUploadSwitch(turn_on_upload.value)
+}
 
 // 打开新建对话框
 const handleCreate = () => {
@@ -347,6 +372,8 @@ const handleDelete = (index: number, row: TestPlanInterface) => {
 
 // run
 refreshTableData()
+refreshUploadSwitch()
+
 
 </script>
 
@@ -356,9 +383,19 @@ refreshTableData()
 }
 
 .card-header {
+  padding: auto;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  .span1 {
+    color: rgb(186, 76, 76);
+    flex: 6
+  }
+  .span2{
+    flex: 2;
+  }
+  .el-button{
+    flex: 1
+  }
 }
 
 .box-card {

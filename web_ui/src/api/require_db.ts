@@ -32,6 +32,11 @@ interface AddTestPlanResponse{
     detail?: string
 }
 
+interface RequireUploadStatusInterface {
+    status_code: number
+    status: boolean
+}
+
 // utils
 async function upload_data_to_db(db_name: string, document_name: string, datas:object): Promise<AddTestPlanResponse> {
     const res = await $post('/api/db/insert/document', {
@@ -60,12 +65,23 @@ const delete_data = async(db_name: string, document_name: string, require_key: o
     return res
 }
 
+export const require_upload_status = async(): Promise<RequireUploadStatusInterface> => {
+    const result = await $get('/api/db/require/upload_switch')
+    return result
+}
+
+export const set_upload_status = async(value: boolean): Promise<RequireUploadStatusInterface> => {
+    const result = await $get(`/api/db/require/upload_switch/${value}`)
+    return result
+}
+
 // test management
 
 export async function fetch_test_plan(): Promise<object>{
     const data = await fetch_data("TestPlan", "Index")
     return data
 }
+
 
 export async function add_test_plan(new_plan:TestPlanInterface): Promise<AddTestPlanResponse> {
     const data = upload_data_to_db("TestPlan","Index", new_plan)

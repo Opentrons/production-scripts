@@ -9,6 +9,7 @@ from enum import Enum
 class PlatformInfo(Enum):
     Windows = "Windows"
     Linux = "Linux"
+    Mac = "Mac"
 
 def zip_directory(src_dir, output_path):
     """
@@ -43,8 +44,10 @@ def require_platform():
     system_ = platform.system()
     if "Windows" in system_:
         return PlatformInfo.Windows
-    else:
+    elif "Linux" in system_:
         return PlatformInfo.Linux
+    else:
+        return PlatformInfo.Mac
 
 def delete_zip(zip_path):
     """删除指定的 .zip 文件"""

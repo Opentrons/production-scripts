@@ -1,6 +1,6 @@
 import time
 from contextlib import asynccontextmanager
-
+from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -13,6 +13,8 @@ from files_server.logs import setup_logging
 from download_report_handler.download_files import LinuxFileManager
 from threading import Thread
 from files_server.logs import get_logger
+import platform
+import  os
 
 # 开启logger
 setup_logging()
@@ -36,6 +38,21 @@ async def lifespan(app: FastAPI):
 api_router = APIRouter()
 
 app = FastAPI(lifespan=lifespan)
+
+if platform.system() == "Linux":
+    # 挂载log静态文件
+    log_dir = "/opt/data-center-server/logs/"
+    if os.path.exists(log_dir) and os.path.isdir(log_dir):
+        # 使用更明确的配置
+        app.mount(
+            "/logs",
+            StaticFiles(
+                directory=log_dir,
+                html=True  # 如果希望显示目录列表
+            ),
+            name="logs_static"
+        )
+
 app.include_router(api_router)
 app.include_router(flex_router, prefix='/api/flex')
 app.include_router(google_drive_router, prefix='/api/google/drive')
