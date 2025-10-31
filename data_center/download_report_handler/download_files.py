@@ -369,6 +369,7 @@ class LinuxFileManager:
         sn = test_plan.barcode
         production = test_plan.product
         value_to_enum = {member.value: member for member in Productions}
+        logger.debug(value_to_enum)
         for test_name in test_plan.test_name:
             # 判断当前文件是否生成
             if not self.is_production_exist(production, test_name, sn):

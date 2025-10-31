@@ -10,7 +10,7 @@ export interface TestPlanInterface {
     barcode: string
     fixture_name: string
     fixture_ip?: string
-    auto_upload: boolean | string
+    auto_upload: boolean | string | number
     link: string
 
 }

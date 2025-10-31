@@ -2086,3 +2086,237 @@ SerialNumber: P1KSV3620251020A19
 2025-10-30 15:52:46,568 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
 2025-10-30 15:52:46,571 - app.remote.handler - DEBUG - download_load_and_upload_cycling:440 - auto upload closed
 2025-10-30 15:52:46,576 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:13:17,605 - app.server - INFO - lifespan:27 - Start Download Cycling
+2025-10-31 15:13:17,785 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:13:17,900 - app.remote.handler - DEBUG - download_load_and_upload_cycling:441 - auto upload closed
+2025-10-31 15:13:17,904 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:15:56,405 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:15:56,413 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:15:56,415 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:15:56,472 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:16:04,431 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:16:04,691 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:16:04,770 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:16:04,770 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:18:18,038 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:18:18,055 - app.remote.handler - DEBUG - download_load_and_upload_cycling:441 - auto upload closed
+2025-10-31 15:18:18,190 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:19:21,618 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:19:21,742 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:19:21,758 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:19:21,758 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:22:58,567 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:22:58,583 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:22:58,583 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:22:58,642 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:23:18,292 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:23:18,298 - app.remote.handler - DEBUG - download_load_and_upload_cycling:441 - auto upload closed
+2025-10-31 15:23:18,306 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:26:00,302 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:26:00,318 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:26:00,318 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:26:00,384 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:26:12,696 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:26:12,701 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:26:12,706 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:26:12,742 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:28:18,411 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:28:18,419 - app.remote.handler - DEBUG - download_load_and_upload_cycling:441 - auto upload closed
+2025-10-31 15:28:18,424 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:04,348 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:29:04,481 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:29:04,490 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:04,490 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:11,729 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:29:11,772 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:29:11,780 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:11,788 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:14,118 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:29:14,182 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:29:14,192 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:14,192 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:56,656 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:29:56,738 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:29:56,754 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:29:56,755 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:30:00,630 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:30:00,693 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:30:00,699 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:30:00,701 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:30:51,405 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:30:51,428 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:30:51,471 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:30:51,487 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:30:51,487 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:30:54,030 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:30:54,038 - app.database.data - INFO - set_database_filed:166 - 成功更新 1 个文档
+2025-10-31 15:30:54,090 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:30:54,156 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:31:03,954 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:31:04,046 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:31:04,065 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:04,065 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:32,537 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:31:32,604 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:31:32,614 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:32,621 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:35,280 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:31:35,363 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:31:35,373 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:35,378 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:36,471 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:31:36,539 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:31:36,573 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:36,573 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:54,338 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:31:54,400 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:31:54,417 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:31:54,420 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:33:00,401 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:33:00,506 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:33:00,512 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:33:00,512 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:33:18,470 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:33:18,560 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:33:18,570 - app.remote.handler - INFO - run_test_plan_trials:419 - run upload trial: Production: P1000S, SerialNumber: P1KSV3620251020A01
+2025-10-31 15:33:18,572 - app.remote.handler - INFO - run_test_plan_trial:352 - 2025-10-31
+2025-10-31 15:33:19,226 - app.remote.handler - INFO - connect:83 - ssh with publickey...
+2025-10-31 15:33:20,146 - app.remote.handler - INFO - run_test_plan_trial:368 - connect to 192.168.6.16 successful
+2025-10-31 15:33:20,146 - app.remote.handler - DEBUG - run_test_plan_trial:372 - {'Robot': <Productions.Robot: 'Robot'>, 'P50S': <Productions.P50S: 'P50S'>, 'P1000S': <Productions.P1000S: 'P1000S'>, 'P50M': <Productions.P50M: 'P50M'>, 'P1000M': <Productions.P1000M: 'P1000M'>, 'P50S Millipore': <Productions.P50S_Millipore: 'P50S Millipore'>, 'P1000S Millipore': <Productions.P1000S_Millipore: 'P1000S Millipore'>, 'P50M Ultima': <Productions.P50M_Ultima: 'P50M Ultima'>, 'P1000M Ultima': <Productions.P1000M_Ultima: 'P1000M Ultima'>, 'P50M Millipore': <Productions.P50M_Millipore: 'P50M Millipore'>, 'P1000M Millipore': <Productions.P1000M_Millipore: 'P1000M Millipore'>}
+2025-10-31 15:33:20,146 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3
+2025-10-31 15:33:20,700 - app.remote.handler - INFO - is_production_exist:319 - Find /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-02-11-02/pipette-current-speed-qc-ot3_run-25-10-30-02-11-02_CSVReport-P1KSV3620251020A01.csv
+2025-10-31 15:33:20,703 - app.remote.handler - INFO - download_testing_data_to_server:262 - Ready to download from /data/testing_data -> ./datas/testing_data
+2025-10-31 15:33:20,704 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data
+2025-10-31 15:33:20,711 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data
+2025-10-31 15:33:20,736 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3
+2025-10-31 15:33:20,738 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3
+2025-10-31 15:33:20,763 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-06-06-17
+2025-10-31 15:33:20,776 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-06-06-17
+2025-10-31 15:33:21,018 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-00-40-25
+2025-10-31 15:33:21,052 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-00-40-25
+2025-10-31 15:33:21,420 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-04-59-27
+2025-10-31 15:33:21,427 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-04-59-27
+2025-10-31 15:33:21,647 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-02-19-34
+2025-10-31 15:33:21,655 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-02-19-34
+2025-10-31 15:33:21,911 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-01-55-24
+2025-10-31 15:33:21,918 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-01-55-24
+2025-10-31 15:33:22,203 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-05-07-01
+2025-10-31 15:33:22,219 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-05-07-01
+2025-10-31 15:33:22,553 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-02-18-04
+2025-10-31 15:33:22,568 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-02-18-04
+2025-10-31 15:33:22,746 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-08-04-32
+2025-10-31 15:33:22,747 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-08-04-32
+2025-10-31 15:33:22,948 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-03-06-00
+2025-10-31 15:33:22,964 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-03-06-00
+2025-10-31 15:33:23,430 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-07-03-28
+2025-10-31 15:33:23,437 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-07-03-28
+2025-10-31 15:33:23,670 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-01-08-10
+2025-10-31 15:33:23,679 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-01-08-10
+2025-10-31 15:33:23,972 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-02-48-59
+2025-10-31 15:33:23,982 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-31-02-48-59
+2025-10-31 15:33:24,297 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-01-32-04
+2025-10-31 15:33:24,307 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-assembly-qc-ot3/run-25-10-30-01-32-04
+2025-10-31 15:33:24,531 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3
+2025-10-31 15:33:24,539 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3
+2025-10-31 15:33:24,569 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-36-17
+2025-10-31 15:33:24,573 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-36-17
+2025-10-31 15:33:24,649 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-03-28-34
+2025-10-31 15:33:24,664 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-03-28-34
+2025-10-31 15:33:24,743 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-03-00-23
+2025-10-31 15:33:24,743 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-03-00-23
+2025-10-31 15:33:24,838 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-16-02-33-23
+2025-10-31 15:33:24,838 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-16-02-33-23
+2025-10-31 15:33:24,981 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-05-04-14
+2025-10-31 15:33:24,981 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-05-04-14
+2025-10-31 15:33:25,269 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-12-30
+2025-10-31 15:33:25,278 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-12-30
+2025-10-31 15:33:25,340 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-02-28-22
+2025-10-31 15:33:25,356 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-02-28-22
+2025-10-31 15:33:25,420 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-35-50
+2025-10-31 15:33:25,435 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-35-50
+2025-10-31 15:33:25,483 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-08-10-36
+2025-10-31 15:33:25,483 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-08-10-36
+2025-10-31 15:33:25,551 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-05-29-11
+2025-10-31 15:33:25,562 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-05-29-11
+2025-10-31 15:33:25,610 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-22-50
+2025-10-31 15:33:25,626 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-22-50
+2025-10-31 15:33:25,703 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-44-07
+2025-10-31 15:33:25,728 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-44-07
+2025-10-31 15:33:25,865 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-05-01-44
+2025-10-31 15:33:25,879 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-05-01-44
+2025-10-31 15:33:26,007 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-06-04-12
+2025-10-31 15:33:26,010 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-06-04-12
+2025-10-31 15:33:26,102 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-01-56-59
+2025-10-31 15:33:26,118 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-01-56-59
+2025-10-31 15:33:26,261 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-28-39
+2025-10-31 15:33:26,269 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-28-39
+2025-10-31 15:33:26,370 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-46-25
+2025-10-31 15:33:26,375 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-09-03-46-25
+2025-10-31 15:33:26,438 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-37-10
+2025-10-31 15:33:26,446 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-07-37-10
+2025-10-31 15:33:26,523 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-01-32-02
+2025-10-31 15:33:26,531 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/ninety-six-assembly-qc-ot3/run-25-06-12-01-32-02
+2025-10-31 15:33:26,602 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3
+2025-10-31 15:33:26,604 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3
+2025-10-31 15:33:26,636 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-07-46-29
+2025-10-31 15:33:26,640 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-07-46-29
+2025-10-31 15:33:26,719 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-03-01-42
+2025-10-31 15:33:26,721 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-03-01-42
+2025-10-31 15:33:26,805 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-01-20-44
+2025-10-31 15:33:26,813 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-01-20-44
+2025-10-31 15:33:26,940 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-01-26-12
+2025-10-31 15:33:26,946 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-01-26-12
+2025-10-31 15:33:27,098 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-06-56-50
+2025-10-31 15:33:27,116 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-06-56-50
+2025-10-31 15:33:27,225 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-03-36-08
+2025-10-31 15:33:27,241 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-03-36-08
+2025-10-31 15:33:27,346 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-04-59-50
+2025-10-31 15:33:27,350 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-04-59-50
+2025-10-31 15:33:27,478 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-05-54-54
+2025-10-31 15:33:27,483 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-05-54-54
+2025-10-31 15:33:27,551 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-02-43-30
+2025-10-31 15:33:27,553 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-02-43-30
+2025-10-31 15:33:27,622 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-01-02-53
+2025-10-31 15:33:27,627 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-01-02-53
+2025-10-31 15:33:27,687 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-01-48-48
+2025-10-31 15:33:27,692 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-31-01-48-48
+2025-10-31 15:33:27,767 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-02-11-02
+2025-10-31 15:33:27,770 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-30-02-11-02
+2025-10-31 15:33:27,862 - app.remote.handler - INFO - download_dir:192 - remote_dir: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-29-06-12-08
+2025-10-31 15:33:27,867 - app.remote.handler - INFO - check_remote_dir_exists:167 - Find Remote Path: /data/testing_data/pipette-current-speed-qc-ot3/run-25-10-29-06-12-08
+2025-10-31 15:33:27,928 - app.remote.handler - INFO - re_name_dir:177 - rename:  ./datas/testing_data -> ./datas/testing_data_2025-10-31-15-33-27
+2025-10-31 15:33:27,934 - app.remote.handler - INFO - download_testing_data_to_server:268 - Download files successful
+2025-10-31 15:33:27,938 - app.remote.handler - INFO - close:254 - 连接已关闭
+2025-10-31 15:33:30,332 - app.remote.handler - INFO - run_test_plan_trial:395 - 初始化google driver
+2025-10-31 15:33:31,779 - app.remote.handler - ERROR - run_test_plan_trial:400 - 初始化google driver failed
+2025-10-31 15:33:31,779 - app.remote.handler - ERROR - run_test_plan_trial:401 - 初始化 Google 服务失败: ('invalid_scope: Bad Request', {'error': 'invalid_scope', 'error_description': 'Bad Request'})
+2025-10-31 15:33:31,779 - app.remote.handler - ERROR - run_test_plan_trials:424 - 初始化 Google 服务失败: ('invalid_scope: Bad Request', {'error': 'invalid_scope', 'error_description': 'Bad Request'})
+2025-10-31 15:33:31,792 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:03,966 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:34:04,003 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:34:04,011 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:04,017 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:23,450 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:34:23,509 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:34:23,520 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:23,522 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:29,144 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:34:29,190 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:34:29,193 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:29,193 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:31,675 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:34:31,760 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:34:31,776 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:31,778 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:43,684 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:34:43,828 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:34:43,861 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:43,861 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:45,050 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:34:45,117 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:34:45,132 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:34:45,133 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:35:28,759 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: Params.Index
+2025-10-31 15:35:28,926 - app.database.data - INFO - connect:46 - 成功连接到MongoDB: TestPlan.Index
+2025-10-31 15:35:28,942 - app.database.data - INFO - close:180 - MongoDB连接已关闭
+2025-10-31 15:35:28,943 - app.database.data - INFO - close:180 - MongoDB连接已关闭

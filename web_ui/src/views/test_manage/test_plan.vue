@@ -20,9 +20,17 @@
         <el-table-column prop="fixture_name" label="测试工装名" min-width="50" />
         <el-table-column prop="fixture_ip" label="测试工装IP" min-width="50" />
         <el-table-column prop="auto_upload" label="数据状态" min-width="50" />
-        <el-table-column prop="link" label="数据链接">
+        <el-table-column prop="Link" label="数据链接">
         <template #default="{ row }">
-          <el-link type="primary" :href="row.Link" target="_blank">{{ row.LinkLabel }}</el-link>
+          <el-link 
+            v-if="row.link"
+            type="primary" 
+            :href="row.link" 
+            target="_blank"
+          >
+            {{ row.LinkLabel || '查看' }}
+          </el-link>
+          <span v-else> N/A </span>
         </template>
       </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
@@ -206,9 +214,11 @@ const refreshTableData = () => {
     .then((data: DataInterface) => {
       tableData.value = data.all_docs.map(item => ({
         ...item,
-        auto_upload: item.auto_upload === true || item.auto_upload === 'True'
+        auto_upload: item.auto_upload === true || item.auto_upload === 100
           ? '已上传'
-          : '未上传'
+          : item.auto_upload === false || item.auto_upload === "false"
+          ? '未上传'
+          : item.auto_upload
       }));
 
     })
