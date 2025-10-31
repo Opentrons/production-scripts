@@ -503,7 +503,7 @@ class updata_class():
                             upfailpass = False
                         if func_callback != None:   
                             func_callback(90) #进度
-        if uptemp == "False" or move_success == "False" or upfailpass == "False" or copytestdata == False:
+        if uptemp == "False" or move_success == "False" or upfailpass == "False":#or copytestdata == False:
             upload_status = False
         else:
             upload_status = True
