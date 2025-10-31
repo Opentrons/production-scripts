@@ -369,7 +369,7 @@ class updata_class():
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
                 # 获取源数据文件路径
-                newfilename = pipettesn + "-QC-SPEED" + f"-{current_time_str}"
+                newfilename = pipettesn + "-QC-CURRENTSPEED" + f"-{current_time_str}"
                 fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
@@ -585,7 +585,7 @@ class updata_class():
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
                 # 获取源数据文件路径
-                newfilename = pipettesn + "-QC-SPEED" + f"-{current_time_str}"
+                newfilename = pipettesn + "-QC-CURRENTSPEED" + f"-{current_time_str}"
                 fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
