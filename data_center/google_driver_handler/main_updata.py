@@ -437,7 +437,10 @@ class updata_class():
                             else:
                                 rangeval = cop["copyRange"]
                             copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
-                            testpass = copydata[0][0][2] #测试结果
+                            #testpass = copydata[0][0][3] #测试结果
+                            
+                            testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!P11:P11")
+                            
                             testall = copydata
                             copydatalist.append(copydata)
                 if func_callback != None:
@@ -539,7 +542,7 @@ class updata_class():
             "P1000M Ultima":"Ultima P1000M"
         }
 
-        uptemp = "False" #上传数据状态
+        speeduptemp = "False" #上传数据状态
         testpass = None #测试结果
         testall = None #测试结果详细信息
         move_success = "False" #移动数据状态
@@ -651,7 +654,11 @@ class updata_class():
                             else:
                                 rangeval = cop["copyRange"]
                             copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
-                            testpass = copydata[0][0][2] #测试结果
+                        
+                            if pipettetype in List_1ch:
+                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!AQ11:AQ11")
+                            elif pipettetype in List_8ch:
+                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!BO11:BO11")
                             testall = copydata
                             copydatalist.append(copydata)
                             if func_callback != None:
@@ -715,13 +722,13 @@ class updata_class():
                             upfailpass = False
                         if func_callback != None:
                             func_callback(90) #进度
-        if uptemp == "False" or move_success == "False" or upfailpass == "False" or copytestdata == False:
+        if speeduptemp == "False" or move_success == "False" or upfailpass == "False":# or copytestdata == False:
             upload_status = False
         else:
             upload_status = True
         if func_callback is not None:
             func_callback(100) #进度
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
+        return [speeduptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
 
 
     def update_data_to_google_drive(self,upfile_path, pipette_sn, pipette_type, zip_file,test_type,
