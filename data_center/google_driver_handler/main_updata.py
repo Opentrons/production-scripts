@@ -660,13 +660,13 @@ class updata_class():
                             else:
                                 rangeval = cop["copyRange"]
                             copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
-                        
+                            
                             if pipettetype in List_1ch:
-                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!AQ11:AQ11")[0][0][0]
+                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", ["!AQ11:AQ11"])[0][0][0]
                             elif pipettetype in List_8ch:
-                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!BO11:BO11")[0][0][0]
+                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", ["!BO11:BO11"])[0][0][0]
                             elif pipettetype == "P1000M Ultima":
-                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!BY11:BYO11")[0][0][0]
+                                testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", ["!BY11:BYO11"])[0][0][0]
                             testall = copydata
                             copydatalist.append(copydata)
                             if func_callback != None:
@@ -832,28 +832,21 @@ class updata_class():
         upload_status = False #上传成功状态
         copytestdata = True #复制数据到总表的状态
 
-        List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
-        List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
+        List_P200H = ["P200H"]
+        List_P1000H = ["P1000H"]
         
-        # 更新容量数据demo
-        if pipettetype in List_1ch: #== "P50S" or pipettetype == "P1000S" or pipettetype =="P50S Millipore" or pipettetype =="P1000S  Millipore":
-            if isinstance(self.yamldata, dict) and "1ch_updata_qc" in self.yamldata and isinstance(
-                self.yamldata["1ch_updata_qc"], list):
-                u = self.yamldata["1ch_updata_qc"][0]
-            else:
-                raise ValueError("self.yamldata 中不存在 '1ch_updata_qc' 键，或其对应值不是列表类型")
         
-        elif pipettetype in List_8ch: #== "P50M" or pipettetype == "P1000M"or pipettetype =="P50M Ultima"or pipettetype =="P1000M Ultima"or pipettetype =="P50M Millipore"or pipettetype =="P1000M Millipore":
-            if isinstance(self.yamldata, dict) and "8ch_updata_qc" in self.yamldata and isinstance(
-                    self.yamldata["8ch_updata_qc"], list):
-                u = self.yamldata["8ch_updata_qc"][0]
+        if pipettetype in List_P200H or pipettetype in List_P1000H : 
+            if isinstance(self.yamldata, dict) and "9ch_lv_updata_qc" in self.yamldata and isinstance(
+                self.yamldata["9ch_lv_updata_qc"], list):
+                u = self.yamldata["9ch_lv_updata_qc"][0]
             else:
-                raise ValueError("self.yamldata 中不存在 '8ch_updata_qc' 键，或其对应值不是列表类型")
+                raise ValueError("self.yamldata 中不存在 '9ch_lv_updata_qc' 键，或其对应值不是列表类型")
         
         CopyTemplateId = ''
-        if pipettetype == "P1000M Ultima":
+        if pipettetype == "P1000H":
             CopyTemplateId = u["ifcopytemplate"]["UltimacopyTempExcelId"]
-        else:
+        elif pipettetype == "P200H":
             CopyTemplateId = u["ifcopytemplate"]["copyTempExcelId"]
         if func_callback != None:
             func_callback(10) #进度
@@ -866,7 +859,7 @@ class updata_class():
             if csv_link == None:
                 #创建原始文件的文件夹（SN命名）
                 # 获取源数据文件路径
-                newfilename = pipettesn + "-QC-CURRENTSPEED" + f"-{current_time_str}"
+                newfilename = pipettesn + "-ninety-six-assembly-qc-ot3" + f"-{current_time_str}"
                 fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
@@ -931,13 +924,13 @@ class updata_class():
                             cop['copyExcelId'] = updatafileid
                             copyExcelID = cop['copyExcelId']
                             stname = cop['copyExcelSheetName']
-                            if pipettetype == "P1000M Ultima":
+                            if pipettetype == "P1000H":
                                 rangeval =  cop["UltimacopyRange"]
-                            else:
+                            elif pipettetype == "P200H":
                                 rangeval = cop["copyRange"]
                             copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
                             #testpass = copydata[0][0][3] #测试结果
-                            
+                            copydata
                             testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!P11:P11")
                             
                             testall = copydata
