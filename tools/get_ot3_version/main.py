@@ -123,7 +123,10 @@ class GetVersion:
                 instrument_type = item["instrumentType"]
                 serial_number = item["serialNumber"]
                 firmware_version = item["firmwareVersion"]
-                instrument_name = item["instrumentName"]
+
+                instrument_name = item.get("instrumentName", "")
+                if instrument_name == "":
+                    instrument_name = item.get("instrumentModel", "")
                 if instrument in instrument_type:
                     return {
                         "mount": mount,
@@ -134,6 +137,8 @@ class GetVersion:
                     }
             return {}
         except Exception as e:
+            print("Get Instrument Failed")
+            print(e)
             return {}
 
     def remote_file_exists(self, file_path):
@@ -314,8 +319,11 @@ def get_version(_test_name_list, production: Production, csv_name):
         test_name = input("test_name: ")
         robot_ip = input("robot_ip: ")
     versions = _get_version.answer_handler(robot_ip)
-    pipette = _get_version.detect_instrument('pipette')
-    versions.update(pipette)
+    if _get_version.production == Production.Gripper:
+        instrument = _get_version.detect_instrument('gripper')
+    else:
+        instrument = _get_version.detect_instrument('pipette')
+    versions.update(instrument)
     for key, value in versions.items():
         print(f"{key}: {value}")
     try:
