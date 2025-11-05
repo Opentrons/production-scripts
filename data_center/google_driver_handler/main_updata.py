@@ -64,6 +64,8 @@ class updata_class():
             self.yamldata = yamldr.readyaml(failpath=codepath, nama="google_driver_handler/updata_production.yaml")
         self.nowyear,self.nowmonth = self.get_current_month()
 
+        
+
     def star_int(self):
         #self.shedrive = sheetdrive()
         self.gdrive = googledrive()
@@ -334,6 +336,7 @@ class updata_class():
         sheetlink = "" #报告链接
         upload_status = False #上传成功状态
         copytestdata = True #复制数据到总表的状态
+        tracking_sheet = None
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -489,6 +492,9 @@ class updata_class():
                             pasedata[0][0].insert(0, sheetlink)
                             #logger.info(pasedata)
                             copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
+                            if copytestdata:
+                                tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid=0"  # 表格链接
+ 
                             if func_callback != None:
                                 func_callback(70) #进度
                         # 移动数据到每月文件夹
@@ -513,7 +519,7 @@ class updata_class():
             upload_status = True
         if func_callback != None:
             func_callback(100) #进度
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
+        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status,tracking_sheet]
     
     # 1CH 8CH通道电流数据上传
     def UpdateSpeedCurrent_1CH_8CH(self,currentpath, pipettesn, pipettetype, zip_file, func_callback=None,
@@ -553,6 +559,7 @@ class updata_class():
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #报告链接
         copytestdata = False #复制测试结果到总表的状态
+        tracking_sheet = None
         
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
@@ -710,6 +717,8 @@ class updata_class():
                             pasedata[0][0].insert(0, sheetlink)
                             #logger.info(pasedata)
                             copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
+                            if copytestdata:
+                                tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid=0"  # 表格链接
                             if func_callback != None:
                                 func_callback(70) #进度
                         # 移动数据到每月文件夹
@@ -736,7 +745,7 @@ class updata_class():
             upload_status = True
         if func_callback is not None:
             func_callback(100) #进度
-        return [speeduptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
+        return [speeduptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status,tracking_sheet]
 
 
     def update_data_to_google_drive(self,upfile_path, pipette_sn, pipette_type, zip_file,test_type,
@@ -771,7 +780,8 @@ class updata_class():
         "zip_success": False,
         "sheet_link": "http:xx",
         "move_success": False,
-        "test_all_items":[]
+        "test_all_items":[],
+        "tracking_sheet":None
         }
         logger.info(f"test type is {test_type}, try to upload to google driver")
         try:
@@ -791,7 +801,8 @@ class updata_class():
                 "zip_success": test_res[2],
                 "sheet_link": test_res[3],
                 "move_success": test_res[4],
-                "test_all_items":test_res[-2]
+                "test_all_items":test_res[5],
+                "tracking_sheet":test_res[7]
                 })
             logger.info(f"Result: {test_res_dict}")
             return test_res_dict
