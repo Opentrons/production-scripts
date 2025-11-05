@@ -13,7 +13,7 @@ class SlackConfig:
     templates: Dict[str, Any]
 
     @classmethod
-    def from_yaml(cls, config_path: str = "slack.yaml", environment: str = "development"):
+    def from_yaml(cls, config_path: str = "/files_server/slack.yaml", environment: str = "development"):
         config_file = Path(config_path)
         if not config_file.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")

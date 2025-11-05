@@ -17,9 +17,10 @@ from files_server.logs import get_logger
 from files_server.database.read_data_base import MongoDBReader
 from threading import Thread
 from typing import Any, Tuple
-
+from files_server.api.slack.message import SlackBotMessenger
 
 logger = get_logger('remote.handler')
+
 
 def get_time_str():
     timestamp = time.time()
@@ -46,6 +47,7 @@ class TestPlanInterface:
     fixture_ip: str
     auto_upload: bool
     link: str
+
 
 @dataclass()
 class UploadResult:
@@ -97,6 +99,27 @@ class LinuxFileManager:
                     return False, "connect failed"
             else:
                 return False, "connect failed"
+
+    def ensure_connection(self):
+        """确保连接有效，如果断开则重连"""
+        try:
+            # 检查连接是否活跃
+            if hasattr(self, 'sftp') and self.sftp:
+                self.sftp.stat('.')  # 尝试执行一个简单操作
+                logger.info("连接正常")
+                return True
+        except (AttributeError, paramiko.SSHException, EOFError):
+            pass
+
+        # 连接已断开，重新连接
+        try:
+            logger.info("连接已经断开，正在重连")
+            self.close()  # 先关闭可能的残留连接
+            success, message = self.connect()
+            return success
+        except Exception as e:
+            logger.info(f"重连失败: {e}")
+            return False
 
     def update_date(self, your_time):
         command = f'date -s "{your_time}"'
@@ -164,10 +187,12 @@ class LinuxFileManager:
 
         try:
             self.sftp.stat(remote_path)
-            logger.info(f"Find Remote Path: {remote_path}")
             return True
-        except IOError as e:
-            logger.info("IOError")
+        except FileNotFoundError:
+            logger.info("FileNotFound")
+            return False
+        except Exception as e:
+            logger.info(f"其他错误: {e}")
             return False
 
     def re_name_dir(self, local_dir, re_name):
@@ -247,11 +272,14 @@ class LinuxFileManager:
 
     def close(self):
         """关闭连接"""
-        if self.sftp:
-            self.sftp.close()
-        if self.ssh:
-            self.ssh.close()
-        logger.info("连接已关闭")
+        try:
+            if self.sftp:
+                self.sftp.close()
+            if self.ssh:
+                self.ssh.close()
+            logger.info("连接已关闭")
+        except Exception:
+            pass
 
     def download_testing_data_to_server(self, get_local_path: Callable[[], str]) -> Tuple[str, str]:
         """
@@ -266,7 +294,6 @@ class LinuxFileManager:
         if not _ret:
             raise FileExistsError("Download Fail")
         logger.info("Download files successful")
-        self.close()
         # Zip the directory
         zip_path = f"{rename_dir}.zip"
         zip_directory(local_dir, zip_path)
@@ -308,11 +335,12 @@ class LinuxFileManager:
 
         return all_files
 
-
     def is_production_exist(self, production, test_name, sn):
         folder_name = TEST_NAME_SETTING[production][test_name]
-        root_folder = f'/data/testing_data/{folder_name}'
+        root_folder = f'/data/testing_data/{folder_name}'.strip()
+        logger.info(f"Remote folder: {root_folder}")
         if self.check_remote_dir_exists(root_folder):
+            logger.info(f"Found remote folder: {root_folder}")
             files = self.list_files_in_folder(root_folder)
             for file in files:
                 if sn in file:
@@ -320,7 +348,6 @@ class LinuxFileManager:
                     return True
         else:
             return False
-
 
     @staticmethod
     def upload_target(db: MongoDBReader, drive: UploadData, file_name: str, production: Productions,
@@ -330,6 +357,7 @@ class LinuxFileManager:
             logger.info(f"Ignore {file_name}")
             return
         logger.info(f"Ready to upload {file_name}")
+
         def function_callback(progress: int):
             callback_result = db.set_database_filed({"barcode": sn}, {"auto_upload": progress})
             if callback_result is not None:
@@ -338,9 +366,25 @@ class LinuxFileManager:
         result = drive.update_data_to_google_drive(file_name, sn, production.value, zip_file, test_name,
                                                    func_callback=function_callback, csv_link=csv_id)
         result_handler = UploadResult(**result)
+        db.set_database_filed({"barcode": sn}, {"link": result_handler.sheet_link})
+
         if result_handler.success:
-            db.set_database_filed({"barcode": sn}, {"link": result_handler.sheet_link})
-            logger.info(f"Upload successful, sheet link: {result_handler.sheet_link}")
+            logger.info("=======================================================")
+            logger.info(f"上传成功, sheet link: {result_handler.sheet_link}")
+            logger.info("=======================================================")
+
+            bot = SlackBotMessenger()
+
+            # 发送测试通过消息
+            bot.send_test_result(
+                channel="production-data-center",
+                test_type=test_name,
+                test_result=result_handler.test_result or "None",
+                serial_number=sn,
+                test_data_link=result_handler.sheet_link or "None",
+                tracking_sheet_link="N/A"
+            )
+
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
         # 判断是否已上传或者是否为今日的日期
         auto_upload = test_plan.auto_upload
@@ -371,42 +415,54 @@ class LinuxFileManager:
         value_to_enum = {member.value: member for member in Productions}
         logger.debug(value_to_enum)
         for test_name in test_plan.test_name:
-            # 判断当前文件是否生成
-            if not self.is_production_exist(production, test_name, sn):
-                logger.info(f"No {production}-{sn} Found yet")
-                return
-            zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
-            a = Ana(zip_path)
-            res = a.ana_testing_data_zip()
-            _link = db.find_by_condition({"barcode": sn})[0]["link"]
-            if _link == "":
-                _link = None
+            try:
+                self.ensure_connection()
+                logger.info(f"开始处理 {test_name}")
+                # 判断当前文件是否生成
+                if not self.is_production_exist(production, test_name, sn):
+                    logger.info(f"No {production}-{sn} Found yet")
+                    return
+                zip_name, zip_path = self.download_testing_data_to_server(check_system_dir_call_back)
+                a = Ana(zip_path)
+                res = a.ana_testing_data_zip()
+                _link = db.find_by_condition({"barcode": sn})[0]["link"]
 
-            test_key = TEST_NAME_SETTING[test_plan.product][test_name]
-            data_files = res[test_key]  # 当前产品下的测试下的所有CSV
-            for data_file in data_files:
-                # format data_file
-                if "\\" in data_file:
-                    data_file = data_file.replace("\\", "/")
-                if sn in data_file:
-                    # TODO：分析当前数据是否为测试完整文件
-                    # TODO：分析operator信息是否为半成品测试结果
-                    try:
-                        logger.info("初始化google driver")
-                        google_drive_obj = UploadData()
-                        google_drive_obj.star_int()
-                        logger.info("初始化google driver successful")
-                    except Exception as e:
-                        logger.error("初始化google driver failed")
-                        logger.error(e)
-                        raise
+                if _link == "":
+                    logger.info("Link is '', set None")
+                    _link = None
+                else:
+                    logger.debug(type(_link))
+                    logger.info(f"Find Link: {_link}")
 
-                    th = Thread(target=self.__class__.upload_target,
-                                args=(db, google_drive_obj, data_file,value_to_enum[production], test_key, sn,zip_path),
-                                kwargs={'csv_id': _link})
-                    th.start()
-                    th.join()
-            return
+                test_key = TEST_NAME_SETTING[test_plan.product][test_name]
+                data_files = res[test_key]  # 当前产品下的测试下的所有CSV
+                for data_file in data_files:
+                    # format data_file
+                    if "\\" in data_file:
+                        data_file = data_file.replace("\\", "/")
+                    if sn in data_file:
+                        # TODO：分析当前数据是否为测试完整文件
+                        # TODO：分析operator信息是否为半成品测试结果
+                        try:
+                            logger.info("初始化google driver")
+                            google_drive_obj = UploadData()
+                            google_drive_obj.star_int()
+                            logger.info("初始化google driver successful")
+                        except Exception as e:
+                            logger.error("初始化google driver failed")
+                            logger.error(e)
+                            raise
+
+                        th = Thread(target=self.__class__.upload_target,
+                                    args=(db, google_drive_obj, data_file, value_to_enum[production], test_key, sn,
+                                          zip_path),
+                                    kwargs={'csv_id': _link})
+                        th.start()
+                        th.join()
+            except Exception as e:
+                logger.info(f"处理 {test_name} 失败")
+                logger.info(e)
+        return
 
     def run_test_plan_trials(self, db: MongoDBReader):
         reader = db
@@ -440,4 +496,10 @@ class LinuxFileManager:
             else:
                 logger.debug("auto upload closed")
             reader.close()
-            time.sleep(1*60*5)
+            time.sleep(1 * 60 * 3)
+
+if __name__ == '__main__':
+    obj = LinuxFileManager(host="192.168.6.16", username="root")
+    obj.connect()
+    result = obj.is_production_exist("P1000S", "assembly_qc", "P1KSV3620251016A08.csv")
+    print(result)

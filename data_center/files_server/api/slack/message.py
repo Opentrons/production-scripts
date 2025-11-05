@@ -3,7 +3,10 @@ from slack_sdk.errors import SlackApiError
 from datetime import datetime
 import requests
 import json
-import slack_config
+from files_server.api.slack import slack_config
+from files_server.logs import get_logger
+
+logger = get_logger("slack.send.message")
 
 class SlackBotMessenger:
     def __init__(self, environment="development", webhook_url=None, bot_name=None,
@@ -26,7 +29,7 @@ class SlackBotMessenger:
         发送测试结果消息，显示完整的 Bot 信息
         """
         bot_display_name = custom_bot_name or self.config.bot_name
-        print(f"bot name {bot_display_name}")
+        logger.info(f"bot name {bot_display_name}")
 
         try:
             if self.client:
@@ -38,11 +41,11 @@ class SlackBotMessenger:
                 return self._send_via_webhook(test_type, test_result, serial_number,
                                               test_data_link, tracking_sheet_link, bot_display_name)
             else:
-                print("错误: 未提供 token 或 webhook_url")
+                logger.info("错误: 未提供 token 或 webhook_url")
                 return False
 
         except Exception as e:
-            print(f"发送消息失败: {str(e)}")
+            logger.info(f"发送消息失败: {str(e)}")
             return False
 
     def _send_via_oauth(self, channel, test_type, test_result, serial_number,
@@ -128,11 +131,11 @@ class SlackBotMessenger:
                 attachments=attachments
             )
 
-            print(f"测试结果消息发送成功！消息ID: {response['ts']}")
+            logger.info(f"测试结果消息发送成功！消息ID: {response['ts']}")
             return True
 
         except SlackApiError as e:
-            print(f"Slack API 错误: {e.response['error']}")
+            logger.info(f"Slack API 错误: {e.response['error']}")
             return False
 
     def _send_via_webhook(self, test_type, test_result, serial_number,
@@ -190,10 +193,10 @@ class SlackBotMessenger:
         )
 
         if response.status_code == 200:
-            print(f"✅ Webhook 消息发送成功！Bot: {bot_name}")
+            logger.info(f"Webhook 消息发送成功！Bot: {bot_name}")
             return True
         else:
-            print(f"❌ 发送失败: {response.status_code}")
+            logger.info(f"发送失败: {response.status_code}")
             return False
 
 

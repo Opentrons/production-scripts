@@ -178,10 +178,10 @@ class updata_class():
                                                                     new_values=alldatalist)
                 if getret:
                     uptemp = "PASS"
-                    print("更新文件:成功", u)
+                    logger.info("更新文件:成功")
                 else:
                     uptemp = "FAIL"
-                    print("更新文件:失败", u)
+                    logger.info("更新文件:失败")
                 #进度
                 if func_callback != None:
                     func_callback(50)
@@ -223,7 +223,7 @@ class updata_class():
                             star=pase["pastelineRange"]["star"]
                             end = pase["pastelineRange"]["end"]
                             last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
-                            #print("最后一行范围：", last_row_range)
+                            #logger.info("最后一行范围：", last_row_range)
 
                         Noteval = pase["pastelineRange"]["note"]
                         pase["pasteRange"][0] = f"!{star}{last_row_index}:{end}{last_row_index}"
@@ -234,7 +234,7 @@ class updata_class():
                         pasedata = copydatalist[cs]
                         sheetlink = f"https://docs.google.com/spreadsheets/d/{copyExcelID}/edit#gid=0"  # 表格链接
                         pasedata[0][0].insert(0, sheetlink)
-                        #print(pasedata)
+                        #logger.info(pasedata)
                         ret1 = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                         ret2 = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=NOTES, new_values=[[Note_str]])
                         if ret1:
@@ -286,7 +286,7 @@ class updata_class():
         :param progress_callback:
         :return:
         """
-        print(f"Upload: \n"
+        logger.info(f"Upload: \n"
               f"File Name: {file_name}\n"
               f"Production: {production.name}\n"
               f"SN: {sn}\n"
@@ -373,8 +373,10 @@ class updata_class():
                 fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
+                logger.info(f"Get csv id {csv_link}")
                 csv_id = str(csv_link).split("/")
                 cpid = csv_id[5]
+                logger.info(f"{csv_id}, {cpid}")
             if cpid:
                 u["updatafileid"] = cpid
                 updatafileid = u["updatafileid"]
@@ -417,10 +419,10 @@ class updata_class():
                                                                     new_values=alldatalist)
                 if getret:
                     uptemp = "Ture"
-                    print("更新文件:成功", u)
+                    logger.info("更新文件:成功", u)
                 else:
                     uptemp = "Fales"
-                    print("更新文件:失败", u)
+                    logger.info("更新文件:失败", u)
                 if func_callback != None:
                     func_callback(50) #进度
                 
@@ -476,14 +478,14 @@ class updata_class():
                                     star=pase["pastelineRange"]["star"]
                                     end = pase["pastelineRange"]["end"]
                                 last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
-                                #print("最后一行范围：", last_row_range)
+                                #logger.info("最后一行范围：", last_row_range)
 
                         
                             pase["pasteRange"][0] = f"!{star}{last_row_index}:{end}{last_row_index}"
                             rangeval = pase["pasteRange"][0]
                             pasedata = copydatalist[cs]
                             pasedata[0][0].insert(0, sheetlink)
-                            #print(pasedata)
+                            #logger.info(pasedata)
                             copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                             if func_callback != None:
                                 func_callback(70) #进度
@@ -589,8 +591,10 @@ class updata_class():
                 fz = self.gdrive.get_coppy_file(CopyTemplateId, newfilename)
                 cpid = fz[1]
             else:
+                logger.info(f"Get csv id {csv_link}")
                 csv_id = str(csv_link).split("/")
                 cpid = csv_id[5]
+                logger.info(f"{csv_id}, {cpid}")
             if cpid:
                 u["updatafileid"] = cpid
                 updatafileid = u["updatafileid"]
@@ -633,10 +637,10 @@ class updata_class():
                                                                     new_values=alldatalist)
                 if getret:
                     speeduptemp = "PASS"
-                    print("SPEED CURRENT 更新文件:成功", u)
+                    logger.info("SPEED CURRENT 更新文件:成功")
                 else:
                     speeduptemp = "FAIL"
-                    print("SPEED CURRENT 更新文件:失败", u)
+                    logger.info("SPEED CURRENT 更新文件:失败")
                 if func_callback != None:
                     func_callback(50) #进度
 
@@ -693,14 +697,14 @@ class updata_class():
                                     star=pase["pastelineRange"]["star"]
                                     end = pase["pastelineRange"]["end"]
                                 last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
-                               #print("最后一行范围：", last_row_range)
+                               #logger.info("最后一行范围：", last_row_range)
 
                         
                             pase["pasteRange"][0] = f"!{star}{last_row_index}:{end}{last_row_index}"
                             rangeval = pase["pasteRange"][0]
                             pasedata = copydatalist[cs]
                             pasedata[0][0].insert(0, sheetlink)
-                            #print(pasedata)
+                            #logger.info(pasedata)
                             copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                             if func_callback != None:
                                 func_callback(70) #进度
@@ -768,15 +772,17 @@ class updata_class():
         logger.info(f"test type is {test_type}, try to upload to google driver")
         try:
             if test_type == "pipette-assembly-qc-ot3":
-                test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,func_callback=func_callback)
+                test_res = self.UpdateAssemblyQC_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,
+                                                         func_callback=func_callback, csv_link=csv_link)
             elif test_type == "grav_test":
                 test_res = self.updatavolume_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file ,func_callback=func_callback,Note_str=Note_str)
             elif test_type == "pipette-current-speed-qc-ot3":
                 logger.info("pipette-current-speed-qc-ot3 handling")
-                test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,csv_link)
+                test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,
+                                                           func_callback=func_callback, csv_link=csv_link)
             #return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
             test_res_dict.update({
-                "success": test_res[-1],
+                "success": test_res[0],
                 "test_result": test_res[1],
                 "zip_success": test_res[2],
                 "sheet_link": test_res[3],
@@ -806,14 +812,14 @@ if __name__ == "__main__":
     #     "P1KSV3520230727A04", "P1000S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
 
-    # print(typelist)
+    # logger.info(typelist)
 
     # typelist=aa.updatavolume_1CH(
     #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv",
     #     "P50SV3520241218A50", "P50S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.csv"])
 
-    # print(typelist)
+    # logger.info(typelist)
 
 
     # typelist=aa.updatavolume_1CH_8CH(
@@ -821,25 +827,25 @@ if __name__ == "__main__":
     #     "P50SV3520241218A50", "P50S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.csv"])
 
-    # print(typelist)
+    # logger.info(typelist)
 
     # typelist=aa.updatavolume_1CH_8CH(
     #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv",
     #     "P1KMV3520240110A04", "P1000M",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
 
-    # print(typelist)
+    # logger.info(typelist)
     typelist=aa.UpdateSpeedCurrent_1CH_8CH(
         "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-current-speed-qc-ot3_run-25-10-17-02-12-26_CSVReport-P1KMV3520250828A03.csv",
         "P50SV3520240914A02", "P1000M Ultima",
         "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv",
         csv_link="https://docs.google.com/spreadsheets/d/1P9T3jrSqMxb1e9WeFJszUf6O7-fn6aeVH6P5vsD7IU0/edit?gid=859846748#gid=859846748"
     )
-    print(typelist)
+    logger.info(typelist)
 
     # typelist=aa.UpdateAssemblyQC_1CH_8CH(
     #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-assembly-qc-ot3_run-25-09-16-02-20-41_P50SV3520240914A02.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-current-speed-qc-ot3_run-25-10-17-02-12-26_CSVReport-P1KMV3520250828A03.csv",
     #     "P50SV3520240914A02", "P50S",
     #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
     
-    # print(typelist)
+    # logger.info(typelist)

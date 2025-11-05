@@ -163,7 +163,6 @@ class MongoDBReader:
             )
 
             if result.matched_count > 0:
-                logger.info(f"成功更新 {result.modified_count} 个文档")
                 return result
             else:
                 logger.info(f"未找到文档")
@@ -189,8 +188,7 @@ class MongoDBReader:
 if __name__ == "__main__":
     # 1. 初始化读取器
     reader = MongoDBReader()
-    reader.auto_upload = True
-    reader.close()
+    print(reader.auto_upload)
 
 
 
