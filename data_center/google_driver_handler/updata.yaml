@@ -535,7 +535,7 @@ volumupdata_1ch: #单通道容量数据上传
     ifcopytemplate:
         off/on: true
         copyTempExcelId: "1Xqe5GbjjUPKdA05gWPPeqwv9sjyRR0Fixz1F1fnTF-4" #模版的ID
-        UltimacopyTempExcelId: "1SGAdpQQ1WqXVe9iWolf9Lb9qp6YKdGvcjYwvlVGWuWc" #PEEK的模版
+        UltimacopyTempExcelId: "1cGtvtZPPAhQ3zf8mDvDW-x2fqTPr7ndKW5-a1AlgezE" #p1kh的模版
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
 
@@ -572,7 +572,7 @@ volumupdata_1ch: #单通道容量数据上传
         copyRange: 
           - "!C3:AV3" #复制的范围 左闭右开
         UltimacopyRange: 
-          - "!M11:CC11" #复制的范围 左闭右开
+          - "!C3:AV3" #复制的范围 左闭右开
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
@@ -580,14 +580,14 @@ volumupdata_1ch: #单通道容量数据上传
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1ElOhO4QQkONhZZEhAj7rjT-EhMD4k4tRTPD-0AtPDr0" #粘贴的Excel文件ID
-        Ultimapastefileid: "1ML3NXyPst4jYIsFft7ozEV7zQnYSnCX2gFhZ7pKh_s0" #Ultima粘贴的Excel文件ID
+        Ultimapastefileid: "1dZY0HW4xJtgfDJwQOkWnfClM3J0ZXuGshgQ2LIHNlK0" #P1KH 粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
           star: "I" #粘贴的开始
           end: "BB" #粘贴的结束
         UltimapastelineRange:
-          star: "H" #粘贴的开始
-          end: "BY" #粘贴的结束
+          star: "F" #粘贴的开始
+          end: "AY" #粘贴的结束
     
     movetestfail:
       2025:
@@ -602,8 +602,8 @@ volumupdata_1ch: #单通道容量数据上传
         8: ""
         9: ""
         10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        11: ""
-        12: ""
+        11: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        12: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
       2026:
         fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
         1: ""
@@ -631,8 +631,8 @@ volumupdata_1ch: #单通道容量数据上传
         8: ""
         9: ""
         10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
-        11: ""
-        12: ""
+        11: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        12: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
       2026:
         fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
         1: ""

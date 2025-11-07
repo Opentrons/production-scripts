@@ -25,3 +25,4 @@ devices/__pycache__/__init__.cpython-37.pyc
 data_center/google_driver_handler/credentials.json
 data_center/google_driver_handler/token.json
 data_center/google_driver_handler/sheettoken.json
+logs/app.log

@@ -756,9 +756,9 @@ class updata_class():
         Args:
             upfile_path (str): 测试原始数据的服务器路径地址
             pipettesn (str): 要上传数据的移液器SN
-            pipette_type (str): 移液器的类型 只支持（对应TRACKING SHEET里面的sheet名称）: P50S, P1000S, P50M, P1000M, P50S Millipore,P1000S  Millipore,P50M Ultima,P1000M Ultima , P50M Millipore , P1000M Millipore 
+            pipette_type (str): 移液器的类型 只支持（对应TRACKING SHEET里面的sheet名称）: P50S, P1000S, P50M, P1000M, P50S Millipore,P1000S  Millipore,P50M Ultima,P1000M Ultima , P50M Millipore , P1000M Millipore,P2HH,P1KH
             zip_file:需要上传的测试原文件的压缩包
-            test_type (str): 测试类型 like: "assembly_qc","speed_current_test","grav_test"
+            test_type (str): 测试类型 like: "assembly_qc","speed_current_test","grav_test","ninety-six-assembly-qc-ot3"
             csv_link (str): 诊断数据报告链接
             Note_str (str): TRACKER SHEET 中的备注
         
@@ -794,6 +794,10 @@ class updata_class():
                 logger.info("pipette-current-speed-qc-ot3 handling")
                 test_res = self.UpdateSpeedCurrent_1CH_8CH(upfile_path,pipette_sn,pipette_type,zip_file,
                                                            func_callback=func_callback, csv_link=csv_link)
+            elif test_type == "ninety-six-assembly-qc-ot3":
+                test_res = self.UpdateAssemblyQC_96CH_P200H_P1KH(upfile_path,pipette_sn,pipette_type,zip_file,
+                                                            func_callback=func_callback, csv_link=csv_link)
+
             #return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
             test_res_dict.update({
                 "success": test_res[0],
@@ -816,10 +820,9 @@ class updata_class():
 
         Args:
             qcfilepath (str): qc测试原始数据的地址
-            currentpath: 电流测试原始数据地址
             pipettesn (str): 要上传数据的移液器SN
             pipettetype (str): 移液器的类型 只支持（对应TRACKING SHEET里面的sheet名称）: P200H,P1KH
-            
+            csv_link (str):更新测试数据使用
         return:
         [uptemp = None #上传数据状态
         testpass = None #测试结果
@@ -829,8 +832,8 @@ class updata_class():
         """
         #产品类型对应TRACKER里面sheet的名称
         nametypedict = {
-            "P200H":"P200 96CH UNIT TRACKER",
-            "P1KH":"P50S-template-v1.5",
+            "P2HH":"P200 96CH UNIT TRACKER",
+            "P1KH":"P1000 96CH UNIT TRACKER",
             
         }
 
@@ -842,9 +845,10 @@ class updata_class():
         sheetlink = "" #报告链接
         upload_status = False #上传成功状态
         copytestdata = True #复制数据到总表的状态
+        tracking_sheet = None
 
-        List_P200H = ["P200H"]
-        List_P1000H = ["P1000H"]
+        List_P200H = ["P2HH"]
+        List_P1000H = ["P1KH"]
         
         
         if pipettetype in List_P200H or pipettetype in List_P1000H : 
@@ -855,9 +859,9 @@ class updata_class():
                 raise ValueError("self.yamldata 中不存在 '9ch_lv_updata_qc' 键，或其对应值不是列表类型")
         
         CopyTemplateId = ''
-        if pipettetype == "P1000H":
+        if pipettetype == "P1KH":
             CopyTemplateId = u["ifcopytemplate"]["UltimacopyTempExcelId"]
-        elif pipettetype == "P200H":
+        elif pipettetype == "P2HH":
             CopyTemplateId = u["ifcopytemplate"]["copyTempExcelId"]
         if func_callback != None:
             func_callback(10) #进度
@@ -931,65 +935,84 @@ class updata_class():
                 copydatalist = []
                 for cop in u["ifcopydata"]:
                     if cop["off/on"]:
-                        if csv_link != None:
-                            cop['copyExcelId'] = updatafileid
-                            copyExcelID = cop['copyExcelId']
-                            stname = cop['copyExcelSheetName']
-                            if pipettetype == "P1000H":
-                                rangeval =  cop["UltimacopyRange"]
-                            elif pipettetype == "P200H":
-                                rangeval = cop["copyRange"]
-                            copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
-                            #testpass = copydata[0][0][3] #测试结果
-                            copydata
-                            testpass = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", "!P11:P11")
-                            
-                            testall = copydata
-                            copydatalist.append(copydata)
+                        cop['copyExcelId'] = updatafileid
+                        copyExcelID = cop['copyExcelId']
+                        stname = cop['copyExcelSheetName']
+                        if pipettetype == "P1KH":
+                            rangeval =  cop["UltimacopyRange"]
+                        elif pipettetype == "P2HH":
+                            rangeval = cop["copyRange"]
+                        copydata = self.gdrive.get_excel_sheet_page(copyExcelID, stname, "ROWS", rangeval)
+                        #testpass = copydata[0][0][3] #测试结果
+                        copydata[0][0][3] = sheetlink #在测试结果插入测试链接
+
+                        Test_Result = {
+                            "CurrentPlunger":copydata[0][0][5],
+                            "CurrentJaws":copydata[0][0][6],
+                            "CAPACITANCE":copydata[0][0][7],
+                            "PRESSURE":copydata[0][0][8],
+                            "TIP-SENSOR":copydata[0][0][10],
+                            "DROPLETS":copydata[0][0][11],
+                        }
+                        
+                        failed_items = {k: v for k, v in Test_Result.items() if v != "PASS"}
+                        if not failed_items:
+                            #print("全部通过")
+                            testpass = "PASS"
+                        else:
+                            testpass = "FAIL"
+                            #print("以下项目未通过 ❌：", failed_items)
+                        testall = copydata
+                        copydatalist.append(copydata)
                 if func_callback != None:
                     func_callback(60) #进度
                 for cs, pase in enumerate(u["ifpaste"]):
                     if pase["off/on"]:
-                        if csv_link != None:
-                            #复制测试结果到TRACKING SHEET 
-                            
-                            if pipettetype == "P1000M Ultima":
-                                paseexcelid = pase["Ultimapastefileid"]
-                            else:
-                                paseexcelid = pase["pastefileid"]
-                            pase["pastesheetname"] = pastesheetname
-                            pasesheetname = pase["pastesheetname"]
-                            values = self.gdrive.get_excel_sheet(spreadsheetId=paseexcelid, range=pasesheetname)
-                            if values:
-                                found_index = -1
+                        #复制测试结果到TRACKING SHEET 
+                        if pipettetype == "P1KH":
+                            paseexcelid = pase["Ultimapastefileid"]
+                        else:
+                            paseexcelid = pase["pastefileid"]
+                        pase["pastesheetname"] = pastesheetname
+                        pasesheetname = pase["pastesheetname"]
+                        values = self.gdrive.get_excel_sheet(spreadsheetId=paseexcelid, range=pasesheetname)
+                        if values:
+                            found_index = -1
 
-                                for index, row in enumerate(values):
-                                    if "P1000S" in row or "P50S" in row or "P50M" in row or "P1000M" in row:
-                                        found_index = index + 2
-                                        noval = values[found_index]
+                            for index, row in enumerate(values):
+                                # matches = [x for x in row if "P2HH" in x]
+                                # if matches:
+                                # #if "P2HH" in row or "P1KH" in row:
+                                #     found_index = index + 2
+                                #     #noval = values[found_index]
+                                # else:
+                                #     #if "P2HH" not in row and "P1KH" not in row :
+                                #     break
+                                if any(x for x in row if "P2HH" in x or "P1KH" in x):
+                                    last_found_index = index   # 保存最后匹配的行号
+                                    last_found_row = row       # 保存这一行内容
+                            last_row_index = last_found_index + 2
+                            if pipettetype == "P1KH":
+                                star=pase["UltimapastelineRange"]["star"]
+                                end = pase["UltimapastelineRange"]["end"]
 
-                                        if "P1000S" not in row and "P50S" not in row and "P50M" not in row and "P1000M" not in row:
-                                            break
-                                last_row_index = found_index
-                                if pipettetype == "P1000M Ultima":
-                                    star=pase["UltimapastelineRange"]["star"]
-                                    end = pase["UltimapastelineRange"]["end"]
+                            else: 
+                                star=pase["pastelineRange"]["star"]
+                                end = pase["pastelineRange"]["end"]
+                            last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
+                            #logger.info("最后一行范围：", last_row_range)
 
-                                else: 
-                                    star=pase["pastelineRange"]["star"]
-                                    end = pase["pastelineRange"]["end"]
-                                last_row_range = f"!{star}{last_row_index}:{end}{last_row_index}"  # 替换 Z 为你的最大列
-                                #logger.info("最后一行范围：", last_row_range)
-
-                        
-                            pase["pasteRange"][0] = f"!{star}{last_row_index}:{end}{last_row_index}"
-                            rangeval = pase["pasteRange"][0]
-                            pasedata = copydatalist[cs]
-                            pasedata[0][0].insert(0, sheetlink)
-                            #logger.info(pasedata)
-                            copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
-                            if func_callback != None:
-                                func_callback(70) #进度
+                    
+                        pase["pasteRange"][0] = f"!{star}{last_row_index}:{end}{last_row_index}"
+                        rangeval = pase["pasteRange"][0]
+                        pasedata = copydatalist[cs]
+                        #pasedata[0][0].insert(0, sheetlink)
+                        #logger.info(pasedata)
+                        copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
+                        if copytestdata:
+                            tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid=0"  # 表格链接
+                        if func_callback != None:
+                            func_callback(70) #进度
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_successlist=self.gdrive.move_file_Multi_level(updatafileid, monthid)
@@ -1012,7 +1035,7 @@ class updata_class():
             upload_status = True
         if func_callback != None:
             func_callback(100) #进度
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
+        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status,tracking_sheet]
 
 if __name__ == "__main__":
     aa = updata_class()
@@ -1061,10 +1084,19 @@ if __name__ == "__main__":
     # )
     # logger.info(typelist)
 
-    typelist=aa.UpdateAssemblyQC_1CH_8CH(
-        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-assembly-qc-ot3_run-25-09-16-02-20-41_P50SV3520240914A02.csv",
-        "P50SV3520240914A02", "P50S",
-        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-current-speed-qc-ot3_run-25-10-17-02-12-26_CSVReport-P1KMV3520250828A03.csv"
-        ,csv_link="https://docs.google.com/spreadsheets/d/1WUQO1p908FwNNV8Tq60hNrpfSQe3spMWG8xHFGMnEcA/edit?gid=859846748#gid=859846748")
+    # typelist=aa.UpdateAssemblyQC_1CH_8CH(
+    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-assembly-qc-ot3_run-25-09-16-02-20-41_P50SV3520240914A02.csv",
+    #     "P50SV3520240914A02", "P50S",
+    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/pipette-current-speed-qc-ot3_run-25-10-17-02-12-26_CSVReport-P1KMV3520250828A03.csv"
+    #     ,csv_link="https://docs.google.com/spreadsheets/d/1WUQO1p908FwNNV8Tq60hNrpfSQe3spMWG8xHFGMnEcA/edit?gid=859846748#gid=859846748")
     
     # logger.info(typelist)
+
+
+    typelist=aa.UpdateAssemblyQC_96CH_P200H_P1KH(
+        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/ninety-six-assembly-qc-ot3_run-25-11-04-07-01-22_CSVReport-P2HHV3220251031A02.csv",
+        "P2HHV3220251031A02",
+        "P1KH",
+        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/ninety-six-assembly-qc-ot3_run-25-11-04-07-01-22_CSVReport-P2HHV3220251031A02.csv"
+    )
+    print(typelist)
