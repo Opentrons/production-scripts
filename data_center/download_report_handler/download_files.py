@@ -57,6 +57,7 @@ class UploadResult:
     sheet_link: str
     move_success: Union[str, bool]
     test_all_items: Optional[bool]
+    tracking_sheet: str
 
 
 class LinuxFileManager:
@@ -379,10 +380,10 @@ class LinuxFileManager:
             bot.send_test_result(
                 channel="production-data-center",
                 test_type=test_name,
-                test_result=result_handler.test_result or "None",
+                test_result=result_handler.test_result if result_handler is not None else "None",
                 serial_number=sn,
-                test_data_link=result_handler.sheet_link or "None",
-                tracking_sheet_link="N/A"
+                test_data_link=result_handler.sheet_link if result_handler.sheet_link is not None else "None",
+                tracking_sheet_link=result_handler.tracking_sheet if result_handler.tracking_sheet is not None else "None"
             )
 
     def run_test_plan_trial(self, db: MongoDBReader, test_plan: TestPlanInterface):
