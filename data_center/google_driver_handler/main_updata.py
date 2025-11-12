@@ -103,6 +103,7 @@ class updata_class():
         upfailpass = "False" #上传源文件状态
         sheetlink = "" #测试报告链接
         pasestate = "False" #把测试结果复制到总表
+        tracking_sheet = None #总表链接
 
         List_1ch = ["P50S" ,"P1000S" ,"P50S Millipore" ,"P1000S  Millipore"]
         List_8ch = ["P50M" ,"P1000M","P50M Ultima","P1000M Ultima","P50M Millipore","P1000M Millipore"]
@@ -245,6 +246,8 @@ class updata_class():
                         if func_callback != None:
                             func_callback(80)
                         
+                        allgid = self.gdrive.get_sheet_gid_map(paseexcelid)
+                        tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit?gid={allgid[pastesheetname]}#gid={allgid[pastesheetname]}"  # 表格链接
                         
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
@@ -274,7 +277,7 @@ class updata_class():
         
         if func_callback != None:
             func_callback(100) #进度
-        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status]
+        return [uptemp,testpass,upfailpass,sheetlink,move_success,testall,upload_status,tracking_sheet]
 
     def upload_testing_data_demo(self, file_name: str, sn: str, production: Productions, zip_file: str,
                                  note_str="AUTO-UPLOAD-TE", progress_callback: Optional[Callable[[int], None]] = None):
@@ -463,6 +466,7 @@ class updata_class():
                                 paseexcelid = pase["pastefileid"]
                             pase["pastesheetname"] = pastesheetname
                             pasesheetname = pase["pastesheetname"]
+                            
                             values = self.gdrive.get_excel_sheet(spreadsheetId=paseexcelid, range=pasesheetname)
                             if values:
                                 found_index = -1
@@ -493,7 +497,8 @@ class updata_class():
                             #logger.info(pasedata)
                             copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                             if copytestdata:
-                                tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid=0"  # 表格链接
+                                allgid = self.gdrive.get_sheet_gid_map(paseexcelid)
+                                tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit?gid={allgid[pastesheetname]}#gid={allgid[pastesheetname]}"  # 表格链接
  
                             if func_callback != None:
                                 func_callback(70) #进度
@@ -718,7 +723,8 @@ class updata_class():
                             #logger.info(pasedata)
                             copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                             if copytestdata:
-                                tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid=0"  # 表格链接
+                                allgid = self.gdrive.get_sheet_gid_map(paseexcelid)
+                                tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit?gid={allgid[pastesheetname]}#gid={allgid[pastesheetname]}"  # 表格链接
                             if func_callback != None:
                                 func_callback(70) #进度
                         # 移动数据到每月文件夹
@@ -975,6 +981,8 @@ class updata_class():
                             paseexcelid = pase["pastefileid"]
                         pase["pastesheetname"] = pastesheetname
                         pasesheetname = pase["pastesheetname"]
+
+                        allgid = self.gdrive.get_sheet_gid_map(paseexcelid)
                         values = self.gdrive.get_excel_sheet(spreadsheetId=paseexcelid, range=pasesheetname)
                         if values:
                             found_index = -1
@@ -1010,17 +1018,23 @@ class updata_class():
                         #logger.info(pasedata)
                         copytestdata = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=paseexcelid, sheet_name=pasesheetname,ranges=rangeval, new_values=pasedata[0])
                         if copytestdata:
-                            tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid=0"  # 表格链接
+                            tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit#gid={allgid[pastesheetname]}#gid={allgid[pastesheetname]}"  # 表格链接
                         if func_callback != None:
                             func_callback(70) #进度
                         # 移动数据到每月文件夹
-                        monthid = u["movetestfail"][self.nowyear][self.nowmonth]
+                        if pipettetype == "P1KH":
+                            monthid = u["movetestfail"]["P1KH"][self.nowyear][self.nowmonth]
+                        elif pipettetype == "P2HH":
+                            monthid = u["movetestfail"]["P2HH"][self.nowyear][self.nowmonth]
                         move_successlist=self.gdrive.move_file_Multi_level(updatafileid, monthid)
                         move_success = move_successlist["success"]
                         if func_callback != None:
                             func_callback(80) #进度
                         # 上传原始文件到文件夹
-                        faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
+                        if pipettetype == "P1KH":
+                            faterid = u["ifupdatarawdata"]["P1KH"][self.nowyear][self.nowmonth]
+                        elif pipettetype == "P2HH":
+                            faterid = u["ifupdatarawdata"]["P2HH"][self.nowyear][self.nowmonth]
                         upid=self.gdrive.create_folders(f"{pipettesn}_{current_time_str}",faterid)
                         upfaileid = self.gdrive.upload_to_drive(zip_file, upid)
                         if upfaileid != '':

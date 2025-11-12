@@ -443,3 +443,126 @@
         10: "1k61fhLA4e5tu-qeZjo8_xbIdVjm9EDEN"
         11: "1ucyP6SKHmJniQcFRJbJYPh0v_nAhGg0I"
         12: "1_213ZY0dhWyCYCPkQP34-okME0xRq4FB"
+
+9ch_lv_updata_qc: #生产单通诊断数据上传
+  #updatafailid: "17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" #Excel表格ID 链接后的一串编码
+  - ifupdata: true #是否执行更新该数据配置
+    explanation: "9ch_lv_updata_qc" #做函数数据上传
+
+    ifcopytemplate:
+        off/on: true
+        copyTempExcelId: "1cfKQYwvc2ckMpXx93OtDJGNuzuzAbNm939VTdkk8SU4" #模版的ID
+        UltimacopyTempExcelId: "1cGtvtZPPAhQ3zf8mDvDW-x2fqTPr7ndKW5-a1AlgezE" #p1kh的模版
+        copynewfilename: "" #复制后的名字,以移液器条码命令
+  
+
+    updatafileid: “” #要更新的文件ID"" #"17Y6-PDvR9NcVjj-9gegbej7yuEtmDftIMBCP3zX3oVs" 这里为空 复制文件后获取
+    ExcelSheetName: #可以把一个 数据更新到多个sheet
+      - "RawData" #要更新的表格sheet名称
+    Range: #要更新Excel的 列 范围 
+      - "A"
+      - "B"
+      - "C"
+      - "D"
+      - "E"
+      - "F"
+    filefrompath: "" #数据来源的路径 文件服务提供
+    filekeywords: ".csv" #数据来源文件关键字 如.csv
+
+    UpCurrentSpeedTest:
+      Range: #要更新Excel的 列 范围 
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+      ExcelSheetName: "Current/Speed Test"
+  
+
+
+    ifcopydata: #是否要复制更新表格后的数据 【数组】
+      - off/on: true
+        copyExcelId: "" #要复制的文件ID
+        copyExcelSheetName: "Analysis" #要复现的表格sheet名称
+        copyRange: 
+          - "!C3:AV3" #复制的范围 左闭右开
+        UltimacopyRange: 
+          - "!C3:AV3" #复制的范围 左闭右开
+
+    
+    ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
+      - off/on: true 
+        pasteRange:  #粘贴的范围 左闭右开
+          - "" #这里为空 自行判断是否为最后一行
+        pastefileid: "1JzT88nkk94GtMiyfXq6US2IgD_zOTZOvtdmlMHdDY2w" #粘贴的Excel文件ID
+        Ultimapastefileid: "1dZY0HW4xJtgfDJwQOkWnfClM3J0ZXuGshgQ2LIHNlK0" #P1KH 粘贴的Excel文件ID
+        pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
+        pastelineRange: 
+          star: "I" #粘贴的开始
+          end: "BB" #粘贴的结束
+        UltimapastelineRange:
+          star: "F" #粘贴的开始
+          end: "AY" #粘贴的结束
+    
+    movetestfail:
+      "P2HH"
+        2025:
+          "fumulu": "14xWoBx8NWmCo9NhyGEMkNvA3kb22o6tq"
+          1: ""
+          2: ""
+          3: ""
+          4: ""
+          5: ""
+          6: ""
+          7: ""
+          8: ""
+          9: ""
+          10: ""
+          11: "1h5jm2L3S4cVy-cldg-GZhY2dvHC3d2N3"
+          12: "178i78mDZeEzLPNjur6pOz4-6lOSRUSON"
+        2026:
+          "fumulu": "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+          1: "1o79W6gSjSloVoVN6ixG1FACGRDgtCmYW"
+          2: "1I6Sn6p3s5w0nUzQApFly6TEs4fhvrSeO"
+          3: "18vcY6IL36-k-Iax1MChnkIy5CW2J-zC0"
+          4: "1algoauVsBQ1T7CEZbZaf_2LYAyy5MMV-"
+          5: "1nuvHxyaAxkUUHndRDl8HWm_jEVwcwJus"
+          6: "1vo9OAxm2CB5mkQQDm96uchcj-4cxWIEc"
+          7: "18XzJ9KN-KKwCvft7ZcHt9CRV-hEe097Q"
+          8: "19jlDZkW1-irrhyIuCZert16snHc7_cnf"
+          9: "1EFMPZnnjCuSdtZDAPPoZrkTjlsquuQEs"
+          10: "1357EG0WnsC6MdPvZDm2VQfYxG7JvYWvF"
+          11: "1Y4u4jrWEx0Cl88bHi-KsMbBjn88Ns2tQ"
+          12: "1IWA9AW_OBqVBr5m0dAF2cyLI1lBAXqDj"
+ ifupdatarawdata: #上传源文件
+    "P2HH"
+      2025:
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
+        1: ""
+        2: ""
+        3: ""
+        4: ""
+        5: ""
+        6: ""
+        7: ""
+        8: ""
+        9: ""
+        10: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+        11: "1h5jm2L3S4cVy-cldg-GZhY2dvHC3d2N3"
+        12: "178i78mDZeEzLPNjur6pOz4-6lOSRUSON"
+      2026:
+        fumulu: "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf" #父目录
+        1: "1o79W6gSjSloVoVN6ixG1FACGRDgtCmYW"
+        2: "1I6Sn6p3s5w0nUzQApFly6TEs4fhvrSeO"
+        3: "18vcY6IL36-k-Iax1MChnkIy5CW2J-zC0"
+        4: "1algoauVsBQ1T7CEZbZaf_2LYAyy5MMV-"
+        5: "1nuvHxyaAxkUUHndRDl8HWm_jEVwcwJus"
+        6: "1vo9OAxm2CB5mkQQDm96uchcj-4cxWIEc"
+        7: "18XzJ9KN-KKwCvft7ZcHt9CRV-hEe097Q"
+        8: "19jlDZkW1-irrhyIuCZert16snHc7_cnf"
+        9: "1EFMPZnnjCuSdtZDAPPoZrkTjlsquuQEs"
+        10: "1357EG0WnsC6MdPvZDm2VQfYxG7JvYWvF"
+        11: "1Y4u4jrWEx0Cl88bHi-KsMbBjn88Ns2tQ"
+        12: "1IWA9AW_OBqVBr5m0dAF2cyLI1lBAXqDj"

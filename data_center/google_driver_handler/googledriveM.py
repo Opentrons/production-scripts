@@ -1016,6 +1016,32 @@ class googledrive():
             print(f"获取工作表信息时出错: {error}")
             return None
 
+    def get_sheet_gid_map(self,spreadsheet_id):
+        """
+        获取 Google Sheet 中所有工作表名称与 gid 对应关系
+        
+        Args:
+            spreadsheet_id (str): Google 表格的 ID（URL 中的 /d/.../ 部分）
+        
+        Returns:
+            dict: {工作表名称: gid} 的映射字典
+        """
+        try:
+            #service = build('sheets', 'v4', credentials=creds)
+            spreadsheet = self.sheetservice.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            sheets = spreadsheet.get("sheets", [])
+            
+            sheet_gid_map = {}
+            for sheet in sheets:
+                title = sheet["properties"]["title"]
+                gid = sheet["properties"]["sheetId"]
+                sheet_gid_map[title] = gid
+
+            return sheet_gid_map
+
+        except Exception as e:
+            print("获取 sheet gid 失败：", e)
+            return None
 
 if __name__ == "__main__":
     aa = googledrive()
