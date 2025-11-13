@@ -3,20 +3,6 @@ from ot3_testing.leveling_test.type import SlotName, Mount, Point, TestNameLevel
 LevelingSetting = {
 
     TestNameLeveling.Z_Leveling: {
-        Mount.LEFT: {
-            SlotName.C2: {
-                Direction.Z: {
-                    "point": Point(215, 197, 357),
-                    "compensation": {"below_rear": 0.014, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            }
-        },
         Mount.RIGHT: {
             SlotName.A1: {
                 Direction.Z: {
@@ -166,24 +152,24 @@ LevelingSetting = {
                 Direction.X: {},
                 Direction.Y: {}
             },
-        }
+        },
+        Mount.LEFT: {
+                    SlotName.C2: {
+                        Direction.Z: {
+                            "point": Point(215, 197, 357),
+                            "compensation": {"below_rear": 0.014, "below_front": 0},
+                            "channel_definition": {
+                                "below_rear": 3,
+                                "below_front": 2
+                            }
+                        },
+                        Direction.X: {},
+                        Direction.Y: {}
+                    }
+                }
     },
 
     TestNameLeveling.CH8_Leveling: {
-        Mount.LEFT: {
-            SlotName.C1: {
-                Direction.Y: {
-                    "point": Point(215.42, 198.33, 299.16),
-                    "compensation": {"right_rear": 0.014, "right_front": 0},
-                    "channel_definition": {
-                        "right_front": 0,
-                        "right_rear": 1
-                    }
-                },
-                Direction.X: {},
-                Direction.Z: {}
-            }
-        },
         Mount.RIGHT: {
             SlotName.A2: {
                 Direction.Y: {
@@ -214,6 +200,20 @@ LevelingSetting = {
                 Direction.Y: {
                     "point": Point(499.83, 197.18, 299.16),
                     "compensation": {"right_rear": -0.062, "right_front": 0},
+                    "channel_definition": {
+                        "right_front": 0,
+                        "right_rear": 1
+                    }
+                },
+                Direction.X: {},
+                Direction.Z: {}
+            }
+        },
+        Mount.LEFT: {
+            SlotName.C1: {
+                Direction.Y: {
+                    "point": Point(215.42, 198.33, 299.16),
+                    "compensation": {"right_rear": 0.014, "right_front": 0},
                     "channel_definition": {
                         "right_front": 0,
                         "right_rear": 1
