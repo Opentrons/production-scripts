@@ -131,7 +131,7 @@ class googledrive():
         """
 
         MIMEDICT = {
-            "csv": "text/csv",
+            "report": "text/report",
             "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "pdf": "application/pdf",
             "txt": "text/plain",

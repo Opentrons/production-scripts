@@ -57,4 +57,4 @@ class CsvFunc():
 if __name__ == "__main__":
     aa = CsvFunc()
     #aa.get_folder_all_fail("""/Users/yew/googledriver/""")
-    aa.Read_csv_all("""/Users/yew/googledriver/gravimetric-ot3-p1000_run-23-04-11-05-19-26_CSVReport-P1KSV3420230115A01.csv""")
+    aa.Read_csv_all("""/Users/yew/googledriver/gravimetric-ot3-p1000_run-23-04-11-05-19-26_CSVReport-P1KSV3420230115A01.report""")

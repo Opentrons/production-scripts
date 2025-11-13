@@ -14,21 +14,21 @@ def updatasection():
     print(base_path)
         
     #yuanshipath =  os.path.join(base_path, relative_path)
-    aa = CsvFunc(path=base_path,fileName=str(relative_path)+".csv")
+    aa = CsvFunc(path=base_path,fileName=str(relative_path)+".report")
     alllist = aa.Readlist()
 
     datalen = len(alllist)
     
     if datalen - 23040 >= 0:
-        path1 = os.path.join(base_path, str(relative_path)+ "_1.csv")
+        path1 = os.path.join(base_path, str(relative_path)+ "_1.report")
         aa.Writeallpath(alllist[0:23040],path1)
         print("已生成：",path1)
     if datalen - 46080 >= 0:
-        path1 = os.path.join(base_path, str(relative_path)+"_2.csv")
+        path1 = os.path.join(base_path, str(relative_path)+"_2.report")
         aa.Writeallpath(alllist[23040:46081],path1)
         print("已生成：",path1)
     if datalen - 46081 >= 0:
-        path1 = os.path.join(base_path, str(relative_path)+"_3.csv")
+        path1 = os.path.join(base_path, str(relative_path)+"_3.report")
         aa.Writeallpath(alllist[46081:],path1)
         print("已生成：",path1)
     

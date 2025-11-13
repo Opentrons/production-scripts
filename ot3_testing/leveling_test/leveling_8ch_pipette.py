@@ -5,17 +5,18 @@ from devices.laser_stj_10_m0 import LaserSensor
 import asyncio
 import traceback
 import os
-from ot3_testing.leveling_test.csv.report import LevelingCSV
+from ot3_testing.leveling_test.report.report import LevelingCSV
 from typing import Union
 
 
 class CH8_Leveling(LevelingBase):
-    def __init__(self, robot_ip_address: str, test_name=TestNameLeveling.CH8_Leveling):
+    def __init__(self, robot_ip_address: str, test_name=TestNameLeveling.CH8_Leveling,
+                 script_dir=os.path.dirname(os.path.abspath(__file__))):
         super().__init__(robot_ip_address)
         self.test_name = test_name
         self.judge_complete = False
         self.__spec = 0.25
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.script_dir = script_dir
         self.report: Union[LevelingCSV, None] = None
 
     def __str__(self):
@@ -96,6 +97,7 @@ class CH8_Leveling(LevelingBase):
                 Mount.LEFT: [SlotName.C1],
                 Mount.RIGHT: [SlotName.A2, SlotName.C1, SlotName.C3]
             }
+            self.report.update_create_time()
             self.report.create_csv_path()
             await self.home()
             # 初始化laser
@@ -117,16 +119,30 @@ class CH8_Leveling(LevelingBase):
             traceback.print_exc()
         finally:
             await self.home()
+            await self.build_api()
             await self.maintenance_api.delete_run()
             self.release_laser()
 
     def build_reader(self):
-        for mount in [Mount.RIGHT, Mount.LEFT]:
-            reader_type = self._reader_type
-            if reader_type is LaserSensor:
-                self.laser = Reader.init_laser_stj_10m0(mount)
-                if self.laser is not None or NotImplemented:
-                    self.lasers[mount] = self.laser
+        reader_type = self._reader_type
+        if reader_type is LaserSensor:
+            try:
+                laser_dict = Reader.init_laser_stj_10m0(TestNameLeveling.CH8_Leveling)
+                self.lasers = laser_dict
+                # check laser
+                if self.lasers:
+                    for mount in [Mount.LEFT, Mount.RIGHT]:
+                        if mount in self.lasers:
+                            pass
+                        else:
+                            print(f"Laser on Mount {mount.value} not found (未找到测试工装！)")
+                            raise
+                else:
+                    print(f"Laser not found (未找到测试工装！)")
+                    raise
+            except Exception as e:
+                print(e)
+                raise
 
 
 if __name__ == '__main__':

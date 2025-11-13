@@ -5,17 +5,18 @@ from devices.laser_stj_10_m0 import LaserSensor
 import asyncio
 import traceback
 import os
-from ot3_testing.leveling_test.csv.report import LevelingCSV
+from ot3_testing.leveling_test.report.report import LevelingCSV
 
 
 class CH96_Leveling(LevelingBase):
-    def __init__(self, robot_ip_address: str, test_name= TestNameLeveling.CH96_Leveling):
+    def __init__(self, robot_ip_address: str, test_name= TestNameLeveling.CH96_Leveling,
+                 script_dir=os.path.dirname(os.path.abspath(__file__))):
         super().__init__(robot_ip_address)
         self.test_name = test_name
         self.judge_complete = False
         self.__spec_xy = 0.25
         self.__spec_z = 0.35
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.script_dir = script_dir
         self.__direction = Direction.X
 
     def __str__(self):
@@ -104,6 +105,7 @@ class CH96_Leveling(LevelingBase):
                }
 
             }
+            self.report.update_create_time()
             self.report.create_csv_path()
             await self.home()
             # 初始化laser
@@ -111,6 +113,7 @@ class CH96_Leveling(LevelingBase):
             self.report.init_title()
             # 遍历所有slot
             for mount in [Mount.LEFT]:
+                self.laser = self.lasers[mount]
                 direction_setting = slot_list[mount]
                 for direction, slot_name_list in direction_setting.items():
                     self.__direction = direction
@@ -129,17 +132,31 @@ class CH96_Leveling(LevelingBase):
             traceback.print_exc()
         finally:
             await self.home()
+            await self.build_api()
             await self.maintenance_api.delete_run()
 
     def build_reader(self):
-        for mount in [Mount.LEFT]:
-            reader_type = self._reader_type
-            if reader_type is LaserSensor:
-                self.laser = Reader.init_laser_stj_10m0(mount)
-                if self.laser is not None or NotImplemented:
-                    self.lasers[mount] = self.laser
+        reader_type = self._reader_type
+        if reader_type is LaserSensor:
+            try:
+                laser_dict = Reader.init_laser_stj_10m0(TestNameLeveling.CH96_Leveling)
+                self.lasers = laser_dict
+                # check laser
+                if self.lasers:
+                    for mount in [Mount.LEFT]:
+                        if mount in self.lasers:
+                            pass
+                        else:
+                            print(f"Laser on Mount {mount.value} not found (未找到测试工装！)")
+                            raise
+                else:
+                    print(f"Laser not found (未找到测试工装！)")
+                    raise
+            except Exception as e:
+                print(e)
+                raise
 
 if __name__ == '__main__':
-    ch96_leveling = CH96_Leveling(robot_ip_address="192.168.6.15")
+    ch96_leveling = CH96_Leveling(robot_ip_address="192.168.6.123")
     asyncio.run(ch96_leveling.run())
     input("测试结束...")

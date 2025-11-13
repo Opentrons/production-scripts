@@ -33,12 +33,12 @@ test_name_list = {
 }
 
 csv_name_list = {
-    Production.Robot: "VERSION_OT3.csv",
-    Production.Gripper: "VERSION_OT3_GRIPPER.csv",
-    Production.Pipette_CH1: "VERSION_1CH_PIPETTE.csv",
-    Production.Pipette_CH8: "VERSION_8CH_PIPETTE.csv",
-    Production.Pipette_CH96_P200: "VERSION_96CH_PIPETTE_P200.csv",
-    Production.Pipette_CH96_P1000: "VERSION_96CH_PIPETTE_P1000.csv",
+    Production.Robot: "VERSION_OT3.report",
+    Production.Gripper: "VERSION_OT3_GRIPPER.report",
+    Production.Pipette_CH1: "VERSION_1CH_PIPETTE.report",
+    Production.Pipette_CH8: "VERSION_8CH_PIPETTE.report",
+    Production.Pipette_CH96_P200: "VERSION_96CH_PIPETTE_P200.report",
+    Production.Pipette_CH96_P1000: "VERSION_96CH_PIPETTE_P1000.report",
 
 }
 

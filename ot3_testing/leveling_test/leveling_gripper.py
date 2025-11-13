@@ -1,22 +1,26 @@
+from adodbapi.ado_consts import directions
+
 from ot3_testing.leveling_test.model.base import LevelingBase
 from ot3_testing.leveling_test.type import SlotName, TestNameLeveling, Mount, Direction
 from ot3_testing.leveling_test.fixture.reader import Reader
 from devices.laser_stj_10_m0 import LaserSensor
-from drivers.play_sound import play_alarm_3
 import asyncio
-import threading
 import traceback
 import os
+from ot3_testing.leveling_test.report.report import LevelingCSV
+from typing import Union, Optional
 
 
-class Z_Leveling(LevelingBase):
-    def __init__(self, robot_ip_address: str, test_name=TestNameLeveling.Z_Leveling,
+class Gripper_Leveling(LevelingBase):
+    def __init__(self, robot_ip_address: str, test_name=TestNameLeveling.Gripper_Leveling,
                  script_dir=os.path.dirname(os.path.abspath(__file__))):
         super().__init__(robot_ip_address)
         self.test_name = test_name
-        self.judge_complete = False
-        self.__spec = 0.25
+        self.__spec = 0.5
         self.script_dir = script_dir
+        self.report: Union[LevelingCSV, None] = None
+        self.laser: Optional[LaserSensor] = None
+        self.__direction: Optional[Direction] = None
 
     def __str__(self):
         return self.test_name.name.upper()
@@ -45,10 +49,14 @@ class Z_Leveling(LevelingBase):
                   f"Step: {round(step, 3)}\n")
             if cli:
                 break
-            if step > 0:
-                await self.move_down(abs(step))
+            if self.__direction == Direction.X:
+                await self.move_forward(abs(step)) if step < 0 else await self.move_back(abs(step))
+            elif self.__direction == Direction.Y:
+                await self.move_right(abs(step)) if step < 0 else await self.move_left(abs(step))
+            elif self.__direction == Direction.Z:
+                cli = True
             else:
-                await self.move_up(abs(step))
+                raise ValueError("Wrong direction")
             default_distance = read_default_channel()
             if abs(default_distance - 30) < 0.1:
                 cli = True
@@ -61,7 +69,7 @@ class Z_Leveling(LevelingBase):
         """
         for i in range(3):
             # step1: move to slot
-            await self.move_to_slot(self.calibration_callback)
+            await self.move_to_slot(calibration_func_callback=self.calibration_callback)
             # step2: read result
             result = Reader.read_sensor(self.laser)
             # step3: show result
@@ -86,74 +94,35 @@ class Z_Leveling(LevelingBase):
                     self.report.write_new_results(csv_result)
                 await self.home_z()
 
-    async def judge_z_stage(self):
-        """
-        move to C2, and require rotate the screw to let the z stage leveling
-        :return:
-        """
-        await self.init_slot(self.test_name, Mount.RIGHT, SlotName.C2, Direction.Z)
-        # build reader
-        self.laser = self.lasers[Mount.RIGHT]
-        await self.move_to_slot(calibration_func_callback=self.calibration_callback)
-
-        def read_result():
-            result = Reader.read_sensor(self.laser, delay=0)
-            _, diff = self.reader_handler(result)
-            _, diff = self.apply_compensation()
-            return _, diff
-
-        def th_keep_reading():
-            while True:
-                _, _difference = read_result()
-                difference = int(-_difference * 1500 + 1500)
-                if difference < 200:
-                    difference = 200
-                if difference > 1500:
-                    difference = 1500
-                fre = 100 if _difference > 0.03 else 1000
-                print(f"Diff: {_difference} (调节螺丝旋钮-> Diff = 0.03mm 后回车继续)")
-                play_alarm_3(difference, fre)
-                if self.judge_complete:
-                    break
-
-        th = threading.Thread(target=th_keep_reading)
-        th.start()
-        input("")
-        self.judge_complete = True
-        th.join()
-
     async def run(self):
         try:
             #  定义初始化参数
             self.add_compensation = True
-            self.build_report("Z_Leveling_Test.csv", self.script_dir, self.test_name)
-            slot_list = {
-                Mount.LEFT: [SlotName.C2],
-                Mount.RIGHT: [SlotName.A1, SlotName.A2, SlotName.A3,
-                              SlotName.B1, SlotName.B2, SlotName.B3,
-                              SlotName.C1, SlotName.C2, SlotName.C3,
-                              SlotName.D1, SlotName.D2, SlotName.D3]
-            }
+            self.build_report("Gripper_Leveling_Test.csv", self.script_dir, self.test_name)
+
+            slot_list = {Mount.LEFT: {
+                Direction.X: [SlotName.C2],
+                Direction.Y: [SlotName.C2],
+                Direction.Z: [SlotName.C2]
+            }}
             self.report.update_create_time()
             self.report.create_csv_path()
             await self.home()
             # 初始化laser
-            print("Initialing the serial devices")
             self.build_reader()
-            # 调节C2里面Z轴平行
-            await self.judge_z_stage()
-            await self.home()
             self.report.init_title()
             # 遍历所有slot
-            for mount in [Mount.RIGHT, Mount.LEFT]:
+            for mount in [Mount.LEFT]:
                 _slot_list = slot_list[mount]
                 self.laser = self.lasers[mount]
-                for slot_name in _slot_list:
+                for direction, slot_name_list in _slot_list.items():
                     # build api and init slot config
-                    await self.init_slot(self.test_name, mount, slot_name, Direction.Z)
-                    # run tria
-                    await self.run_trials()
-                await self.home()
+                    self.__direction = direction
+                    for slot_name in slot_name_list:
+                        await self.init_slot(self.test_name, mount, slot_name, direction)
+                        # run trial
+                        await self.run_trials()
+                    await self.home()
             self.release_laser()
         except KeyboardInterrupt("Customer exit"):
             pass
@@ -163,16 +132,17 @@ class Z_Leveling(LevelingBase):
             await self.home()
             await self.build_api()
             await self.maintenance_api.delete_run()
+            self.release_laser()
 
     def build_reader(self):
         reader_type = self._reader_type
         if reader_type is LaserSensor:
             try:
-                laser_dict = Reader.init_laser_stj_10m0(TestNameLeveling.Z_Leveling)
+                laser_dict = Reader.init_laser_stj_10m0(TestNameLeveling.Gripper_Leveling)
                 self.lasers = laser_dict
                 # check laser
                 if self.lasers:
-                    for mount in [Mount.LEFT, Mount.RIGHT]:
+                    for mount in [Mount.LEFT]:
                         if mount in self.lasers:
                             pass
                         else:
@@ -182,11 +152,11 @@ class Z_Leveling(LevelingBase):
                     print(f"Laser not found (未找到测试工装！)")
                     raise
             except Exception as e:
-                    print(e)
-                    raise
+                print(e)
+                raise
 
 
 if __name__ == '__main__':
-    z_leveling = Z_Leveling(robot_ip_address="192.168.6.15")
-    asyncio.run(z_leveling.run())
+    gripper_leveling = Gripper_Leveling(robot_ip_address="192.168.6.88")
+    asyncio.run(gripper_leveling.run())
     input("测试结束...")

@@ -126,7 +126,7 @@ def updatavolume_1CH(u):
 
         pipettesn = 'NONE'
         # 定义正则表达式模式
-        # pattern = r'-(P\w+SV\d+A\d+)-qc\.csv'
+        # pattern = r'-(P\w+SV\d+A\d+)-qc\.report'
 
         
         # # 匹配第一个字符串的目标部分

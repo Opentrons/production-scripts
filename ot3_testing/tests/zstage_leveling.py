@@ -198,9 +198,9 @@ class ZStageLeveling(TestBase):
         # save debugging result
         if DEBUGGING_READING:
             if project_path is not None:
-                file_path = os.path.join(project_path, 'testing_data', 'debugging_z_stage_leveling.csv')
+                file_path = os.path.join(project_path, 'testing_data', 'debugging_z_stage_leveling.report')
             else:
-                file_path = '../../testing_data/debugging_z_stage_leveling.csv'
+                file_path = '../../testing_data/debugging_z_stage_leveling.report'
             self.save_csv(file_path, [], debug_front)
             self.save_csv(file_path, [], debug_rear)
             self.save_csv(file_path, [], [])
@@ -333,15 +333,15 @@ class ZStageLeveling(TestBase):
             self.laser_sensor[self.mount.value].close()
 
         if project_path is not None:
-            file_path = os.path.join(project_path, 'testing_data', 'z_stage_leveling.csv')
+            file_path = os.path.join(project_path, 'testing_data', 'z_stage_leveling.report')
         else:
-            file_path = '../../testing_data/z_stage_leveling.csv'
+            file_path = '../../testing_data/z_stage_leveling.report'
         # self.save_csv(file_path, csv_title, csv_list_no_compensation)
         self.save_csv(file_path, csv_title, csv_list)
 
     def save_csv(self, file_path, title, content):
         """
-        save csv
+        save report
         """
         is_exist = Utils.is_file_exist(file_path)
         if is_exist:

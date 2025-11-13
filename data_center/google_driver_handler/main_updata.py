@@ -259,30 +259,30 @@ if __name__ == "__main__":
     #     pass
 
     # typelist=aa.updatavolume_1CH(
-    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.csv",
+    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.report",
     #     "P1KSV3520230727A04", "P1000S",
-    #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
+    #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_CSVReport-P1KSV3520230727A04-qc.report","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.report"])
 
     # print(typelist)
 
     # typelist=aa.updatavolume_1CH(
-    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv",
+    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.report",
     #     "P50SV3520241218A50", "P50S",
-    #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.csv"])
+    #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.report","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.report"])
 
     # print(typelist)
 
 
     # typelist=aa.updatavolume_1CH_8CH(
-    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv",
+    #     "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.report",
     #     "P50SV3520241218A50", "P50S",
-    #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.csv"])
+    #     ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_CSVReport-P50SV3520241218A50-qc.report","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p50-single_run-25-10-14-10-08-07_GravimetricRecorder-P50SV3520241218A50-qc.report"])
 
     # print(typelist)
 
     typelist=aa.updatavolume_1CH_8CH(
-        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv",
+        "/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.report",
         "P1KMV3520240110A04", "P1000M",
-        ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.csv","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.csv"])
+        ["/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-multi_run-25-10-10-16-14-38_CSVReport-P1KMV3520240110A04-qc.report","/Users/yew/Desktop/production-scripts/data_center/google_driver_handler/gravimetric-ot3-p1000-single_run-25-07-11-17-58-22_GravimetricRecorder-P1KSV3520230727A04-qc.report"])
 
     print(typelist)

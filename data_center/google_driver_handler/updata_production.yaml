@@ -18,7 +18,7 @@
       - "C"
       - "D"
     filefrompath: "/upload/function/1ch" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
@@ -125,7 +125,7 @@
       - "I"
       - "J"
     filefrompath: "" #数据来源的路径 文件服务提供
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
@@ -163,7 +163,7 @@
       - "C"
       - "D"
     filefrompath: "/Users/yew/googledriver/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true

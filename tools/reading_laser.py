@@ -69,7 +69,7 @@ class ReadLaser(TestBase):
 
     def save_csv(self, file_path, title, content):
         """
-        save csv
+        save report
         """
         is_exist = Utils.is_file_exist(file_path)
         if is_exist:

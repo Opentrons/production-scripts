@@ -20,14 +20,14 @@ res['P36v'] = {'spec': (11.0,13.0), 'res': 0}
 res['P36v']['spec'] = {'high':11,'low':13}
 # list = []
 # list.append(res)
-LimitsConfigFileName = '5048LimitConfig.csv'
+LimitsConfigFileName = '5048LimitConfig.report'
 
 
 class CsvFunc():
-    def __init__(self,path='C:/ICT913-00050_TestData/',fileName= "ICT913-00050_TestData_" + time.strftime('%Y%m%d',time.localtime())+".csv"):
+    def __init__(self,path='C:/ICT913-00050_TestData/',fileName= "ICT913-00050_TestData_" + time.strftime('%Y%m%d',time.localtime())+".report"):
         
         self.path = path
-        self.filename = fileName # "ICT_{}_TestData_".format(fileName) + time.strftime('%Y%m%d',time.localtime())+".csv"
+        self.filename = fileName # "ICT_{}_TestData_".format(fileName) + time.strftime('%Y%m%d',time.localtime())+".report"
 
         print(self.path)
         print(self.filename)

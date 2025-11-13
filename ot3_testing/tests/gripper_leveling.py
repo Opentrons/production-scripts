@@ -147,7 +147,7 @@ class GripperLeveling(TestBase):
 
     def save_csv(self, file_path, title, content):
         """
-        save csv
+        save report
         """
         is_exist = Utils.is_file_exist(file_path)
         if is_exist:
@@ -203,9 +203,9 @@ class GripperLeveling(TestBase):
                 csv_list.append(difference)
             # save
             if project_path is not None:
-                file_path = os.path.join(project_path, 'testing_data', 'gripper_leveling.csv')
+                file_path = os.path.join(project_path, 'testing_data', 'gripper_leveling.report')
             else:
-                file_path = '../../testing_data/gripper_leveling.csv'
+                file_path = '../../testing_data/gripper_leveling.report'
             self.save_csv(file_path, csv_title, csv_list)
 
         await self.api.home()

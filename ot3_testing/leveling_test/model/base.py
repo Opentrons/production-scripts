@@ -10,7 +10,7 @@ from ot3_testing.leveling_test.require_config import get_slot_config, SlotConfig
 from typing import Callable, Any
 from devices.laser_stj_10_m0 import LaserSensor
 from ot3_testing.hardware_control.hardware_control import HardwareControl
-from ot3_testing.leveling_test.csv.report import LevelingCSV
+from ot3_testing.leveling_test.report.report import LevelingCSV
 
 
 class LevelingBase(ABC):
@@ -37,9 +37,12 @@ class LevelingBase(ABC):
         self.report = LevelingCSV(csv_name, os.path.join(script_dir, 'testing_data'), test_name, self.robot_sn)
 
     def release_laser(self):
-        for key, item in self.lasers.items():
-            print(f"release {key.value}")
-            item.close()
+        try:
+            for key, item in self.lasers.items():
+                print(f"release {key.value}")
+                item.close()
+        except Exception as e:
+            raise e
 
     @property
     def robot_sn(self) -> str:
@@ -154,6 +157,9 @@ class LevelingBase(ABC):
     async def __build_api(self) -> None:
         self.maintenance_api = MaintenanceApi(self.ip_address)
         await self.maintenance_api.create_run()
+
+    async def build_api(self) -> None:
+        await self.__build_api()
 
     async def move_up(self, step):
         if self.current_point is None:

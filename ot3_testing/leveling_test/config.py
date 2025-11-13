@@ -350,5 +350,29 @@ LevelingSetting = {
         Mount.RIGHT: {
 
             }
+    },
+
+    TestNameLeveling.Gripper_Leveling: {
+        Mount.LEFT: {
+            SlotName.C2: {
+                Direction.X: {
+                    "point": Point(52, 332.5, 500),
+                    "compensation": {"rear_left": -0.003, "rear_right": 0},
+                    "channel_definition": {"rear_left": 1, "rear_right": 0}
+                },
+                Direction.Y: {
+                    "point": Point(223.5, 181.7, 500),
+                    "compensation": {"right_front": 0, "right_rear": -0.029},
+                    "channel_definition": {"right_front": 2, "right_rear": 3}
+                },
+                Direction.Z: {
+                    "point": Point(202.5, 177, 500),
+                    "compensation": {"below_rear": 0.04, "below_front": 0},
+                    "channel_definition": {"below_rear": 5, "below_front": 4}
+                }
+            }
+        },
+        Mount.RIGHT: {
+        }
     }
 }

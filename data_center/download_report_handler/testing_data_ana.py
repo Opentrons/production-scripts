@@ -91,17 +91,17 @@ class Ana:
         Example:
             {'belt-calibration-ot3': ['C:\\Users\\22192\\production-scripts\\data_center\\files_server\\data\\
             testing_data\\belt-calibration-ot3\\run-25-08-11-00-40-18\\belt-calibration-ot3_run-25-08-11-00-40-
-            18_CSVReport-FLXA3020250805002.csv'], 'robot-assembly-qc-ot3': ['C:\\Users\\22192\\production-script
+            18_CSVReport-FLXA3020250805002.report'], 'robot-assembly-qc-ot3': ['C:\\Users\\22192\\production-script
             s\\data_center\\files_server\\data\\testing_data\\robot-assembly-qc-ot3\\run-25-08-08-00-35-41\\robo
-            t-assembly-qc-ot3_run-25-08-08-00-35-41_CSVReport-FLXA3020250805002.csv', 'C:\\Users\\22192\\producti
+            t-assembly-qc-ot3_run-25-08-08-00-35-41_CSVReport-FLXA3020250805002.report', 'C:\\Users\\22192\\producti
             on-scripts\\data_center\\files_server\\data\\testing_data\\robot-assembly-qc-ot3\\run-25-08-08-08-17-
-            15\\robot-assembly-qc-ot3_run-25-08-08-08-17-15_CSVReport-FLXA3020250805002.csv', 'C:\\Users\\22192\\
+            15\\robot-assembly-qc-ot3_run-25-08-08-08-17-15_CSVReport-FLXA3020250805002.report', 'C:\\Users\\22192\\
             production-scripts\\data_center\\files_server\\data\\testing_data\\robot-assembly-qc-ot3\\run-25-08-1
-            1-07-43-19\\robot-assembly-qc-ot3_run-25-08-11-07-43-19_CSVReport-FLXS3020250808002.csv', 'C:\\Users\\
+            1-07-43-19\\robot-assembly-qc-ot3_run-25-08-11-07-43-19_CSVReport-FLXS3020250808002.report', 'C:\\Users\\
             22192\\production-scripts\\data_center\\files_server\\data\\testing_data\\robot-assembly-qc-ot3\\run-2
-            5-08-11-07-48-04\\robot-assembly-qc-ot3_run-25-08-11-07-48-04_CSVReport-FLXS3020250808002.csv', 'C:\\Us
+            5-08-11-07-48-04\\robot-assembly-qc-ot3_run-25-08-11-07-48-04_CSVReport-FLXS3020250808002.report', 'C:\\Us
             ers\\22192\\production-scripts\\data_center\\files_server\\data\\testing_data\\robot-assembly-qc-ot3\\
-            run-25-08-11-07-55-40\\robot-assembly-qc-ot3_run-25-08-11-07-55-40_CSVReport-FLXS3020250808002.csv']}
+            run-25-08-11-07-55-40\\robot-assembly-qc-ot3_run-25-08-11-07-55-40_CSVReport-FLXS3020250808002.report']}
 
         """
         test_files = {}

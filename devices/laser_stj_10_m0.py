@@ -45,6 +45,8 @@ class LaserSensor:
             print(f"Getting Mount Result: {result}")
             if "ADS1115" in str(result):
                 continue
+            if "WRONG" in str(result).upper():
+                continue
             if "L" in str(result).upper():
                 return "left"
             elif "R" in str(result).upper():
@@ -100,11 +102,11 @@ if __name__ == '__main__':
 
     mount = ls.get_mount()
     print(f"Mount: {mount}")
-    # while True:
-    #     res = ls.read_sensor_low(show_distance=True)
-    #     print(f"Distance: {res}")
-    #     time.sleep(1)
     while True:
         res = ls.read_sensor_low(show_distance=True)
-        diff = res[3] - res[2]
-        print(res, diff)
+        print(f"Distance: {res}")
+        time.sleep(1)
+    # while True:
+    #     res = ls.read_sensor_low(show_distance=True)
+    #     diff = res[3] - res[2]
+    #     print(res, diff)

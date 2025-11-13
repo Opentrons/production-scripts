@@ -22,7 +22,7 @@ def get_cycles(client: SSHClient, device_name):
     remote_dir = "/data/testing_data"
     # 获取按时间排序的最新CSV文件
     file_list = sorted(
-        [f for f in channel.listdir(remote_dir) if f.endswith('.csv')],
+        [f for f in channel.listdir(remote_dir) if f.endswith('.report')],
         key=lambda x: channel.stat(f"{remote_dir}/{x}").st_mtime,
         reverse=True
     )

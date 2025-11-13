@@ -1,7 +1,7 @@
 updatafile: #批量上传文件到谷歌网盘的某个文件夹
   - googlefolderID: #谷歌网盘文件夹ID 链接后的一串编码 如： 
     floderpath: #要上传的文件夹路径
-    filekeywords: #要上传的文件关键字 如.csv
+    filekeywords: #要上传的文件关键字 如.report
 
 
 
@@ -20,7 +20,7 @@ tabledataupdate: #表格数据更新
       - "C"
       - "D"
     filefrompath: "/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
@@ -60,7 +60,7 @@ volumupdata_1ch: #单通道容量数据上传
       - "C"
       - "D"
     filefrompath: "/Users/yew/googledriver/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
@@ -98,7 +98,7 @@ volumupdata_1ch: #单通道容量数据上传
       - "C"
       - "D"
     filefrompath: "/upload/function/1ch" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
@@ -205,7 +205,7 @@ volumupdata_1ch: #单通道容量数据上传
       - "I"
       - "J"
     filefrompath: "" #数据来源的路径 文件服务提供
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true
@@ -246,7 +246,7 @@ volumupdata_1ch: #单通道容量数据上传
       - "C"
       - "D"
     filefrompath: "/Users/yew/googledriver/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - off/on: true

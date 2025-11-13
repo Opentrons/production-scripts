@@ -117,7 +117,7 @@ class UploadToGoogleDrive:
                 sheet_title: 产品的测试名
         """
         # 提取序列号
-        pattern2 = r'_CSVReport-([^-.]+)\.csv$'
+        pattern2 = r'_CSVReport-([^-.]+)\.report$'
         match2 = re.search(pattern2, this_file_name)
         if match2:
             serial_number = match2.group(1)

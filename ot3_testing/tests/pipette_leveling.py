@@ -380,17 +380,17 @@ class PipetteLeveling(TestBase):
             csv_title.append(key + "-Result")
         self.laser_sensor[self.mount.value].close()
 
-        # save csv
+        # save report
         if project_path is not None:
-            file_path = os.path.join(project_path, 'testing_data', 'pipette_8ch_leveling.csv')
+            file_path = os.path.join(project_path, 'testing_data', 'pipette_8ch_leveling.report')
         else:
-            file_path = '../../testing_data/pipette_8ch_leveling.csv'
+            file_path = '../../testing_data/pipette_8ch_leveling.report'
         # self.save_csv(file_path, csv_title, csv_list_no_compensation)
         self.save_csv(file_path, csv_title, csv_list)
 
     def save_csv(self, file_path, title, content):
         """
-        save csv
+        save report
         """
         is_exist = Utils.is_file_exist(file_path)
         if is_exist:
@@ -485,11 +485,11 @@ class PipetteLeveling(TestBase):
 
                 print(f"Test Slot: {slot}, Test Result: {diff}")
 
-            # save csv
+            # save report
             if project_path is not None:
-                file_path = os.path.join(project_path, 'testing_data', 'pipette_96ch_leveling.csv')
+                file_path = os.path.join(project_path, 'testing_data', 'pipette_96ch_leveling.report')
             else:
-                file_path = '../../testing_data/pipette_96ch_leveling.csv'
+                file_path = '../../testing_data/pipette_96ch_leveling.report'
             self.save_csv(file_path, csv_title, csv_list)
         self.laser_sensor[self.mount.value].close()
 
