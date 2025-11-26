@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
     def run_in_thread():
         LinuxFileManager.download_load_and_upload_cycling()
-        time.sleep(10)
+        time.sleep(3)
 
     thread = Thread(target=run_in_thread, daemon=True)
     thread.start()

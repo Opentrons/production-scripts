@@ -64,8 +64,7 @@ class SlackBotMessenger:
         """
         try:
 
-            # 根据测试结果设置颜色和emoji
-            if test_result.lower() == "pass":
+            if test_result is not None and test_result.lower() == "pass":
                 color_emoji = ":large_green_circle:"
                 color_code = "#36a64f"
                 status_text = "通过"
@@ -141,7 +140,7 @@ class SlackBotMessenger:
     def _send_via_webhook(self, test_type, test_result, serial_number,
                           test_data_link, tracking_sheet_link, bot_name):
         """使用 Webhook 发送"""
-        if test_result.lower() == "pass":
+        if test_result is not None and test_result.lower() == "pass":
             color = "#36a64f"
         else:
             color = "#fc1c37"

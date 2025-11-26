@@ -414,7 +414,6 @@ class LinuxFileManager:
         sn = test_plan.barcode
         production = test_plan.product
         value_to_enum = {member.value: member for member in Productions}
-        logger.debug(value_to_enum)
         for test_name in test_plan.test_name:
             try:
                 self.ensure_connection()
@@ -488,16 +487,20 @@ class LinuxFileManager:
         """
         while True:
             # step1 读取开关状态，是否需要打开自动上传开关
+            logger.info("="*20)
+            logger.info("Starting Cycle")
+            logger.info("=" * 20)
             reader = MongoDBReader()
             is_turn_on = reader.auto_upload
             if is_turn_on:
                 # step2 读取test plan table
+                logger.info("start upload")
                 handler = LinuxFileManager("", "")
                 handler.run_test_plan_trials(reader)
             else:
-                logger.debug("auto upload closed")
+                logger.info("auto upload closed")
             reader.close()
-            time.sleep(1 * 60 * 3)
+            time.sleep(1 * 60)
 
 if __name__ == '__main__':
     obj = LinuxFileManager(host="192.168.6.16", username="root")
