@@ -33,12 +33,12 @@ test_name_list = {
 }
 
 csv_name_list = {
-    Production.Robot: "VERSION_OT3.report",
-    Production.Gripper: "VERSION_OT3_GRIPPER.report",
-    Production.Pipette_CH1: "VERSION_1CH_PIPETTE.report",
-    Production.Pipette_CH8: "VERSION_8CH_PIPETTE.report",
-    Production.Pipette_CH96_P200: "VERSION_96CH_PIPETTE_P200.report",
-    Production.Pipette_CH96_P1000: "VERSION_96CH_PIPETTE_P1000.report",
+    Production.Robot: "VERSION_OT3.csv",
+    Production.Gripper: "VERSION_OT3_GRIPPER.csv",
+    Production.Pipette_CH1: "VERSION_1CH_PIPETTE.csv",
+    Production.Pipette_CH8: "VERSION_8CH_PIPETTE.csv",
+    Production.Pipette_CH96_P200: "VERSION_96CH_PIPETTE_P200.csv",
+    Production.Pipette_CH96_P1000: "VERSION_96CH_PIPETTE_P1000.csv",
 
 }
 
@@ -156,6 +156,9 @@ class GetVersion:
         if ret:
             with self.sftp.open(file_path, "r") as remote_file:
                 content = remote_file.read().decode("utf-8")  # 读取内容并解码
+                if type(content) is str:
+                    if '\x00' in content:
+                        content = ""
                 return content
         else:
             return "file not found"
@@ -255,7 +258,7 @@ class GetVersion:
                 rows[row_index] = new_data
 
                 # 4. 重新写入整个文件
-                with open(csv_file, 'w', newline='') as f:
+                with open(csv_file, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     writer.writerows(rows)
 
@@ -351,11 +354,13 @@ if __name__ == '__main__':
                 choice = int(input("\n请选择数字: "))
                 if choice in selection_dict:
                     production = Production(choice)
+                    print(f"Production: {production}")
                     get_version(test_name_list[production], production, csv_name_list[production])
                 else:
                     print("无效的选择!")
             except ValueError:
                 print("请输入数字!")
+
 
     try:
         get_choice_and_run()
