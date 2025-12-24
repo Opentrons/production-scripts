@@ -6,17 +6,16 @@ if addpath not in sys.path:
     sys.path.append(addpath)
 if addpath2 not in sys.path:
     sys.path.append(addpath2)
-from google_driver_handler.googledriveM import googledrive
-from google_driver_handler.csvdriver import CsvFunc
+from files_server.services.google_driver_handler.googledriveM import googledrive
+from files_server.services.google_driver_handler.csvdriver import CsvFunc
 # from sheetdrive import sheetdrive
-from google_driver_handler.yamldrive import yamlfunc
-import re
-from google_driver_handler.globalconfig import ROWSINDEX
+from files_server.services.google_driver_handler.yamldrive import yamlfunc
+from files_server.services.google_driver_handler.globalconfig import ROWSINDEX
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional, Callable
 
-from files_server.logs import get_logger, setup_logging
+from files_server.settings.logs import get_logger, setup_logging
 
 setup_logging()
 logger = get_logger("upload.to.google.driver")

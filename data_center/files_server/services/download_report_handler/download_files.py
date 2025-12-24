@@ -5,19 +5,19 @@ import time
 import base64
 import io
 from typing import Callable, Optional, Union
-from files_server.utils.utils import zip_directory, delete_folder
+from files_server.utils.main import zip_directory, delete_folder
 from files_server.api.api_files import check_system_dir_call_back
 from dataclasses import dataclass
-from datetime import datetime, date
-from download_report_handler.discover_flex import scan_flex
-from download_report_handler.testing_data_ana import Ana, TEST_NAME_SETTING
-from google_driver_handler.main_updata import updata_class as UploadData
-from google_driver_handler.main_updata import Productions
-from files_server.logs import get_logger
-from files_server.database.read_data_base import MongoDBReader
+from datetime import datetime
+from files_server.services.download_report_handler.discover_flex import scan_flex
+from files_server.services.download_report_handler.testing_data_ana import Ana, TEST_NAME_SETTING
+from files_server.services.google_driver_handler.main_updata import updata_class as UploadData
+from files_server.services.google_driver_handler.main_updata import Productions
+from files_server.settings.logs import get_logger
+from files_server.database.driver import MongoDBReader
 from threading import Thread
 from typing import Any, Tuple
-from files_server.api.slack.message import SlackBotMessenger
+from files_server.services.slack.message import SlackBotMessenger
 
 logger = get_logger('remote.handler')
 

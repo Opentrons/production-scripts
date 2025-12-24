@@ -3,8 +3,8 @@ from slack_sdk.errors import SlackApiError
 from datetime import datetime
 import requests
 import json
-from files_server.api.slack import slack_config
-from files_server.logs import get_logger
+from files_server.services.slack import slack_config
+from files_server.settings.logs import get_logger
 
 logger = get_logger("slack.send.message")
 

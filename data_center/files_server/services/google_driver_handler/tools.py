@@ -106,7 +106,7 @@ if __name__ == "__main__":
     try:
         # 使用示例
         base_path = os.path.abspath(sys.argv[0])
-        base_path2 = os.path.abspath(".")
+        base_path2 = os.path.abspath("")
         upfilepath = os.path.join(base_path2,"upload/function/1ch/run-25-04-23-14-22-40.zip")
         extracted = unzip_file(
             zip_path=upfilepath,

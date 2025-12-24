@@ -1,7 +1,7 @@
 import logging
 import logging.config
 from pathlib import Path
-from files_server.utils.utils import require_platform, PlatformInfo
+from files_server.utils.main import require_platform, PlatformInfo
 
 # 所有可用的日志级别（级别数值到名称的映射）
 LOG_LEVELS = {
@@ -69,6 +69,3 @@ def setup_logging():
 def get_logger(name: str) -> logging.Logger:
     """获取指定名称的logger"""
     return logging.getLogger(f"app.{name}")
-
-if __name__ == '__main__':
-    pass

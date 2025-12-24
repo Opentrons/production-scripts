@@ -9,10 +9,10 @@ from files_server.api.api_google_drive import router as google_drive_router
 from files_server.api.api_user import router as user_router
 from files_server.api.api_db import router as db_router
 from files_server.api.api_files import router as files_router
-from files_server.logs import setup_logging
-from download_report_handler.download_files import LinuxFileManager
+from files_server.settings.logs import setup_logging
+from files_server.services.download_report_handler.download_files import LinuxFileManager
 from threading import Thread
-from files_server.logs import get_logger
+from files_server.settings.logs import get_logger
 import platform
 import  os
 

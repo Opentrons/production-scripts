@@ -1,23 +1,19 @@
 import pymongo
 from pymongo import MongoClient
 from typing import Dict, List, Any, Optional
-import logging
 import pandas as pd  # 可选，用于转换为DataFrame
-from files_server.utils.utils import require_config
-from files_server.logs import get_logger
-DB_URL = require_config()["db_url"]
+from ..settings import settings
+from ..settings import get_logger
 
-logger = get_logger("database.data")
-
+logger = get_logger("database")
 
 class MongoDBReader:
     def __init__(self,
-                 uri: str = DB_URL,
+                 uri: str = settings.db_url,
                  db_name: str = "test_db",
                  collection_name: str = "test_collection"):
         """
         初始化MongoDB读取器
-
         :param uri: MongoDB连接URI
         :param db_name: 数据库名称
         :param collection_name: 集合名称
@@ -68,6 +64,9 @@ class MongoDBReader:
 
     @auto_upload.setter
     def auto_upload(self, value: bool):
+        """
+        storing as a switch for turn off the upload-data
+        """
         if isinstance(value, bool):
             self.__auto_upload = value
             self.db_name = "Params"

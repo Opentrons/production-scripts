@@ -117,7 +117,7 @@ def updata_Excel_1000(u):
 def updatavolume_1CH(u):
     #获取源数据文件路径
     base_path = os.path.abspath(sys.argv[0])
-    base_path2 = os.path.abspath(".")
+    base_path2 = os.path.abspath("")
     upfilepath = os.path.join(base_path2,u["filefrompath"])
     
 

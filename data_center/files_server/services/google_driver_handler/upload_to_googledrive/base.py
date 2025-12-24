@@ -1,8 +1,8 @@
-from google_driver_handler.googledrive import googledrive
+from files_server.services.google_driver_handler.googledrive import googledrive
 import re
 from pandas import DataFrame
 from fastapi import HTTPException
-from google_driver_handler.sheetdrive import sheetdrive
+from files_server.services.google_driver_handler.sheetdrive import sheetdrive
 import pandas as pd
 
 

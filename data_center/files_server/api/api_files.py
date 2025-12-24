@@ -1,6 +1,4 @@
-from dataclasses import field
-
-from fastapi import Depends, FastAPI, HTTPException, APIRouter, UploadFile, File
+from fastapi import HTTPException, APIRouter, UploadFile, File
 from starlette.responses import FileResponse
 
 from files_server.api.model import *
@@ -11,8 +9,8 @@ import os
 from typing import List, Dict
 import mimetypes
 import time
-from download_report_handler.testing_data_ana import Ana
-from files_server.utils.utils import require_config
+from files_server.services.download_report_handler.testing_data_ana import Ana
+from files_server.utils.main import require_config
 
 __config = require_config()
 

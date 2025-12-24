@@ -1,10 +1,10 @@
 import paramiko
 import os
 import argparse
-from files_server.utils.utils import require_config
+from files_server.utils.main import require_config
 
 
-class Cli:
+class UploadScripts:
     def __init__(self, ip, username='root', password='root'):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -69,8 +69,8 @@ class Cli:
     def upload_local(self):
         self.remove_remote_files()
         self.upload_files(local_pathname='./files_server')
-        self.upload_files(local_pathname='./download_report_handler')
-        self.upload_files(local_pathname='./google_driver_handler')
+        self.upload_files(local_pathname='files_server/services/download_report_handler')
+        self.upload_files(local_pathname='files_server/services/google_driver_handler')
 
     def restart_server(self):
         """
@@ -91,6 +91,6 @@ if __name__ == '__main__':
     host = args.host
     if host is None:
         host = require_config()["server_ip"]
-    cli = Cli(host)
+    cli = UploadScripts(host)
     cli.upload_local()
     cli.restart_server()

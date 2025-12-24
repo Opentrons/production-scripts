@@ -1,15 +1,9 @@
 import shutil
 import os
-import json
-from typing import Any
+from ..types import OS
 
 PROJECT_NAME = 'files_server'
-from enum import Enum
 
-class PlatformInfo(Enum):
-    Windows = "Windows"
-    Linux = "Linux"
-    Mac = "Mac"
 
 def zip_directory(src_dir, output_path):
     """
@@ -39,15 +33,17 @@ def delete_folder(folder_path):
     else:
         pass
 
-def require_platform():
+
+def require_platform() -> OS:
     import platform
-    system_ = platform.system()
-    if "Windows" in system_:
-        return PlatformInfo.Windows
-    elif "Linux" in system_:
-        return PlatformInfo.Linux
+    _system = platform.system()
+    if "Windows" in _system:
+        return OS.Windows
+    elif "Linux" in _system:
+        return OS.Linux
     else:
-        return PlatformInfo.Mac
+        return OS.Mac
+
 
 def delete_zip(zip_path):
     """删除指定的 .zip 文件"""
@@ -56,18 +52,7 @@ def delete_zip(zip_path):
     else:
         pass
 
-def require_config() -> dict[str: Any]:
-    """
-    获取当前config
-    """
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    root_path = current_dir.split(PROJECT_NAME)[0]
-    config_file = os.path.join(root_path, PROJECT_NAME, 'server_config.json')
-    if '\\' in config_file:
-        config_file = config_file.replace('\\', '/')
-    with open(config_file) as f:
-        data = json.load(f)
-    return data
+
 
 
 

@@ -1,13 +1,12 @@
 from files_server.remote import build_handler
-from fastapi import Depends, FastAPI, HTTPException, APIRouter
+from fastapi import HTTPException, APIRouter
 from datetime import datetime
 from files_server.api.model import *
-import subprocess
 from fastapi.responses import JSONResponse, FileResponse
 import os
-from files_server.utils.utils import zip_directory, delete_folder
+from files_server.utils.main import zip_directory, delete_folder
 import platform
-from download_report_handler.download_files import get_time_str
+from files_server.services.download_report_handler.download_files import get_time_str
 
 router = APIRouter()
 system = platform.system().lower()
@@ -89,7 +88,7 @@ async def flex_discover():
     """
     scan flex
     """
-    from download_report_handler.discover_flex import scan_flex
+    from files_server.services.download_report_handler.discover_flex import scan_flex
     flex_group = scan_flex()
     return {
         "success": True,

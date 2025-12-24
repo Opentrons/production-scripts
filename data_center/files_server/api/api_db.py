@@ -1,10 +1,10 @@
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from datetime import datetime
 from files_server.api.model import *
-from files_server.database.read_data_base import MongoDBReader
+from files_server.database.driver import MongoDBReader
 import math
 from bson.objectid import ObjectId
-from files_server.utils.utils import require_config
+from files_server.utils.main import require_config
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
