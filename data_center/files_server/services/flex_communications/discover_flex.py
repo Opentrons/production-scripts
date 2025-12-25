@@ -2,10 +2,16 @@ import platform
 import os
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
-import socket, struct
+import socket
+import struct
 import ipaddress
 import json
 import requests
+from ...settings import settings
+from ...types import OS
+from ...settings import get_logger
+
+logger = get_logger('')
 
 headers = {
     "Content-Type": "application/json",
@@ -18,7 +24,10 @@ TIME_OUT = 2
 def get_default_gateway():
     """获取默认网关地址（兼容Windows/Linux/macOS）"""
     try:
-        if platform.system() == "Windows":
+        if settings.default_gateway:
+            return settings.default_gateway
+
+        if settings.os == OS.Windows:
             # 方法1: 使用route命令
             result = subprocess.run(
                 ["route", "print", "0.0.0.0"],
@@ -32,18 +41,7 @@ def get_default_gateway():
                     if len(parts) >= 3 and parts[0] == "0.0.0.0":
                         return parts[2]
 
-            # 方法2: 使用ipconfig作为备选
-            result = subprocess.run(
-                ["ipconfig"],
-                capture_output=True,
-                text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
-            )
-            for line in result.stdout.splitlines():
-                if "Default Gateway" in line:
-                    return line.split(":")[-1].strip()
-
-        elif platform.system() == "Linux":
+        elif settings.os == OS.Linux:
             # 方法1: 读取/proc/net/route
             with open("/proc/net/route") as f:
                 for line in f:
@@ -61,7 +59,7 @@ def get_default_gateway():
                 if "default via" in line:
                     return line.split()[2]
 
-        elif platform.system() == "Darwin":
+        elif settings.os == OS.Mac:
             # macOS方法
             result = subprocess.run(
                 ["netstat", "-rn"],
@@ -73,13 +71,13 @@ def get_default_gateway():
                     return line.split()[1]
 
     except Exception as e:
-        print(f"[警告] 获取网关时出错: {str(e)}")
+        logger.error(f"[警告] 获取网关时出错: {str(e)}")
     return None
 
 
 def check_ip(gateway, subnet_mask='24'):
     network = ipaddress.IPv4Network(f"{gateway}/{subnet_mask}", strict=False)
-    print(f"\n[信息] 正在扫描网络: {network} (共 {network.num_addresses - 2} 个IP)")
+    logger.info(f"\n[信息] 正在扫描网络: {network} (共 {network.num_addresses - 2} 个IP)")
 
     def ping_ip(ip):
         if platform.system() == "Windows":

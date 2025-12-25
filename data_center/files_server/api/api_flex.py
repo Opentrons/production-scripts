@@ -88,7 +88,7 @@ async def flex_discover():
     """
     scan flex
     """
-    from files_server.services.download_report_handler.discover_flex import scan_flex
+    from files_server.services.flex_communications.discover_flex import scan_flex
     flex_group = scan_flex()
     return {
         "success": True,

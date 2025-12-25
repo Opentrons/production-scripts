@@ -9,7 +9,7 @@ import os
 from typing import List, Dict
 import mimetypes
 import time
-from files_server.services.download_report_handler.testing_data_ana import Ana
+from files_server.services.download_report_handler.analysis import Ana
 from files_server.utils.main import require_config
 
 __config = require_config()

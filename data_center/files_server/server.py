@@ -14,7 +14,7 @@ from files_server.services.download_report_handler.download_files import LinuxFi
 from threading import Thread
 from files_server.settings.logs import get_logger
 import platform
-import  os
+import os
 
 # 开启logger
 setup_logging()

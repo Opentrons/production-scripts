@@ -7,6 +7,7 @@ from ..settings import get_logger
 
 logger = get_logger("database")
 
+
 class MongoDBReader:
     def __init__(self,
                  uri: str = settings.db_url,
@@ -24,7 +25,6 @@ class MongoDBReader:
         self.client = None
         self.db = None
         self.collection = None
-        self.__auto_upload = True
 
     def connect(self) -> bool:
         """建立MongoDB连接"""
@@ -49,41 +49,11 @@ class MongoDBReader:
             logger.error(f"未知连接错误: {e}")
         return False
 
-    @property
-    def auto_upload(self):
-        self.db_name = "Params"
-        self.collection_name = "Index"
-        self.connect()
-        result = self.find_all()[0]
-        current_status = result["auto_upload_data"]
-        if current_status == "true":
-            self.__auto_upload = True
-        else:
-            self.__auto_upload = False
-        return self.__auto_upload
-
-    @auto_upload.setter
-    def auto_upload(self, value: bool):
-        """
-        storing as a switch for turn off the upload-data
-        """
-        if isinstance(value, bool):
-            self.__auto_upload = value
-            self.db_name = "Params"
-            self.collection_name = "Index"
-            self.connect()
-            auto_upload = "true" if self.__auto_upload else "false"
-            self.set_database_filed({"index": 1}, {"auto_upload_data": auto_upload})
-        else:
-            raise TypeError("value should be a bool value")
-
-
     def find_all(self,
                  limit: int = 10,
                  projection: Optional[Dict] = None) -> List[Dict[str, Any]]:
         """
         查询所有文档
-
         :param limit: 返回结果限制数量
         :param projection: 指定返回字段 {'field1':1, 'field2':0}
         :return: 文档列表
@@ -101,7 +71,6 @@ class MongoDBReader:
                           ascending: bool = True) -> List[Dict[str, Any]]:
         """
         条件查询
-
         :param condition: 查询条件 {'field': value}
         :param sort_field: 排序字段
         :param ascending: 是否升序
@@ -168,7 +137,7 @@ class MongoDBReader:
                 return None
 
         except Exception as e:
-            logger.info(f"更新失败: {e}")
+            logger.error(f"更新失败: {e}")
             return None
 
     def close(self):
@@ -181,13 +150,3 @@ class MongoDBReader:
     def to_dataframe(data: List[Dict]) -> pd.DataFrame:
         """将查询结果转为Pandas DataFrame"""
         return pd.DataFrame(data)
-
-
-# 使用示例
-if __name__ == "__main__":
-    # 1. 初始化读取器
-    reader = MongoDBReader()
-    print(reader.auto_upload)
-
-
-

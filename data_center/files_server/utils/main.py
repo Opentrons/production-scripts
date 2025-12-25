@@ -1,6 +1,7 @@
 import shutil
 import os
 from ..types import OS
+import time
 
 PROJECT_NAME = 'files_server'
 
@@ -53,6 +54,8 @@ def delete_zip(zip_path):
         pass
 
 
-
-
-
+def get_time_str():
+    timestamp = time.time()
+    local_time = time.localtime(timestamp)
+    formatted_time = time.strftime("%Y-%m-%d-%H-%M-%S", local_time)
+    return formatted_time

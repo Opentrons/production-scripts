@@ -10,6 +10,7 @@ class AppSettings:
     files_uploads: str
     saved_data_path: str
     server_ip: str
+    default_gateway: str
 
     @classmethod
     def build(cls):
@@ -18,7 +19,9 @@ class AppSettings:
             db_url='mongodb://192.168.50.44:27017/',
             files_uploads='/files_server/uploads',
             saved_data_path='/files_server/datas',
-            server_ip='192.168.50.44'
+            server_ip='192.168.50.44',
+            default_gateway='192.168.6.0'
         )
+
 
 settings = AppSettings.build()
