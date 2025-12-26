@@ -5,14 +5,15 @@ from files_server.utils.main import require_platform, PlatformInfo
 
 # 所有可用的日志级别（级别数值到名称的映射）
 LOG_LEVELS = {
-    logging.DEBUG: 'DEBUG',      # 10 - 详细的调试信息
-    logging.INFO: 'INFO',        # 20 - 正常的业务操作
+    logging.DEBUG: 'DEBUG',  # 10 - 详细的调试信息
+    logging.INFO: 'INFO',  # 20 - 正常的业务操作
     logging.WARNING: 'WARNING',  # 30 - 警告信息，但不影响系统运行
-    logging.ERROR: 'ERROR',      # 40 - 错误信息，需要关注
-    logging.CRITICAL: 'CRITICAL', # 50 - 严重错误，可能导致系统崩溃
+    logging.ERROR: 'ERROR',  # 40 - 错误信息，需要关注
+    logging.CRITICAL: 'CRITICAL',  # 50 - 严重错误，可能导致系统崩溃
 }
 
 LOG_FILE = "logs/app.log" if require_platform() != PlatformInfo.Linux else "/opt/data-center-server/logs/app.log"
+
 
 def setup_logging():
     """设置日志配置"""
@@ -39,7 +40,7 @@ def setup_logging():
                 "formatter": "detailed",
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": LOG_FILE,
-                "maxBytes": 10485760*10,  # 100MB
+                "maxBytes": 10485760 * 10,  # 100MB
                 "backupCount": 5,
             }
         },

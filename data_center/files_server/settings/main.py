@@ -11,6 +11,7 @@ class AppSettings:
     saved_data_path: str
     server_ip: str
     default_gateway: str
+    remote_data_path: str
 
     @classmethod
     def build(cls):
@@ -20,7 +21,8 @@ class AppSettings:
             files_uploads='/files_server/uploads',
             saved_data_path='/files_server/datas',
             server_ip='192.168.50.44',
-            default_gateway='192.168.6.0'
+            default_gateway='192.168.6.0',
+            remote_data_path='/data/testing_data'
         )
 
 

@@ -1,13 +1,9 @@
 import os
-import paramiko
 import stat
 import time
-import base64
-import io
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, List
 from files_server.utils.main import zip_directory, delete_folder
 from files_server.api.api_files import check_system_dir_call_back
-from dataclasses import dataclass
 from datetime import datetime
 from files_server.services.flex_communications.discover_flex import scan_flex
 from files_server.services.download_report_handler.analysis import Ana, TEST_NAME_SETTING
@@ -18,68 +14,50 @@ from files_server.database.driver import MongoDBReader
 from threading import Thread
 from typing import Any, Tuple
 from files_server.services.slack.message import SlackBotMessenger
-
+from ...settings import settings
 from .driver import ParamikoDriver
+
 logger = get_logger('remote.handler')
-
-
-
-
-
-
 
 
 class FilesHandler:
     def __init__(self, client: ParamikoDriver):
         self.sshClient = client
+        self.remote_data = settings.remote_data_path
 
-    def update_date(self, your_time):
-        command = f'date -s "{your_time}"'
-        # 执行命令
-        stdin, stdout, stderr = self.ssh.exec_command(command, get_pty=True)
-        time.sleep(0.1)
-        return stdout.read().decode("utf-8")
-
-    def run_script(self, script):
-        stdin, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
-        time.sleep(0.1)
-        return stdout.read().decode("utf-8")
-
-    def list_files(self, remote_dir):
+    async def list_files(self, remote_dir) -> Union[bool, List[str]]:
         """列出远程目录的文件"""
         try:
-            files = self.sftp.listdir(remote_dir)
+            files = self.sshClient.sftp.listdir(remote_dir)
             return files
         except Exception as e:
-            logger.error(f"❌ 无法列出文件: {e}")
-            return []
+            logger.error(f"无法列出文件: {e}")
+            return False
 
-    def download_file(self, remote_path, local_path):
+    async def download_file(self, remote_path, local_path):
         """下载远程文件到本地"""
         try:
-            self.sftp.get(remote_path, local_path)
+            self.sshClient.sftp.get(remote_path, local_path)
             return True
         except Exception as e:
-            logger.info(e)
-            logger.info(remote_path, local_path)
+            logger.error(f'Download file fail, remote: {remote_path}, local: {local_path}, error: {e}')
             return False
 
-    def _is_dir(self, remote_path):
+    async def _is_dir(self, remote_path):
         """检查远程路径是否是目录"""
         try:
-            return stat.S_ISDIR(self.sftp.stat(remote_path).st_mode)
+            return stat.S_ISDIR(self.sshClient.sftp.stat(remote_path).st_mode)
         except IOError:
             return False
+        except Exception as e:
+            logger.error(f'List dir Fail, {e}')
+            return False
 
-    def remote_dir_exists(
-            self,
-            dir_path: str
-    ) -> bool:
+    async def remote_dir_exists(self, dir_path: str) -> bool:
         """
         检查远程目录是否存在
 
         Args:
-            sftp: 已连接的SFTP客户端
             dir_path: 远程目录绝对路径
 
         Returns:
@@ -87,119 +65,90 @@ class FilesHandler:
         """
         try:
             # 获取目录属性（会跟随符号链接）
-            attrs = self.sftp.stat(dir_path)
+            attrs = self.sshClient.sftp.stat(dir_path)
             return attrs.st_mode & 0o40000  # 检查是否是目录
         except FileNotFoundError:
             return False
         except Exception as e:
-            logger.info(f"检查目录出错: {e}")
+            logger.error(f"检查目录出错: {e}")
             return False
 
-    def check_remote_dir_exists(self, remote_path):
-
-        try:
-            self.sftp.stat(remote_path)
-            return True
-        except FileNotFoundError:
-            logger.info("FileNotFound")
-            return False
-        except Exception as e:
-            logger.info(f"其他错误: {e}")
-            return False
-
-    def re_name_dir(self, local_dir, re_name):
+    async def rename_dir(self, dir_name, rename):
         """
         rename
         """
-        logger.info(f"rename:  {local_dir} -> {re_name}")
-        if self.remote_dir_exists(local_dir):
-            self.sftp.rename(local_dir, re_name)
-            return True
-        else:
-            return False
+        try:
+            if await self.remote_dir_exists(dir_name):
+                self.sshClient.sftp.rename(dir_name, rename)
+                return True
+            else:
+                return False
+        except Exception as e:
+            logger.error(f'重命名失败，${e}')
 
-    def download_dir(self, remote_dir, local_dir):
+    async def download_data_dir(self, remote_dir: str, save_to: str):
         """
         递归下载远程目录所有文件
         :param remote_dir: 远程目录路径 (e.g. '/home/user/data')
-        :param local_dir: 本地存储路径 (e.g. 'C:/Downloads/data')
+        :param save_to: 本地存储路径 (e.g. 'C:/Downloads/data')
         """
-        # 判断远程目录是否存在
-
-        logger.info(f"remote_dir: {remote_dir}")
-
-        if not self.check_remote_dir_exists(remote_dir):
-            return False, "no such directory", ""
-
-        files = self.sftp.listdir(remote_dir)
-        if len(files) == 0:
-            return True, "no files", ""
+        if not await self.remote_dir_exists(remote_dir):
+            logger.info(f'Remote dir ${remote_dir} not found')
+            return False
+        files = self.sshClient.sftp.listdir(remote_dir)
         try:
-            os.makedirs(local_dir, exist_ok=True)
+            os.makedirs(save_to, exist_ok=True)
         except Exception as e:
-            return False, "create dir failed", ""
-
+            logger.error(f"Create local dir fail, ${e}")
+            return False
         for item in files:
             remote_path = os.path.join(remote_dir, item).replace('\\', '/')
             local_path = os.path.join(local_dir, item)
 
-            if self._is_dir(remote_path):
-                self.download_dir(remote_path, local_path)  # 递归处理子目录
+            if await self._is_dir(remote_path):
+                await self.download_dir(remote_path, local_path)  # 递归处理子目录
             else:
-                self.download_file(remote_path, local_path)
+                await self.download_file(remote_path, local_path)
         return True, "download success", local_dir
 
-    def delete_file(self, remote_path):
+    async def delete_file(self, remote_path):
         """删除远程文件"""
         try:
-            self.sftp.remove(remote_path)
+            self.sshClient.sftp.remove(remote_path)
             logger.info(f"删除成功: {remote_path}")
             return True
         except Exception as e:
             logger.error(f"删除失败: {e}")
             return False
 
-    def delete_dir(self, remote_dir):
-        files = self.sftp.listdir(remote_dir)
+    async def delete_dir(self, remote_dir: str):
+        files = self.sshClient.sftp.listdir(remote_dir)
         if len(files) == 0:
             logger.info("文件夹目录为空, 删除跳出...")
             return
 
-        for item in self.sftp.listdir(remote_dir):
+        for item in self.sshClient.sftp.listdir(remote_dir):
             remote_path = os.path.join(remote_dir, item).replace('\\', '/')
-            if self._is_dir(remote_path):
-                self.delete_dir(remote_path)  # 递归处理子目录
+            if await self._is_dir(remote_path):
+                await self.delete_dir(remote_path)  # 递归处理子目录
             else:
-                self.delete_file(remote_path)
+                await self.delete_file(remote_path)
                 # 删除空目录
-                files = self.sftp.listdir(remote_dir)
+                files = self.sshClient.sftp.listdir(remote_dir)
                 if len(files) == 0:
                     try:
-                        self.sftp.rmdir(remote_dir)
+                        self.sshClient.sftp.rmdir(remote_dir)
                         logger.info(f"删除成功: {remote_dir}")
                     except Exception as e:
                         logger.info(f"删除失败: {e}")
                 else:
                     pass
 
-    def close(self):
-        """关闭连接"""
-        try:
-            if self.sftp:
-                self.sftp.close()
-            if self.ssh:
-                self.ssh.close()
-            logger.info("连接已关闭")
-        except Exception:
-            pass
-
     def download_testing_data_to_server(self, get_local_path: Callable[[], str]) -> Tuple[str, str]:
         """
         download the testing data and zip the data, saving to server
         """
         _, download_path = get_local_path()
-        remote_dir = "/data/testing_data"
-        logger.info(f"Ready to download from {remote_dir} -> {download_path}")
         _ret, _message, local_dir = self.download_dir("/data/testing_data", download_path)
         rename_dir = local_dir + "_" + get_time_str()
         self.re_name_dir(download_path, rename_dir)
@@ -398,7 +347,7 @@ class FilesHandler:
         """
         while True:
             # step1 读取开关状态，是否需要打开自动上传开关
-            logger.info("="*20)
+            logger.info("=" * 20)
             logger.info("Starting Cycle")
             logger.info("=" * 20)
             reader = MongoDBReader()
@@ -412,6 +361,7 @@ class FilesHandler:
                 logger.info("auto upload closed")
             reader.close()
             time.sleep(1 * 60)
+
 
 if __name__ == '__main__':
     obj = LinuxFileManager(host="192.168.6.16", username="root")
