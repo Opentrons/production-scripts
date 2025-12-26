@@ -286,8 +286,8 @@ class GetVersion:
             # check the SN exist
             if self.production == Production.Robot:
                 index0, row0 = self.is_string_in_csv(file_name, z_sn)
-                ndex1, row1 = self.is_string_in_csv(file_name, touch_point['robot_name'])
-                row0 = row0 if row0 else row1
+                # ndex1, row1 = self.is_string_in_csv(file_name, touch_point['robot_name'])
+
             else:
                 index0, row0 = self.is_string_in_csv(file_name, touch_point['instrument_sn'])
             if row0:
