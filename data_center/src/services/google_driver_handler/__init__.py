@@ -1,0 +1,1 @@
+from .main_updata import updata_class
