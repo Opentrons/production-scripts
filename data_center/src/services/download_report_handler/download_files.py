@@ -643,6 +643,7 @@ class FilesHandler:
             # 打包
             zip_path = zip_directory(success_path)
             return UploadOneUnitInterface(
+                file_local=contact_path(success_path, filename.split('/')[-1]),
                 file_local_path=success_path,
                 production_name=production,
                 test_name=test_name,

@@ -18,7 +18,7 @@ class TestPlanInterface:
     barcode: str
     fixture_name: str
     fixture_ip: str
-    auto_upload: bool
+    auto_upload: Union[bool, int]
     link: str
 
 
@@ -99,6 +99,7 @@ UploadEnv = Literal['debug', 'production']
 
 @dataclass()
 class UploadOneUnitInterface:
+    file_local: str
     file_local_path: str
     production_name: ProductionName
     test_name: TestName

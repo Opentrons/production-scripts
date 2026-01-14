@@ -59,10 +59,10 @@ class ServiceHandler:
         :param unit:
         :return:
         """
-        logger.info(f"Starting to upload {unit.file_local_path}!")
+        logger.info(f"Starting to upload {unit.file_local}!")
         this_unit_name = get_test_name(unit.production_name, unit.test_name)
         result = self.upload_handler.update_data_to_google_drive(
-            unit.file_local_path, unit.sn, unit.production_name.value, unit.zip_path, this_unit_name,
+            unit.file_local, unit.sn, unit.production_name.value, unit.zip_path, this_unit_name,
             func_callback=self.set_upload_process, csv_link=unit.csv_id)
         result_handler = UploadResult(**result)
         # 上传后把数据链接写入数据库
@@ -94,7 +94,7 @@ class ServiceHandler:
         :return:
         """
         # 判断上传单元是否已上传
-        auto_upload = test_plan.auto_upload
+        auto_upload = test_plan.auto_upload == 100
         if auto_upload:
             logger.info(f"{test_plan.barcode}, {test_plan.test_name} already uploaded")
             return

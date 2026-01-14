@@ -338,14 +338,14 @@ class updata_class():
         else:
             CopyTemplateId = u["ifcopytemplate"]["copyTempExcelId"]
         if func_callback != None:
-            func_callback(10)  # 进度
+            func_callback(10, pipettesn)  # 进度
         if u["ifupdata"]:
             pastesheetname = nametypedict[pipettetype]
 
             now = datetime.now()
             # 格式化为 YYYYMMDDHHMMSS
             current_time_str = now.strftime("%Y%m%d%H%M%S")
-            if csv_link == None:
+            if csv_link == None or csv_link=="http:xx":
                 # 创建原始文件的文件夹（SN命名）
                 # 获取源数据文件路径
                 newfilename = pipettesn + "-QC-CURRENTSPEED" + f"-{current_time_str}"
@@ -368,7 +368,7 @@ class updata_class():
                 # 获取QC源数据
                 exdata = csvdr.Read_csv_all(path=qcfilepath)
                 if func_callback != None:
-                    func_callback(30)  # 进度
+                    func_callback(30, pipettesn)  # 进度
                 alldatalist = []
                 allrangelist = []
                 starrange = 1
@@ -392,7 +392,7 @@ class updata_class():
                         allrangelist.append(rangel)
                         starrange = i + 1 + 1
                 if func_callback != None:
-                    func_callback(40)  # 进度
+                    func_callback(40, pipettesn)  # 进度
                 getret = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=updatafileid,
                                                                    sheet_name=sheetname, ranges=allrangelist,
                                                                    new_values=alldatalist)
@@ -403,7 +403,7 @@ class updata_class():
                     uptemp = "Fales"
                     logger.info("更新文件:失败", u)
                 if func_callback != None:
-                    func_callback(50)  # 进度
+                    func_callback(50, pipettesn)  # 进度
 
             if uptemp == "Ture":
                 copydatalist = []
@@ -428,7 +428,7 @@ class updata_class():
                             testall = copydata
                             copydatalist.append(copydata)
                 if func_callback != None:
-                    func_callback(60)  # 进度
+                    func_callback(60, pipettesn)  # 进度
                 for cs, pase in enumerate(u["ifpaste"]):
                     if pase["off/on"]:
                         if csv_link != None:
@@ -477,13 +477,13 @@ class updata_class():
                                 tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit?gid={allgid[pastesheetname]}#gid={allgid[pastesheetname]}"  # 表格链接
 
                             if func_callback != None:
-                                func_callback(70)  # 进度
+                                func_callback(70, pipettesn)  # 进度
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_successlist = self.gdrive.move_file_Multi_level(updatafileid, monthid)
                         move_success = move_successlist["success"]
                         if func_callback != None:
-                            func_callback(80)  # 进度
+                            func_callback(80, pipettesn)  # 进度
                         # 上传原始文件到文件夹
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
                         upid = self.gdrive.create_folders(f"{pipettesn}_{current_time_str}", faterid)
@@ -493,13 +493,13 @@ class updata_class():
                         else:
                             upfailpass = False
                         if func_callback != None:
-                            func_callback(90)  # 进度
+                            func_callback(90, pipettesn)  # 进度
         if uptemp == "False" or move_success == "False" or upfailpass == "False":  # or copytestdata == False:
             upload_status = False
         else:
             upload_status = True
         if func_callback != None:
-            func_callback(100)  # 进度
+            func_callback(100, pipettesn)  # 进度
         return [uptemp, testpass, upfailpass, sheetlink, move_success, testall, upload_status, tracking_sheet]
 
     # 1CH 8CH通道电流数据上传
@@ -561,7 +561,7 @@ class updata_class():
                 raise ValueError("self.yamldata 中不存在 '8ch_updata_qc' 键，或其对应值不是列表类型")
         # 进度
         if func_callback != None:
-            func_callback(10)
+            func_callback(10, pipettesn)
         CopyTemplateId = ''
         if pipettetype == "P1000M Ultima":
             CopyTemplateId = u["ifcopytemplate"]["UltimacopyTempExcelId"]
@@ -596,7 +596,7 @@ class updata_class():
                 # 获取SPEED源数据
                 speed_exdata = csvdr.Read_csv_all(path=currentpath)
                 if func_callback != None:
-                    func_callback(30)  # 进度
+                    func_callback(30, pipettesn)  # 进度
                 alldatalist = []
                 allrangelist = []
                 starrange = 1
@@ -620,7 +620,7 @@ class updata_class():
                         allrangelist.append(rangel)
                         starrange = i + 1 + 1
                 if func_callback != None:
-                    func_callback(40)  # 进度
+                    func_callback(40, pipettesn)  # 进度
                 getret = self.gdrive.update_excel_sheet_page_batch(spreadsheet_id=updatafileid,
                                                                    sheet_name=sheetname, ranges=allrangelist,
                                                                    new_values=alldatalist)
@@ -631,7 +631,7 @@ class updata_class():
                     speeduptemp = "FAIL"
                     logger.info("SPEED CURRENT 更新文件:失败")
                 if func_callback != None:
-                    func_callback(50)  # 进度
+                    func_callback(50, pipettesn)  # 进度
 
             if speeduptemp == "PASS":
                 copydatalist = []
@@ -662,7 +662,7 @@ class updata_class():
                             testall = copydata
                             copydatalist.append(copydata)
                             if func_callback != None:
-                                func_callback(60)  # 进度
+                                func_callback(60, pipettesn)  # 进度
 
                 for cs, pase in enumerate(u["ifpaste"]):
                     if pase["off/on"]:
@@ -708,13 +708,13 @@ class updata_class():
                                 allgid = self.gdrive.get_sheet_gid_map(paseexcelid)
                                 tracking_sheet = f"https://docs.google.com/spreadsheets/d/{paseexcelid}/edit?gid={allgid[pastesheetname]}#gid={allgid[pastesheetname]}"  # 表格链接
                             if func_callback != None:
-                                func_callback(70)  # 进度
+                                func_callback(70, pipettesn)  # 进度
                         # 移动数据到每月文件夹
                         monthid = u["movetestfail"][self.nowyear][self.nowmonth]
                         move_successlist = self.gdrive.move_file_Multi_level(updatafileid, monthid)
                         move_success = move_successlist["success"]
                         if func_callback != None:
-                            func_callback(80)  # 进度
+                            func_callback(80, pipettesn)  # 进度
 
                         # 上传原始文件到文件夹
                         faterid = u["ifupdatarawdata"][self.nowyear][self.nowmonth]
@@ -726,13 +726,13 @@ class updata_class():
                         else:
                             upfailpass = False
                         if func_callback != None:
-                            func_callback(90)  # 进度
+                            func_callback(90, pipettesn)  # 进度
         if speeduptemp == "False" or move_success == "False" or upfailpass == "False":  # or copytestdata == False:
             upload_status = False
         else:
             upload_status = True
         if func_callback is not None:
-            func_callback(100)  # 进度
+            func_callback(100, pipettesn)  # 进度
         return [speeduptemp, testpass, upfailpass, sheetlink, move_success, testall, upload_status, tracking_sheet]
 
     def update_data_to_google_drive(self, upfile_path, pipette_sn, pipette_type, zip_file, test_type,
