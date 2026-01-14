@@ -451,7 +451,7 @@
 
     ifcopytemplate:
         off/on: true
-        copyTempExcelId: "1cfKQYwvc2ckMpXx93OtDJGNuzuzAbNm939VTdkk8SU4" #模版的ID
+        copyTempExcelId: "12g5jE5kCbXGMRNyLTe8T-XgoXiiDGwlkD-tC6KLh_Hg" #模版的ID
         UltimacopyTempExcelId: "1cGtvtZPPAhQ3zf8mDvDW-x2fqTPr7ndKW5-a1AlgezE" #p1kh的模版
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
@@ -496,7 +496,7 @@
       - off/on: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
-        pastefileid: "1JzT88nkk94GtMiyfXq6US2IgD_zOTZOvtdmlMHdDY2w" #粘贴的Excel文件ID
+        pastefileid: "1UWscYoFXzArgRTkJUBBqx4yvFf2G2-r2Lh12_hIsVPA" #粘贴的Excel文件ID
         Ultimapastefileid: "1dZY0HW4xJtgfDJwQOkWnfClM3J0ZXuGshgQ2LIHNlK0" #P1KH 粘贴的Excel文件ID
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
@@ -523,7 +523,7 @@
           11: "1h5jm2L3S4cVy-cldg-GZhY2dvHC3d2N3"
           12: "178i78mDZeEzLPNjur6pOz4-6lOSRUSON"
         2026:
-          "fumulu": "1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf"
+          "fumulu": "1hRywkzYH8IG2ggrCCbrVa9Ahl4IN8XRu"
           1: "1o79W6gSjSloVoVN6ixG1FACGRDgtCmYW"
           2: "1I6Sn6p3s5w0nUzQApFly6TEs4fhvrSeO"
           3: "18vcY6IL36-k-Iax1MChnkIy5CW2J-zC0"
