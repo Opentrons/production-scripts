@@ -156,7 +156,7 @@
         pastesheetname: "" #粘贴的sheet名称 这里为空 需要判断是什么类型的移液器
         pastelineRange: 
           star: "D" #粘贴的开始
-          end: "AN" #粘贴的结束
+          end: "AO" #粘贴的结束
     
     movetestfail:
       2025:
