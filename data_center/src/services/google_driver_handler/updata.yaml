@@ -23,7 +23,7 @@ tabledataupdate: #表格数据更新
     filekeywords: ".csv" #数据来源文件关键字 如.csv
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #要复制的文件ID
         copyExcelSheetName: "Pip1" #要更新的表格sheet名称
         copyRange: 
@@ -31,7 +31,7 @@ tabledataupdate: #表格数据更新
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "!A1:E1"
         pastefileid: "15qDJrtYVQehtGQdRW68fz5O50VFBm_93zGfxAF3kOWM" #粘贴的Excel文件ID
@@ -46,7 +46,7 @@ volumupdata_1ch: #单通道容量数据上传
     explanation: "VOLUME1CH" #做函数数据上传
 
     ifcopytemplate:
-        off/on: true
+        enabled: true
         copyTempExcelId: "1gqsjGK28rcBlMYmllbcdpNgBfEe9vuFusAKOlZJ92ws" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
@@ -63,7 +63,7 @@ volumupdata_1ch: #单通道容量数据上传
     filekeywords: ".csv" #数据来源文件关键字 如.csv
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "" #要复制的文件ID
         copyExcelSheetName: "Volume" #要更新的表格sheet名称
         copyRange: 
@@ -71,7 +71,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1jnXsICp4Z-bYci8CR5VfxHzsE-7SObuRhfzDmIQZTFE" #粘贴的Excel文件ID
@@ -84,7 +84,7 @@ volumupdata_1ch: #单通道容量数据上传
     explanation: "VOLUME1CH" #做函数数据上传
 
     ifcopytemplate:
-        off/on: true
+        enabled: true
         copyTempExcelId: "1ky60lmsff6fw-7KGb7Rpyuge4Iv2Khvp4a35HMJvbSc" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
@@ -101,7 +101,7 @@ volumupdata_1ch: #单通道容量数据上传
     filekeywords: ".csv" #数据来源文件关键字 如.csv
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "" #要复制的文件ID
         copyExcelSheetName: "Volume" #要更新的表格sheet名称
         copyRange: 
@@ -109,7 +109,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1s5Zvtsn8otWEQbysHtbdXu8fX9SXUt74e4MXBILUklA" #粘贴的Excel文件ID
@@ -185,7 +185,7 @@ volumupdata_1ch: #单通道容量数据上传
     explanation: "1ch_updata_qc" #做函数数据上传
 
     ifcopytemplate:
-        off/on: true
+        enabled: true
         copyTempExcelId: "1evVmo4Sf2RsoivpiZY2ZsMx9qRLaZFhUV2H-PLfaDwg" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
@@ -221,7 +221,7 @@ volumupdata_1ch: #单通道容量数据上传
 
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "" #要复制的文件ID
         copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
         copyRange: 
@@ -229,7 +229,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1MVFo3Ph2R1S5W8obS1-kSvbZbikSpWCR-fteHtYGnF8" #粘贴的Excel文件ID
@@ -307,7 +307,7 @@ volumupdata_1ch: #单通道容量数据上传
     explanation: "VOLUME8CH" #做函数数据上传
 
     ifcopytemplate:
-        off/on: true
+        enabled: true
         copyTempExcelId: "1g8sgqzK0yPUkA9ffE6JZb4ffnf7OTif57FtYylZD5Dk" #模版的ID
         copynewfilename: "" #复制后的名字,以移液器条码命令
   
@@ -324,7 +324,7 @@ volumupdata_1ch: #单通道容量数据上传
     filekeywords: ".csv" #数据来源文件关键字 如.csv
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "" #要复制的文件ID
         copyExcelSheetName: "Volume" #要更新的表格sheet名称
         copyRange: 
@@ -332,7 +332,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1_Rxe8ntNc4SeVXo9q88O_TZNNBFWU2hWC-Rw-tuJ2r0" #粘贴的Excel文件ID
@@ -407,7 +407,7 @@ volumupdata_1ch: #单通道容量数据上传
     explanation: "8ch_updata_qc" #做函数数据上传
 
     ifcopytemplate:
-        off/on: true
+        enabled: true
         copyTempExcelId: "1evVmo4Sf2RsoivpiZY2ZsMx9qRLaZFhUV2H-PLfaDwg" #模版的ID
         UltimacopyTempExcelId: "1SGAdpQQ1WqXVe9iWolf9Lb9qp6YKdGvcjYwvlVGWuWc" #PEEK的模版
         copynewfilename: "" #复制后的名字,以移液器条码命令
@@ -444,7 +444,7 @@ volumupdata_1ch: #单通道容量数据上传
 
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "" #要复制的文件ID
         copyExcelSheetName: "Assembly QC" #要复现的表格sheet名称
         copyRange: 
@@ -454,7 +454,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1MVFo3Ph2R1S5W8obS1-kSvbZbikSpWCR-fteHtYGnF8" #粘贴的Excel文件ID
@@ -533,7 +533,7 @@ volumupdata_1ch: #单通道容量数据上传
     explanation: "9ch_lv_updata_qc" #做函数数据上传
 
     ifcopytemplate:
-        off/on: true
+        enabled: true
         copyTempExcelId: "1Xqe5GbjjUPKdA05gWPPeqwv9sjyRR0Fixz1F1fnTF-4" #模版的ID
         UltimacopyTempExcelId: "1cGtvtZPPAhQ3zf8mDvDW-x2fqTPr7ndKW5-a1AlgezE" #p1kh的模版
         copynewfilename: "" #复制后的名字,以移液器条码命令
@@ -566,7 +566,7 @@ volumupdata_1ch: #单通道容量数据上传
 
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
-      - off/on: true
+      - enabled: true
         copyExcelId: "" #要复制的文件ID
         copyExcelSheetName: "Analysis" #要复现的表格sheet名称
         copyRange: 
@@ -576,7 +576,7 @@ volumupdata_1ch: #单通道容量数据上传
 
     
     ifpaste: #是否要把数据粘贴到某个文件 【数组 粘贴数据对应复制的数据】
-      - off/on: true 
+      - enabled: true 
         pasteRange:  #粘贴的范围 左闭右开
           - "" #这里为空 自行判断是否为最后一行
         pastefileid: "1ElOhO4QQkONhZZEhAj7rjT-EhMD4k4tRTPD-0AtPDr0" #粘贴的Excel文件ID

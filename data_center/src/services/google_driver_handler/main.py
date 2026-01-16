@@ -98,7 +98,7 @@ def updata_Excel_1000(u):
 
     copydatalist = []
     for cop in u["ifcopydata"]:
-        if cop["off/on"]:
+        if cop["enabled"]:
             copyExcelID = cop['copyExcelId']
             stname = cop['copyExcelSheetName']
             rangeval = cop["copyRange"]
@@ -106,7 +106,7 @@ def updata_Excel_1000(u):
             copydatalist.append(copydata)
 
     for cs, pase in enumerate(u["ifpaste"]):
-        if pase["off/on"]:
+        if pase["enabled"]:
             paseexcelid = pase["pastefileid"]
             pasesheetname = pase["pastesheetname"]
             rangeval = pase["pasteRange"]
@@ -197,7 +197,7 @@ def updatavolume_1CH(u):
 
         copydatalist = []
         for cop in u["ifcopydata"]:
-            if cop["off/on"]:
+            if cop["enabled"]:
                 cop['copyExcelId'] = updatafileid
                 copyExcelID = cop['copyExcelId']
                 stname = cop['copyExcelSheetName']
@@ -206,7 +206,7 @@ def updatavolume_1CH(u):
                 copydatalist.append(copydata)
 
         for cs, pase in enumerate(u["ifpaste"]):
-            if pase["off/on"]:
+            if pase["enabled"]:
 
                 paseexcelid = pase["pastefileid"]
                 pase["pastesheetname"] = pastesheetname

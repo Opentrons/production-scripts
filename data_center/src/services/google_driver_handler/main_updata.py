@@ -182,7 +182,7 @@ class updata_class():
             if uptemp == "PASS":
                 copydatalist = []
                 for cop in u["ifcopydata"]:
-                    if cop["off/on"]:
+                    if cop["enabled"]:
                         cop['copyExcelId'] = updatafileid
                         copyExcelID = cop['copyExcelId']
                         stname = cop['copyExcelSheetName']
@@ -196,7 +196,7 @@ class updata_class():
                             func_callback(60)
 
                 for cs, pase in enumerate(u["ifpaste"]):
-                    if pase["off/on"]:
+                    if pase["enabled"]:
 
                         paseexcelid = pase["pastefileid"]
                         pase["pastesheetname"] = pastesheetname
@@ -408,7 +408,7 @@ class updata_class():
             if uptemp == "Ture":
                 copydatalist = []
                 for cop in u["ifcopydata"]:
-                    if cop["off/on"]:
+                    if cop["enabled"]:
                         if csv_link != None:
                             cop['copyExcelId'] = updatafileid
                             copyExcelID = cop['copyExcelId']
@@ -430,7 +430,7 @@ class updata_class():
                 if func_callback != None:
                     func_callback(60, pipettesn)  # 进度
                 for cs, pase in enumerate(u["ifpaste"]):
-                    if pase["off/on"]:
+                    if pase["enabled"]:
                         if csv_link != None:
                             # 复制测试结果到TRACKING SHEET
 
@@ -636,7 +636,7 @@ class updata_class():
             if speeduptemp == "PASS":
                 copydatalist = []
                 for cop in u["ifcopydata"]:
-                    if cop["off/on"]:
+                    if cop["enabled"]:
                         if csv_link != None:
                             cop['copyExcelId'] = updatafileid
                             copyExcelID = cop['copyExcelId']
@@ -665,7 +665,7 @@ class updata_class():
                                 func_callback(60, pipettesn)  # 进度
 
                 for cs, pase in enumerate(u["ifpaste"]):
-                    if pase["off/on"]:
+                    if pase["enabled"]:
                         if csv_link != None:
                             # 复制测试结果到TRACKING SHEET
                             if pipettetype == "P1000M Ultima":
@@ -922,7 +922,7 @@ class updata_class():
             if uptemp == "Ture":
                 copydatalist = []
                 for cop in u["ifcopydata"]:
-                    if cop["off/on"]:
+                    if cop["enabled"]:
                         cop['copyExcelId'] = updatafileid
                         copyExcelID = cop['copyExcelId']
                         stname = cop['copyExcelSheetName']
@@ -955,7 +955,7 @@ class updata_class():
                 if func_callback != None:
                     func_callback(60)  # 进度
                 for cs, pase in enumerate(u["ifpaste"]):
-                    if pase["off/on"]:
+                    if pase["enabled"]:
                         # 复制测试结果到TRACKING SHEET
                         if pipettetype == "P1KH":
                             paseexcelid = pase["Ultimapastefileid"]

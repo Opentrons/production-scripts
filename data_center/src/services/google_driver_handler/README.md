@@ -178,12 +178,12 @@ yaml
     ExcelSheetName: ["工作表名称"]
     Range: ["数据范围"]
     ifcopydata:
-      - off/on: true/false
+      - enabled: true/false
         copyExcelId: "复制文件ID"
         copyExcelSheetName: "工作表名称"
         copyRange: "数据范围"
     ifpaste:
-      - off/on: true/false
+      - enabled: true/false
         pastefileid: "粘贴文件ID"
         pastesheetname: "工作表名称"
         pastelineRange:
