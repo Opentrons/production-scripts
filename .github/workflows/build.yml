@@ -3,7 +3,7 @@ name: Build Executables
 # 什么时候触发
 on:
   push:
-    branches: [main]
+    branches: [leveling]
     tags: ['v*']
   workflow_dispatch:
 
