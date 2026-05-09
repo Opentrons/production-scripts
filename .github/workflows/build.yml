@@ -36,6 +36,7 @@ jobs:
           pyinstaller --onefile \
             --windowed \
             --name ot3_leveling \
+            --hidden-import "ot3_testing.__version__" \
             --hidden-import "ot3_testing.leveling_test.config" \
             --hidden-import "ot3_testing.leveling_test.type" \
             --hidden-import "ot3_testing.leveling_test.model.base" \
@@ -43,6 +44,8 @@ jobs:
             --hidden-import "ot3_testing.hardware_control.hardware_control" \
             --hidden-import "ot3_testing.protocol.protocol_context" \
             --hidden-import "ot3_testing.maintenance_api.maintenance_run" \
+            --hidden-import "tools.inquirer" \
+            --hidden-import "tools.reading_laser" \
             --add-data "ot3_testing/leveling_test/leveling_config.json:ot3_testing/leveling_test" \
             ot3_testing/main.py
           ls -lh dist/
@@ -53,6 +56,7 @@ jobs:
           pyinstaller --onefile `
             --windowed `
             --name ot3_leveling `
+            --hidden-import "ot3_testing.__version__" `
             --hidden-import "ot3_testing.leveling_test.config" `
             --hidden-import "ot3_testing.leveling_test.type" `
             --hidden-import "ot3_testing.leveling_test.model.base" `
@@ -60,6 +64,8 @@ jobs:
             --hidden-import "ot3_testing.hardware_control.hardware_control" `
             --hidden-import "ot3_testing.protocol.protocol_context" `
             --hidden-import "ot3_testing.maintenance_api.maintenance_run" `
+            --hidden-import "tools.inquirer" `
+            --hidden-import "tools.reading_laser" `
             --add-data "ot3_testing/leveling_test/leveling_config.json;ot3_testing/leveling_test" `
             ot3_testing/main.py
           dir dist/
