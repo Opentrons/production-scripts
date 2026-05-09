@@ -4,6 +4,7 @@ from typing import Union, Dict, List
 from dataclasses import dataclass, field
 import json
 import os
+import sys
 
 
 @dataclass(kw_only=True)
@@ -16,7 +17,12 @@ class SlotConfig:
 
 
 def _load_json_config():
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "leveling_config.json")
+    if hasattr(sys, '_MEIPASS'):
+        config_path = os.path.join(sys._MEIPASS, "ot3_testing", "leveling_test", "leveling_config.json")
+    else:
+        config_path = os.path.join(os.path.dirname(__file__), "leveling_config.json")
+    abs_config_path = os.path.abspath(config_path)
+    print(f"Loading leveling_config.json from: {abs_config_path}")
     with open(config_path, "r") as f:
         return json.load(f)
 

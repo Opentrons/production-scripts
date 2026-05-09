@@ -6,6 +6,7 @@ import serial
 import serial.tools.list_ports
 from typing import List
 import time
+import sys
 
 
 # 定义协议接口
@@ -25,7 +26,23 @@ class Reader:
 
     @classmethod
     def get_com_list(cls) -> List[serial.tools.list_ports_common.ListPortInfo]:
+        """Get list of available serial ports. On macOS, only return USB devices."""
         port_list = serial.tools.list_ports.comports()
+        
+        # On macOS, filter to only include USB devices
+        if sys.platform == 'darwin':
+            filtered_ports = []
+            for port in port_list:
+                # Check if the device name contains 'usb' (case insensitive)
+                device_name = str(port.device).lower()
+                port_name = str(port.name).lower() if port.name else ''
+                description = str(port.description).lower() if port.description else ''
+                
+                if 'usb' in device_name or 'usb' in port_name or 'usb' in description:
+                    filtered_ports.append(port)
+            print(f"macOS detected - filtered to {len(filtered_ports)} USB devices from {len(port_list)} total")
+            return filtered_ports
+        
         return port_list
 
     @classmethod

@@ -1,37 +1,62 @@
-.PHONY: install
-install:
-	@echo "install"
-	npm install
+# ============================================
+# Leveling Test Commands
+# ============================================
 
-.PHONY: push-ot3-testing-server
-push-ot3-testing-step1:
-	@echo "pushing"
-	scp -r -i "devices/rsa_install/id_rsa" !(vue-ui) ./ root@192.168.6.196:/opt/ot3-testing-server
+.PHONY: run-leveling-test
+run-leveling-test:
+	@echo "Running leveling_test.__main__..."
+	cd .. && python -m ot3_testing.leveling_test.__main__
 
-.PHONY: push-ot3-testing-ui
-push-ot3-testing-step2:
-	@echo "pushing"
-	scp -r -i "devices/rsa_install/id_rsa" ./vue-ui/ot3_testing_ui/dist root@192.168.6.196:/opt/ot3-testing-server/
+.PHONY: run-main
+run-main:
+	@echo "Running main.py..."
+	cd .. && python -m ot3_testing.main
 
-.PHONY: clean-ot3-testing
-clean-ot3-testing:
-	@echo "clean server"
-	ssh -i "devices/rsa_install/id_rsa" root@192.168.6.196 rm -rf /opt/ot3-testing-server/*
+.PHONY: update-compensation
+update-compensation:
+	@echo "Updating compensation data from Templete.xlsx..."
+	cd leveling_test && python convert_compensations.py
 
-.PHONY: sync-ot3-testing
-sync-ot3-testing:
-	@echo "sync-ot3-testing"
-	make clean-ot3-testing
-	make push-ot3-testing
+# ============================================
+# Packaging Commands
+# ============================================
 
-.PHONY: reload-server
-reload-server:
-	ssh -i "devices/rsa_install/id_rsa" root@192.168.6.196 cd /opt/ot3-testing-server/ && python -m gunicorn -b 0.0.0.0:8080 -w 4 server.start_server:app -k uvicorn.workers.UvicornWorker -D
+.PHONY: build-exe
+build-exe:
+	@echo "Building executable with PyInstaller..."
+	python package.spec
 
+.PHONY: install-package
+install-package:
+	@echo "Installing package in development mode..."
+	pip install -e .
 
-.PHONY: build-vue-ui
-build-vue-ui:
-	cd vue-ui/ot3_testing_ui
-	npm run build
+.PHONY: build-wheel
+build-wheel:
+	@echo "Building wheel package..."
+	python setup.py bdist_wheel
 
+.PHONY: clean-build
+clean-build:
+	@echo "Cleaning build artifacts..."
+	rm -rf build/ dist/ __pycache__/ *.egg-info/
+	find . -name "*.pyc" -delete
+	find . -name "__pycache__" -delete
 
+.PHONY: package
+package: clean-build build-wheel
+	@echo "Package build complete. Wheel file is in dist/"
+
+# ============================================
+# Development Commands
+# ============================================
+
+.PHONY: install-deps
+install-deps:
+	@echo "Installing dependencies..."
+	pip install -r requirements.txt
+
+.PHONY: test
+test:
+	@echo "Running tests..."
+	python -m pytest tests/ -v

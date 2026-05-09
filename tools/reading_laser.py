@@ -6,7 +6,7 @@ if addpath not in sys.path:
     sys.path.append(addpath)
 if addpath2 not in sys.path:
     sys.path.append(addpath2)
-from ot3_testing.tests.base_init import TestBase
+from tools.init_leveling import TestBase
 from ot3_testing.ot_type import Mount, Point
 from typing import Union, List
 from devices.amsamotion_sensor import LaserSensor

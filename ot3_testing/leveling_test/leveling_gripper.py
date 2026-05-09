@@ -31,66 +31,74 @@ class Gripper_Leveling(LevelingBase):
         if self.laser is None:
             raise Exception("No Laser Found")
 
-        def read_default_channel() -> float:
-            result = Reader.read_sensor(self.laser)
-            channel = self.slot_config.channel
-            default_channel = list(channel.values())[0]
-            distance = result[default_channel]
-            return distance
+        try:
+            def read_default_channel() -> float:
+                result = Reader.read_sensor(self.laser)
+                channel = self.slot_config.channel
+                default_channel = list(channel.values())[0]
+                distance = result[default_channel]
+                return distance
 
-        default_distance = read_default_channel()
-        cli = False
-        while True:
-            step = default_distance - 30
-            print("===Calibration===\n"
-                  f"DefaultDistance: {default_distance}\n"
-                  f"Step: {round(step, 3)}\n")
-            if cli:
-                break
-            if self.__direction == Direction.X:
-                await self.move_forward(abs(step)) if step < 0 else await self.move_back(abs(step))
-            elif self.__direction == Direction.Y:
-                await self.move_right(abs(step)) if step < 0 else await self.move_left(abs(step))
-            elif self.__direction == Direction.Z:
-                cli = True
-            else:
-                raise ValueError("Wrong direction")
             default_distance = read_default_channel()
-            if abs(default_distance - 30) < 0.1:
-                cli = True
-        print("Calibration Successful !")
+            cli = False
+            while True:
+                step = default_distance - 30
+                print("===Calibration===\n"
+                      f"DefaultDistance: {default_distance}\n"
+                      f"Step: {round(step, 3)}\n")
+                if cli:
+                    break
+                if self.__direction == Direction.X:
+                    await self.move_forward(abs(step)) if step < 0 else await self.move_back(abs(step))
+                elif self.__direction == Direction.Y:
+                    await self.move_right(abs(step)) if step < 0 else await self.move_left(abs(step))
+                elif self.__direction == Direction.Z:
+                    cli = True
+                else:
+                    raise ValueError("Wrong direction")
+                default_distance = read_default_channel()
+                if abs(default_distance - 30) < 0.1:
+                    cli = True
+            print("Calibration Successful !")
+        except Exception as e:
+            print(f"校准失败: {e}")
+            raise
 
     async def run_trials(self) -> None:
         """
         run a trial
         :return:
         """
-        for i in range(3):
-            # step1: move to slot
-            await self.move_to_slot(calibration_func_callback=self.calibration_callback)
-            # step2: read result
-            result = Reader.read_sensor(self.laser)
-            # step3: show result
-            result, difference = self.reader_handler(result)
-            self.show_result(result, difference, with_compensation=False)
-            result, difference = self.apply_compensation()
-            self.show_result(result, difference, with_compensation=True)
-            # step4: set spec
-            self.spec = self.__spec
-            csv_result = result.copy()
-            if self.is_pass:
-                csv_result.update({"result": difference})
-                self.report.write_new_results(csv_result)
-                # home
-                await self.home_z()
-                break
-            else:
-                if i < 2:
-                    print(f"The test result out of the spec, {self.spec}, try to retest {i + 1} times")
-                else:
+        try:
+            for i in range(3):
+                # step1: move to slot
+                await self.move_to_slot(calibration_func_callback=self.calibration_callback)
+                # step2: read result
+                result = Reader.read_sensor(self.laser)
+                # step3: show result
+                result, difference = self.reader_handler(result)
+                self.show_result(result, difference, with_compensation=False)
+                result, difference = self.apply_compensation()
+                self.show_result(result, difference, with_compensation=True)
+                # step4: set spec
+                self.spec = self.__spec
+                csv_result = result.copy()
+                if self.is_pass:
                     csv_result.update({"result": difference})
                     self.report.write_new_results(csv_result)
-                await self.home_z()
+                    # home
+                    await self.home_z()
+                    break
+                else:
+                    if i < 2:
+                        print(f"The test result out of the spec, {self.spec}, try to retest {i + 1} times")
+                    else:
+                        csv_result.update({"result": difference})
+                        self.report.write_new_results(csv_result)
+                    await self.home_z()
+        except Exception as e:
+            print(f"测试运行失败: {e}")
+            raise
 
     async def run(self):
         try:
@@ -122,15 +130,27 @@ class Gripper_Leveling(LevelingBase):
                         await self.run_trials()
                     await self.home()
             self.release_laser()
-        except KeyboardInterrupt("Customer exit"):
-            pass
-        except Exception():
+        except KeyboardInterrupt:
+            print("\n用户中断测试")
+            raise
+        except ConnectionError as e:
+            print(f"连接错误: {e}")
+            raise
+        except TimeoutError as e:
+            print(f"超时错误: {e}")
+            raise
+        except Exception as e:
+            print(f"测试运行异常: {e}")
             traceback.print_exc()
+            raise
         finally:
-            await self.home()
-            await self.build_api()
-            await self.maintenance_api.delete_run()
-            self.release_laser()
+            try:
+                await self.home()
+                await self.build_api()
+                await self.maintenance_api.delete_run()
+                self.release_laser()
+            except Exception as e:
+                print(f"清理资源时发生异常: {e}")
 
     def build_reader(self):
         reader_type = self._reader_type
@@ -145,16 +165,22 @@ class Gripper_Leveling(LevelingBase):
                             pass
                         else:
                             print(f"Laser on Mount {mount.value} not found (未找到测试工装！)")
-                            raise
+                            raise ValueError(f"Laser on Mount {mount.value} not found")
                 else:
                     print(f"Laser not found (未找到测试工装！)")
-                    raise
+                    raise ValueError("Laser not found")
+            except ValueError:
+                raise
             except Exception as e:
-                print(e)
+                print(f"激光传感器初始化失败: {e}")
                 raise
 
 
 if __name__ == '__main__':
-    gripper_leveling = Gripper_Leveling(robot_ip_address="192.168.6.88")
-    asyncio.run(gripper_leveling.run())
-    input("测试结束...")
+    try:
+        gripper_leveling = Gripper_Leveling(robot_ip_address="192.168.6.88")
+        asyncio.run(gripper_leveling.run())
+        input("测试结束...")
+    except Exception as e:
+        print(f"测试失败: {e}")
+        traceback.print_exc()

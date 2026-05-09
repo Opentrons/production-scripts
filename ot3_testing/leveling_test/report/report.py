@@ -44,7 +44,8 @@ class LevelingCSV:
         else:
             if "\\" in self.file_name:
                 self.file_name = self.file_name.replace('\\', '/')
-        print("CSV PATH: ", self.file_name)
+        abs_file_name = os.path.abspath(self.file_name)
+        print(f"CSV Report Path: {abs_file_name}")
 
     def is_file_exist(self) -> bool:
         if os.path.exists(self.file_name) and os.path.isfile(self.file_name):

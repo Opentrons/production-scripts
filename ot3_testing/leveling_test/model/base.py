@@ -116,7 +116,25 @@ class LevelingBase(ABC):
         if self.add_compensation:
             compensation = self.slot_config.compensation
             for key, value in self.laser_result.items():
-                self.laser_result[key] = value + compensation[key]
+                # Handle key mapping: e.g., "below_rear" -> "rear", "left_rear" -> "rear"
+                comp_key = key
+                if key not in compensation:
+                    # Try to find matching compensation key
+                    for comp_k in compensation.keys():
+                        if comp_k in key or key.endswith(comp_k) or key.startswith(comp_k):
+                            comp_key = comp_k
+                            break
+                    else:
+                        # If no match found, try common patterns
+                        if "rear" in key and "rear" in compensation:
+                            comp_key = "rear"
+                        elif "front" in key and "front" in compensation:
+                            comp_key = "front"
+                        elif "left" in key and "left" in compensation:
+                            comp_key = "left"
+                        elif "right" in key and "right" in compensation:
+                            comp_key = "right"
+                self.laser_result[key] = value + compensation.get(comp_key, 0)
         return self.laser_result, round(
             abs(max(list(self.laser_result.values())) - min(list(self.laser_result.values()))), 3)
 
