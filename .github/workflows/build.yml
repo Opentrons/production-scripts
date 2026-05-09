@@ -3,8 +3,9 @@ name: Build Executables
 # 什么时候触发
 on:
   push:
-    tags: ['v*']           # 只打 tag 时构建
-  workflow_dispatch:        # 或手动触发
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
   build:
