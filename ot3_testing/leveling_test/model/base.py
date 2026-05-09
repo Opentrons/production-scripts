@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from ot3_testing.maintenance_api.maintenance_run import MaintenanceApi
 from typing import Union, Optional
 from ot3_testing.leveling_test.type import SlotName, TestNameLeveling, Direction, Mount, Point
-from ot3_testing.leveling_test.require_config import get_slot_config, SlotConfig
+from ot3_testing.leveling_test.config import get_slot_config, SlotConfig
 from typing import Callable, Any
 from devices.laser_stj_10_m0 import LaserSensor
 from ot3_testing.hardware_control.hardware_control import HardwareControl

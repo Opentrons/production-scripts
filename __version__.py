@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-VERSION = '1.5.8(ForV8.6.0)'
+VERSION = '1.5.9'
 
 
 def get_version():

@@ -1,378 +1,202 @@
-from ot3_testing.leveling_test.type import SlotName, Mount, Point, TestNameLeveling, Direction
+from ot3_testing.leveling_test.type import SlotName, Mount, Point, TestNameLeveling, Direction, FIXTURE1_LEFT_CHANNEL, \
+    FIXTURE1_RIGHT_CHANNEL
+from typing import Union, Dict, List
+from dataclasses import dataclass, field
+import json
+import os
 
-LevelingSetting = {
 
-    TestNameLeveling.Z_Leveling: {
-        Mount.RIGHT: {
-            SlotName.A1: {
-                Direction.Z: {
-                    "point": Point(5, 410, 357),
-                    "compensation": {"below_rear": -0.056, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.A2: {
-                Direction.Z: {
-                    "point": Point(175, 410, 357),
-                    "compensation": {"below_rear": -0.07, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
+@dataclass(kw_only=True)
+class SlotConfig:
+    mount: Mount
+    slot_name: SlotName
+    point: Point
+    compensation: Dict[str, float] = field(default_factory=dict)
+    channel: Dict[str, int] = field(default_factory=dict)
 
-            },
-            SlotName.A3: {
-                Direction.Z: {
-                    "point": Point(335, 410, 357),
-                    "compensation": {"below_rear": -0.062, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
 
-            SlotName.B1: {
-                Direction.Z: {
-                    "point": Point(5, 305, 357),
-                    "compensation": {"below_rear": -0.17, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.B2: {
-                Direction.Z: {
-                    "point": Point(175, 305, 357),
-                    "compensation": {"below_rear": -0.088, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.B3: {
-                Direction.Z: {
-                    "point": Point(335, 305, 357),
-                    "compensation": {"below_rear": -0.068, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
+def _load_json_config():
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "leveling_config.json")
+    with open(config_path, "r") as f:
+        return json.load(f)
 
-            SlotName.C1: {
-                Direction.Z: {
-                    "point": Point(5, 197, 357),
-                    "compensation": {"below_rear": -0.098, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.C2: {
-                Direction.Z: {
-                    "point": Point(175, 197, 357),
-                    "compensation": {"below_rear": -0.03, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.C3: {
-                Direction.Z: {
-                    "point": Point(335, 197, 357),
-                    "compensation": {"below_rear": -0.044, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
 
-            SlotName.D1: {
-                Direction.Z: {
-                    "point": Point(5, 92, 357),
-                    "compensation": {"below_rear": -0.05, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.D2: {
-                Direction.Z: {
-                    "point": Point(175, 92, 357),
-                    "compensation": {"below_rear": -0.15, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-            SlotName.D3: {
-                Direction.Z: {
-                    "point": Point(335, 92, 357),
-                    "compensation": {"below_rear": -0.058, "below_front": 0},
-                    "channel_definition": {
-                        "below_rear": 3,
-                        "below_front": 2
-                    }
-                },
-                Direction.X: {},
-                Direction.Y: {}
-            },
-        },
-        Mount.LEFT: {
-                    SlotName.C2: {
-                        Direction.Z: {
-                            "point": Point(215, 197, 357),
-                            "compensation": {"below_rear": 0.014, "below_front": 0},
-                            "channel_definition": {
-                                "below_rear": 3,
-                                "below_front": 2
-                            }
-                        },
-                        Direction.X: {},
-                        Direction.Y: {}
-                    }
-                }
-    },
+def _convert_to_point(data):
+    if isinstance(data, list) and len(data) == 3:
+        return Point(data[0], data[1], data[2])
+    return data
 
-    TestNameLeveling.CH8_Leveling: {
-        Mount.RIGHT: {
-            SlotName.A2: {
-                Direction.Y: {
-                    "point": Point(335.94, 412.22, 299.16),
-                    "compensation": {"right_rear": -0.056, "right_front": 0},
-                    "channel_definition": {
-                        "right_front": 0,
-                        "right_rear": 1
-                    }
-                },
-                Direction.X: {},
-                Direction.Z: {}
-            },
-            SlotName.C1: {
-                Direction.Y: {
-                    "point": Point(172.07, 197.18, 299.16),
-                    "compensation": {"right_rear": -0.07, "right_front": 0},
-                    "channel_definition": {
-                        "right_front": 0,
-                        "right_rear": 1
-                    }
-                },
-                Direction.X: {},
-                Direction.Z: {}
 
-            },
-            SlotName.C3: {
-                Direction.Y: {
-                    "point": Point(499.83, 197.18, 299.16),
-                    "compensation": {"right_rear": -0.062, "right_front": 0},
-                    "channel_definition": {
-                        "right_front": 0,
-                        "right_rear": 1
-                    }
-                },
-                Direction.X: {},
-                Direction.Z: {}
-            }
-        },
-        Mount.LEFT: {
-            SlotName.C1: {
-                Direction.Y: {
-                    "point": Point(215.42, 198.33, 299.16),
-                    "compensation": {"right_rear": 0.014, "right_front": 0},
-                    "channel_definition": {
-                        "right_front": 0,
-                        "right_rear": 1
-                    }
-                },
-                Direction.X: {},
-                Direction.Z: {}
-            }
-        }
-    },
+def _convert_mount_key(key):
+    if key == "left":
+        return Mount.LEFT
+    elif key == "right":
+        return Mount.RIGHT
+    return key
 
-    TestNameLeveling.CH96_Leveling: {
-        Mount.LEFT: {
-            SlotName.A2: {
-                Direction.Y: {
-                    "point": Point(387, 421, 318),
-                    "compensation": {"right_rear": -0.086, "right_front": 0},
-                    "channel_definition": {
-                        "right_rear": 1,
-                        "right_front": 0
-                    }
-                },
-                Direction.X: {
-                    "point": Point(213, 305, 300),
-                    "compensation": {"front_left": 0, "front_right": 0.048},
-                    "channel_definition": {
-                        "front_left": 4,
-                        "front_right": 5
-                    }
-                },
-                Direction.Z: {
-                    "point": Point(218, 424, 390.5),
-                    "compensation": {"below_rear_left": -0.056, "below_rear_right": -0.09, "below_front_left": 0,
-                                     "below_front_right": 0.078},
-                    "channel_definition": {
-                        "below_rear_left": 10,
-                        "below_rear_right": 11,
-                        "below_front_left": 8,
-                        "below_front_right": 9
-                    }
-                },
-            },
 
-            SlotName.C1: {
-                Direction.Y: {
-                    "point": Point(223, 203, 318),
-                    "compensation": {"right_rear": -0.006, "right_front": 0},
-                    "channel_definition": {
-                        "right_rear": 1,
-                        "right_front": 0
-                    }
-                },
-                Direction.X: {
-                    "point": Point(50, 91, 300),
-                    "compensation": {"front_left": 0, "front_right": 0.054},
-                    "channel_definition": {
-                        "front_left": 4,
-                        "front_right": 5
-                    }
-                },
-                Direction.Z: {}
-            },
-
-            SlotName.C3: {
-                Direction.Y: {
-                    "point": Point(207, 203, 318),
-                    "compensation": {"left_rear": -0.054, "left_front": 0},
-                    "channel_definition": {
-                        "left_rear": 3,
-                        "left_front": 2
-                    }
-                },
-                Direction.X: {
-                    "point": Point(382, 91, 300),
-                    "compensation": {"front_left": 0, "front_right": 0.036},
-                    "channel_definition": {
-                        "front_left": 4,
-                        "front_right": 5
-                    }
-                },
-                Direction.Z: {}
-            },
-
-            SlotName.D1: {
-                Direction.Y: {},
-                Direction.X: {},
-                Direction.Z: {
-                    "point": Point(51, 99, 318),
-                    "compensation": {"below_rear_left": -0.056, "below_rear_right": -0.078,
-                                     "below_front_left": 0, "below_front_right": 0.082},
-                    "channel_definition": {
-                        "below_rear_left": 10,
-                        "below_rear_right": 11,
-                        "below_front_left": 8,
-                        "below_front_right": 9
-                    }
-                },
-            },
-
-            SlotName.D3: {
-                Direction.Y: {},
-                Direction.X: {},
-                Direction.Z: {
-                    "point": Point(377, 99, 318),
-                    "compensation": {"below_rear_left": -0.058, "below_rear_right": -0.092,
-                                     "below_front_left": 0, "below_front_right": 0.05},
-                    "channel_definition": {
-                        "below_rear_left": 10,
-                        "below_rear_right": 11,
-                        "below_front_left": 8,
-                        "below_front_right": 9
-                    }
-                },
-            },
-
-            SlotName.C2: {
-                Direction.Y: {},
-                Direction.X: {},
-                Direction.Z: {
-                    "point": Point(214, 210, 318),
-                    "compensation": {"below_rear_left": -0.047, "below_rear_right": -0.052,
-                                     "below_front_left": 0.0, "below_front_right": 0.022},
-                    "channel_definition": {
-                        "below_rear_left": 10,
-                        "below_rear_right": 11,
-                        "below_front_left": 8,
-                        "below_front_right": 9
-                    }
-                },
-            },
-
-        },
-
-        Mount.RIGHT: {
-
-            }
-    },
-
-    TestNameLeveling.Gripper_Leveling: {
-        Mount.LEFT: {
-            SlotName.C2: {
-                Direction.X: {
-                    "point": Point(52, 332.5, 500),
-                    "compensation": {"rear_left": -0.003, "rear_right": 0},
-                    "channel_definition": {"rear_left": 1, "rear_right": 0}
-                },
-                Direction.Y: {
-                    "point": Point(223.5, 181.7, 500),
-                    "compensation": {"right_front": 0, "right_rear": -0.029},
-                    "channel_definition": {"right_front": 2, "right_rear": 3}
-                },
-                Direction.Z: {
-                    "point": Point(202.5, 177, 500),
-                    "compensation": {"below_rear": 0.04, "below_front": 0},
-                    "channel_definition": {"below_rear": 5, "below_front": 4}
-                }
-            }
-        },
-        Mount.RIGHT: {
-        }
+def _convert_slot_name_key(key):
+    slot_map = {
+        "Z-A1": SlotName.A1, "Z-A2": SlotName.A2, "Z-A3": SlotName.A3,
+        "Z-B1": SlotName.B1, "Z-B2": SlotName.B2, "Z-B3": SlotName.B3,
+        "Z-C1": SlotName.C1, "Z-C2": SlotName.C2, "Z-C3": SlotName.C3,
+        "Z-D1": SlotName.D1, "Z-D2": SlotName.D2, "Z-D3": SlotName.D3
     }
-}
+    return slot_map.get(key, key)
+
+
+def _convert_direction_key(key):
+    if key == "x":
+        return Direction.X
+    elif key == "y":
+        return Direction.Y
+    elif key == "z":
+        return Direction.Z
+    return key
+
+
+def _parse_zstage_config(json_config):
+    result = {}
+    zstage_data = json_config["zstage_leveling_config"]["ZStagePoint"]
+    channel_data = json_config["zstage_leveling_config"]["ZStageChannel"]
+    
+    for mount_key, slots in zstage_data.items():
+        mount = _convert_mount_key(mount_key)
+        result[mount] = {}
+        for slot_key, slot_data in slots.items():
+            slot_name = _convert_slot_name_key(slot_key)
+            result[mount][slot_name] = {}
+            direction = Direction.Z
+            point = _convert_to_point(slot_data.get("point"))
+            compensation = slot_data.get("compensation", {})
+            channel_def_list = slot_data.get("channel_definition", [])
+            channel_definition = {ch: channel_data[mount_key][ch]["channel"] for ch in channel_def_list}
+            result[mount][slot_name][direction] = {
+                "point": point,
+                "compensation": compensation,
+                "channel_definition": channel_definition
+            }
+            result[mount][slot_name][Direction.X] = {}
+            result[mount][slot_name][Direction.Y] = {}
+    return result
+
+
+def _parse_ch8_config(json_config):
+    result = {}
+    ch8_data = json_config["pipette_leveling_config"]["SlotLocationCH8"]
+    channel_data = json_config["pipette_leveling_config"]["ChannelDefinitionCH8"]
+    
+    for mount_key, slots in {"left": [SlotName.C1], "right": [SlotName.A2, SlotName.C1, SlotName.C3]}.items():
+        mount = _convert_mount_key(mount_key)
+        result[mount] = {}
+        for slot_name in slots:
+            result[mount][slot_name] = {}
+            for direction in [Direction.X, Direction.Y, Direction.Z]:
+                if direction == Direction.Y:
+                    slot_key = f"Y-{slot_name.name}-{'Left' if mount == Mount.LEFT else 'Right'}"
+                    if slot_key in ch8_data:
+                        point = _convert_to_point(ch8_data[slot_key].get("Point"))
+                        compensation = ch8_data[slot_key].get("compensation", {})
+                        channel_def_list = ch8_data[slot_key].get("definition", [])
+                        channel_definition = {ch: channel_data[mount_key][ch]["channel"] for ch in channel_def_list}
+                        result[mount][slot_name][direction] = {
+                            "point": point,
+                            "compensation": compensation,
+                            "channel_definition": channel_definition
+                        }
+                    else:
+                        result[mount][slot_name][direction] = {}
+                else:
+                    result[mount][slot_name][direction] = {}
+    return result
+
+
+def _parse_ch96_config(json_config):
+    result = {}
+    ch96_data = json_config["pipette_leveling_config"]["SlotLocationCH96"]
+    channel_data = json_config["pipette_leveling_config"]["ChannelDefinitionCH96"]
+    
+    for mount_key, slots in {"left": [SlotName.A2, SlotName.C1, SlotName.C3, SlotName.D1, SlotName.D3, SlotName.C2], "right": []}.items():
+        mount = _convert_mount_key(mount_key)
+        result[mount] = {}
+        for slot_name in slots:
+            result[mount][slot_name] = {}
+            for direction in [Direction.X, Direction.Y, Direction.Z]:
+                slot_key = f"{slot_name.name}-{direction.name}"
+                if slot_key in ch96_data:
+                    point = _convert_to_point(ch96_data[slot_key].get("Point"))
+                    compensation = ch96_data[slot_key].get("compensation", {})
+                    channel_def_list = ch96_data[slot_key].get("definition", [])
+                    channel_definition = {ch: channel_data[mount_key][ch]["channel"] for ch in channel_def_list}
+                    result[mount][slot_name][direction] = {
+                        "point": point,
+                        "compensation": compensation,
+                        "channel_definition": channel_definition
+                    }
+                else:
+                    result[mount][slot_name][direction] = {}
+    return result
+
+
+def _parse_gripper_config(json_config):
+    result = {}
+    gripper_data = json_config["gripper_leveling_config"]["Gripper_Position"]
+    channel_data = json_config["gripper_leveling_config"]["GripperChannel"]
+    
+    for mount_key, slots in {"left": [SlotName.C2], "right": []}.items():
+        mount = _convert_mount_key(mount_key)
+        result[mount] = {}
+        for slot_name in slots:
+            result[mount][slot_name] = {}
+            for direction_key, direction_data in gripper_data[mount_key].items():
+                direction = _convert_direction_key(direction_key)
+                point = _convert_to_point(direction_data.get("point"))
+                compensation = direction_data.get("compensation", {})
+                channel_def_list = direction_data.get("definition", [])
+                channel_definition = {ch: channel_data[mount_key][ch]["channel"] for ch in channel_def_list}
+                result[mount][slot_name][direction] = {
+                    "point": point,
+                    "compensation": compensation,
+                    "channel_definition": channel_definition
+                }
+    return result
+
+
+_leveling_config_cache = None
+
+def get_leveling_setting():
+    global _leveling_config_cache
+    if _leveling_config_cache is None:
+        json_config = _load_json_config()
+        _leveling_config_cache = {
+            TestNameLeveling.Z_Leveling: _parse_zstage_config(json_config),
+            TestNameLeveling.CH8_Leveling: _parse_ch8_config(json_config),
+            TestNameLeveling.CH96_Leveling: _parse_ch96_config(json_config),
+            TestNameLeveling.Gripper_Leveling: _parse_gripper_config(json_config)
+        }
+    return _leveling_config_cache
+
+LevelingSetting = get_leveling_setting()
+
+
+def get_channel_from_fixture1(channel_name: Union[FIXTURE1_LEFT_CHANNEL, FIXTURE1_RIGHT_CHANNEL]):
+    return channel_name.value
+
+
+def get_slot_config(test_name: TestNameLeveling,
+                    mount: Mount,
+                    slot_name: SlotName,
+                    direction: Direction
+                    ) -> SlotConfig:
+    point = LevelingSetting[test_name][mount][slot_name][direction]["point"]
+    compensation = LevelingSetting[test_name][mount][slot_name][direction]["compensation"]
+    channel = LevelingSetting[test_name][mount][slot_name][direction]["channel_definition"]
+
+    slot_config = SlotConfig(
+        mount=mount,
+        slot_name=slot_name,
+        point=point,
+        compensation=compensation,
+        channel=channel
+    )
+    return slot_config

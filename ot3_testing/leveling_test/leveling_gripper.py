@@ -1,5 +1,3 @@
-from adodbapi.ado_consts import directions
-
 from ot3_testing.leveling_test.model.base import LevelingBase
 from ot3_testing.leveling_test.type import SlotName, TestNameLeveling, Mount, Direction
 from ot3_testing.leveling_test.fixture.reader import Reader
