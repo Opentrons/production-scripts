@@ -33,8 +33,17 @@ class CH8_Leveling(LevelingBase):
         try:
             def read_default_channel() -> float:
                 result = Reader.read_sensor(self.laser)
+                if not result:
+                    raise ValueError("传感器返回数据为空")
+                
                 channel = self.slot_config.channel
+                if not channel:
+                    raise ValueError("通道配置为空")
+                
                 default_channel = list(channel.values())[0]
+                if default_channel not in result:
+                    raise ValueError(f"传感器数据中缺少通道 {default_channel}，可用通道: {list(result.keys())}")
+                
                 distance = result[default_channel]
                 return distance
 

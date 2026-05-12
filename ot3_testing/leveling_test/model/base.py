@@ -162,8 +162,18 @@ class LevelingBase(ABC):
         """
         channel = self.slot_config.channel
         self.laser_result.clear()
+        
+        if not result:
+            raise ValueError("传感器返回数据为空")
+        
         for key, value in channel.items():
+            if value not in result:
+                raise ValueError(f"传感器数据中缺少通道 {value}，可用通道: {list(result.keys())}")
             self.laser_result.update({key: result[value]})
+        
+        if not self.laser_result:
+            raise ValueError("处理后的激光结果为空")
+        
         return self.laser_result, round(
             abs(max(list(self.laser_result.values())) - min(list(self.laser_result.values()))), 3)
 

@@ -1,7 +1,7 @@
-"""PyInstaller Configuration for OT3 Testing Module
+"""PyInstaller Configuration for OT3 Testing Module (macOS)
 
 This spec file handles external driver dependencies and ensures
-smooth packaging of the ot3_testing module.
+smooth packaging of the ot3_testing module for macOS.
 """
 
 import sys

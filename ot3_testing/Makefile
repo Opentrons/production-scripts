@@ -21,10 +21,15 @@ update-compensation:
 # Packaging Commands
 # ============================================
 
-.PHONY: build-exe
-build-exe:
-	@echo "Building executable with PyInstaller..."
+.PHONY: build-mac
+build-mac:
+	@echo "Building executable for macOS with PyInstaller..."
 	python package.spec
+
+.PHONY: build-win
+build-win:
+	@echo "Building executable for Windows with PyInstaller..."
+	python package-win.spec
 
 .PHONY: install-package
 install-package:

@@ -266,7 +266,11 @@
                 "compensation": {
                     "left_rear": -0.148,
                     "left_front": 0.0
-                }
+                },
+                "definition": [
+                    "left_front",
+                    "left_rear"
+                ]
             },
             "Y-C1-Right": {
                 "Point": [
@@ -277,7 +281,11 @@
                 "compensation": {
                     "right_rear": 0.04,
                     "right_front": 0.0
-                }
+                },
+                "definition": [
+                    "right_front",
+                    "right_rear"
+                ]
             },
             "Y-C3-Right": {
                 "Point": [
@@ -288,7 +296,11 @@
                 "compensation": {
                     "right_rear": 0.084,
                     "right_front": 0.0
-                }
+                },
+                "definition": [
+                    "right_front",
+                    "right_rear"
+                ]
             },
             "Y-A2-Right": {
                 "Point": [
@@ -299,7 +311,11 @@
                 "compensation": {
                     "right_rear": 0.114,
                     "right_front": 0.0
-                }
+                },
+                "definition": [
+                    "right_front",
+                    "right_rear"
+                ]
             },
             "UninstallPos": {
                 "Point": [
