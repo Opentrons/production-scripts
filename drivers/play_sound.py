@@ -1,9 +1,14 @@
 import os.path
 import time
-import winsound
+import sys
 
 from playsound import playsound
 from utils import Utils
+
+if sys.platform == 'win32':
+    import winsound
+else:
+    winsound = None
 
 root_path = Utils.get_root_path()
 
@@ -48,8 +53,8 @@ def play_alarm_2(project_path=None):
 
 
 def play_alarm_3(frequency, duration):
-    pass
-    winsound.Beep(frequency, duration)
+    if winsound:
+        winsound.Beep(frequency, duration)
 
 
 if __name__ == '__main__':

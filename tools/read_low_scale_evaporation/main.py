@@ -17,7 +17,7 @@ class ReadScale:
         return f"{str(_time)}, {value_g}, {air[0]}, {air[1]}"
 
     def write_csv(self, data):
-        with open("../../testing_data/read_scale.csv", mode="a") as f:
+        with open("../../testing_data/read_scale.report", mode="a") as f:
             f.write(data + "\n")
 
 

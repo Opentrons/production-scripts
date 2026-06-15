@@ -18,7 +18,7 @@
       - "C"
       - "D"
     filefrompath: "/upload/function/1ch" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - enabled: true
@@ -125,7 +125,7 @@
       - "I"
       - "J"
     filefrompath: "" #数据来源的路径 文件服务提供
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     UpCurrentSpeedTest:
       Range: #要更新Excel的 列 范围 
@@ -238,7 +238,7 @@
       - "C"
       - "D"
     filefrompath: "/Users/yew/googledriver/upload/function/1" #数据来源的路径 里面的文件会循环获取
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     ifcopydata: #是否要复制更新表格后的数据 【数组】
       - enabled: true
@@ -345,7 +345,7 @@
       - "I"
       - "J"
     filefrompath: "" #数据来源的路径 文件服务提供
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     UpCurrentSpeedTest:
       Range: #要更新Excel的 列 范围 
@@ -467,7 +467,7 @@
       - "E"
       - "F"
     filefrompath: "" #数据来源的路径 文件服务提供
-    filekeywords: ".csv" #数据来源文件关键字 如.csv
+    filekeywords: ".report" #数据来源文件关键字 如.report
 
     UpCurrentSpeedTest:
       Range: #要更新Excel的 列 范围 

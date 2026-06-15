@@ -168,7 +168,7 @@ class TC:
 
     def analyze_answer(self):
         """
-        get real answer from responds for write in csv
+        get real answer from responds for write in report
         :return:
         """
 
@@ -230,14 +230,14 @@ class TC:
         else:
             result = "FAIL"
 
-        if add_result == "ByPass":  # don't need to add anything to csv
+        if add_result == "ByPass":  # don't need to add anything to report
             pass
-        elif add_result == "response":  # only add response to csv
+        elif add_result == "response":  # only add response to report
             self.test_result.append(answer)
-        elif add_result == "response_result":  # add response and result to csv
+        elif add_result == "response_result":  # add response and result to report
             self.test_result.append(answer)
             self.test_result.append(result)
-        elif add_result == "result":  # only add result to csv
+        elif add_result == "result":  # only add result to report
             self.test_result.append(result)
         else:
             pass
@@ -334,7 +334,7 @@ class TC:
 
     def test_unit(self, test_config):
         """
-        v-for test unit and write csv
+        v-for test unit and write report
         :return:
         """
         self.repair_to_start()
@@ -397,7 +397,7 @@ class TC:
                 pass
             """
             answer: if answer is "", we don't need to write responds
-            add_result: judge how to add result to csv
+            add_result: judge how to add result to report
             result: test result
             """
             if type(answer) is list:

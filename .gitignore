@@ -5,6 +5,7 @@
 *.txt
 *.zip
 .idea
+*.backup*
 __pycache__
 build
 testing_data/*

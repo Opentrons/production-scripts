@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-import paramiko
+"""OT3 Testing Module - Main Entry Point"""
 
-key = paramiko.RSAKey.from_private_key_file("../shared_data/robot_key")
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-print("connecting")
-ssh.connect(hostname="192.168.6.8", username="root",
-            pkey=key, allow_agent=False, look_for_keys=False)
-print("connected")
-commands = "df"
-stdin, stdout, stderr = ssh.exec_command(commands)
-stdin.close()
-res, err = stdout.read(), stderr.read()
-result = res if res else err
-print(result)
-ssh.close()
+import asyncio
+
+from ot3_testing.__version__ import __version__, __author__, __description__
+from ot3_testing.leveling_test.__main__ import run
+
+
+def main():
+    print(f"OT3 Leveling Testing Module")
+    print(f"Version: {__version__}")
+    print(f"Author: {__author__}")
+    print(f"Description: {__description__}")
+    print("-" * 50)
+    asyncio.run(run("./"))
+
+
+if __name__ == '__main__':
+    main()

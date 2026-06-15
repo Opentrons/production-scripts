@@ -5,12 +5,12 @@ import time
 
 class Report:
     def __init__(self, file_path, csv_name: str):
-        self.csv_name = csv_name + "-" + time.strftime("%Y%m%d") + '.csv'
+        self.csv_name = csv_name + "-" + time.strftime("%Y%m%d") + '.report'
         self.csv_name = os.path.join(file_path, self.csv_name)
 
     def init_report(self):
         """
-        init csv
+        init report
         :return:
         """
 
@@ -43,7 +43,7 @@ class Report:
 
     def write_row(self, row: list):
         """
-        write list to csv
+        write list to report
         :param row:
         :return:
         """

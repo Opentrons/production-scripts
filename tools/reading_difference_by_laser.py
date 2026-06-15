@@ -53,7 +53,7 @@ class ReadLaser(TestBase):
 
     def save_csv(self, file_path, title, content):
         """
-        save csv
+        save report
         """
         is_exist = Utils.is_file_exist(file_path)
         if is_exist:
@@ -120,7 +120,7 @@ class ReadLaser(TestBase):
             diff = (abs(_rear - _front))
             result.append(diff)
             print(result)
-            file_path = '../testing_data/reading_sensor.csv'
+            file_path = '../testing_data/reading_sensor.report'
             self.save_csv(file_path, [slot_name], result)
             if KeepReading is not True:
                 await self.api.home()

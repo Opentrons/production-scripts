@@ -595,7 +595,7 @@ class FilesHandler:
                     # 检查文件名是否包含序列号
                     if sn in file:
                         # 构建完整路径
-                        if '.csv' in file:
+                        if '.report' in file:
                             matching_files.append(file)
                             logger.debug(f"找到匹配文件: {file}")
                 except Exception as e:

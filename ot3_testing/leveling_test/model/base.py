@@ -1,34 +1,48 @@
 """
 Define the property and method for leveling testing
 """
-
+import os
 from abc import ABC, abstractmethod
 from ot3_testing.maintenance_api.maintenance_run import MaintenanceApi
 from typing import Union, Optional
 from ot3_testing.leveling_test.type import SlotName, TestNameLeveling, Direction, Mount, Point
-from ot3_testing.leveling_test.require_config import get_slot_config, SlotConfig
+from ot3_testing.leveling_test.config import get_slot_config, SlotConfig
 from typing import Callable, Any
 from devices.laser_stj_10_m0 import LaserSensor
 from ot3_testing.hardware_control.hardware_control import HardwareControl
+from ot3_testing.leveling_test.report.report import LevelingCSV
 
 
 class LevelingBase(ABC):
-    def __init__(self, robot_ip_address: str, test_name: TestNameLeveling):
+    def __init__(self, robot_ip_address: str):
         self.robot_ip_address = robot_ip_address
-        self.maintenance_api: Union[None, MaintenanceApi] = None
-        self.slot_config: Union[None, SlotConfig] = None
-        self.current_point: Union[None, Point] = None
+        self.maintenance_api: Optional[MaintenanceApi] = None
+        self.slot_config: Optional[SlotConfig] = None
+        self.current_point: Optional[Point] = None
         self.laser: Optional[LaserSensor] = None
+        self.lasers: dict[Mount, Optional[LaserSensor]] = {Mount.RIGHT: None, Mount.LEFT: None}
         self.laser_result = {}
         self.__add_compensation = True
         self.__spec = 0.15
-        self.__z_position = 509.0
+        self.__z_position = 505.0
         self.__hc = HardwareControl(robot_ip_address)
         self.__robot_serial_number = ""
+        self.report: Union[LevelingCSV, None] = None
 
     def update_slot_config(self, test_name: TestNameLeveling, mount: Mount, slot_name: SlotName, direction: Direction):
         slot_config = get_slot_config(test_name, mount, slot_name, direction)
         self.slot_config = slot_config
+
+    def build_report(self, csv_name:str, script_dir:str, test_name:TestNameLeveling):
+        self.report = LevelingCSV(csv_name, os.path.join(script_dir, 'testing_data'), test_name, self.robot_sn)
+
+    def release_laser(self):
+        try:
+            for key, item in self.lasers.items():
+                print(f"release {key.value}")
+                item.close()
+        except Exception as e:
+            raise e
 
     @property
     def robot_sn(self) -> str:
@@ -102,7 +116,25 @@ class LevelingBase(ABC):
         if self.add_compensation:
             compensation = self.slot_config.compensation
             for key, value in self.laser_result.items():
-                self.laser_result[key] = value + compensation[key]
+                # Handle key mapping: e.g., "below_rear" -> "rear", "left_rear" -> "rear"
+                comp_key = key
+                if key not in compensation:
+                    # Try to find matching compensation key
+                    for comp_k in compensation.keys():
+                        if comp_k in key or key.endswith(comp_k) or key.startswith(comp_k):
+                            comp_key = comp_k
+                            break
+                    else:
+                        # If no match found, try common patterns
+                        if "rear" in key and "rear" in compensation:
+                            comp_key = "rear"
+                        elif "front" in key and "front" in compensation:
+                            comp_key = "front"
+                        elif "left" in key and "left" in compensation:
+                            comp_key = "left"
+                        elif "right" in key and "right" in compensation:
+                            comp_key = "right"
+                self.laser_result[key] = value + compensation.get(comp_key, 0)
         return self.laser_result, round(
             abs(max(list(self.laser_result.values())) - min(list(self.laser_result.values()))), 3)
 
@@ -129,6 +161,7 @@ class LevelingBase(ABC):
         :return: the result and the difference
         """
         channel = self.slot_config.channel
+        self.laser_result.clear()
         for key, value in channel.items():
             self.laser_result.update({key: result[value]})
         return self.laser_result, round(
@@ -142,6 +175,9 @@ class LevelingBase(ABC):
     async def __build_api(self) -> None:
         self.maintenance_api = MaintenanceApi(self.ip_address)
         await self.maintenance_api.create_run()
+
+    async def build_api(self) -> None:
+        await self.__build_api()
 
     async def move_up(self, step):
         if self.current_point is None:

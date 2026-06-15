@@ -20,7 +20,7 @@
         <el-table-column prop="fixture_name" label="测试工装名" min-width="50" />
         <el-table-column prop="fixture_ip" label="测试工装IP" min-width="50" />
         <el-table-column prop="auto_upload" label="数据状态" min-width="50" />
-        <el-table-column prop="Link" label="数据链接">
+        <el-table-column prop="link" label="数据链接">
         <template #default="{ row }">
           <el-link 
             v-if="row.link"

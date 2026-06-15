@@ -85,7 +85,7 @@ class MaintenanceApi(HttpClient):
 
     async def home_z(self, mount:Mount, current_position: Point):
         assert self.run_id is not None, "run_id must be set"
-        await self.move_to(current_position.replace({'z': 510})._asdict(), mount=mount)
+        await self.move_to(current_position.replace({'z': 505})._asdict(), mount=mount)
 
 
 
