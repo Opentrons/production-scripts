@@ -10,16 +10,38 @@ TITLE_START = "START_TIME"
 SYSTEM_PLATFORM = platform.system()
 
 
+def _pad_row(row: list[Any], length: int = 10) -> list[Any]:
+    if len(row) >= length:
+        return row
+    return row + [""] * (length - len(row))
+
+
+def _safe_file_name(value: str) -> str:
+    return "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in value).strip("_")
+
+
 class LevelingCSV:
+    REQUIRED_TESTS = (
+        TestNameLeveling.Z_Leveling,
+        TestNameLeveling.CH8_Leveling,
+        TestNameLeveling.CH96_Leveling,
+    )
+    OPTIONAL_TESTS = (TestNameLeveling.Gripper_Leveling,)
+    REPORT_VERSION = "ot3-leveling-report-v1"
+
     def __init__(self, csv_name: str, saving_path: str, test_name: TestNameLeveling, robot_sn: str):
-        self.csv_name = csv_name
         self.saving_path = saving_path
+        self.test_name = test_name
+        self.robot_sn = robot_sn
+        safe_robot_sn = _safe_file_name(robot_sn)
+        self.csv_name = f"{safe_robot_sn}-leveling-report.csv" if safe_robot_sn else csv_name
         self.file_name: Optional[str] = None
         self.format_file_name()
-        self.test_name = test_name
         self.__start_time = self.__class__.create_start_time()
         self.__title = None
-        self.robot_sn = robot_sn
+        self.__result_values: list[Any] = []
+        self.__slot_pass_results: list[bool] = []
+        self.__final_status = "RUNNING"
 
     def create_csv_path(self):
         try:
@@ -33,6 +55,12 @@ class LevelingCSV:
         now = datetime.now()
         time_str = now.strftime("%Y-%m-%d-%H-%M-%S")
         return time_str
+
+    @classmethod
+    def create_run_time(cls) -> str:
+        from datetime import datetime
+        now = datetime.now()
+        return now.strftime("run-%y-%m-%d-%H-%M-%S")
 
     def update_create_time(self):
         self.__start_time = self.create_start_time()
@@ -52,6 +80,18 @@ class LevelingCSV:
             return True
         else:
             return False
+
+    def read_rows(self) -> list[list[str]]:
+        if not self.is_file_exist():
+            return []
+        while True:
+            try:
+                with open(self.file_name, 'r', encoding='utf-8-sig', newline='') as file:
+                    return list(csv.reader(file))
+            except PermissionError as e:
+                print("先关闭正在查看的Report !")
+                print(e)
+                time.sleep(1)
 
     def write_line(self, new_line: list[Any]) -> bool:
         while True:
@@ -81,6 +121,150 @@ class LevelingCSV:
                 print("先关闭正在查看的Report !")
                 print(e)
                 time.sleep(1)
+
+    def _all_test_names(self) -> tuple[TestNameLeveling, ...]:
+        return self.REQUIRED_TESTS + self.OPTIONAL_TESTS
+
+    def _initial_rows(self) -> list[list[Any]]:
+        rows: list[list[Any]] = [
+            _pad_row([0, "-------", "---", "---", "---", "---", "---", "---", "---", "---"]),
+            _pad_row([0, "RESULTS"]),
+            _pad_row([0, "overall-result", "PENDING"]),
+        ]
+        for test_name in self._all_test_names():
+            rows.append(_pad_row([0, test_name.value, "NOT_RUN"]))
+        rows.extend([
+            _pad_row([0.01, "--------"]),
+            _pad_row([0.01, "METADATA"]),
+            _pad_row([0.01, "test-name", "ot3-leveling"]),
+            _pad_row([0.01, "operator-name", os.getenv("USER", "")]),
+            _pad_row([0.01, "session-id", self.robot_sn]),
+            _pad_row([0.01, "robot", self.robot_sn]),
+            _pad_row([0.01, "date", self.create_run_time()]),
+            _pad_row([0.01, "live"]),
+            _pad_row([0.02, "version", self.REPORT_VERSION]),
+            _pad_row([0.02, "-------------------"]),
+            _pad_row([0.1, "----"]),
+            _pad_row([0.1, "TEST"]),
+        ])
+        return rows
+
+    def _is_results_row(self, row: list[str], result_name: str) -> bool:
+        return len(row) > 1 and str(row[0]) == "0" and row[1] == result_name
+
+    def _ensure_base_report(self) -> list[list[Any]]:
+        rows = self.read_rows()
+        if not rows:
+            rows = self._initial_rows()
+        result_names = {row[1] for row in rows if len(row) > 1 and str(row[0]) == "0"}
+        insert_at = 2
+        if "overall-result" not in result_names:
+            rows.insert(insert_at, _pad_row([0, "overall-result", "PENDING"]))
+            insert_at += 1
+        for test_name in self._all_test_names():
+            if test_name.value not in result_names:
+                rows.insert(insert_at, _pad_row([0, test_name.value, "NOT_RUN"]))
+                insert_at += 1
+        self._update_metadata(rows)
+        return rows
+
+    def _update_metadata(self, rows: list[list[Any]]) -> None:
+        metadata_values = {
+            "test-name": "ot3-leveling",
+            "operator-name": os.getenv("USER", ""),
+            "session-id": self.robot_sn,
+            "robot": self.robot_sn,
+            "version": self.REPORT_VERSION,
+        }
+        found = set()
+        for row in rows:
+            if len(row) > 2 and row[1] in metadata_values:
+                row[2] = metadata_values[row[1]]
+                found.add(row[1])
+        if found == set(metadata_values):
+            return
+        insert_at = 0
+        for index, row in enumerate(rows):
+            if len(row) > 1 and row[1] == "TEST":
+                insert_at = index
+                break
+        for key, value in metadata_values.items():
+            if key not in found:
+                rows.insert(insert_at, _pad_row([0.01, key, value]))
+                insert_at += 1
+
+    def _set_test_status(self, rows: list[list[Any]], test_name: TestNameLeveling, status: str) -> None:
+        for row in rows:
+            if self._is_results_row(row, test_name.value):
+                while len(row) <= 2:
+                    row.append("")
+                row[2] = status
+                return
+        rows.insert(3, _pad_row([0, test_name.value, status]))
+
+    def _get_test_status(self, rows: list[list[Any]], test_name: TestNameLeveling) -> str:
+        for row in rows:
+            if self._is_results_row(row, test_name.value) and len(row) > 2:
+                return row[2]
+        return "NOT_RUN"
+
+    def _refresh_overall_result(self, rows: list[list[Any]]) -> None:
+        statuses = {test_name: self._get_test_status(rows, test_name) for test_name in self._all_test_names()}
+        if any(status == "FAIL" for status in statuses.values()):
+            overall = "FAIL"
+        elif all(statuses[test_name] == "PASS" for test_name in self.REQUIRED_TESTS):
+            overall = "PASS"
+        else:
+            overall = "PENDING"
+
+        for row in rows:
+            if self._is_results_row(row, "overall-result"):
+                while len(row) <= 2:
+                    row.append("")
+                row[2] = overall
+                return
+        rows.insert(2, _pad_row([0, "overall-result", overall]))
+
+    def _test_section_bounds(self, rows: list[list[Any]], test_name: TestNameLeveling) -> Optional[tuple[int, int]]:
+        start = None
+        for index, row in enumerate(rows):
+            if len(row) > 2 and row[1] == "TEST" and row[2] == test_name.value:
+                start = index
+                break
+        if start is None:
+            return None
+        end = len(rows)
+        for index in range(start + 1, len(rows)):
+            row = rows[index]
+            if len(row) > 2 and row[1] == "TEST":
+                end = index
+                break
+        return start, end
+
+    def _remove_test_section(self, rows: list[list[Any]], test_name: TestNameLeveling) -> list[list[Any]]:
+        bounds = self._test_section_bounds(rows, test_name)
+        if bounds is None:
+            return rows
+        start, end = bounds
+        return rows[:start] + rows[end:]
+
+    def _render_test_section(self) -> list[list[Any]]:
+        title = list(self.__title)
+        data = [self.__start_time, self.robot_sn] + self.__result_values
+        if len(data) < len(title):
+            data.extend([""] * (len(title) - len(data)))
+        title.append("RESULT_STATUS")
+        data.append(self.__final_status)
+        return [
+            _pad_row([0.1, "TEST", self.test_name.value]),
+            title,
+            data,
+        ]
+
+    def _replace_test_section(self, rows: list[list[Any]]) -> list[list[Any]]:
+        rows = self._remove_test_section(rows, self.test_name)
+        rows.extend(self._render_test_section())
+        return rows
 
     def init_title(self) -> None:
         """
@@ -126,10 +310,16 @@ class LevelingCSV:
 
 
         self.__title = title_list
-        if not self.is_file_exist():
-            self.write_line(title_list)
+        self.__result_values = []
+        self.__slot_pass_results = []
+        self.__final_status = "RUNNING"
+        rows = self._ensure_base_report()
+        rows = self._remove_test_section(rows, self.test_name)
+        self._set_test_status(rows, self.test_name, "RUNNING")
+        self._refresh_overall_result(rows)
+        self.write_rows(rows)
 
-    def write_new_results(self, result: dict):
+    def write_new_results(self, result: dict, passed: Optional[bool] = None):
         """
         write result to CSv
         :param result:
@@ -137,38 +327,26 @@ class LevelingCSV:
         """
         print("Writing to CSV \n")
         data_list = list(result.values())
+        if self.__title is None:
+            self.init_title()
         if not os.path.exists(self.file_name):
             raise FileExistsError(f"{self.file_name} should be initialed first !")
-        while True:
-            try:
-                with open(self.file_name, 'r', encoding='utf-8') as f:
-                    reader = csv.reader(f)
-                    rows = list(reader)
-                    last_row = rows[-1]
-                    break
-            except PermissionError as e:
-                print("先关闭正在查看的Report !")
-                print(e)
-        if last_row is None:
-            raise ValueError("Failed to read last row")
-        data_length_define = len(self.__title)
+        self.__result_values.extend(data_list)
+        if passed is not None:
+            self.__slot_pass_results.append(passed)
+        rows = self._ensure_base_report()
+        rows = self._replace_test_section(rows)
+        self.write_rows(rows)
 
-        def init_first_result(data: list, init_time: str):
-            # init time str
-            data.insert(0, init_time)
-            data.insert(1, self.robot_sn)
-            self.write_line(data)
-
-        if len(last_row) == data_length_define:
-            init_first_result(data_list, self.__start_time)
-        else:
-            time_str = last_row[0]
-            if time_str == self.__start_time:
-                last_row.extend(data_list)
-                rows[-1] = last_row
-                self.write_rows(rows)
-            else:
-                init_first_result(data_list, self.__start_time)
+    def finish_test(self, passed: Optional[bool] = None):
+        if passed is None:
+            passed = bool(self.__slot_pass_results) and all(self.__slot_pass_results)
+        self.__final_status = "PASS" if passed else "FAIL"
+        rows = self._ensure_base_report()
+        rows = self._replace_test_section(rows)
+        self._set_test_status(rows, self.test_name, self.__final_status)
+        self._refresh_overall_result(rows)
+        self.write_rows(rows)
 
 
 if __name__ == '__main__':

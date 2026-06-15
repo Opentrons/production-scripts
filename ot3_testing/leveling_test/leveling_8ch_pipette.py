@@ -80,7 +80,7 @@ class CH8_Leveling(LevelingBase):
                 csv_result = result.copy()
                 if self.is_pass:
                     csv_result.update({"result": difference})
-                    self.report.write_new_results(csv_result)
+                    self.report.write_new_results(csv_result, passed=True)
                     # home
                     await self.home_z()
                     break
@@ -89,7 +89,7 @@ class CH8_Leveling(LevelingBase):
                         print(f"The test result out of the spec, {self.spec}, try to retest {i + 1} times")
                     else:
                         csv_result.update({"result": difference})
-                        self.report.write_new_results(csv_result)
+                        self.report.write_new_results(csv_result, passed=False)
                     await self.home_z()
         except Exception as e:
             print(f"测试运行失败: {e}")
@@ -120,6 +120,7 @@ class CH8_Leveling(LevelingBase):
                     await self.init_slot(self.test_name, mount, slot_name, Direction.Y)
                     # run trial
                     await self.run_trials()
+            self.report.finish_test()
             self.release_laser()
         except KeyboardInterrupt:
             print("\n用户中断测试")
