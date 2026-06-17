@@ -8,7 +8,7 @@
                     318
                 ],
                 "compensation": {
-                    "left_rear": 0.012,
+                    "left_rear": -0.006,
                     "left_front": 0.0
                 },
                 "definition": [
@@ -23,12 +23,12 @@
                     318
                 ],
                 "compensation": {
-                    "left_rear": 0.154,
+                    "left_rear": -0.054,
                     "left_front": 0.0
                 },
                 "definition": [
-                    "left_front",
-                    "left_rear"
+                    "right_front",
+                    "right_rear"
                 ]
             },
             "A2-Y": {
@@ -38,7 +38,7 @@
                     318
                 ],
                 "compensation": {
-                    "left_rear": 0.136,
+                    "left_rear": -0.086,
                     "left_front": 0.0
                 },
                 "definition": [
@@ -54,7 +54,7 @@
                 ],
                 "compensation": {
                     "rear_left": 0.0,
-                    "rear_right": 0.052
+                    "rear_right": 0.054
                 },
                 "definition": [
                     "rear_left",
@@ -69,7 +69,7 @@
                 ],
                 "compensation": {
                     "rear_left": 0.0,
-                    "rear_right": 0.004
+                    "rear_right": 0.036
                 },
                 "definition": [
                     "rear_left",
@@ -84,7 +84,7 @@
                 ],
                 "compensation": {
                     "rear_left": 0.0,
-                    "rear_right": -0.031
+                    "rear_right": 0.048
                 },
                 "definition": [
                     "rear_left",
@@ -98,10 +98,10 @@
                     318
                 ],
                 "compensation": {
-                    "below_rear_left": 0.056,
-                    "below_rear_right": -0.028,
+                    "below_rear_left": -0.056,
+                    "below_rear_right": -0.078,
                     "below_front_left": 0.0,
-                    "below_front_right": 0.024
+                    "below_front_right": 0.082
                 },
                 "definition": [
                     "below_rear_left",
@@ -117,10 +117,10 @@
                     318
                 ],
                 "compensation": {
-                    "below_rear_left": 0.024,
-                    "below_rear_right": -0.078,
+                    "below_rear_left": -0.058,
+                    "below_rear_right": -0.092,
                     "below_front_left": 0.0,
-                    "below_front_right": -0.01
+                    "below_front_right": 0.05
                 },
                 "definition": [
                     "below_rear_left",
@@ -136,10 +136,10 @@
                     318
                 ],
                 "compensation": {
-                    "below_rear_left": 0.018,
-                    "below_rear_right": -0.128,
+                    "below_rear_left": 0.062,
+                    "below_rear_right": 0.14,
                     "below_front_left": 0.0,
-                    "below_front_right": -0.056
+                    "below_front_right": 0.016
                 },
                 "definition": [
                     "below_rear_left",
@@ -155,10 +155,10 @@
                     390.5
                 ],
                 "compensation": {
-                    "below_rear_left": -0.008,
-                    "below_rear_right": -0.176,
+                    "below_rear_left": -0.056,
+                    "below_rear_right": -0.09,
                     "below_front_left": 0.0,
-                    "below_front_right": -0.048
+                    "below_front_right": 0.078
                 },
                 "definition": [
                     "below_rear_left",
@@ -264,7 +264,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "left_rear": -0.148,
+                    "left_rear": 0.024,
                     "left_front": 0.0
                 },
                 "definition": [
@@ -279,7 +279,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.04,
+                    "right_rear": 0.06,
                     "right_front": 0.0
                 },
                 "definition": [
@@ -294,7 +294,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.084,
+                    "right_rear": 0.032,
                     "right_front": 0.0
                 },
                 "definition": [
@@ -309,7 +309,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.114,
+                    "right_rear": 0.032,
                     "right_front": 0.0
                 },
                 "definition": [
@@ -337,7 +337,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": 0.024,
+                        "rear": 0.014,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -354,7 +354,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.02,
+                        "rear": -0.056,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -369,7 +369,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.034,
+                        "rear": -0.07,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -384,7 +384,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.028,
+                        "rear": -0.062,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -399,7 +399,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.114,
+                        "rear": -0.17,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -414,7 +414,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.094,
+                        "rear": -0.088,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -429,7 +429,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.006,
+                        "rear": -0.068,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -444,7 +444,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.02,
+                        "rear": -0.098,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -459,7 +459,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.004,
+                        "rear": -0.03,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -474,7 +474,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.008,
+                        "rear": -0.044,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -489,7 +489,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.04,
+                        "rear": -0.05,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -504,7 +504,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": -0.112,
+                        "rear": -0.15,
                         "front": 0.0
                     },
                     "channel_definition": [
@@ -519,7 +519,7 @@
                         357
                     ],
                     "compensation": {
-                        "rear": 0.01,
+                        "rear": -0.058,
                         "front": 0.0
                     },
                     "channel_definition": [

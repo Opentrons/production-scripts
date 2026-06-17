@@ -59,7 +59,7 @@ def build_exe():
     
     args = [
         main_py_path,
-        '--name=ot3_leveling',
+        f'--name=ot3_leveling-{__version__}',
         '--onefile',
         '--windowed',
         '--hidden-import=' + ','.join(HIDDEN_IMPORTS),

@@ -124,7 +124,10 @@ class Z_Leveling(LevelingBase):
                         fre = 100 if _difference > 0.03 else 1000
                         print(f"Diff: {_difference} (调节螺丝旋钮-> Diff = 0.03mm 后回车继续)")
                         if sys.platform != 'darwin':
-                            play_alarm_3(difference, fre)
+                            try:
+                                play_alarm_3(difference, fre)
+                            except Exception as sound_e:
+                                print(f"播放提示音失败，已跳过: {sound_e}")
                         if self.judge_complete:
                             break
                 except Exception as e:

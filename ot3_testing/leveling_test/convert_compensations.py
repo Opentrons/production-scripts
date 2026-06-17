@@ -343,7 +343,7 @@ def print_changes(changes: Dict[str, Dict[str, Any]]):
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, 'leveling_config.json')
-    excel_path = os.path.join(script_dir, 'Templete.xlsx')
+    excel_path = os.path.join(script_dir, 'Templete_2025_0828.xlsx')
     
     if not os.path.exists(config_path):
         print(f"Error: Config file not found - {config_path}")

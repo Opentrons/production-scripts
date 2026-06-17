@@ -82,16 +82,28 @@ class LaserSensor:
             if len(result) == 0:
                 continue
             result = result.decode('utf-8')
+            # Skip lines that look like initialization messages
+            if result.startswith("ADS1115") or "Example Sketch" in result:
+                continue
             break
         assert result, "read sensor fail"
+        
         for index, item in enumerate(result.split(',')):
             if ":" not in item:
                 continue
-            _value = float(item.split(':')[1].strip()) / 1000
-            _value = round(_value, 3)
-            if show_distance:
-                _value = round(-2 * _value + 35, 3)
-            multi_value.update({index: _value})
+            try:
+                _value = float(item.split(':')[1].strip()) / 1000
+                _value = round(_value, 3)
+                if show_distance:
+                    _value = round(-2 * _value + 35, 3)
+                multi_value.update({index: _value})
+            except (ValueError, IndexError) as e:
+                print(f"解析传感器数据失败: {e}, 原始数据: {item}")
+                continue
+        
+        if not multi_value:
+            print(f"警告: 传感器返回的数据无法解析，原始数据: {result}")
+        
         return multi_value
 
 
