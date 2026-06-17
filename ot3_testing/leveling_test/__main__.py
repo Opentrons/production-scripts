@@ -22,8 +22,16 @@ async def run(script_dir):
     robot_ip = None
     
     try:
-        sn = input_with_default("Please input the Robot Serial Number:", "FLXA3020250805002").strip()
-        robot_ip = input_with_default("Please input the robot ip address:", "192.168.6.1").strip()
+        sn = (await asyncio.to_thread(
+            input_with_default,
+            "Please input the Robot Serial Number:",
+            "FLXA3020250805002",
+        )).strip()
+        robot_ip = (await asyncio.to_thread(
+            input_with_default,
+            "Please input the robot ip address:",
+            "192.168.6.1",
+        )).strip()
         
         if not sn:
             raise ValueError("Robot Serial Number cannot be empty")
@@ -36,7 +44,7 @@ async def run(script_dir):
     
     while True:
         try:
-            answer = prompt_leveling()
+            answer = await asyncio.to_thread(prompt_leveling)
             
             if not answer:
                 print("未选择任何测试项目")

@@ -1,4 +1,4 @@
-from PyInquirer import prompt
+from InquirerPy import prompt
 from prompt_toolkit import prompt as tp
 from typing import Any
 

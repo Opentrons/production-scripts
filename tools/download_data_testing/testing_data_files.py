@@ -2,7 +2,7 @@ import os
 import paramiko
 import stat
 from tqdm import tqdm  # 进度条库
-from PyInquirer import prompt
+from InquirerPy import prompt
 from prompt_toolkit.shortcuts import prompt as pt
 import time
 import base64

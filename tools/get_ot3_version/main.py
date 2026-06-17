@@ -4,7 +4,7 @@ import paramiko
 import base64
 import io
 from discover_flex import scan_flex
-from PyInquirer import prompt
+from InquirerPy import prompt
 import json
 import requests
 from discover_flex import headers, TIME_OUT
