@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: test-cli
+Version: 1.5.9
+Summary: Cross-platform production test CLI
+Requires-Python: <3.11,>=3.10
+Requires-Dist: crcmod>=1.7
+Requires-Dist: openpyxl>=3.1.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: paramiko>=3.4.0
+Requires-Dist: inquirerpy>=0.3.4
+Requires-Dist: pyserial>=3.5
+Requires-Dist: requests>=2.28.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: tqdm>=4.66.0
+Requires-Dist: typing-extensions>=4.0.0

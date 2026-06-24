@@ -39,10 +39,11 @@ class LaserSensor:
     def close(self):
         self.serial.close()
 
-    def get_mount(self):
+    def get_mount(self, quiet=False):
         for _i in range(5):
             result = self.serial.write_and_get_buffer(GET_MOUNT, delay=3)
-            print(f"Getting Mount Result: {result}")
+            if not quiet:
+                print(f"Getting Mount Result: {result}")
             if "ADS1115" in str(result):
                 continue
             if "WRONG" in str(result).upper():

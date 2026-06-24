@@ -1,5 +1,5 @@
-from ot3_testing.protocol.protocol_context import ProtocolContext
-from ot3_testing.hardware_control.hardware_control import HardwareControl
+from test_cli.core.protocol.protocol_context import ProtocolContext
+from test_cli.core.hardware_control.hardware_control import HardwareControl
 from typing import Union, List
 from devices.laser_stj_10_m0 import LaserSensor
 import time

@@ -1,6 +1,6 @@
-from InquirerPy import prompt
-from prompt_toolkit import prompt as tp
 from typing import Any
+
+from test_cli.cli.prompts import select, text
 
 test_choices = ['1.leveling-8ch', '2.leveling-96ch', '3.leveling-gantry', '4.leveling-z-stage', '5.leveling-gripper',
                 '6.leveling-reading-sensor', '7.heat-96ch', '8.grav-openweb', '9.start-server', '10.high-voltage-test',
@@ -65,43 +65,35 @@ question_ssh_connection = {
 
 
 def prompt_flex_name():
-    ret = prompt(question_flex)
-    return ret['flex'].strip()
+    return text(question_flex["message"]).strip()
 
 
 def prompt_raspNo():
-    ret = prompt(question_gravname)
-    return ret['raspNo'].strip()
+    return text(question_gravname["message"]).strip()
 
 
 def prompt_ip():
-    ret = prompt(question_ip)
-    return ret['ip'].strip()
+    return text(question_ip["message"]).strip()
 
 
 def prompt_test_name():
-    ret = prompt(question_test)
-    return ret['test'].strip()
+    return select(question_test["message"], question_test["choices"]).strip()
 
 
 def prompt_leveling() -> str:
-    ret = prompt(question_leveling)
-    return ret['test'].strip()
+    return select(question_leveling["message"], question_leveling["choices"]).strip()
 
 
 def prompt_connect_method():
-    ret = prompt(question_ssh_connection)
-    return ret['connection'].strip()
+    return select(question_ssh_connection["message"], question_ssh_connection["choices"]).strip()
 
 
 def prompt_exit():
-    ret = prompt(question_exit)
-    return ret['exit'].strip()
+    return select(question_exit["message"], question_exit["choices"]).strip()
 
 
 def prompt_openweb():
-    ret = prompt(question_openweb)
-    return ret['openweb'].strip()
+    return select(question_openweb["message"], question_openweb["choices"]).strip()
 
 def input_with_default(note_text: str, default_value: Any):
-    return tp(note_text, default=default_value)
+    return text(note_text, default=str(default_value))

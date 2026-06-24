@@ -1,20 +1,27 @@
 [project]
-name = "production-scripts"
+name = "test-cli"
 version = "1.5.9"
-description = "Production scripts for OT3 testing and related tools"
+description = "Cross-platform production test CLI"
 requires-python = ">=3.10,<3.11"
 dependencies = [
     "crcmod>=1.7",
     "openpyxl>=3.1.0",
     "pandas>=2.0.0",
     "paramiko>=3.4.0",
-    "playsound==1.2.2",
     "inquirerpy>=0.3.4",
     "pyserial>=3.5",
     "requests>=2.28.0",
+    "rich>=13.7.0",
     "tqdm>=4.66.0",
     "typing-extensions>=4.0.0",
 ]
+
+[project.scripts]
+test-cli = "test_cli.main:main"
+
+[build-system]
+requires = ["setuptools>=60.0.0"]
+build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 build = [
@@ -27,5 +34,23 @@ dev = [
     "pytest-asyncio>=0.18.0",
 ]
 
-[tool.uv]
-package = false
+[tool.setuptools]
+packages = [
+    "test_cli",
+    "test_cli.cli",
+    "test_cli.core",
+    "test_cli.core.hardware_control",
+    "test_cli.core.maintenance_api",
+    "test_cli.core.protocol",
+    "test_cli.leveling_test",
+    "test_cli.leveling_test.fixture",
+    "test_cli.leveling_test.model",
+    "test_cli.leveling_test.report",
+    "tools",
+    "tools.download_data_testing",
+    "devices",
+    "drivers",
+]
+
+[tool.setuptools.package-data]
+"test_cli.leveling_test" = ["leveling_config.json"]

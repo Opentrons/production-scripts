@@ -242,6 +242,27 @@ wheels = [
 ]
 
 [[package]]
+name = "markdown-it-py"
+version = "4.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mdurl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/ff/7841249c247aa650a76b9ee4bbaeae59370dc8bfd2f6c01f3630c35eb134/markdown_it_py-4.2.0.tar.gz", hash = "sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49", size = 82454, upload-time = "2026-05-07T12:08:28.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl", hash = "sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a", size = 91687, upload-time = "2026-05-07T12:08:27.182Z" },
+]
+
+[[package]]
+name = "mdurl"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
+]
+
+[[package]]
 name = "numpy"
 version = "2.2.6"
 source = { registry = "https://pypi.org/simple" }
@@ -339,73 +360,12 @@ wheels = [
 ]
 
 [[package]]
-name = "playsound"
-version = "1.2.2"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/16/10d897b0a83fb4b05b03a63d7a2667ab75f857f67f7062fd447dd3f49bf7/playsound-1.2.2-py2.py3-none-any.whl", hash = "sha256:1e83750a5325cbccee03d6e751ba3e78c037ac95b95a3ba1f38d0c5aca9e1a34", size = 5960, upload-time = "2017-06-29T14:08:29.207Z" },
-]
-
-[[package]]
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
-]
-
-[[package]]
-name = "production-scripts"
-version = "1.5.9"
-source = { virtual = "." }
-dependencies = [
-    { name = "crcmod" },
-    { name = "inquirerpy" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "paramiko" },
-    { name = "playsound" },
-    { name = "pyserial" },
-    { name = "requests" },
-    { name = "tqdm" },
-    { name = "typing-extensions" },
-]
-
-[package.dev-dependencies]
-build = [
-    { name = "pyinstaller" },
-    { name = "setuptools" },
-    { name = "wheel" },
-]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "crcmod", specifier = ">=1.7" },
-    { name = "inquirerpy", specifier = ">=0.3.4" },
-    { name = "openpyxl", specifier = ">=3.1.0" },
-    { name = "pandas", specifier = ">=2.0.0" },
-    { name = "paramiko", specifier = ">=3.4.0" },
-    { name = "playsound", specifier = "==1.2.2" },
-    { name = "pyserial", specifier = ">=3.5" },
-    { name = "requests", specifier = ">=2.28.0" },
-    { name = "tqdm", specifier = ">=4.66.0" },
-    { name = "typing-extensions", specifier = ">=4.0.0" },
-]
-
-[package.metadata.requires-dev]
-build = [
-    { name = "pyinstaller", specifier = ">=5.0.0" },
-    { name = "setuptools", specifier = ">=60.0.0" },
-    { name = "wheel", specifier = ">=0.37.0" },
-]
-dev = [
-    { name = "pytest", specifier = ">=7.0.0" },
-    { name = "pytest-asyncio", specifier = ">=0.18.0" },
 ]
 
 [[package]]
@@ -588,6 +548,19 @@ wheels = [
 ]
 
 [[package]]
+name = "rich"
+version = "15.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "markdown-it-py" },
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb", size = 310654, upload-time = "2026-04-12T08:24:02.83Z" },
+]
+
+[[package]]
 name = "setuptools"
 version = "82.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -603,6 +576,59 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "test-cli"
+version = "1.5.9"
+source = { editable = "." }
+dependencies = [
+    { name = "crcmod" },
+    { name = "inquirerpy" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "paramiko" },
+    { name = "pyserial" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+]
+
+[package.dev-dependencies]
+build = [
+    { name = "pyinstaller" },
+    { name = "setuptools" },
+    { name = "wheel" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "crcmod", specifier = ">=1.7" },
+    { name = "inquirerpy", specifier = ">=0.3.4" },
+    { name = "openpyxl", specifier = ">=3.1.0" },
+    { name = "pandas", specifier = ">=2.0.0" },
+    { name = "paramiko", specifier = ">=3.4.0" },
+    { name = "pyserial", specifier = ">=3.5" },
+    { name = "requests", specifier = ">=2.28.0" },
+    { name = "rich", specifier = ">=13.7.0" },
+    { name = "tqdm", specifier = ">=4.66.0" },
+    { name = "typing-extensions", specifier = ">=4.0.0" },
+]
+
+[package.metadata.requires-dev]
+build = [
+    { name = "pyinstaller", specifier = ">=5.0.0" },
+    { name = "setuptools", specifier = ">=60.0.0" },
+    { name = "wheel", specifier = ">=0.37.0" },
+]
+dev = [
+    { name = "pytest", specifier = ">=7.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.18.0" },
 ]
 
 [[package]]

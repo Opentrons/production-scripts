@@ -12,6 +12,7 @@ testing_data/*
 node_modules
 venv
 dist
+testing_data
 
 # Google API credentials
 data_center/google_driver_handler/credentials.json
