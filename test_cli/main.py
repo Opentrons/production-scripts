@@ -108,9 +108,14 @@ async def dispatch(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
-    with ui.graceful_errors(debug=args.debug):
-        args = _entry_prompt(args)
-        asyncio.run(dispatch(args))
+    try:
+        with ui.graceful_errors(debug=args.debug):
+            args = _entry_prompt(args)
+            asyncio.run(dispatch(args))
+    except SystemExit:
+        pass
+    finally:
+        input("Press Enter to exit...")
 
 
 if __name__ == "__main__":
