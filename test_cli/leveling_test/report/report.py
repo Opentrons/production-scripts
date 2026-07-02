@@ -44,10 +44,14 @@ class LevelingCSV:
         self.robot_sn = robot_sn
         self.operator_name = operator_name
         safe_robot_sn = _safe_file_name(robot_sn)
-        self.csv_name = f"{safe_robot_sn}-leveling-report.csv" if safe_robot_sn else csv_name
+        timestamp = self.create_start_time()
+        if safe_robot_sn:
+            self.csv_name = f"{safe_robot_sn}-leveling-report-{timestamp}.csv"
+        else:
+            self.csv_name = f"{csv_name}-{timestamp}.csv"
         self.file_name: Optional[str] = None
         self.format_file_name()
-        self.__start_time = self.__class__.create_start_time()
+        self.__start_time = timestamp
         self.__title = None
         self.__result_values: list[Any] = []
         self.__slot_pass_results: list[bool] = []

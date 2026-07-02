@@ -1,4 +1,5 @@
 from test_cli.leveling_test.model.base import LevelingBase
+from test_cli.leveling_test.fixture.reader import Reader
 from test_cli.leveling_test.type import SlotName, TestNameLeveling, Mount, Direction
 from devices.laser_stj_10_m0 import LaserSensor
 from drivers.play_sound import play_alarm_3
