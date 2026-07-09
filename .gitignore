@@ -1,22 +1,62 @@
-*.csv
-*.spec
-*.pyc
-*.exe
-*.txt
-*.zip
-.idea
-*.backup*
-__pycache__
-build
-testing_data/*
-node_modules
-venv
-dist
-testing_data
-
-# Google API credentials
-data_center/google_driver_handler/credentials.json
-data_center/google_driver_handler/token.json
-data_center/google_driver_handler/sheettoken.json
-logs/app.log
+# OS/editor files
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+build-env/
+
+# Python build outputs
+build/
+dist/
+*.spec
+*.exe
+*.zip
+
+# uv
+.uv-cache/
+
+# Node/Vite
+node_modules/
+**/node_modules/
+**/.vite/
+**/coverage/
+
+# Runtime logs and generated local data
+logs/
+*.log
+testing_data/
+**/datas/temp/
+**/datas/testing_data/
+
+# Generated reports / local exports
+*.backup*
+
+# Google API credentials and local tokens
+**/google_driver_handler/credentials.json
+**/google_driver_handler/token.json
+**/google_driver_handler/sheettoken.json
+**/auth/credentials.json
+**/auth/token.json
+**/auth/sheettoken.json
+**/auth/slack.yaml
+**/auth/robot_key
+**/configs/robot_key
+**/configs/slack.yaml
+**/configs/slack.local.yaml
+**/.env
+**/.env.*

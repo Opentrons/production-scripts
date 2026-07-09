@@ -1,0 +1,232 @@
+products:
+  P1KS:
+    tests:
+      Gravimetric:
+        sheet_name: Gravimetric Raw Data
+        cols:
+        - A
+        - B
+        - C
+        - D
+        analyzer: gravimetric
+  P50S:
+    tests:
+      Gravimetric:
+        sheet_name: Gravimetric Raw Data
+        cols:
+        - A
+        - B
+        - C
+        - D
+        analyzer: gravimetric
+  P2HH:
+    tests:
+      Assembly QC:
+        sheet_name: RawData
+        cols:
+        - A
+        - B
+        - C
+        - D
+        - E
+        - F
+        analyzer: pipette_assembly_qc
+        standard_line:
+          groups:
+          - key: info
+            label: Info
+            columns:
+            - key: location
+              label: Location
+            - key: firmware
+              label: FW
+            - key: sn
+              label: SN
+            - key: link
+              label: Link
+            - key: operator_name
+              label: OperatorName
+          - key: sections
+            label: Sections
+            columns:
+            - key: current_plunger
+              label: CurrentPlunger
+            - key: current_jaws
+              label: CurrentJaws
+            - key: capacitance
+              label: CAPACITANCE
+            - key: pressure
+              label: PRESSURE
+            - key: environment_sensor
+              label: ENVIRONMENT-SENSOR
+            - key: tip_sensor
+              label: TIP-SENSOR
+            - key: droplets
+              label: DROPLETS
+          - key: plunger_current_speed
+            label: Plunger Current Speed
+            columns:
+            - key: plunger_current_0_6_speed_5
+              label: 0.6-5
+            - key: plunger_current_0_6_speed_15
+              label: 0.6-15
+            - key: plunger_current_0_6_speed_22
+              label: 0.6-22
+            - key: plunger_current_0_7_speed_5
+              label: 0.7-5
+            - key: plunger_current_0_7_speed_15
+              label: 0.7-15
+            - key: plunger_current_0_7_speed_22
+              label: 0.7-22
+            - key: plunger_current_0_8_speed_5
+              label: 0.8-5
+            - key: plunger_current_0_8_speed_15
+              label: 0.8-15
+            - key: plunger_current_0_8_speed_22
+              label: 0.8-22
+          - key: jaws_current_speed
+            label: Jaws Current Speed
+            columns:
+            - key: jaws_current_0_7_speed_8
+              label: 0.7-8
+            - key: jaws_current_0_7_speed_12
+              label: 0.7-12
+            - key: jaws_current_1_5_speed_8
+              label: 1.5-8
+            - key: jaws_current_1_5_speed_12
+              label: 1.5-12
+          - key: capacitance_primary
+            label: Capacitance Primary
+            columns:
+            - key: capacitance_primary_air
+              label: Air
+            - key: capacitance_primary_attached
+              label: Attached
+            - key: capacitance_primary_deck
+              label: Deck
+          - key: capacitance_secondary
+            label: Capacitance Secondary
+            columns:
+            - key: capacitance_secondary_air
+              label: Air
+            - key: capacitance_secondary_attached
+              label: Attached
+            - key: capacitance_secondary_deck
+              label: Deck
+          - key: pressure_primary
+            label: Pressure Primary
+            columns:
+            - key: pressure_primary_open
+              label: Open
+            - key: pressure_primary_sealed
+              label: Sealed
+            - key: pressure_primary_aspirate
+              label: Aspirate
+            - key: pressure_primary_dispense
+              label: Dispense
+          - key: pressure_secondary
+            label: Pressure Secondary
+            columns:
+            - key: pressure_secondary_open
+              label: Open
+            - key: pressure_secondary_sealed
+              label: Sealed
+            - key: pressure_secondary_aspirate
+              label: Aspirate
+            - key: pressure_secondary_dispense
+              label: Dispense
+          - key: environment_s0
+            label: Environment S0
+            columns:
+            - key: environment_s0_celsius
+              label: Celsius
+            - key: environment_s0_humidity
+              label: Humidity
+          - key: environment_s1
+            label: Environment S1
+            columns:
+            - key: environment_s1_celsius
+              label: Celsius
+            - key: environment_s1_humidity
+              label: Humidity
+          - key: tip_sensor
+            label: Tip Sensor
+            columns:
+            - key: tip_empty
+              label: Empty
+            - key: tip_with_tip
+              label: With Tip
+          - key: droplets
+            label: Droplets
+            columns:
+            - key: droplets_96_tips
+              label: 96 Tips
+          - key: others
+            label: Others
+            columns:
+            - key: file_path
+              label: File Path
+      Gravimetric:
+        sheet_name: "%D"
+        cols: []
+        analyzer: gravimetric
+      Photometric:
+        sheet_name: Photometric
+        cols: []
+        analyzer: photometric
+  P200-96:
+    tests:
+      Assembly QC:
+        sheet_name: RawData
+        cols:
+        - A
+        - B
+        - C
+        - D
+        - E
+        - F
+        analyzer: pipette_assembly_qc
+      Gravimetric:
+        sheet_name: "%D"
+        cols: []
+        analyzer: gravimetric
+  P200-CH96:
+    tests:
+      Assembly QC:
+        sheet_name: RawData
+        cols:
+        - A
+        - B
+        - C
+        - D
+        - E
+        - F
+        analyzer: pipette_assembly_qc
+      Gravimetric:
+        sheet_name: "%D"
+        cols: []
+        analyzer: gravimetric
+  P1KH:
+    tests:
+      Gravimetric:
+        sheet_name: "%D"
+        cols: []
+        analyzer: gravimetric
+  P1000-96:
+    tests:
+      Gravimetric:
+        sheet_name: "%D"
+        cols: []
+        analyzer: gravimetric
+  P1000-CH96:
+    tests:
+      Gravimetric:
+        sheet_name: "%D"
+        cols: []
+        analyzer: gravimetric
+  default:
+    tests:
+      Gravimetric:
+        sheet_name: Gravimetric Raw Data
+        cols: []
+        analyzer: gravimetric

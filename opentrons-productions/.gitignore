@@ -1,0 +1,10 @@
+*.log
+*.py[cod]
+__pycache__/
+backend/datas/temp/
+backend/datas/testing_data/
+backend/auth/*
+logs/
+backend/logs/
+node_modules/
+.venv/

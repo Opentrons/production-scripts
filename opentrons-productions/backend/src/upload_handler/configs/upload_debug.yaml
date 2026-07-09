@@ -1,0 +1,463 @@
+1ch_update_volume:
+- ifupdate: true
+  spreadsheet_strategy: always_new
+  ifcopytemplate:
+    default: 1XmfMjSiKepw2a82RE6uMAiumAAXui3uS5R5JDElk068
+  csv_target_sheet_name: Gravimetric Raw Data
+  result_cell: '!K2:K2'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Volume
+    copyRange:
+    - '!I2:AR2'
+  ifpaste:
+  - off/on: true
+    pastefileid: 16chXbfEocIS0ANQqx8hvsGTlL5G-fAnwVWzTtzOBWtc
+    pastelineRange:
+      star: D
+      end: AN
+      note: AT
+    unit_tracker_tab: ''
+  unit_tracker_sheet:
+    fumulu: 1yYiFgmcPaK9Q8ufzhi6VqZmcQxiErBn8
+    1: ''
+    2: ''
+    3: 1M_bMzZVd7YOid_nUY3MdrESokxZwZgtG
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1yYiFgmcPaK9Q8ufzhi6VqZmcQxiErBn8
+    1: ''
+    2: ''
+    3: 1M_bMzZVd7YOid_nUY3MdrESokxZwZgtG
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+1ch_update_assembly_qc:
+- ifupdate: true
+  spreadsheet_strategy: reuse_within_workflow
+  ifcopytemplate:
+    default: 1ZGD4kRqWhpcOh2mlDBaWJNUWmlOf8_LvAY8BJPEWIx8
+  csv_target_sheet_name: Assembly QC
+  result_cell: '!P11:P11'
+  total_result_cell: '!O11:O11'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  - G
+  - H
+  - I
+  - J
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Assembly QC
+    copyRange:
+    - '!M11:AV11'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1JqBT5Wi-h2ql538yTEwhDqx90PSMEoqq9BW7nthe_AY
+    pastelineRange:
+      star: D
+      end: AO
+    unit_tracker_tab: ''
+  unit_tracker_sheet:
+    fumulu: 1MWfF9iDhtOSkLxQXo13GUlztQYuDvJjx
+    1: ''
+    2: ''
+    3: 1R1QOJqKKvDJN0_iFYKS5PJpSNH2O-vrr
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1MWfF9iDhtOSkLxQXo13GUlztQYuDvJjx
+    1: ''
+    2: ''
+    3: 1R1QOJqKKvDJN0_iFYKS5PJpSNH2O-vrr
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+1ch_update_current_speed:
+- ifupdate: true
+  spreadsheet_strategy: reuse_within_workflow
+  ifcopytemplate:
+    default: 1ZGD4kRqWhpcOh2mlDBaWJNUWmlOf8_LvAY8BJPEWIx8
+  csv_target_sheet_name: Current/Speed Test
+  result_cell:
+    default: '!AQ11:AQ11'
+    ultima: '!BO11:BO11'
+  total_result_cell: '!O11:O11'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  - G
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Assembly QC
+    copyRange:
+    - '!M11:AV11'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1JqBT5Wi-h2ql538yTEwhDqx90PSMEoqq9BW7nthe_AY
+    pastelineRange:
+      star: D
+      end: AO
+    unit_tracker_tab: ''
+  unit_tracker_sheet:
+    fumulu: 1MWfF9iDhtOSkLxQXo13GUlztQYuDvJjx
+    1: ''
+    2: ''
+    3: 1R1QOJqKKvDJN0_iFYKS5PJpSNH2O-vrr
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1MWfF9iDhtOSkLxQXo13GUlztQYuDvJjx
+    1: ''
+    2: ''
+    3: 1R1QOJqKKvDJN0_iFYKS5PJpSNH2O-vrr
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+8ch_update_volume:
+- ifupdate: true
+  spreadsheet_strategy: always_new
+  ifcopytemplate:
+    default: 1g8sgqzK0yPUkA9ffE6JZb4ffnf7OTif57FtYylZD5Dk
+  csv_target_sheet_name: Gravimetric Raw Data
+  result_cell: '!K2:K2'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Volume
+    copyRange:
+    - '!I2:AQ2'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1_Rxe8ntNc4SeVXo9q88O_TZNNBFWU2hWC-Rw-tuJ2r0
+    pastelineRange:
+      star: F
+      end: AO
+      note: AU
+    unit_tracker_tab: ''
+  unit_tracker_sheet:
+    fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
+    1: ''
+    2: ''
+    3: ''
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
+    1: ''
+    2: ''
+    3: ''
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+8ch_update_assembly_qc:
+- ifupdate: true
+  spreadsheet_strategy: reuse_within_workflow
+  ifcopytemplate:
+    default: 10s728Nov7ZTHGCpOq6RPtPoPEjCwSKkc7HKWruAPg5I
+    ultima: 1PiDNK7EUnucGV4ZalT9bJzw0sADHdpeise4HbucsL_Q
+  csv_target_sheet_name: Assembly QC
+  result_cell: '!P11:P11'
+  total_result_cell: '!O11:O11'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  - G
+  - H
+  - I
+  - J
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Assembly QC
+    copyRange:
+    - '!M11:BS11'
+    UltimacopyRange:
+    - '!M11:CC11'
+  ifpaste:
+  - off/on: true
+    pastefileid: 16adi5UDBe826I8ZW4sW01__zt1B5BKJNBExFXgbwsxk
+    Ultimapastefileid: 16adi5UDBe826I8ZW4sW01__zt1B5BKJNBExFXgbwsxk
+    pastelineRange:
+      star: C
+      end: BJ
+    unit_tracker_tab: ''
+    UltimapastelineRange:
+      star: E
+      end: BL
+  unit_tracker_sheet:
+    fumulu: 1mbCCsX2uSNspz5w0h7V7LHpmo1zPlCNS
+    1: ''
+    2: ''
+    3: 1C-1b95_NZScpUBA-4O47fmoRfycdwPrA
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
+    1: ''
+    2: ''
+    3: 1C-1b95_NZScpUBA-4O47fmoRfycdwPrA
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+8ch_update_current_speed:
+- ifupdate: true
+  spreadsheet_strategy: reuse_within_workflow
+  ifcopytemplate:
+    default: 10s728Nov7ZTHGCpOq6RPtPoPEjCwSKkc7HKWruAPg5I
+    ultima: 1PiDNK7EUnucGV4ZalT9bJzw0sADHdpeise4HbucsL_Q
+  csv_target_sheet_name: Current/Speed Test
+  result_cell: '!BO11:BO11'
+  total_result_cell: '!O11:O11'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  - G
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Assembly QC
+    copyRange:
+    - '!M11:BS11'
+    UltimacopyRange:
+    - '!M11:CC11'
+  ifpaste:
+  - off/on: true
+    pastefileid: 16adi5UDBe826I8ZW4sW01__zt1B5BKJNBExFXgbwsxk
+    Ultimapastefileid: 16adi5UDBe826I8ZW4sW01__zt1B5BKJNBExFXgbwsxk
+    pastelineRange:
+      star: C
+      end: BJ
+    unit_tracker_tab: ''
+    UltimapastelineRange:
+      star: E
+      end: BL
+  unit_tracker_sheet:
+    fumulu: 1mbCCsX2uSNspz5w0h7V7LHpmo1zPlCNS
+    1: ''
+    2: ''
+    3: 1C-1b95_NZScpUBA-4O47fmoRfycdwPrA
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1hBkXNe2qK4MFzdqqbj4bVHvoF4kn5Dtf
+    1: ''
+    2: ''
+    3: 1C-1b95_NZScpUBA-4O47fmoRfycdwPrA
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+96_p1000_update_qc:
+- ifupdate: true
+  spreadsheet_strategy: always_new
+  ifcopytemplate:
+    default: 1jnw1UNGMX2Xuv_yY8rAVOx1jzdl38YJ0mi61R3wABzQ
+  csv_target_sheet_name: RawData
+  result_cell: '!C6:C6'
+  total_result_cell: '!C6:C6'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Analysis
+    copyRange:
+    - '!C3:AV3'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1X2Ib1RkaBxP-1YKNza76MSuzgdNmhT52tDiTYtuxlos
+    pastelineRange:
+      star: I
+      end: BB
+    unit_tracker_tab: ''
+  unit_tracker_sheet:
+    fumulu: 14Tq3uBv102Qq8tJuDonSTW8Oi41QZj0U
+    1: 1zXpY9OBg4zVf6Zptzu5lnmSmTnW6B49R
+    2: 1zXpY9OBg4zVf6Zptzu5lnmSmTnW6B49R
+    3: 1zXpY9OBg4zVf6Zptzu5lnmSmTnW6B49R
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 14Tq3uBv102Qq8tJuDonSTW8Oi41QZj0U
+    1: 1zXpY9OBg4zVf6Zptzu5lnmSmTnW6B49R
+    2: 1zXpY9OBg4zVf6Zptzu5lnmSmTnW6B49R
+    3: 1zXpY9OBg4zVf6Zptzu5lnmSmTnW6B49R
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+
+96_p200_update_qc:
+- ifupdate: true
+  spreadsheet_strategy: always_new
+  ifcopytemplate:
+    default: 1HD_tPr5EBpgZBEIkGta78kvvK12SFboCKTTP5uCwobw
+  csv_target_sheet_name: RawData
+  result_cell: '!C6:C6'
+  total_result_cell: '!C6:C6'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Analysis
+    copyRange:
+    - '!C3:AV3'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1yTFEm11UH6IeC6dmsTJiDfwBNCpajcyrZkd3CaCJ938
+    pastelineRange:
+      star: I
+      end: BB
+    unit_tracker_tab: ''
+  unit_tracker_sheet:
+    fumulu: 1QM5KFBIytu6bQR7OdjffwfVaH7PvcsdI
+    1: 1ufDNWqOM_HB-YDqtaY6p5M-fvW2PrewA
+    2: 1ufDNWqOM_HB-YDqtaY6p5M-fvW2PrewA
+    3: 1ufDNWqOM_HB-YDqtaY6p5M-fvW2PrewA
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''
+  ifupdaterawdata:
+    fumulu: 1QM5KFBIytu6bQR7OdjffwfVaH7PvcsdI
+    1: 1ufDNWqOM_HB-YDqtaY6p5M-fvW2PrewA
+    2: 1ufDNWqOM_HB-YDqtaY6p5M-fvW2PrewA
+    3: 1ufDNWqOM_HB-YDqtaY6p5M-fvW2PrewA
+    4: ''
+    5: ''
+    6: ''
+    7: ''
+    8: ''
+    9: ''
+    10: ''
+    11: ''
+    12: ''

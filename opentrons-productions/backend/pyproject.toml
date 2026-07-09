@@ -1,0 +1,32 @@
+[project]
+name = "data-handler-backend"
+version = "0.1.0"
+description = "Backend service for data upload and processing."
+requires-python = ">=3.10"
+dependencies = [
+    "aiofiles",
+    "aiohttp",
+    "fastapi",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "httplib2",
+    "openpyxl",
+    "pandas",
+    "paramiko",
+    "pymongo",
+    "pysocks",
+    "python-multipart",
+    "pyyaml",
+    "requests",
+    "slack-sdk",
+    "uvicorn",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.uv]
+package = false

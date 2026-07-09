@@ -1,0 +1,31 @@
+# Test CLI Dependencies
+
+# Core dependencies
+typing-extensions>=4.0.0
+
+# Serial communication
+pyserial>=3.5
+
+# HTTP client (for REST API communication)
+requests>=2.28.0
+
+# CRC calculation
+crcmod>=1.7
+
+# CLI tools
+PyInquirer>=1.0.3
+# Testing
+pytest>=7.0.0
+pytest-asyncio>=0.18.0
+
+# Packaging
+setuptools>=60.0.0
+wheel>=0.37.0
+pyinstaller>=5.0.0
+pandans
+openpyxl
+
+# Optional dependencies for development
+# black>=22.0.0
+# flake8>=4.0.0
+# mypy>=0.910

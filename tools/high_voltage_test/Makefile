@@ -1,31 +1,20 @@
-#you have to make sure you have following tools
-#	1>python3.7
-#	2>pipenv
-#	3>make
+PROJECT_ROOT := $(abspath ../..)
+PYTHON := uv run python
 
-
-main := $(abspath main.py)
-gpt:= $(abspath GptDevice.py)
-python := $(dirname ../.local/share/virtualenvs/High_Voltage_Test-C8TIcr5A/Scripts/python3 )
-
+.PHONY: setup pip run gpt show
 
 setup:
-	pipenv install
+	cd $(PROJECT_ROOT) && uv sync
 
 pip:
-	pipenv run pip3 list
-
+	cd $(PROJECT_ROOT) && uv pip list
 
 run: setup
-	pipenv run $(python) $(main)
-
+	cd $(PROJECT_ROOT) && $(PYTHON) -m tools.high_voltage_test.main
 
 gpt: setup
-	pipenv run $(python) $(gpt)
+	cd $(PROJECT_ROOT) && $(PYTHON) -m tools.high_voltage_test.GPT.GptDevice
 
 show:
-	echo $(python)
-	echo $(main)
-	#echo $(PATH)
-
-
+	@echo $(PROJECT_ROOT)
+	@echo $(PYTHON)

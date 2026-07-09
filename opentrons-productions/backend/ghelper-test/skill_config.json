@@ -1,0 +1,15 @@
+{
+  "proxy": "https://54322e50-525b-11f1-9960-f23c91cfbbc9:54322e50-525b-11f1-9960-f23c91cfbbc9@ce1c4eda-thx0g0-tso5oi-1t3g7.hkt2.cdnhuawei.com:443",
+  "proxy_node": "🇭🇰香港精品4",
+  "ghelper_subscription": {
+    "url": "https://33fdec89.ghelper.me/subs/clash/7cb542c333fdec89b93ccbeeb171d0fc",
+    "username": "chris.huang@opentrons.com",
+    "password": "chris.huang@opentrons.com"
+  },
+  "proxy_latency_ms": 586.37,
+  "proxy_test_url": "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+  "proxy_updated_at": "2026-07-07T17:46:42+00:00",
+  "ghelper_subscription_last_updated_at": "2026-07-07T17:46:36+00:00",
+  "ghelper_subscription_node_count": 28,
+  "ghelper_subscription_config_file": "1779072081477.yml"
+}
