@@ -1,4 +1,55 @@
-1、谷歌网盘复制的数据粘贴到文件ylcs.text
-2、运行脚本
-3、输入需要保存的文件名，不输入则默认保存为function.txt
-4、函数命名：Type+model+Tips+description+date， 例如：P1KHV36_T1000_backlash3_20240101
+# Pipette Function Formatting
+
+Small utility for formatting pipette function table data copied from Google Drive/Sheets into bracketed function text files.
+
+## Files
+
+```text
+tools/pipette_function_formating/
+├── function_formating.py  # Interactive formatter
+├── ylcs.txt               # Default input file
+└── *.txt                  # Existing formatted function examples
+```
+
+## Input
+
+Paste the source table data into:
+
+```text
+tools/pipette_function_formating/ylcs.txt
+```
+
+Each line should contain numeric values separated by tabs or spaces. The script converts each line into bracketed comma-separated values.
+
+## Run
+
+From the repository root:
+
+```bash
+uv run python tools/pipette_function_formating/function_formating.py
+```
+
+The script asks for an output file name. If no name is entered, it writes:
+
+```text
+function.txt
+```
+
+## Naming Rule
+
+Use a descriptive function name:
+
+```text
+Type_Model_Tips_Description_Date
+```
+
+Example:
+
+```text
+P1KHV36_T1000_backlash3_20240101
+```
+
+## Notes
+
+- Generated function files are local artifacts unless they are intentionally added as examples.
+- Review generated values before using them in a production protocol.

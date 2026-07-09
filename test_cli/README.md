@@ -41,6 +41,22 @@ uv run test-cli --help
 uv run test-cli leveling --help
 ```
 
+## Makefile
+
+Run Make targets from this directory or from the repository root with `make -C test_cli ...`.
+
+```text
+make                 Start interactive test-cli
+make leveling        Start leveling CLI
+make simulate        Run all leveling tests in simulation mode
+make build           Build current-platform executable into ../dist
+make build-clean     Clean then build executable
+make update-compensation  Update leveling_config.json from test_cli/leveling_test/Templete.xlsx
+make clean           Remove build artifacts
+```
+
+`make update-compensation` only reads `test_cli/leveling_test/Templete.xlsx`. If the file is missing, the command exits with an error instead of using an older template.
+
 ## Package Layout
 
 ```text
