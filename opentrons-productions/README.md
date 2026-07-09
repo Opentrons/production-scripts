@@ -1,256 +1,191 @@
-# 数据处理服务
+# Opentrons Productions
 
-## 项目概述
+生产数据中心应用，用于管理 Opentrons 生产测试数据、机器人连接、数据上传、数据分析、测试用例执行和生产状态追踪。
 
-本项目是一个基于 FastAPI 框架的服务端应用，主要用于自动化处理移液器测试数据。支持从远程服务器拉取测试数据、上传到 Google Drive/Google Sheets、记录到 MongoDB 数据库，并通过 Slack 发送测试结果通知。
+当前目录作为 `production-scripts` monorepo 的一个子项目管理。不要在本目录里再初始化独立 git 仓库；代码、前端和后端配置都由外层仓库统一提交。
 
 ## 目录结构
 
-```
-data_handler/
-├── api/                      # API 路由模块
-│   ├── __init__.py
-│   └── routes.py             # 路由定义和业务逻辑
-├── google_driver/            # Google Drive/Sheets 操作模块
-│   ├── configs/             # 配置文件
-│   │   └── globalconfig.py
-│   ├── drivers/             # 驱动器实现
-│   │   ├── csvdriver.py     # CSV 文件处理
-│   │   ├── googledrive.py   # Google Drive 操作
-│   │   ├── sheetdrive.py    # Google Sheets 操作
-│   │   └── yamldrive.py     # YAML 配置读取
-│   ├── upload.py            # 数据上传核心类
-│   ├── tools.py             # 工具函数
-│   └── basic_login.py       # Google 认证
-├── slack_driver/            # Slack 消息模块
-│   ├── config.py            # Slack 配置类
-│   └── message.py           # Slack 消息发送类
-├── data_base/               # 数据库模块
-│   └── mongodb.py           # MongoDB 操作
-├── configs/                 # 配置文件目录
-├── app.py                   # 主应用入口
-├── setting.py               # 全局配置和日志
-└── requirements.txt         # 项目依赖
+```text
+opentrons-productions/
+├── Makefile                 # 本项目常用命令入口
+├── backend/                 # FastAPI 后端
+│   ├── app.py               # uvicorn 入口，加载 src/app.py
+│   ├── pyproject.toml       # 后端 Python 依赖，使用 uv 管理
+│   ├── uv.lock              # 后端锁定依赖
+│   ├── auth/                # 本地凭证目录，不提交
+│   ├── datas/               # 测试样本数据；temp/testing_data 不提交
+│   ├── src/
+│   │   ├── api/             # REST API 和服务
+│   │   ├── data_analysis/   # CSV 数据分析
+│   │   ├── database/        # MongoDB 访问
+│   │   ├── opentrons/       # Robot API / 文件传输
+│   │   ├── slack_driver/    # Slack 消息
+│   │   ├── test_case/       # 测试用例和执行流程
+│   │   └── upload_handler/  # 上传解析、配置、Google Drive/Sheets 写入
+│   └── tests/               # 后端测试
+├── docs/                    # 项目文档
+└── web_ui/                  # Vue 3 + Vite 前端
 ```
 
-## 核心模块
+## 依赖管理
 
-### 1. API 模块 (api/routes.py)
-
-提供 RESTful API 接口：
-
-#### POST /api/upload-data
-上传测试数据到 Google Drive。
-
-**请求参数** (JSON):
-- `csv_file_path`: CSV 文件路径
-- `zip_file_path`: ZIP 文件路径（可选）
-
-**响应**: 返回上传结果和文件路径
-
-#### POST /api/pull-folder
-从远程服务器拉取文件夹。
-
-**请求参数** (FormData):
-- `csv_file`: CSV 文件（必需）
-- `folder_name`: 远程文件夹名称（必需）
-- `pull_method`: 拉取方法，可选 `sftp` 或 `scp`（默认 `sftp`）
-
-**响应**: 返回拉取结果和目标路径
-
-### 2. Google Driver 模块 (google_driver/upload.py)
-
-`UploadData` 类是数据上传的核心类，提供以下功能：
-
-#### 主要方法
-
-| 方法 | 说明 |
-|------|------|
-| `__init__(mongo=None)` | 初始化，连接 MongoDB（可选） |
-| `init_google_driver()` | 初始化 Google Drive 连接 |
-| `get_current_month()` | 获取当前年月，返回 `(year, month)` 元组 |
-| `is_1ch_8ch(model)` | 判断是否为 1 通道或 8 通道移液器 |
-| `update_data_to_google_drive(file_path, zip_file)` | 主方法：更新数据到 Google Drive |
-| `query_csv_link(db_name, collection_name, device_sn, my_test_name, search_test_name)` | 查询 CSV 链接 |
-| `fill_database_with_result(db_name, collection_name, result)` | 填充数据库结果 |
-| `edit_database_with_result(db_name, collection_name, query, result)` | 编辑数据库记录 |
-| `update_1ch_8ch_grav(file_desc, note_str)` | 更新 1/8 通道容量测试数据 |
-| `update_1ch_8ch_qc(file_desc, note_str)` | 更新 1/8 通道 QC 测试数据 |
-| `update_1ch_8ch_current(file_desc, note_str)` | 更新 1/8 通道电流测试数据 |
-| `update_96ch_p200_p1000_qc(file_desc, note_str)` | 更新 96 通道 QC 测试数据 |
-
-#### 枚举类
-
-```python
-class Productions(Enum):
-    Robot = "Robot"
-    P50S = "P50S"
-    P1000S = "P1000S"
-    P50M = "P50M"
-    P1000M = "P1000M"
-
-class TestTypes(Enum):
-    Assembly_QC = "assembly_qc"
-    Speed_Current_Test = "speed_current_test"
-    Gravimetric = "gravimetric"
-```
-
-#### 使用示例
-
-```python
-from google_driver.upload import UploadData
-
-upload_handler = UploadData()
-upload_handler.init_google_driver()
-result = upload_handler.update_data_to_google_drive(csv_path, zip_path)
-```
-
-### 3. Slack Driver 模块 (slack_driver/)
-
-#### SlackConfig 类 (config.py)
-
-从 YAML 配置文件加载 Slack 配置。
-
-**配置字段**:
-- `bot_token`: Slack Bot Token
-- `default_channel`: 默认频道
-- `bot_name`: Bot 名称
-- `bot_icon`: Bot 图标
-- `templates`: 消息模板
-
-**加载方法**:
-```python
-from slack_driver.config import SlackConfig
-
-config = SlackConfig.from_yaml(
-    config_path="/path/to/slack.yaml",
-    environment="development"  # 或 "production"
-)
-```
-
-#### SlackBotMessenger 类 (message.py)
-
-发送测试结果消息到 Slack。
-
-**主要方法**:
-
-| 方法 | 说明 |
-|------|------|
-| `__init__(environment, webhook_url, bot_name, bot_icon_emoji)` | 初始化 Slack Bot |
-| `send_test_result(channel, test_type, test_result, serial_number, test_data_link, tracking_sheet_link, custom_bot_name)` | 发送测试结果 |
-| `_send_via_oauth(...)` | 通过 OAuth Token 发送 |
-| `_send_via_webhook(...)` | 通过 Webhook 发送 |
-
-**使用示例**:
-
-```python
-from slack_driver.message import SlackBotMessenger
-
-bot = SlackBotMessenger(environment="development")
-
-bot.send_test_result(
-    channel="production-data-center",
-    test_type="Pipette Gravimetric Test",
-    test_result="Pass",
-    serial_number="P50SV3620250101A01",
-    test_data_link="https://docs.google.com/...",
-    tracking_sheet_link="https://docs.google.com/..."
-)
-```
-
-### 4. 数据库模块 (data_base/mongodb.py)
-
-MongoDB 操作封装，提供数据持久化功能。
-
-## 配置说明
-
-### 环境配置 (setting.py)
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `DOWNLOAD_DIR` | 下载目录 | `/data/temp` |
-| `TESTING_DATA_DIR` | 测试数据目录 | `/data/testing_data` |
-| `CONFIG_DIR` | 配置目录 | `/configs` |
-| `LOG_FILE` | 日志文件 | `/data/data_handler.app.log` |
-| `ENVIRONMENT` | 环境 | `debug` |
-| `DATA_DB_NAME` | 数据库名称 | `ProductionsData2026` |
-| `EXPIRE_DAYS` | 数据过期天数 | `1` |
-
-### 日志配置
-
-```python
-from setting import setup_logging, get_logger
-
-setup_logging()  # 初始化日志
-logger = get_logger(__name__)  # 获取日志记录器
-```
-
-### Slack 配置 (configs/slack.yaml)
-
-```yaml
-slack:
-  bot_token: "xoxb-..."
-  default_channel: "production-data-center"
-  bot_name: "QC Bot"
-  bot_icon: ":robot_face:"
-
-  environments:
-    development:
-      bot_token: "xoxb-dev-..."
-      default_channel: "dev-channel"
-```
-
-## 部署
-
-### 依赖安装
+后端使用 `uv`，不再使用 `Pipfile` / `pipenv`。
 
 ```bash
-cd backend
+cd opentrons-productions
+make install
+```
+
+等价命令：
+
+```bash
+cd opentrons-productions/backend
 uv sync
 ```
 
-### 启动服务
+前端使用 npm：
 
 ```bash
-cd backend
-uv run uvicorn app:app --host 0.0.0.0 --port 8090
+cd opentrons-productions/web_ui
+npm ci
 ```
 
-服务将在 `http://0.0.0.0:8090` 上运行。
+## 本地运行
 
-### 使用 Dockerfile 部署
+启动后端开发服务：
 
-项目支持 Docker 部署，请参考相关部署文档。
-
-## 数据流程
-
-```
-远程服务器 (Robot)
-       │
-       ▼ (SFTP/SCP)
-  本地临时目录
-       │
-       ▼
-  Google Drive 上传
-       │
-       ├──► Google Sheets (测试数据)
-       ├──► Google Drive (原始文件)
-       │
-       ▼
-  MongoDB 数据库
-       │
-       ▼
-  Slack 通知
+```bash
+cd opentrons-productions
+make backend
 ```
 
-## 依赖
+默认地址：
 
-- FastAPI
-- uvicorn
-- paramiko
-- google-api-python-client
-- google-auth-oauthlib
-- pymongo
-- slack-sdk
-- pyyaml
-- aiofiles
+```text
+http://0.0.0.0:8090
+```
+
+检查后端健康状态：
+
+```bash
+make health
+```
+
+启动前端开发服务：
+
+```bash
+cd opentrons-productions/web_ui
+npm run dev
+```
+
+构建前端：
+
+```bash
+cd opentrons-productions
+make web-ui-build
+```
+
+## 常用 Make 命令
+
+```bash
+make help
+make install
+make backend
+make backend-prod
+make health
+make web-ui-build
+make update
+make update COMPONENT=backend
+make update COMPONENT=web
+make update DEPLOY_HOST=192.168.0.137
+```
+
+部署/更新参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `COMPONENT=all|backend|web` | 更新范围，默认 `all` |
+| `DEPLOY_HOST=IP` | 给 backend 和 web 上传脚本传入同一个目标主机 |
+| `PUSH_ARGS='...'` | 传给 `backend/push-scripts.py` 的额外参数 |
+| `WEB_PUSH_ARGS='...'` | 传给 `web_ui/push-scripts.py` 的额外参数 |
+
+## 后端能力
+
+后端基于 FastAPI，主要模块包括：
+
+- 数据上传：解析测试 CSV/ZIP，写入 Google Drive、Google Sheets 和 MongoDB。
+- 数据分析：按产品和测试类型分析 QC/gravimetric/assembly 数据。
+- Robot 管理：扫描、连接、读取文件、运行协议、执行 home/move/reset 等动作。
+- 测试用例：维护 test product、test type、test case，并支持远程执行流程。
+- 产品管理：同步/查看/更新生产状态。
+- 消息和记录：维护上传记录、消息中心、unit tracker 和 Slack 通知。
+
+## 配置和凭证
+
+本地开发默认使用：
+
+```text
+opentrons-productions/backend/auth/
+```
+
+常见文件：
+
+```text
+credentials.json
+token.json
+sheettoken.json
+slack.yaml
+robot_key
+```
+
+这些文件包含真实凭证，已被 `.gitignore` 忽略，不应提交。
+
+服务端环境默认使用 `/configs`、`/data/temp`、`/data/testing_data` 和 `/var/log`。关键环境变量在 `backend/src/settings.py` 中定义，常用项：
+
+| 环境变量 | 说明 |
+| --- | --- |
+| `DATA_HANDLER_RUN_ENV` | `dev`、`local`、`development` 或 `server` |
+| `DATA_HANDLER_HOST` | 服务访问主机 |
+| `DATA_HANDLER_PORT` | 服务端口，默认 `8090` |
+| `DATA_HANDLER_BASE_URL` | 对外基础 URL |
+| `DATA_HANDLER_MONGO_HOST` | MongoDB 主机 |
+| `DATA_HANDLER_MONGO_URI` | MongoDB URI |
+| `DATA_HANDLER_ROBOT_KEY_PATH` | robot SSH key 路径 |
+| `DATA_HANDLER_SLACK_CONFIG_PATH` | Slack 配置路径 |
+
+## 数据目录规则
+
+`backend/datas/` 下保留少量测试样本，用于后端测试和分析回归。
+
+以下目录是运行产物，不提交：
+
+```text
+backend/datas/temp/
+backend/datas/testing_data/
+```
+
+新增测试样本时，优先放在明确的产品目录里，并确认没有包含真实凭证或不应公开的生产数据。
+
+## 测试
+
+后端测试：
+
+```bash
+cd opentrons-productions/backend
+uv run pytest
+```
+
+前端构建校验：
+
+```bash
+cd opentrons-productions/web_ui
+npm run build
+```
+
+## Git 规则
+
+- 本目录没有独立 `.git`，由外层 `production-scripts` 仓库统一管理。
+- 不提交 `.venv`、`node_modules`、`dist`、`__pycache__`、`.pytest_cache`、日志、临时数据和凭证。
+- 后端依赖只维护 `backend/pyproject.toml` 和 `backend/uv.lock`。
+- 前端依赖维护 `web_ui/package.json` 和 `web_ui/package-lock.json`。
