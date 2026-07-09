@@ -1,6 +1,7 @@
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, Union, Literal
+from ..product_name import normalize_product_name
 
 
 class OS(Enum):
@@ -34,6 +35,9 @@ class UploadResult:
 
 class ProductionName(Enum):
     Robot = "Robot"
+    PVTRobot = "PVTRobot"
+    PVTRobotUltima = "PVTRobotUltima"
+    PVTPipette = "PVTPipette"
     P50S = "P50S"
     P1000S = "P1000S"
     P50M = "P50M"
@@ -56,14 +60,14 @@ class ProductionName(Enum):
             对应的枚举成员，如果找不到则返回 None
         """
         try:
-            return cls(value)
+            return cls(normalize_product_name(value))
         except ValueError:
             # 如果直接使用 cls(value) 失败，尝试不区分大小写或去除空格的匹配
-            value_normalized = value.strip()
+            value_normalized = normalize_product_name(value)
 
             # 方式1: 遍历所有枚举成员进行匹配
             for member in cls:
-                if member.value == value_normalized:
+                if normalize_product_name(member.value) == value_normalized:
                     return member
 
             # 方式2: 如果不区分大小写匹配

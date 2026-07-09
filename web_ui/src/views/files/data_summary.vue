@@ -94,6 +94,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {$post} from '../../utils/request'
+import { normalizeProductName } from '../../utils/utils'
 
 // 表格数据
 interface TableItem {
@@ -151,7 +152,10 @@ const fetchData = async () => {
       limit: 100
     })
     
-    tableData.value = res.all_docs
+    tableData.value = res.all_docs.map((item: TableItem) => ({
+      ...item,
+      Production: normalizeProductName(item.Production)
+    }))
     totalItems.value = res.all_docs
     // tableData.value = res.data
     // totalItems.value = res.total
@@ -161,7 +165,7 @@ const fetchData = async () => {
     let filtered = tableData
     if (searchQuery.value) {
       filtered.value = tableData.value.filter(item => 
-        item.Production.toLowerCase().includes(searchQuery.value.toLowerCase())
+        normalizeProductName(item.Production).toLowerCase().includes(normalizeProductName(searchQuery.value).toLowerCase())
       )
     }
     
@@ -239,6 +243,7 @@ const submitForm = () => {
       try {
         // 模拟API调用
         form.value.CreateTime = getCurrentDate();
+        form.value.Production = normalizeProductName(form.value.Production)
         if (form.value.Link) {
         const response: InsertCollectionResponse = await $post('/api/db/insert/document', {
           "db_name": "ProductionDataSummary", "document_name": "ProductionData2025", "collections": form.value})
@@ -281,7 +286,7 @@ const handleDelete = (row: TableItem) => {
 const filteredTableData = computed(() => {
   if (!searchQuery.value) return tableData.value
   return tableData.value.filter(item =>
-    item.Production.toLowerCase().includes(searchQuery.value.toLowerCase())
+    normalizeProductName(item.Production).toLowerCase().includes(normalizeProductName(searchQuery.value).toLowerCase())
   )
 })
 

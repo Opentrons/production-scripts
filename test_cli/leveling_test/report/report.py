@@ -22,6 +22,10 @@ def _safe_file_name(value: str) -> str:
     return "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in value).strip("_")
 
 
+def _date_from_start_time(start_time: str) -> str:
+    return start_time[:10]
+
+
 class LevelingCSV:
     REQUIRED_TESTS = (
         TestNameLeveling.Z_Leveling,
@@ -45,10 +49,12 @@ class LevelingCSV:
         self.operator_name = operator_name
         safe_robot_sn = _safe_file_name(robot_sn)
         timestamp = self.create_start_time()
+        report_date = _date_from_start_time(timestamp)
         if safe_robot_sn:
-            self.csv_name = f"{safe_robot_sn}-leveling-report-{timestamp}.csv"
+            self.csv_name = f"{safe_robot_sn}-leveling-report-{report_date}.csv"
         else:
-            self.csv_name = f"{csv_name}-{timestamp}.csv"
+            safe_csv_name = _safe_file_name(os.path.splitext(csv_name)[0]) or "leveling-report"
+            self.csv_name = f"{safe_csv_name}-{report_date}.csv"
         self.file_name: Optional[str] = None
         self.format_file_name()
         self.__start_time = timestamp

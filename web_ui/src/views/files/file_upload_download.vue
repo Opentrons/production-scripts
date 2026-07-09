@@ -321,6 +321,7 @@ import { tr } from 'element-plus/es/locales.mjs'
 import {URL} from '../../utils/request'
 import { List, number } from 'echarts'
 import { StarTwoToneIconType } from '@ant-design/icons-vue/lib/icons/StarTwoTone'
+import { normalizeProductName } from '../../utils/utils'
 
 
 
@@ -607,9 +608,9 @@ const handleDelete = async (row) => {
 
 // 产品列表
 const productList = ref([
-  { label: 'PVT-Robot', value: 'Robot' },
-  { label: 'PVT-Robot-Ultima', value: 'PVT-Robot-Ultima' },
-  { label: 'PVT-Pipette', value: 'PVT-Pipette' },
+  { label: 'PVTRobot', value: 'PVTRobot' },
+  { label: 'PVTRobotUltima', value: 'PVTRobotUltima' },
+  { label: 'PVTPipette', value: 'PVTPipette' },
 ]);
 const selectedProduct = ref('');
 const selectedTest = ref('');
@@ -697,7 +698,7 @@ const handleUploadSuccessGoogle: UploadProps['onSuccess'] = async (response, fil
     }
 
     const upload_testing_data_request: UploadToGoogleDrive = {
-      product_name: selectedProduct.value,
+      product_name: normalizeProductName(selectedProduct.value),
       quarter_name: selectedQuarter.value,
       sn: serial_number.value,
       test_name: selectedTest.value,

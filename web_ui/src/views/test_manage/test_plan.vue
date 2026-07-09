@@ -85,7 +85,7 @@ import {
   add_test_plan, fetch_test_plan, TestPlanInterface, require_upload_status,
   delete_test_plan, set_upload_status
 } from '../../api/require_db'
-import { $get_current_time, delay } from '../../utils/utils'
+import { $get_current_time, normalizeProductName } from '../../utils/utils'
 import { da } from 'element-plus/es/locales.mjs'
 
 
@@ -214,6 +214,7 @@ const refreshTableData = () => {
     .then((data: DataInterface) => {
       tableData.value = data.all_docs.map(item => ({
         ...item,
+        product: normalizeProductName(item.product),
         auto_upload: item.auto_upload === true || item.auto_upload === 100
           ? '已上传'
           : item.auto_upload === false || item.auto_upload === "false"
@@ -283,7 +284,7 @@ const handleEdit = (index: number, row: TestPlanInterface) => {
 
   // 填充表单数据
   Object.assign(formData.value, { ...row })
-  production_value.value = row.product
+  production_value.value = normalizeProductName(row.product)
   // test_name_value.value = row.test_name
   
   
@@ -300,7 +301,7 @@ const handleEdit = (index: number, row: TestPlanInterface) => {
 const submitForm = async () => {
 
   // update the formTable
-  formData.value.product = production_value.value
+  formData.value.product = normalizeProductName(production_value.value)
   formData.value.test_name = test_name_value.value
   const current_date = $get_current_time()
   formData.value.date = current_date

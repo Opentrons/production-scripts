@@ -5,6 +5,7 @@ from ..database import CollectionManager
 from .google_driver_handler import updata_class
 from ..settings import settings, get_logger, get_test_name
 from ..this_types import UploadResult, UploadOneUnitInterface, TestPlanInterface, ProductionName, TestName
+from ..product_name import normalize_product_name
 from .slack import SlackBotMessenger
 from datetime import datetime
 from .flex_communications import scan_flex
@@ -61,8 +62,9 @@ class ServiceHandler:
         """
         logger.info(f"Starting to upload {unit.file_local}!")
         this_unit_name = get_test_name(unit.production_name, unit.test_name)
+        production_name = normalize_product_name(unit.production_name.value)
         result = self.upload_handler.update_data_to_google_drive(
-            unit.file_local, unit.sn, unit.production_name.value, unit.zip_path, this_unit_name,
+            unit.file_local, unit.sn, production_name, unit.zip_path, this_unit_name,
             func_callback=self.set_upload_process, csv_link=unit.csv_id)
         result_handler = UploadResult(**result)
         # 上传后把数据链接写入数据库
@@ -107,7 +109,7 @@ class ServiceHandler:
         # Note: 每个单元对应的服务器不一样，hostname都会改变，所以需要每次都重新初始化server
         robot_ip = test_plan.fixture_ip
         sn = test_plan.barcode
-        production = test_plan.product
+        production = normalize_product_name(test_plan.product)
         if robot_ip == "":
             flex_group = scan_flex()
             # 使用 next() + 生成器表达式查找匹配的 IP
@@ -125,7 +127,7 @@ class ServiceHandler:
                 # 获取production, test name
                 _production = ProductionName.get_production_by_value(production)
                 _test_name = TestName.get_test_name_by_value(test_name)
-                if production is None or test_name is None:
+                if _production is None or _test_name is None:
                     raise Exception(f"获取测试 {production} or {test_name} fail")
                 unit = await self.download_handler.download_test_unit(_production, _test_name, sn)
                 # NOTE: 同一个条码的不同测试应该放到同一个csv sheet里面， 假如当前的测试已经生成了一个表格，那么接下来上传的测试

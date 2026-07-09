@@ -3,6 +3,7 @@ import zipfile
 from typing import List
 import re
 from datetime import datetime
+from ...product_name import normalize_product_fields
 
 
 def get_time_str():
@@ -99,7 +100,7 @@ class Ana:
             else:
                 file_list = self.get_test_data(test_name_path)
                 test_files.update({test_name: file_list})
-        return test_files
+        return normalize_product_fields(test_files)
 
 
 if __name__ == '__main__':

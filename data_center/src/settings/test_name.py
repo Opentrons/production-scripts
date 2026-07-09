@@ -6,6 +6,19 @@ TestNameConfigs = {
         TestName.XY_BeltCalibration: "",
         TestName.GantryStress: ""
     },
+    ProductionName.PVTRobot: {
+        TestName.AssemblyQC: "",
+        TestName.XY_BeltCalibration: "",
+        TestName.GantryStress: ""
+    },
+    ProductionName.PVTRobotUltima: {
+        TestName.AssemblyQC: "",
+        TestName.XY_BeltCalibration: "",
+        TestName.GantryStress: ""
+    },
+    ProductionName.PVTPipette: {
+        TestName.AssemblyQC: "",
+    },
     ProductionName.P1000M: {
         TestName.AssemblyQC: "",
     },

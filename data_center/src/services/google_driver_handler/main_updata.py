@@ -14,6 +14,7 @@ from datetime import datetime
 from enum import Enum
 from ...this_types import UploadEnv
 from ...settings import get_logger, setup_logging
+from ...product_name import normalize_product_name
 
 setup_logging()
 logger = get_logger("upload.to.google.driver")
@@ -761,6 +762,7 @@ class updata_class():
 
         
         """
+        pipette_type = normalize_product_name(pipette_type)
         test_res_dict = {
             "success": False,
             "test_result": "FAIL",

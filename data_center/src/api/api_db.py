@@ -7,6 +7,7 @@ from ..settings import settings
 from fastapi.responses import JSONResponse
 from ..utils import get_instance
 from ..services import ServiceHandler
+from ..product_name import normalize_product_fields
 
 router = APIRouter()
 URI = settings.db_url
@@ -67,7 +68,7 @@ async def insert_document(request: InsertDocumentRequest):
     """
     db_name = request.db_name
     document_name = request.document_name
-    document_data = request.collections
+    document_data = normalize_product_fields(request.collections)
     reader = MongoDBReader(
         uri=URI,
         db_name=db_name,
@@ -184,7 +185,7 @@ async def read_document(request: ReadDocumentRequest):
             documents = []
         else:
             all_docs = reader.find_all(limit=limit)
-            all_docs = clean_data(all_docs)
+            all_docs = normalize_product_fields(clean_data(all_docs))
             documents = []
             for doc in all_docs:
                 doc["_id"] = str(doc["_id"])  # 关键转换

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Any
+from ..product_name import normalize_product_name
 
 
 # flex
@@ -60,3 +61,7 @@ class FileUploadRequest(BaseModel):
     test_name: str
     files_list: dict
     finished: bool
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.product_name = normalize_product_name(self.product_name)
