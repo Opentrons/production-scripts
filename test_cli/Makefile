@@ -3,6 +3,7 @@ APP_NAME := test-cli
 ENTRYPOINT := test_cli/main.py
 CONFIG_JSON := test_cli/leveling_test/leveling_config.json
 CONFIG_DEST := test_cli/leveling_test
+COMPENSATION_TEMPLATE := test_cli/leveling_test/Templete.xlsx
 
 ifeq ($(OS),Windows_NT)
 	ADD_DATA_SEP := ;
@@ -60,6 +61,11 @@ build-clean: clean build
 
 .PHONY: update-compensation
 update-compensation:
+	@if [ ! -f "$(PROJECT_ROOT)/$(COMPENSATION_TEMPLATE)" ]; then \
+		echo "Error: compensation template not found: $(COMPENSATION_TEMPLATE)"; \
+		echo "Please put Templete.xlsx under test_cli/leveling_test/ and retry."; \
+		exit 1; \
+	fi
 	cd $(PROJECT_ROOT) && uv run python -m test_cli.leveling_test.convert_compensations
 
 .PHONY: test
@@ -77,5 +83,5 @@ help:
 	@echo "make simulate        Run all leveling tests in simulation mode"
 	@echo "make build           Build current-platform executable into ../dist"
 	@echo "make build-clean     Clean then build executable"
-	@echo "make update-compensation  Update leveling_config.json from Templete_2025_0828.xlsx"
+	@echo "make update-compensation  Update leveling_config.json from test_cli/leveling_test/Templete.xlsx"
 	@echo "make clean           Remove build artifacts"

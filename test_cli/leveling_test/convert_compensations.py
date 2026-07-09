@@ -2,7 +2,7 @@
 """
 Compensation Data Converter
 
-This script reads compensation data from Templete_2025_0828.xlsx,
+This script reads compensation data from Templete.xlsx,
 updates the leveling_config.json, and shows differences.
 """
 
@@ -130,7 +130,7 @@ def normalize_compensation_field(field: str, direction: str, mount: str) -> str:
 
 def read_excel_compensations(excel_path: str) -> Dict[str, Dict[str, Dict[str, Dict[str, float]]]]:
     """
-    Read compensation data from Templete_2025_0828.xlsx
+    Read compensation data from Templete.xlsx
     
     Returns:
         Dictionary with structure:
@@ -343,15 +343,16 @@ def print_changes(changes: Dict[str, Dict[str, Any]]):
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, 'leveling_config.json')
-    excel_path = os.path.join(script_dir, 'Templete_2025_0828.xlsx')
+    excel_path = os.path.join(script_dir, 'Templete.xlsx')
     
     if not os.path.exists(config_path):
         print(f"Error: Config file not found - {config_path}")
-        return
+        raise SystemExit(1)
     
     if not os.path.exists(excel_path):
         print(f"Error: Excel file not found - {excel_path}")
-        return
+        print("Please put Templete.xlsx under test_cli/leveling_test/ and retry.")
+        raise SystemExit(1)
     
     print(f"Loading config from: {config_path}")
     config = load_json_config(config_path)
@@ -363,7 +364,7 @@ def main():
     
     if not excel_compensations or all(not v for v in excel_compensations.values()):
         print("No compensation data found in Excel")
-        return
+        raise SystemExit(1)
     
     print("\n" + "="*80)
     print("Updating compensation data...")
