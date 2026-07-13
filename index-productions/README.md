@@ -2,6 +2,8 @@
 
 Static Vue/Vite launch page for production web tools.
 
+The navigation includes a Downloads workspace for versioned static resources. Resources are grouped by project, and project/version metadata is tracked in MongoDB through the `opentrons-productions` backend.
+
 ## Run
 
 ```bash
@@ -28,17 +30,21 @@ make clean    Remove local frontend artifacts
 
 ## Links
 
-The launch page has no backend. Module URLs can be configured at build time:
+Module and API URLs can be configured at build time:
 
 ```bash
 VITE_OPENTRONS_PRODUCTIONS_URL=/opentrons-productions/
 VITE_PRODUCTION_AGENT_URL=/production-agent/
+VITE_API_BASE_URL=/api
 ```
 
 Defaults:
 
 - `VITE_OPENTRONS_PRODUCTIONS_URL=/opentrons-productions/`
 - `VITE_PRODUCTION_AGENT_URL` is unset, so the Production Agent card stays planned until configured.
+- `VITE_API_BASE_URL=/api`
+
+The local Vite server only provides the frontend. To exercise resource management locally, run the `opentrons-productions` backend and configure `VITE_API_BASE_URL` to reach it.
 
 ## Deployment
 
@@ -48,4 +54,4 @@ From the repository root:
 make deploy-index-productions DEPLOY_HOST=192.168.0.137
 ```
 
-The deployment script serves this app on port `80` and configures nginx to proxy `/opentrons-productions/` to local port `8091`.
+The deployment script serves this app on port `80` and configures nginx to proxy `/api/` to the backend on local port `8090`. Uploaded files are stored by the backend in `/data/file_resources`; project and version records use the `file_resource_projects` and `file_resource_versions` MongoDB collections. The nginx upload limit is 200 MB per request.

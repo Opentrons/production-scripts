@@ -35,6 +35,7 @@ ensure_runtime_dirs() {
     echo "Creating runtime directories..."
     mkdir -p /data/temp
     mkdir -p /data/testing_data
+    mkdir -p /data/file_resources
     mkdir -p /configs
     mkdir -p /var/log
 }

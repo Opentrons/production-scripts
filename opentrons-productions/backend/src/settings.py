@@ -27,11 +27,15 @@ DATA_CENTER_BASE_URL = os.getenv(
 if IS_WINDOWS or IS_MAC:
     DOWNLOAD_DIR = os.path.join(PROJECT_ROOT, "datas", "temp")
     TESTING_DATA_DIR = os.path.join(PROJECT_ROOT, "datas", "testing_data")
+    FILE_RESOURCE_DIR = os.path.join(PROJECT_ROOT, "datas", "file_resources")
     CONFIG_DIR = os.path.join(PROJECT_ROOT, "configs")
 else:
     DOWNLOAD_DIR = "/data/temp"
     TESTING_DATA_DIR = "/data/testing_data"
+    FILE_RESOURCE_DIR = "/data/file_resources"
     CONFIG_DIR = "/configs"
+
+FILE_RESOURCE_DIR = os.getenv("DATA_HANDLER_FILE_RESOURCE_DIR", FILE_RESOURCE_DIR)
 
 if IS_DEV_ENV:
     GOOGLE_AUTH_DIR = os.path.join(PROJECT_ROOT, "auth")
@@ -79,6 +83,8 @@ PRODUCT_MANAGEMENT_COLLECTION = "product_management"
 UNIT_TRACKER_COLLECTION = "unit_tracker_rows"
 ROBOT_SCAN_GATEWAY_COLLECTION = "robot_scan_gateways"
 UPLOAD_FINISH_SETTINGS_COLLECTION = "upload_finish_settings"
+FILE_RESOURCE_PROJECTS_COLLECTION = "file_resource_projects"
+FILE_RESOURCE_VERSIONS_COLLECTION = "file_resource_versions"
 
 # Robot 设备配置
 ROBOT_HEALTH_PORT = 31950
@@ -96,6 +102,7 @@ ROBOT_PROTOCOL_SOURCE_BASES = [
 def ensure_directories():
     """确保所有配置目录都存在"""
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    os.makedirs(FILE_RESOURCE_DIR, exist_ok=True)
     os.makedirs(CONFIG_DIR, exist_ok=True)
     if IS_DEV_ENV:
         os.makedirs(GOOGLE_AUTH_DIR, exist_ok=True)

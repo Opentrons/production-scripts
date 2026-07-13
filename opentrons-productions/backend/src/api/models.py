@@ -135,6 +135,26 @@ class ProductManagementManualAddResponse(BaseModel):
     error: str | None = None
 
 
+class FileResourceProjectsResponse(BaseModel):
+    projects: list[dict[str, Any]] = Field(default_factory=list)
+    total: int = 0
+
+
+class FileResourceVersionResponse(BaseModel):
+    success: bool = True
+    version: dict[str, Any]
+
+
+class FileResourceVersionUpdateRequest(BaseModel):
+    version: str | None = None
+    version_notes: str | None = None
+
+
+class FileResourceDeleteResponse(BaseModel):
+    success: bool
+    deleted_version_id: str
+
+
 class DataLinksResponse(BaseModel):
     environment: str | None = None
     config_file: str | None = None

@@ -42,6 +42,7 @@ logs/
 testing_data/
 **/datas/temp/
 **/datas/testing_data/
+**/datas/file_resources/
 
 # Generated reports / local exports
 *.backup*

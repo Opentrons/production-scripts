@@ -3,6 +3,7 @@
 __pycache__/
 backend/datas/temp/
 backend/datas/testing_data/
+backend/datas/file_resources/
 backend/auth/*
 logs/
 backend/logs/
