@@ -109,6 +109,7 @@ make update DEPLOY_HOST=192.168.0.137
 | `DEPLOY_HOST=IP` | 给 backend 和 web 上传脚本传入同一个目标主机 |
 | `PUSH_ARGS='...'` | 传给 `backend/push-scripts.py` 的额外参数 |
 | `WEB_PUSH_ARGS='...'` | 传给 `web_ui/push-scripts.py` 的额外参数 |
+| `WEB_UI_BASE_PATH=/` | 前端 Vite base path；通过根目录 index 反代部署时使用 `/opentrons-productions/` |
 
 ## 后端能力
 

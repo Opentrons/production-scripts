@@ -6,6 +6,7 @@ Opentrons SZ production scripts monorepo. This repository collects production te
 
 | Project | README | Purpose |
 | --- | --- | --- |
+| Productions Index | [index-productions/README.md](index-productions/README.md) | Static Vue launch page for production web tools. |
 | Test CLI | [test_cli/README.md](test_cli/README.md) | Cross-platform production test CLI, including leveling tests and executable packaging. |
 | Opentrons Productions | [opentrons-productions/README.md](opentrons-productions/README.md) | FastAPI + Vue production data center for upload, analysis, robot control, and production tracking. |
 | Upload Handler | [opentrons-productions/backend/src/upload_handler/README.md](opentrons-productions/backend/src/upload_handler/README.md) | Internal upload pipeline notes for Google Drive/Sheets and upload configuration. |
@@ -19,6 +20,7 @@ Opentrons SZ production scripts monorepo. This repository collects production te
 production-scripts/
 ├── devices/                 # Shared device drivers
 ├── drivers/                 # Shared serial/transport drivers
+├── index-productions/       # Static Vue launch page for production web tools
 ├── launchers/               # Test CLI launcher scripts
 ├── modules_testing/         # Module diagnostics and module-specific tools
 ├── opentrons-productions/   # Production data-center app
@@ -55,14 +57,23 @@ Available targets:
   make opentrons-health        Check opentrons-productions backend health
   make opentrons-web-ui-build  Build opentrons-productions web UI
   make opentrons-update        Update opentrons-productions remote code
+  make deploy-opentrons-productions Deploy opentrons-productions for indexed routing
+  make index-productions-init  Install productions index dependencies
+  make index-productions-dev   Start the productions index page
+  make index-productions-build Build the productions index page
+  make deploy-index-productions Deploy productions index and nginx proxy
+  make deploy-productions      Deploy opentrons-productions and productions index
   make high-voltage            Run high-voltage manual test workflow
 
 Variables:
-  HOST=0.0.0.0 PORT=8090
+  HOST=0.0.0.0 PORT=8090 INDEX_PORT=5173 INDEX_DEPLOY_PORT=80
   COMPONENT=all|backend|web DEPLOY_HOST=IP
-  PUSH_ARGS='...' WEB_PUSH_ARGS='...'
+  PUSH_ARGS='...' WEB_PUSH_ARGS='...' INDEX_PUSH_ARGS='...'
+  OPENTRONS_WEB_BASE_PATH=/opentrons-productions/
+  OPENTRONS_PROXY_PATH=/opentrons-productions OPENTRONS_WEB_PORT=8091
 
 Subproject help:
+  make -C index-productions help
   make -C test_cli help
   make -C opentrons-productions help
   make -C tools/high_voltage_test help
@@ -102,6 +113,7 @@ Update parameters:
   DEPLOY_HOST=IP              Apply --host to both push scripts
   PUSH_ARGS='...'             Extra args for backend push-scripts.py
   WEB_PUSH_ARGS='...'         Extra args for web_ui push-scripts.py
+  WEB_UI_BASE_PATH=/          Vite base path for web_ui build
 
 Examples:
   make update
@@ -155,6 +167,21 @@ Build Opentrons Productions frontend:
 ```bash
 make opentrons-web-ui-build
 ```
+
+Run the Productions index page:
+
+```bash
+make index-productions-init
+make index-productions-dev
+```
+
+Deploy Productions index and Opentrons Productions:
+
+```bash
+make deploy-productions DEPLOY_HOST=192.168.0.137
+```
+
+This deploys `opentrons-productions` with `WEB_UI_BASE_PATH=/opentrons-productions/`, deploys `index-productions` on port `80`, and configures nginx so `/opentrons-productions/` proxies to local port `8091`. The legacy typo path `/opetrons-productions/` redirects to `/opentrons-productions/`.
 
 ## Repository Rules
 

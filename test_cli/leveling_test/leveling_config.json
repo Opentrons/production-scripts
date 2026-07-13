@@ -275,7 +275,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.23,
+                    "right_rear": 0.143999999999998,
                     "right_front": 0.0
                 }
             },
@@ -286,7 +286,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.148,
+                    "right_rear": 0.16,
                     "right_front": 0.0
                 }
             },
@@ -297,7 +297,7 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.172,
+                    "right_rear": 0.129999999999999,
                     "right_front": 0.0
                 }
             },

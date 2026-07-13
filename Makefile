@@ -2,10 +2,31 @@
 
 HOST ?= 0.0.0.0
 PORT ?= 8090
+INDEX_PORT ?= 5173
+INDEX_DEPLOY_PORT ?= 80
+INDEX_REMOTE_DIR ?= /opt/data-handler/index-productions
+OPENTRONS_WEB_PORT ?= 8091
+OPENTRONS_API_PORT ?= 8090
+OPENTRONS_WEB_BASE_PATH ?= /opentrons-productions/
+OPENTRONS_PROXY_PATH ?= /opentrons-productions
+OPENTRONS_LEGACY_PROXY_PATH ?= /opetrons-productions
+WEB_UI_BASE_PATH ?= /
 COMPONENT ?= all
 DEPLOY_HOST ?=
 PUSH_ARGS ?=
 WEB_PUSH_ARGS ?=
+INDEX_PUSH_ARGS ?=
+
+INDEX_DEPLOY_ARGS := $(INDEX_PUSH_ARGS)
+ifneq ($(DEPLOY_HOST),)
+INDEX_DEPLOY_ARGS += --host $(DEPLOY_HOST)
+endif
+INDEX_DEPLOY_ARGS += --remote-dir $(INDEX_REMOTE_DIR)
+INDEX_DEPLOY_ARGS += --site-port $(INDEX_DEPLOY_PORT)
+INDEX_DEPLOY_ARGS += --opentrons-port $(OPENTRONS_WEB_PORT)
+INDEX_DEPLOY_ARGS += --opentrons-api-port $(OPENTRONS_API_PORT)
+INDEX_DEPLOY_ARGS += --opentrons-path $(OPENTRONS_PROXY_PATH)
+INDEX_DEPLOY_ARGS += --legacy-opentrons-path $(OPENTRONS_LEGACY_PROXY_PATH)
 
 .PHONY: help
 help:
@@ -23,14 +44,23 @@ help:
 	@echo "  make opentrons-health        Check opentrons-productions backend health"
 	@echo "  make opentrons-web-ui-build  Build opentrons-productions web UI"
 	@echo "  make opentrons-update        Update opentrons-productions remote code"
+	@echo "  make deploy-opentrons-productions Deploy opentrons-productions for indexed routing"
+	@echo "  make index-productions-init  Install productions index dependencies"
+	@echo "  make index-productions-dev   Start the productions index page"
+	@echo "  make index-productions-build Build the productions index page"
+	@echo "  make deploy-index-productions Deploy productions index and nginx proxy"
+	@echo "  make deploy-productions      Deploy opentrons-productions and productions index"
 	@echo "  make high-voltage            Run high-voltage manual test workflow"
 	@echo ""
 	@echo "Variables:"
-	@echo "  HOST=0.0.0.0 PORT=8090"
+	@echo "  HOST=0.0.0.0 PORT=8090 INDEX_PORT=5173 INDEX_DEPLOY_PORT=80"
 	@echo "  COMPONENT=all|backend|web DEPLOY_HOST=IP"
-	@echo "  PUSH_ARGS='...' WEB_PUSH_ARGS='...'"
+	@echo "  PUSH_ARGS='...' WEB_PUSH_ARGS='...' INDEX_PUSH_ARGS='...'"
+	@echo "  OPENTRONS_WEB_BASE_PATH=/opentrons-productions/"
+	@echo "  OPENTRONS_PROXY_PATH=/opentrons-productions OPENTRONS_WEB_PORT=8091 OPENTRONS_API_PORT=8090"
 	@echo ""
 	@echo "Subproject help:"
+	@echo "  make -C index-productions help"
 	@echo "  make -C test_cli help"
 	@echo "  make -C opentrons-productions help"
 	@echo "  make -C tools/high_voltage_test help"
@@ -73,7 +103,7 @@ opentrons-health:
 
 .PHONY: opentrons-web-ui-build
 opentrons-web-ui-build:
-	$(MAKE) -C opentrons-productions web-ui-build
+	$(MAKE) -C opentrons-productions web-ui-build WEB_UI_BASE_PATH=$(WEB_UI_BASE_PATH)
 
 .PHONY: opentrons-update
 opentrons-update:
@@ -81,7 +111,51 @@ opentrons-update:
 		COMPONENT=$(COMPONENT) \
 		DEPLOY_HOST=$(DEPLOY_HOST) \
 		PUSH_ARGS="$(PUSH_ARGS)" \
-		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)"
+		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
+		WEB_UI_BASE_PATH=$(WEB_UI_BASE_PATH)
+
+.PHONY: deploy-opentrons-productions
+deploy-opentrons-productions:
+	$(MAKE) -C opentrons-productions update \
+		COMPONENT=$(COMPONENT) \
+		DEPLOY_HOST=$(DEPLOY_HOST) \
+		PUSH_ARGS="$(PUSH_ARGS)" \
+		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
+		WEB_UI_BASE_PATH=$(OPENTRONS_WEB_BASE_PATH)
+
+.PHONY: index-productions-init
+index-productions-init:
+	$(MAKE) -C index-productions init
+
+.PHONY: index-productions-dev
+index-productions-dev:
+	$(MAKE) -C index-productions dev HOST=$(HOST) PORT=$(INDEX_PORT)
+
+.PHONY: index-productions-build
+index-productions-build:
+	$(MAKE) -C index-productions build
+
+.PHONY: deploy-index-productions
+deploy-index-productions: index-productions-build
+	uv run python deploy-index-productions.py $(INDEX_DEPLOY_ARGS)
+
+.PHONY: deploy-productions
+deploy-productions:
+	$(MAKE) deploy-opentrons-productions \
+		COMPONENT=$(COMPONENT) \
+		DEPLOY_HOST=$(DEPLOY_HOST) \
+		PUSH_ARGS="$(PUSH_ARGS)" \
+		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
+		OPENTRONS_WEB_BASE_PATH=$(OPENTRONS_WEB_BASE_PATH)
+	$(MAKE) deploy-index-productions \
+		DEPLOY_HOST=$(DEPLOY_HOST) \
+		INDEX_PUSH_ARGS="$(INDEX_PUSH_ARGS)" \
+		INDEX_REMOTE_DIR=$(INDEX_REMOTE_DIR) \
+		INDEX_DEPLOY_PORT=$(INDEX_DEPLOY_PORT) \
+		OPENTRONS_WEB_PORT=$(OPENTRONS_WEB_PORT) \
+		OPENTRONS_API_PORT=$(OPENTRONS_API_PORT) \
+		OPENTRONS_PROXY_PATH=$(OPENTRONS_PROXY_PATH) \
+		OPENTRONS_LEGACY_PROXY_PATH=$(OPENTRONS_LEGACY_PROXY_PATH)
 
 .PHONY: high-voltage
 high-voltage:

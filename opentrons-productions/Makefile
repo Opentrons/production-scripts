@@ -2,6 +2,7 @@ BACKEND_DIR := backend
 WEB_UI_DIR := web_ui
 HOST ?= 0.0.0.0
 PORT ?= 8090
+WEB_UI_BASE_PATH ?= /
 COMPONENT ?= all
 DEPLOY_HOST ?=
 PUSH_ARGS ?=
@@ -38,6 +39,7 @@ help:
 	@echo "  DEPLOY_HOST=IP              Apply --host to both push scripts"
 	@echo "  PUSH_ARGS='...'             Extra args for backend push-scripts.py"
 	@echo "  WEB_PUSH_ARGS='...'         Extra args for web_ui push-scripts.py"
+	@echo "  WEB_UI_BASE_PATH=/          Vite base path for web_ui build"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make update"
@@ -68,7 +70,7 @@ push-backend:
 update-backend: push-backend
 
 web-ui-build:
-	cd $(WEB_UI_DIR) && npm ci && npm run build
+	cd $(WEB_UI_DIR) && npm ci && VITE_BASE_PATH=$(WEB_UI_BASE_PATH) npm run build
 
 push-web-ui: web-ui-build
 	cd $(BACKEND_DIR) && uv run python ../$(WEB_UI_DIR)/push-scripts.py $(WEB_UI_PUSH_ARGS)
