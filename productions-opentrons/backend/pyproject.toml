@@ -1,5 +1,5 @@
 [project]
-name = "data-handler-backend"
+name = "productions-opentrons-backend"
 version = "0.1.0"
 description = "Backend service for data upload and processing."
 requires-python = ">=3.10"

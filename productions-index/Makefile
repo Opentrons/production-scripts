@@ -23,7 +23,7 @@ $(NODE_MODULES_STAMP): package.json package-lock.json
 
 .PHONY: init
 init: $(NODE_MODULES_STAMP)
-	@echo "index-productions dependencies ready"
+	@echo "productions-index dependencies ready"
 
 .PHONY: dev start
 dev start: init

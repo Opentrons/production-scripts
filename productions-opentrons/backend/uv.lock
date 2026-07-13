@@ -580,7 +580,7 @@ wheels = [
 ]
 
 [[package]]
-name = "data-handler-backend"
+name = "productions-opentrons-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

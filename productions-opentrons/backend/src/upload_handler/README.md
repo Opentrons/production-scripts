@@ -1,6 +1,6 @@
 # Upload Handler
 
-Upload pipeline used by `opentrons-productions` to parse production test files, copy data into Google Sheets templates, upload raw artifacts to Google Drive, store upload records in MongoDB, and report upload status back to the API/UI.
+Upload pipeline used by `productions-opentrons` to parse production test files, copy data into Google Sheets templates, upload raw artifacts to Google Drive, store upload records in MongoDB, and report upload status back to the API/UI.
 
 ## Structure
 
@@ -94,14 +94,14 @@ Upload behavior is configuration driven. Product/test mappings and workflow sele
 Credentials are not stored in this package. Local development credentials normally live in:
 
 ```text
-opentrons-productions/backend/auth/
+productions-opentrons/backend/auth/
 ```
 
 Server deployments use `/configs` by default. See [../../../README.md](../../../README.md) for the environment variables and credential file names.
 
 ## Tests
 
-From `opentrons-productions/backend`:
+From `productions-opentrons/backend`:
 
 ```bash
 uv run pytest tests/test_datas_csv.py tests/test_data_analysis.py

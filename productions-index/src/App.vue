@@ -6,7 +6,7 @@
           <span>PRODUCTIONS INDEX</span>
         </a>
         <nav class="top-links" aria-label="Primary modules">
-          <a class="top-link" :href="opentronsBaseUrl">Opentrons Productions</a>
+          <a class="top-link" :href="productionsOpentronsBaseUrl">Productions Opentrons</a>
           <a class="top-link is-active" href="#/downloads">Downloads</a>
           <span class="top-link is-disabled" aria-disabled="true">Agent</span>
           <span class="top-link is-disabled" aria-disabled="true">Modules</span>
@@ -214,11 +214,11 @@
     <template v-else>
       <section class="hero">
         <header class="topbar" aria-label="Productions navigation">
-          <a class="brand" :href="opentronsBaseUrl" aria-label="Open Opentrons Productions">
+          <a class="brand" :href="productionsOpentronsBaseUrl" aria-label="Open Productions Opentrons">
             <span>PRODUCTIONS INDEX</span>
           </a>
           <nav class="top-links" aria-label="Primary modules">
-            <a class="top-link" :href="opentronsBaseUrl">Opentrons Productions</a>
+            <a class="top-link" :href="productionsOpentronsBaseUrl">Productions Opentrons</a>
             <a class="top-link" href="#/downloads">Downloads</a>
             <span class="top-link is-disabled" aria-disabled="true">Agent</span>
             <span class="top-link is-disabled" aria-disabled="true">Modules</span>
@@ -233,8 +233,8 @@
               Factory data, robot operations, upload records, analysis workflows, and automation entry points.
             </p>
             <div class="hero-actions">
-              <a class="primary-action" :href="opentronsBaseUrl">
-                <span>Open Opentrons Productions</span>
+              <a class="primary-action" :href="productionsOpentronsBaseUrl">
+                <span>Open Productions Opentrons</span>
                 <ArrowRight :size="18" aria-hidden="true" />
               </a>
               <a class="secondary-action" href="#modules">
@@ -289,7 +289,7 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">APPLICATION</p>
-            <h2 id="routes-title">Opentrons Productions</h2>
+            <h2 id="routes-title">Productions Opentrons</h2>
           </div>
         </div>
 
@@ -364,8 +364,8 @@ interface ResourceProject {
   versions: ResourceVersion[]
 }
 
-const opentronsBaseUrl = withTrailingSlash(
-  import.meta.env.VITE_OPENTRONS_PRODUCTIONS_URL || '/opentrons-productions/',
+const productionsOpentronsBaseUrl = withTrailingSlash(
+  import.meta.env.VITE_PRODUCTIONS_OPENTRONS_URL || '/productions-opentrons/',
 )
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 const productionAgentUrl = import.meta.env.VITE_PRODUCTION_AGENT_URL || ''
@@ -401,7 +401,7 @@ function withTrailingSlash(value: string): string {
 }
 
 function routeUrl(path: string): string {
-  return `${opentronsBaseUrl}${path.replace(/^\/+/, '')}`
+  return `${productionsOpentronsBaseUrl}${path.replace(/^\/+/, '')}`
 }
 
 function handleHashChange(): void {
@@ -657,11 +657,11 @@ onBeforeUnmount(() => {
 
 const modules = [
   {
-    name: 'Opentrons Productions',
+    name: 'Productions Opentrons',
     status: 'Active',
     statusClass: 'status-active',
     summary: 'Production web app for uploads, robot operations, analysis, messages, and product tracking.',
-    href: opentronsBaseUrl,
+    href: productionsOpentronsBaseUrl,
     icon: Factory,
   },
   {

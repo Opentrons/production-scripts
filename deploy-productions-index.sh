@@ -5,20 +5,22 @@ set -euo pipefail
 INDEX_PORT="${INDEX_PORT:-80}"
 OPENTRONS_PORT="${OPENTRONS_PORT:-8091}"
 OPENTRONS_API_PORT="${OPENTRONS_API_PORT:-8090}"
-OPENTRONS_PATH="${OPENTRONS_PATH:-/opentrons-productions}"
-LEGACY_OPENTRONS_PATH="${LEGACY_OPENTRONS_PATH:-/opetrons-productions}"
+OPENTRONS_PATH="${OPENTRONS_PATH:-/productions-opentrons}"
+LEGACY_OPENTRONS_PATH="${LEGACY_OPENTRONS_PATH:-/opentrons-productions}"
+LEGACY_TYPO_OPENTRONS_PATH="${LEGACY_TYPO_OPENTRONS_PATH:-/opetrons-productions}"
 SITE_NAME="productions-index"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEB_ROOT="$SCRIPT_DIR/dist"
 OLD_DATA_CENTER_SERVICE_NAME="data-center"
 
 echo "=========================================="
-echo "Starting index-productions deployment..."
+echo "Starting productions-index deployment..."
 echo "Web root: $WEB_ROOT"
 echo "Index port: $INDEX_PORT"
 echo "Opentrons proxy: ${OPENTRONS_PATH}/ -> 127.0.0.1:${OPENTRONS_PORT}"
 echo "Opentrons API proxy: /api/ -> 127.0.0.1:${OPENTRONS_API_PORT}"
 echo "Legacy proxy path: ${LEGACY_OPENTRONS_PATH}/"
+echo "Legacy typo proxy path: ${LEGACY_TYPO_OPENTRONS_PATH}/"
 echo "=========================================="
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -239,6 +241,7 @@ write_nginx_site() {
 
     OPENTRONS_PATH="$(normalize_path "$OPENTRONS_PATH")"
     LEGACY_OPENTRONS_PATH="$(normalize_path "$LEGACY_OPENTRONS_PATH")"
+    LEGACY_TYPO_OPENTRONS_PATH="$(normalize_path "$LEGACY_TYPO_OPENTRONS_PATH")"
 
     echo "Writing nginx site config: $site_file"
     cat > "$site_file" << EOF
@@ -256,6 +259,14 @@ server {
 
     location ^~ ${LEGACY_OPENTRONS_PATH}/ {
         rewrite ^${LEGACY_OPENTRONS_PATH}/(.*)\$ ${OPENTRONS_PATH}/\$1 permanent;
+    }
+
+    location = ${LEGACY_TYPO_OPENTRONS_PATH} {
+        return 308 ${OPENTRONS_PATH}/;
+    }
+
+    location ^~ ${LEGACY_TYPO_OPENTRONS_PATH}/ {
+        rewrite ^${LEGACY_TYPO_OPENTRONS_PATH}/(.*)\$ ${OPENTRONS_PATH}/\$1 permanent;
     }
 
     location = ${OPENTRONS_PATH} {
@@ -352,7 +363,7 @@ show_port_status
 
 echo ""
 echo "=========================================="
-echo "index-productions deployment completed!"
+echo "productions-index deployment completed!"
 echo "=========================================="
-echo "index-productions service: http://localhost:${INDEX_PORT}"
-echo "opentrons-productions proxy: http://localhost:${INDEX_PORT}${OPENTRONS_PATH}/"
+echo "productions-index service: http://localhost:${INDEX_PORT}"
+echo "productions-opentrons proxy: http://localhost:${INDEX_PORT}${OPENTRONS_PATH}/"

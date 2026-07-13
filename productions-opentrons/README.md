@@ -1,4 +1,4 @@
-# Opentrons Productions
+# Productions Opentrons
 
 生产数据中心应用，用于管理 Opentrons 生产测试数据、机器人连接、数据上传、数据分析、测试用例执行和生产状态追踪。
 
@@ -7,7 +7,7 @@
 ## 目录结构
 
 ```text
-opentrons-productions/
+productions-opentrons/
 ├── Makefile                 # 本项目常用命令入口
 ├── backend/                 # FastAPI 后端
 │   ├── app.py               # uvicorn 入口，加载 src/app.py
@@ -33,21 +33,21 @@ opentrons-productions/
 后端使用 `uv`，不再使用 `Pipfile` / `pipenv`。
 
 ```bash
-cd opentrons-productions
+cd productions-opentrons
 make install
 ```
 
 等价命令：
 
 ```bash
-cd opentrons-productions/backend
+cd productions-opentrons/backend
 uv sync
 ```
 
 前端使用 npm：
 
 ```bash
-cd opentrons-productions/web_ui
+cd productions-opentrons/web_ui
 npm ci
 ```
 
@@ -56,7 +56,7 @@ npm ci
 启动后端开发服务：
 
 ```bash
-cd opentrons-productions
+cd productions-opentrons
 make backend
 ```
 
@@ -75,14 +75,14 @@ make health
 启动前端开发服务：
 
 ```bash
-cd opentrons-productions/web_ui
+cd productions-opentrons/web_ui
 npm run dev
 ```
 
 构建前端：
 
 ```bash
-cd opentrons-productions
+cd productions-opentrons
 make web-ui-build
 ```
 
@@ -109,7 +109,7 @@ make update DEPLOY_HOST=192.168.0.137
 | `DEPLOY_HOST=IP` | 给 backend 和 web 上传脚本传入同一个目标主机 |
 | `PUSH_ARGS='...'` | 传给 `backend/push-scripts.py` 的额外参数 |
 | `WEB_PUSH_ARGS='...'` | 传给 `web_ui/push-scripts.py` 的额外参数 |
-| `WEB_UI_BASE_PATH=/` | 前端 Vite base path；通过根目录 index 反代部署时使用 `/opentrons-productions/` |
+| `WEB_UI_BASE_PATH=/` | 前端 Vite base path；通过根目录 index 反代部署时使用 `/productions-opentrons/` |
 
 ## 后端能力
 
@@ -127,7 +127,7 @@ make update DEPLOY_HOST=192.168.0.137
 本地开发默认使用：
 
 ```text
-opentrons-productions/backend/auth/
+productions-opentrons/backend/auth/
 ```
 
 常见文件：
@@ -173,14 +173,14 @@ backend/datas/testing_data/
 后端测试：
 
 ```bash
-cd opentrons-productions/backend
+cd productions-opentrons/backend
 uv run pytest
 ```
 
 前端构建校验：
 
 ```bash
-cd opentrons-productions/web_ui
+cd productions-opentrons/web_ui
 npm run build
 ```
 

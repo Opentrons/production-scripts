@@ -13,8 +13,8 @@ import paramiko
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-INDEX_DIR = ROOT_DIR / "index-productions"
-BACKEND_DIR = ROOT_DIR / "opentrons-productions" / "backend"
+INDEX_DIR = ROOT_DIR / "productions-index"
+BACKEND_DIR = ROOT_DIR / "productions-opentrons" / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
@@ -25,7 +25,7 @@ except Exception:
 
 
 DEFAULT_LOCAL_DIST = INDEX_DIR / "dist"
-DEFAULT_REMOTE_DIR = "/opt/data-handler/index-productions"
+DEFAULT_REMOTE_DIR = "/opt/data-handler/productions-index"
 DEFAULT_REMOTE_HOST = PUSH_REMOTE_HOST
 DEFAULT_USERNAME = "root"
 DEFAULT_PASSWORD = "root"
@@ -36,8 +36,9 @@ DEFAULT_CONNECT_RETRY_DELAY = 5
 DEFAULT_SITE_PORT = 80
 DEFAULT_OPENTRONS_PORT = 8091
 DEFAULT_OPENTRONS_API_PORT = 8090
-DEFAULT_OPENTRONS_PATH = "/opentrons-productions"
-DEFAULT_LEGACY_OPENTRONS_PATH = "/opetrons-productions"
+DEFAULT_OPENTRONS_PATH = "/productions-opentrons"
+DEFAULT_LEGACY_OPENTRONS_PATH = "/opentrons-productions"
+DEFAULT_LEGACY_TYPO_OPENTRONS_PATH = "/opetrons-productions"
 
 PROTECTED_REMOTE_PATHS = {
     "/",
@@ -61,11 +62,11 @@ PROTECTED_REMOTE_PATHS = {
 def validate_remote_dir(remote_dir: str) -> str:
     normalized = posixpath.normpath(remote_dir)
     if not normalized.startswith("/"):
-        raise ValueError(f"Remote index-productions path must be absolute: {remote_dir}")
+        raise ValueError(f"Remote productions-index path must be absolute: {remote_dir}")
     if normalized in PROTECTED_REMOTE_PATHS:
         raise ValueError(f"Refusing to deploy to protected remote path: {normalized}")
-    if posixpath.basename(normalized) != "index-productions":
-        raise ValueError(f"Refusing to deploy to remote path that is not named index-productions: {normalized}")
+    if posixpath.basename(normalized) != "productions-index":
+        raise ValueError(f"Refusing to deploy to remote path that is not named productions-index: {normalized}")
     return normalized
 
 
@@ -216,6 +217,7 @@ def build_remote_deploy_command(
     opentrons_api_port: int,
     opentrons_path: str,
     legacy_opentrons_path: str,
+    legacy_typo_opentrons_path: str,
 ) -> str:
     env = {
         "INDEX_PORT": str(site_port),
@@ -223,6 +225,7 @@ def build_remote_deploy_command(
         "OPENTRONS_API_PORT": str(opentrons_api_port),
         "OPENTRONS_PATH": opentrons_path,
         "LEGACY_OPENTRONS_PATH": legacy_opentrons_path,
+        "LEGACY_TYPO_OPENTRONS_PATH": legacy_typo_opentrons_path,
     }
     env_prefix = " ".join(f"{key}={shlex.quote(value)}" for key, value in env.items())
     remote_dir_arg = shlex.quote(remote_dir)
@@ -255,6 +258,7 @@ def deploy_index(
     opentrons_api_port: int,
     opentrons_path: str,
     legacy_opentrons_path: str,
+    legacy_typo_opentrons_path: str,
 ) -> bool:
     if not local_dist.is_dir():
         raise FileNotFoundError(f"Local dist directory not found: {local_dist}")
@@ -265,8 +269,9 @@ def deploy_index(
     remote_dist = posixpath.join(remote_dir, "dist")
     opentrons_path = normalize_location_path(opentrons_path)
     legacy_opentrons_path = normalize_location_path(legacy_opentrons_path)
+    legacy_typo_opentrons_path = normalize_location_path(legacy_typo_opentrons_path)
     started_at = time.time()
-    print(f"Uploading index-productions dist from {local_dist} to {host}:{remote_dist}")
+    print(f"Uploading productions-index dist from {local_dist} to {host}:{remote_dist}")
 
     client = connect_ssh(
         host,
@@ -286,9 +291,9 @@ def deploy_index(
                 print(f"Cleared remote dist files: {removed_files}, directories: {removed_dirs}")
 
             uploaded_files = upload_directory(sftp, local_dist, remote_dist)
-            deploy_script = ROOT_DIR / "deploy-index-productions.sh"
+            deploy_script = ROOT_DIR / "deploy-productions-index.sh"
             if not deploy_script.is_file():
-                raise FileNotFoundError(f"deploy-index-productions.sh not found: {deploy_script}")
+                raise FileNotFoundError(f"deploy-productions-index.sh not found: {deploy_script}")
             remote_deploy_script = posixpath.join(remote_dir, "deploy.sh")
             print("Uploading deploy.sh")
             sftp.put(str(deploy_script), remote_deploy_script)
@@ -307,43 +312,49 @@ def deploy_index(
                     opentrons_api_port=opentrons_api_port,
                     opentrons_path=opentrons_path,
                     legacy_opentrons_path=legacy_opentrons_path,
+                    legacy_typo_opentrons_path=legacy_typo_opentrons_path,
                 ),
                 timeout=600,
             ) == 0 and ok
 
         elapsed = time.time() - started_at
-        print(f"\nindex-productions deployment completed in {elapsed:.2f}s")
+        print(f"\nproductions-index deployment completed in {elapsed:.2f}s")
         return ok
     finally:
         client.close()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Upload index-productions dist and configure nginx on port 80.")
+    parser = argparse.ArgumentParser(description="Upload productions-index dist and configure nginx on port 80.")
     parser.add_argument("--host", default=DEFAULT_REMOTE_HOST, help="Remote server IP or hostname.")
     parser.add_argument("--username", "-u", default=DEFAULT_USERNAME, help="SSH username.")
     parser.add_argument("--password", "-p", default=None, help="SSH password. Prompted when omitted.")
     parser.add_argument("--key-file", default=DEFAULT_KEY_FILE, help="SSH private key path. Use '' to disable.")
     parser.add_argument("--local-dist", default=str(DEFAULT_LOCAL_DIST), help="Local dist directory.")
-    parser.add_argument("--remote-dir", default=DEFAULT_REMOTE_DIR, help="Remote index-productions directory.")
+    parser.add_argument("--remote-dir", default=DEFAULT_REMOTE_DIR, help="Remote productions-index directory.")
     parser.add_argument("--site-port", type=int, default=DEFAULT_SITE_PORT, help="Public nginx port for the index page.")
     parser.add_argument(
         "--opentrons-port",
         type=int,
         default=DEFAULT_OPENTRONS_PORT,
-        help="Local upstream port for opentrons-productions web_ui.",
+        help="Local upstream port for productions-opentrons web_ui.",
     )
     parser.add_argument(
         "--opentrons-api-port",
         type=int,
         default=DEFAULT_OPENTRONS_API_PORT,
-        help="Local upstream port for opentrons-productions backend API.",
+        help="Local upstream port for productions-opentrons backend API.",
     )
     parser.add_argument("--opentrons-path", default=DEFAULT_OPENTRONS_PATH, help="Canonical proxy path.")
     parser.add_argument(
         "--legacy-opentrons-path",
         default=DEFAULT_LEGACY_OPENTRONS_PATH,
-        help="Legacy or typo proxy path redirected to the canonical path.",
+        help="Previous canonical proxy path redirected to the new path.",
+    )
+    parser.add_argument(
+        "--legacy-typo-opentrons-path",
+        default=DEFAULT_LEGACY_TYPO_OPENTRONS_PATH,
+        help="Historical typo proxy path redirected to the new path.",
     )
     parser.add_argument("--timeout", type=int, default=DEFAULT_CONNECT_TIMEOUT, help="SSH connection timeout.")
     parser.add_argument("--connect-retries", type=int, default=DEFAULT_CONNECT_RETRIES, help="SSH connection retries.")
@@ -383,6 +394,7 @@ def main() -> int:
         opentrons_api_port=args.opentrons_api_port,
         opentrons_path=args.opentrons_path,
         legacy_opentrons_path=args.legacy_opentrons_path,
+        legacy_typo_opentrons_path=args.legacy_typo_opentrons_path,
     )
     print(f"Deployment result: {'success' if ok else 'failed'}")
     return 0 if ok else 1

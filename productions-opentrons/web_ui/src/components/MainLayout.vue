@@ -2,8 +2,8 @@
   <div class="app-container">
     <header class="app-header">
       <div class="header-left">
-        <img src="@/assets/logo.png" alt="Opentrons Productions" class="header-logo" />
-        <span class="header-brand-text">Opentrons Productions</span>
+        <img src="@/assets/logo.png" alt="Productions Opentrons" class="header-logo" />
+        <span class="header-brand-text">Productions Opentrons</span>
       </div>
       <div class="header-right">
         <div class="health-status">

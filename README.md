@@ -6,10 +6,10 @@ Opentrons SZ production scripts monorepo. This repository collects production te
 
 | Project | README | Purpose |
 | --- | --- | --- |
-| Productions Index | [index-productions/README.md](index-productions/README.md) | Static Vue launch page for production web tools. |
+| Productions Index | [productions-index/README.md](productions-index/README.md) | Static Vue launch page for production web tools. |
 | Test CLI | [test_cli/README.md](test_cli/README.md) | Cross-platform production test CLI, including leveling tests and executable packaging. |
-| Opentrons Productions | [opentrons-productions/README.md](opentrons-productions/README.md) | FastAPI + Vue production data center for upload, analysis, robot control, and production tracking. |
-| Upload Handler | [opentrons-productions/backend/src/upload_handler/README.md](opentrons-productions/backend/src/upload_handler/README.md) | Internal upload pipeline notes for Google Drive/Sheets and upload configuration. |
+| Productions Opentrons | [productions-opentrons/README.md](productions-opentrons/README.md) | FastAPI + Vue production data center for upload, analysis, robot control, and production tracking. |
+| Upload Handler | [productions-opentrons/backend/src/upload_handler/README.md](productions-opentrons/backend/src/upload_handler/README.md) | Internal upload pipeline notes for Google Drive/Sheets and upload configuration. |
 | Thermocycle Diagnostic | [modules_testing/thermocycle_diagnostic/README.md](modules_testing/thermocycle_diagnostic/README.md) | Thermocycler diagnostic script and report flow. |
 | High Voltage Test | [tools/high_voltage_test/README.md](tools/high_voltage_test/README.md) | Manual high-voltage tester control through the GPT serial driver. |
 | Pipette Function Formatting | [tools/pipette_function_formating/README.md](tools/pipette_function_formating/README.md) | Converts copied function table data into bracketed function text files. |
@@ -20,10 +20,10 @@ Opentrons SZ production scripts monorepo. This repository collects production te
 production-scripts/
 ├── devices/                 # Shared device drivers
 ├── drivers/                 # Shared serial/transport drivers
-├── index-productions/       # Static Vue launch page for production web tools
+├── productions-index/       # Static Vue launch page for production web tools
 ├── launchers/               # Test CLI launcher scripts
 ├── modules_testing/         # Module diagnostics and module-specific tools
-├── opentrons-productions/   # Production data-center app
+├── productions-opentrons/   # Production data-center app
 ├── shared_data/             # Shared specs, assets, and test data resources
 ├── test_cli/                # Main production test CLI package
 ├── tests/                   # Repository-level tests
@@ -33,8 +33,8 @@ production-scripts/
 ## Dependency Model
 
 - Root Python tooling uses `pyproject.toml` and `uv.lock`.
-- `opentrons-productions/backend` has its own `pyproject.toml` and `uv.lock`.
-- Frontend dependencies live in `opentrons-productions/web_ui/package.json` and `package-lock.json`.
+- `productions-opentrons/backend` has its own `pyproject.toml` and `uv.lock`.
+- Frontend dependencies live in `productions-opentrons/web_ui/package.json` and `package-lock.json`.
 - `Pipfile` / `pipenv` should not be used for new work.
 - Local environments, caches, build output, credentials, and generated reports are ignored by `.gitignore`.
 
@@ -51,31 +51,31 @@ Available targets:
   make test-cli-build          Build test-cli executable
   make build-exe               Alias of test-cli-build
   make update-compensation     Update leveling_config.json from Templete.xlsx
-  make opentrons-install       Install opentrons-productions backend dependencies
-  make opentrons-backend       Start opentrons-productions backend with reload
-  make opentrons-backend-prod  Start opentrons-productions backend without reload
-  make opentrons-health        Check opentrons-productions backend health
-  make opentrons-web-ui-build  Build opentrons-productions web UI
-  make opentrons-update        Update opentrons-productions remote code
-  make deploy-opentrons-productions Deploy opentrons-productions for indexed routing
-  make index-productions-init  Install productions index dependencies
-  make index-productions-dev   Start the productions index page
-  make index-productions-build Build the productions index page
-  make deploy-index-productions Deploy productions index and nginx proxy
-  make deploy-productions      Deploy opentrons-productions and productions index
+  make productions-opentrons-install       Install productions-opentrons backend dependencies
+  make productions-opentrons-backend       Start productions-opentrons backend with reload
+  make productions-opentrons-backend-prod  Start productions-opentrons backend without reload
+  make productions-opentrons-health        Check productions-opentrons backend health
+  make productions-opentrons-web-ui-build  Build productions-opentrons web UI
+  make productions-opentrons-update        Update productions-opentrons remote code
+  make deploy-productions-opentrons Deploy productions-opentrons for indexed routing
+  make productions-index-init  Install productions index dependencies
+  make productions-index-dev   Start the productions index page
+  make productions-index-build Build the productions index page
+  make deploy-productions-index Deploy productions index and nginx proxy
+  make deploy-productions      Deploy productions-opentrons and productions index
   make high-voltage            Run high-voltage manual test workflow
 
 Variables:
-  HOST=0.0.0.0 PORT=8090 INDEX_PORT=5173 INDEX_DEPLOY_PORT=80
+  HOST=0.0.0.0 PORT=8090 PRODUCTIONS_INDEX_PORT=5173 PRODUCTIONS_INDEX_DEPLOY_PORT=80
   COMPONENT=all|backend|web DEPLOY_HOST=IP
-  PUSH_ARGS='...' WEB_PUSH_ARGS='...' INDEX_PUSH_ARGS='...'
-  OPENTRONS_WEB_BASE_PATH=/opentrons-productions/
-  OPENTRONS_PROXY_PATH=/opentrons-productions OPENTRONS_WEB_PORT=8091
+  PUSH_ARGS='...' WEB_PUSH_ARGS='...' PRODUCTIONS_INDEX_PUSH_ARGS='...'
+  PRODUCTIONS_OPENTRONS_WEB_BASE_PATH=/productions-opentrons/
+  PRODUCTIONS_OPENTRONS_PROXY_PATH=/productions-opentrons PRODUCTIONS_OPENTRONS_WEB_PORT=8091
 
 Subproject help:
-  make -C index-productions help
+  make -C productions-index help
   make -C test_cli help
-  make -C opentrons-productions help
+  make -C productions-opentrons help
   make -C tools/high_voltage_test help
 ```
 
@@ -91,7 +91,7 @@ make update-compensation  Update leveling_config.json from test_cli/leveling_tes
 make clean           Remove build artifacts
 ```
 
-## Opentrons Productions Makefile Help
+## Productions Opentrons Makefile Help
 
 ```text
 Available targets:
@@ -155,33 +155,33 @@ Update leveling compensation from the fixed template:
 make update-compensation
 ```
 
-Run Opentrons Productions backend:
+Run Productions Opentrons backend:
 
 ```bash
-make opentrons-install
-make opentrons-backend
+make productions-opentrons-install
+make productions-opentrons-backend
 ```
 
-Build Opentrons Productions frontend:
+Build Productions Opentrons frontend:
 
 ```bash
-make opentrons-web-ui-build
+make productions-opentrons-web-ui-build
 ```
 
 Run the Productions index page:
 
 ```bash
-make index-productions-init
-make index-productions-dev
+make productions-index-init
+make productions-index-dev
 ```
 
-Deploy Productions index and Opentrons Productions:
+Deploy Productions Index and Productions Opentrons:
 
 ```bash
 make deploy-productions DEPLOY_HOST=192.168.0.137
 ```
 
-This deploys `opentrons-productions` with `WEB_UI_BASE_PATH=/opentrons-productions/`, deploys `index-productions` on port `80`, and configures nginx so `/opentrons-productions/` proxies to local port `8091`. The legacy typo path `/opetrons-productions/` redirects to `/opentrons-productions/`.
+This deploys `productions-opentrons` with `WEB_UI_BASE_PATH=/productions-opentrons/`, deploys `productions-index` on port `80`, and configures nginx so `/productions-opentrons/` proxies to local port `8091`. The previous `/opentrons-productions/` route and legacy typo `/opetrons-productions/` both redirect to `/productions-opentrons/`.
 
 ## Repository Rules
 
