@@ -71,6 +71,17 @@ class Reader:
             try:
                 with redirect_stdout(io.StringIO()):
                     laser.init_device(select_default=port.device)
+
+                # The CH96 fixture is a single left-side fixture and legacy
+                # firmware does not reliably implement the GetMount command.
+                # Keep the v8.6.0 behavior: accept the opened fixture without
+                # probing its mount.
+                if test_name == TestNameLeveling.CH96_Leveling:
+                    lasers[Mount.LEFT] = laser
+                    if announce:
+                        ui.fixture_found(Mount.LEFT.value)
+                    break
+
                 with redirect_stdout(io.StringIO()):
                     mount_str = laser.get_mount(quiet=True)
                 found_mount = None
