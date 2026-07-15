@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response
-import asyncio
 
 import settings as setting
 from api.models import (
@@ -683,12 +682,32 @@ async def pull_folder(
         )
 
 
+async def _load_cached_robots(port: int, network: str | None) -> dict:
+    try:
+        result = await run_in_threadpool(robot_service.load_robot_scan_cache, port, network)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    result["refreshing"] = robot_service.is_robot_scan_refreshing(port, network)
+    return result
+
+
+async def _trigger_robot_scan(port: int, network: str | None) -> dict:
+    try:
+        robot_service.trigger_robot_scan_refresh(port=port, network=network)
+        return await _load_cached_robots(port, network)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/robots/scan", response_model=RobotsScanResponse)
 async def scan_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None):
-    try:
-        return await run_in_threadpool(asyncio.run, robot_service.scan_robots(port=port, network=network))
-    except (RuntimeError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    """Compatibility endpoint: start an asynchronous refresh and return cached data."""
+    return await _trigger_robot_scan(port, network)
+
+
+@router.post("/robots/scan", response_model=RobotsScanResponse, status_code=202)
+async def refresh_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None):
+    return await _trigger_robot_scan(port, network)
 
 
 @router.get("/robots/scan-gateways", response_model=RobotScanGatewaysResponse)
@@ -726,10 +745,7 @@ async def delete_robot_scan_gateway(gateway: str):
 
 @router.get("/robots", response_model=RobotsScanResponse)
 async def get_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None):
-    try:
-        return await run_in_threadpool(asyncio.run, robot_service.scan_robots(port=port, network=network))
-    except (RuntimeError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return await _load_cached_robots(port, network)
 
 
 @router.get("/robot/{ip}", response_model=RobotInfo)

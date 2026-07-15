@@ -490,9 +490,13 @@ function syncRobotsFromStore() {
   }
 }
 
-function loadScanCache() {
+async function loadScanCache() {
   if (!robotScanStore.scanResult) {
-    robotScanStore.loadFromCache()
+    try {
+      await robotScanStore.loadCachedScan()
+    } catch {
+      robotScanStore.loadFromCache()
+    }
   }
   syncRobotsFromStore()
 }
@@ -818,8 +822,8 @@ watch(selectedIps, (ips) => {
   }
 })
 
-onMounted(() => {
-  loadScanCache()
+onMounted(async () => {
+  await loadScanCache()
   if (initialMode.value === 'batch') {
     activeTab.value = 'batch'
   }

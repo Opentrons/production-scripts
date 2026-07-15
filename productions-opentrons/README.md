@@ -153,7 +153,20 @@ robot_key
 | `DATA_HANDLER_MONGO_HOST` | MongoDB 主机 |
 | `DATA_HANDLER_MONGO_URI` | MongoDB URI |
 | `DATA_HANDLER_ROBOT_KEY_PATH` | robot SSH key 路径 |
+| `DATA_HANDLER_ROBOT_TEST_WORKING_DIRECTORY` | 测试管理 SSH 命令的远端工作目录，默认 `/opt/opentrons-robot-server` |
 | `DATA_HANDLER_SLACK_CONFIG_PATH` | Slack 配置路径 |
+| `DATA_HANDLER_ROBOT_SCAN_INTERVAL_SECONDS` | 后台设备扫描间隔，默认 `180` 秒 |
+| `DATA_HANDLER_ROBOT_SCAN_CONNECT_TIMEOUT_SECONDS` | 单个 IP 端口探测超时，默认 `0.5` 秒 |
+| `DATA_HANDLER_ROBOT_SCAN_HTTP_TIMEOUT_SECONDS` | Robot health 请求超时，默认 `2` 秒 |
+| `DATA_HANDLER_ROBOT_SCAN_MAX_DURATION_SECONDS` | 单次完整扫描最大时长，默认 `120` 秒 |
+
+### Robot 设备缓存
+
+- 后端启动后立即执行一次设备扫描，之后每 3 分钟自动刷新。
+- 扫描结果保存在 MongoDB 的 `ProductionsMessage.robot_scan_cache` collection。
+- `GET /api/robots` 只读取 MongoDB 缓存，不执行网络扫描。
+- `POST /api/robots/scan` 异步触发扫描并立即返回当前缓存；前端轮询缓存直到刷新完成，避免长 HTTP 请求超时。
+- 扫描失败时保留最近一次成功结果，并通过 `last_error` 返回本次失败原因。
 
 ## 数据目录规则
 

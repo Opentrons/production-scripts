@@ -13,7 +13,7 @@
         />
         <el-button type="primary" size="small" @click="handleScan" :loading="scanning">
           <el-icon><Search /></el-icon>
-          扫描设备
+          刷新设备
         </el-button>
       </div>
     </div>
@@ -79,11 +79,18 @@
         <span class="stat-label">异常:</span>
         <span class="stat-value">{{ abnormalDeviceCount }}</span>
       </span>
+      <span v-if="scanResult.cached_at" class="stat-item">
+        <span class="stat-label">缓存更新:</span>
+        <span class="stat-value cache-time">{{ formatCacheTime(scanResult.cached_at) }}</span>
+      </span>
+      <span v-if="scanResult.refreshing" class="stat-item">
+        <span class="stat-label">后台扫描中...</span>
+      </span>
     </div>
 
     <el-empty
       v-if="!scanResult && !scanning"
-      description="请点击扫描按钮搜索设备"
+      description="暂无设备缓存，请点击刷新"
     />
 
     <div v-else-if="scanResult?.online_robots.length" class="device-list">
@@ -163,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { robotApi, type RobotInfo, type RobotScanGateway } from '@/api'
@@ -189,6 +196,11 @@ const gatewaySaving = ref(false)
 function displayDeviceName(robot: RobotInfo): string {
   const name = robot.name?.trim()
   return name || '未命名设备'
+}
+
+function formatCacheTime(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
 function isServiceAbnormal(robot: RobotInfo): boolean {
@@ -235,10 +247,10 @@ const handleScan = async () => {
       }
     })
     if (result) {
-      ElMessage.success(`扫描完成，发现 ${result.online_robots.length} 台在线设备`)
+      ElMessage.success(`刷新完成，发现 ${result.online_robots.length} 台在线设备`)
     }
   } catch (error: any) {
-    ElMessage.error('扫描失败: ' + (error.message || '未知错误'))
+    ElMessage.error('刷新失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -294,8 +306,7 @@ const handleDeleteGateway = async (gateway: string) => {
   try {
     await robotApi.deleteScanGateway(gateway)
     await fetchScanGateways()
-    ElMessage.success('扫描网关已删除')
-    void robotScanStore.refreshScan({ silent: true, params: { port: scanPort.value } })
+    ElMessage.success('扫描网关已删除，下次后台扫描或手动刷新时生效')
   } catch (error: any) {
     ElMessage.error('删除扫描网关失败: ' + normalizeApiError(error))
   } finally {
@@ -341,25 +352,15 @@ const abnormalDeviceCount = computed(() => {
 })
 
 onMounted(async () => {
-  const hasCache = robotScanStore.loadFromCache()
   scanPort.value = robotScanStore.lastScanParams.port ?? 31950
-  await fetchScanGateways()
-  robotScanStore.startAutoRefresh()
-
-  if (hasCache) {
-    void robotScanStore.refreshScan({ silent: true })
-    return
-  }
-
   try {
-    await robotScanStore.refreshScan({ silent: false })
+    await Promise.all([
+      fetchScanGateways(),
+      robotScanStore.loadCachedScan({ port: scanPort.value })
+    ])
   } catch (error: any) {
-    ElMessage.error('扫描失败: ' + (error.message || '未知错误'))
+    ElMessage.error('读取设备缓存失败: ' + (error.message || '未知错误'))
   }
-})
-
-onUnmounted(() => {
-  robotScanStore.stopAutoRefresh()
 })
 </script>
 
@@ -472,6 +473,12 @@ onUnmounted(() => {
 
 .stat-item.abnormal .stat-value {
   color: #c24141;
+}
+
+.stat-value.cache-time {
+  color: var(--console-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .device-list {

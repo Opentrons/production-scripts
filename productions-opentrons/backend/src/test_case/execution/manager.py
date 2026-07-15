@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 import socket
 import threading
 import time
@@ -43,6 +44,17 @@ class TestExecutionStateError(RuntimeError):
 
 class TestExecutionSshError(RuntimeError):
     pass
+
+
+def build_remote_test_command(command: str, working_directory: str) -> str:
+    """Run a test command from the robot's hardware-testing project root."""
+    normalized_command = (command or "").strip()
+    if not normalized_command:
+        raise ValueError("测试命令不能为空")
+    normalized_directory = (working_directory or "").strip()
+    if not normalized_directory:
+        raise ValueError("测试工作目录不能为空")
+    return f"cd {shlex.quote(normalized_directory)} && exec {normalized_command}"
 
 
 @dataclass
@@ -223,7 +235,11 @@ class TestExecutionManager:
 
             channel = transport.open_session(timeout=self.SSH_CONNECT_TIMEOUT)
             channel.get_pty()
-            channel.exec_command(command)
+            remote_command = build_remote_test_command(
+                command,
+                setting.ROBOT_TEST_WORKING_DIRECTORY,
+            )
+            channel.exec_command(remote_command)
 
             session = SshRuntimeSession(
                 client=client,

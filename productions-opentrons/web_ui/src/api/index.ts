@@ -81,6 +81,11 @@ export interface RobotScanResponse {
   online_robots: RobotInfo[]
   offline_robots: RobotInfo[]
   abnormal_robots?: RobotInfo[]
+  cached_at?: string | null
+  scan_started_at?: string | null
+  scan_duration_ms?: number | null
+  refreshing?: boolean
+  last_error?: string | null
 }
 
 export interface RobotScanParams {
@@ -136,8 +141,8 @@ export const healthApi = {
 
 export const robotApi = {
   scanRobots: (params?: RobotScanParams) =>
-    api.get<RobotScanResponse>('/robots/scan', { params }),
-  getRobots: () => api.get<RobotScanResponse>('/robots'),
+    api.post<RobotScanResponse>('/robots/scan', undefined, { params }),
+  getRobots: (params?: RobotScanParams) => api.get<RobotScanResponse>('/robots', { params }),
   listScanGateways: () =>
     api.get<RobotScanGatewaysResponse>('/robots/scan-gateways'),
   addScanGateway: (gateway: string) =>

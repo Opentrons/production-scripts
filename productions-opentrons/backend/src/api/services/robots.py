@@ -8,6 +8,7 @@ import socket
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from time import monotonic
 
 import requests
 
@@ -24,6 +25,11 @@ ROBOT_HEADERS = {
 robot_executor = ThreadPoolExecutor(max_workers=32)
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 MAX_SCAN_HOSTS = 4096
+SCAN_CACHE_VERSION = 1
+
+_scan_scheduler_task: asyncio.Task | None = None
+_scan_tasks: dict[str, asyncio.Task] = {}
+_scan_execution_lock: asyncio.Lock | None = None
 
 
 def _utc_now() -> str:
@@ -31,7 +37,254 @@ def _utc_now() -> str:
 
 
 def shutdown_robot_service() -> None:
+    stop_robot_scan_scheduler()
     robot_executor.shutdown(wait=False, cancel_futures=True)
+
+
+def _get_scan_execution_lock() -> asyncio.Lock:
+    global _scan_execution_lock
+    if _scan_execution_lock is None:
+        _scan_execution_lock = asyncio.Lock()
+    return _scan_execution_lock
+
+
+def _normalize_scan_network(network: str | None) -> str:
+    return (network or "").strip()
+
+
+def build_robot_scan_cache_key(port: int, network: str | None = None) -> str:
+    normalized_network = _normalize_scan_network(network) or "configured"
+    return f"{int(port)}:{normalized_network}"
+
+
+def get_robot_scan_cache_collection():
+    if mongodb.client is None and not mongodb.connect():
+        raise RuntimeError("MongoDB connection is not available")
+    collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.ROBOT_SCAN_CACHE_COLLECTION]
+    collection.create_index("cache_key", unique=True)
+    collection.create_index("updated_at")
+    return collection
+
+
+def _empty_scan_result(port: int, network: str | None = None) -> dict:
+    return {
+        "total": 0,
+        "online_count": 0,
+        "offline_count": 0,
+        "abnormal_count": 0,
+        "scan_network": _normalize_scan_network(network),
+        "server_ip": str(getattr(setting, "DATA_HANDLER_HOST", "") or ""),
+        "gateway": "",
+        "scan_gateways": [],
+        "online_robots": [],
+        "offline_robots": [],
+        "abnormal_robots": [],
+        "cached_at": None,
+        "scan_started_at": None,
+        "scan_duration_ms": None,
+        "refreshing": False,
+        "last_error": None,
+        "port": int(port),
+    }
+
+
+def load_robot_scan_cache(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None) -> dict:
+    cache_key = build_robot_scan_cache_key(port, network)
+    collection = get_robot_scan_cache_collection()
+    doc = collection.find_one({"cache_key": cache_key}, {"_id": 0})
+    if not doc:
+        return _empty_scan_result(port, network)
+
+    result = dict(doc.get("result") or _empty_scan_result(port, network))
+    result["cached_at"] = doc.get("updated_at")
+    result["scan_started_at"] = doc.get("scan_started_at")
+    result["scan_duration_ms"] = doc.get("scan_duration_ms")
+    result["last_error"] = doc.get("last_error")
+    result["refreshing"] = False
+    return result
+
+
+def save_robot_scan_cache(
+    result: dict,
+    *,
+    port: int,
+    network: str | None,
+    scan_started_at: str,
+    scan_duration_ms: int,
+) -> dict:
+    cache_key = build_robot_scan_cache_key(port, network)
+    cached_at = _utc_now()
+    stored_result = dict(result)
+    stored_result.update(
+        {
+            "cached_at": cached_at,
+            "scan_started_at": scan_started_at,
+            "scan_duration_ms": scan_duration_ms,
+            "refreshing": False,
+            "last_error": None,
+        }
+    )
+    collection = get_robot_scan_cache_collection()
+    collection.update_one(
+        {"cache_key": cache_key},
+        {
+            "$set": {
+                "cache_key": cache_key,
+                "cache_version": SCAN_CACHE_VERSION,
+                "port": int(port),
+                "network": _normalize_scan_network(network),
+                "result": stored_result,
+                "scan_started_at": scan_started_at,
+                "scan_duration_ms": scan_duration_ms,
+                "updated_at": cached_at,
+                "last_error": None,
+            },
+            "$setOnInsert": {"created_at": cached_at},
+        },
+        upsert=True,
+    )
+    return stored_result
+
+
+def record_robot_scan_failure(
+    error: str,
+    *,
+    port: int,
+    network: str | None,
+    scan_started_at: str,
+    scan_duration_ms: int,
+) -> None:
+    cache_key = build_robot_scan_cache_key(port, network)
+    failed_at = _utc_now()
+    collection = get_robot_scan_cache_collection()
+    collection.update_one(
+        {"cache_key": cache_key},
+        {
+            "$set": {
+                "cache_key": cache_key,
+                "cache_version": SCAN_CACHE_VERSION,
+                "port": int(port),
+                "network": _normalize_scan_network(network),
+                "scan_started_at": scan_started_at,
+                "scan_duration_ms": scan_duration_ms,
+                "last_error": error,
+                "last_failed_at": failed_at,
+            },
+            "$setOnInsert": {
+                "created_at": failed_at,
+                "updated_at": None,
+                "result": _empty_scan_result(port, network),
+            },
+        },
+        upsert=True,
+    )
+
+
+def is_robot_scan_refreshing(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None) -> bool:
+    task = _scan_tasks.get(build_robot_scan_cache_key(port, network))
+    return task is not None and not task.done()
+
+
+async def refresh_robot_scan_cache(
+    port: int = setting.ROBOT_HEALTH_PORT,
+    network: str | None = None,
+) -> dict | None:
+    scan_started_at = _utc_now()
+    started = monotonic()
+    async with _get_scan_execution_lock():
+        try:
+            result = await scan_robots(port=port, network=network)
+            duration_ms = round((monotonic() - started) * 1000)
+            cached_result = await asyncio.to_thread(
+                save_robot_scan_cache,
+                result,
+                port=port,
+                network=network,
+                scan_started_at=scan_started_at,
+                scan_duration_ms=duration_ms,
+            )
+            logger.info(
+                "Robot scan cache refreshed: key=%s online=%s duration_ms=%s",
+                build_robot_scan_cache_key(port, network),
+                cached_result.get("online_count", 0),
+                duration_ms,
+            )
+            return cached_result
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            duration_ms = round((monotonic() - started) * 1000)
+            error = str(exc)
+            logger.error("Robot scan cache refresh failed: %s", error, exc_info=True)
+            try:
+                await asyncio.to_thread(
+                    record_robot_scan_failure,
+                    error,
+                    port=port,
+                    network=network,
+                    scan_started_at=scan_started_at,
+                    scan_duration_ms=duration_ms,
+                )
+            except Exception:
+                logger.error("Failed to persist robot scan error", exc_info=True)
+            return None
+
+
+def _handle_scan_task_done(cache_key: str, task: asyncio.Task) -> None:
+    if _scan_tasks.get(cache_key) is task:
+        _scan_tasks.pop(cache_key, None)
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        logger.error("Unhandled robot scan refresh task error", exc_info=True)
+
+
+def trigger_robot_scan_refresh(
+    port: int = setting.ROBOT_HEALTH_PORT,
+    network: str | None = None,
+) -> bool:
+    cache_key = build_robot_scan_cache_key(port, network)
+    existing_task = _scan_tasks.get(cache_key)
+    if existing_task is not None and not existing_task.done():
+        return False
+
+    task = asyncio.create_task(
+        refresh_robot_scan_cache(port=port, network=network),
+        name=f"robot-scan-{cache_key}",
+    )
+    _scan_tasks[cache_key] = task
+    task.add_done_callback(lambda completed, key=cache_key: _handle_scan_task_done(key, completed))
+    return True
+
+
+async def _robot_scan_scheduler() -> None:
+    interval = max(1, int(setting.ROBOT_SCAN_INTERVAL_SECONDS))
+    while True:
+        trigger_robot_scan_refresh(port=setting.ROBOT_HEALTH_PORT)
+        await asyncio.sleep(interval)
+
+
+def start_robot_scan_scheduler() -> None:
+    global _scan_scheduler_task
+    if _scan_scheduler_task is not None and not _scan_scheduler_task.done():
+        return
+    _scan_scheduler_task = asyncio.create_task(
+        _robot_scan_scheduler(),
+        name="robot-scan-scheduler",
+    )
+    logger.info("Robot scan scheduler started, interval=%ss", setting.ROBOT_SCAN_INTERVAL_SECONDS)
+
+
+def stop_robot_scan_scheduler() -> None:
+    global _scan_scheduler_task
+    if _scan_scheduler_task is not None:
+        _scan_scheduler_task.cancel()
+        _scan_scheduler_task = None
+    for task in list(_scan_tasks.values()):
+        task.cancel()
+    _scan_tasks.clear()
 
 
 def get_scan_gateway_collection():
@@ -311,7 +564,11 @@ def _merge_robot_health_fields(robot_info: dict, data: dict) -> None:
     )
 
 
-def _is_port_open(ip: str, port: int, timeout: float = 1.0) -> bool:
+def _is_port_open(
+    ip: str,
+    port: int,
+    timeout: float = setting.ROBOT_SCAN_CONNECT_TIMEOUT_SECONDS,
+) -> bool:
     try:
         with socket.create_connection((ip, port), timeout=timeout):
             return True
@@ -337,8 +594,16 @@ def check_robot_health_sync(ip: str, port: int = 31950) -> dict:
     }
     health_detail_error: str | None = None
 
+    if not _is_port_open(ip, port):
+        robot_info["error"] = "connection timeout"
+        return robot_info
+
     try:
-        response = requests.get(url, headers=ROBOT_HEADERS, timeout=3)
+        response = requests.get(
+            url,
+            headers=ROBOT_HEADERS,
+            timeout=setting.ROBOT_SCAN_HTTP_TIMEOUT_SECONDS,
+        )
         if response.status_code != 200:
             robot_info["online"] = True
             robot_info["service_status"] = "error"
@@ -358,7 +623,11 @@ def check_robot_health_sync(ip: str, port: int = 31950) -> dict:
 
         health_url = f"http://{ip}:{port}/robot/health"
         try:
-            health_response = requests.get(health_url, headers=ROBOT_HEADERS, timeout=3)
+            health_response = requests.get(
+                health_url,
+                headers=ROBOT_HEADERS,
+                timeout=setting.ROBOT_SCAN_HTTP_TIMEOUT_SECONDS,
+            )
             if health_response.status_code == 200:
                 _merge_robot_health_fields(robot_info, health_response.json())
             else:
@@ -373,8 +642,7 @@ def check_robot_health_sync(ip: str, port: int = 31950) -> dict:
     except Exception as exc:
         robot_info["error"] = str(exc)
         robot_info["service_status"] = "error"
-        if _is_port_open(ip, port):
-            robot_info["online"] = True
+        robot_info["online"] = True
 
     return robot_info
 
@@ -425,7 +693,7 @@ async def execute_robot_commands_batch(
     body: dict | None = None,
     timeout: int = 10,
 ) -> list[dict]:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     tasks = [
         loop.run_in_executor(
             robot_executor,
@@ -456,12 +724,22 @@ async def scan_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None
         f"from server {server_ip}, gateway {gateway_ip}"
     )
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     tasks = [
         loop.run_in_executor(robot_executor, check_robot_health_sync, ip, port)
         for ip in ip_list
     ]
-    results = await asyncio.gather(*tasks)
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(*tasks),
+            timeout=max(1, setting.ROBOT_SCAN_MAX_DURATION_SECONDS),
+        )
+    except asyncio.TimeoutError as exc:
+        for task in tasks:
+            task.cancel()
+        raise RuntimeError(
+            f"设备扫描超过 {setting.ROBOT_SCAN_MAX_DURATION_SECONDS} 秒，已终止本次刷新"
+        ) from exc
 
     online_robots = [robot for robot in results if robot["online"]]
     offline_robots = [robot for robot in results if not robot["online"]]

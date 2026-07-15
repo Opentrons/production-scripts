@@ -901,13 +901,10 @@ const refreshStandardRobots = async () => {
 
 const ensureStandardRobotsLoaded = async () => {
   if (!robotScanStore.scanResult) {
-    robotScanStore.loadFromCache()
-  }
-  if (!robotScanStore.scanResult) {
     try {
-      await refreshStandardRobots()
+      await robotScanStore.loadCachedScan()
     } catch {
-      // Device scanning is optional for SSH file browsing.
+      robotScanStore.loadFromCache()
     }
   }
   if (!standardRobotIp.value) {

@@ -3,7 +3,8 @@ import { ref } from 'vue'
 import { robotApi, type RobotScanParams, type RobotScanResponse } from '@/api'
 
 const SCAN_CACHE_KEY = 'data-handler:robot-scan'
-const AUTO_REFRESH_INTERVAL_MS = 2 * 60 * 1000
+const REFRESH_POLL_INTERVAL_MS = 1000
+const REFRESH_WAIT_TIMEOUT_MS = 150 * 1000
 
 interface CachedRobotScan {
   cached_at: string
@@ -17,8 +18,13 @@ export const useRobotScanStore = defineStore('robotScan', () => {
   const lastUpdateTime = ref<Date | null>(null)
   const lastScanParams = ref<RobotScanParams>({})
 
-  let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
   let refreshPromise: Promise<RobotScanResponse | null> | null = null
+
+  function applyScanResult(result: RobotScanResponse) {
+    scanResult.value = result
+    lastUpdateTime.value = result.cached_at ? new Date(result.cached_at) : null
+    persistToCache(result)
+  }
 
   function persistToCache(result: RobotScanResponse) {
     const payload: CachedRobotScan = {
@@ -39,21 +45,57 @@ export const useRobotScanStore = defineStore('robotScan', () => {
 
       const parsed = JSON.parse(raw) as CachedRobotScan | RobotScanResponse
       if ('result' in parsed && parsed.result) {
-        scanResult.value = parsed.result
-        lastUpdateTime.value = parsed.cached_at ? new Date(parsed.cached_at) : null
+        const result = parsed.result.cached_at
+          ? parsed.result
+          : { ...parsed.result, cached_at: parsed.cached_at }
+        applyScanResult(result)
         return true
       }
 
       if ('online_robots' in parsed) {
-        scanResult.value = parsed
-        lastUpdateTime.value = null
-        persistToCache(parsed)
+        applyScanResult(parsed)
         return true
       }
     } catch {
       // ignore cache parse errors
     }
     return false
+  }
+
+  async function loadCachedScan(params?: RobotScanParams): Promise<RobotScanResponse | null> {
+    if (params) {
+      lastScanParams.value = { ...params }
+    }
+    try {
+      const response = await robotApi.getRobots(lastScanParams.value)
+      applyScanResult(response.data)
+      return response.data
+    } catch (error) {
+      if (scanResult.value || loadFromCache()) {
+        return scanResult.value
+      }
+      throw error
+    }
+  }
+
+  function wait(milliseconds: number) {
+    return new Promise(resolve => window.setTimeout(resolve, milliseconds))
+  }
+
+  async function waitForRefresh(previousCachedAt?: string | null): Promise<RobotScanResponse | null> {
+    const deadline = Date.now() + REFRESH_WAIT_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      await wait(REFRESH_POLL_INTERVAL_MS)
+      const response = await robotApi.getRobots(lastScanParams.value)
+      applyScanResult(response.data)
+      if (!response.data.refreshing) {
+        if (response.data.last_error && response.data.cached_at === previousCachedAt) {
+          throw new Error(response.data.last_error)
+        }
+        return response.data
+      }
+    }
+    throw new Error('后台设备扫描仍在运行，请稍后再试')
   }
 
   async function refreshScan(options: { silent?: boolean; params?: RobotScanParams } = {}): Promise<RobotScanResponse | null> {
@@ -75,10 +117,12 @@ export const useRobotScanStore = defineStore('robotScan', () => {
       }
 
       try {
+        const previousCachedAt = scanResult.value?.cached_at ?? null
         const response = await robotApi.scanRobots(lastScanParams.value)
-        scanResult.value = response.data
-        lastUpdateTime.value = new Date()
-        persistToCache(response.data)
+        applyScanResult(response.data)
+        if (response.data.refreshing) {
+          return await waitForRefresh(previousCachedAt)
+        }
         return response.data
       } catch (error) {
         if (!silent) {
@@ -98,20 +142,6 @@ export const useRobotScanStore = defineStore('robotScan', () => {
     return refreshPromise
   }
 
-  function startAutoRefresh(intervalMs = AUTO_REFRESH_INTERVAL_MS) {
-    stopAutoRefresh()
-    autoRefreshTimer = setInterval(() => {
-      void refreshScan({ silent: true })
-    }, intervalMs)
-  }
-
-  function stopAutoRefresh() {
-    if (autoRefreshTimer) {
-      clearInterval(autoRefreshTimer)
-      autoRefreshTimer = null
-    }
-  }
-
   return {
     scanResult,
     scanning,
@@ -119,8 +149,7 @@ export const useRobotScanStore = defineStore('robotScan', () => {
     lastUpdateTime,
     lastScanParams,
     loadFromCache,
+    loadCachedScan,
     refreshScan,
-    startAutoRefresh,
-    stopAutoRefresh
   }
 })

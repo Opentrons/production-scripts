@@ -319,6 +319,11 @@ class RobotsScanResponse(BaseModel):
     online_robots: list[dict[str, Any]] = Field(default_factory=list)
     offline_robots: list[dict[str, Any]] = Field(default_factory=list)
     abnormal_robots: list[dict[str, Any]] = Field(default_factory=list)
+    cached_at: str | None = None
+    scan_started_at: str | None = None
+    scan_duration_ms: int | None = None
+    refreshing: bool = False
+    last_error: str | None = None
 
 
 class RobotScanGateway(BaseModel):

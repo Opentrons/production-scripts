@@ -1700,7 +1700,11 @@ function startNodeDrag(event: PointerEvent, node: TestCaseNode) {
 }
 
 onMounted(async () => {
-  robotScanStore.loadFromCache()
+  try {
+    await robotScanStore.loadCachedScan()
+  } catch {
+    robotScanStore.loadFromCache()
+  }
   syncRobotsFromStore()
   if (initialDeviceIp.value) {
     ensureDeviceInList(initialDeviceIp.value)

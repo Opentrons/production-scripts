@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
-from api.services.robots import shutdown_robot_service
+from api.services.robots import shutdown_robot_service, start_robot_scan_scheduler
 from api.services.upload import shutdown_upload_service
 from database.mongodb import mongodb
 from settings import get_logger
@@ -24,6 +24,7 @@ def should_refresh_proxy_on_startup() -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mongodb.connect()
+    start_robot_scan_scheduler()
     if runtime_config.USE_PROXY and should_refresh_proxy_on_startup():
         try:
             await asyncio.to_thread(refresh_best_proxy_config)
