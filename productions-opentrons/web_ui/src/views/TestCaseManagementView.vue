@@ -171,7 +171,7 @@
                   :loading="stoppingExecution"
                   @click="stopActiveExecution"
                 >
-                  停止
+                  结束运行
                 </el-button>
                 <el-button
                   v-else
@@ -527,6 +527,15 @@
         </div>
       </div>
       <template #footer>
+        <el-button
+          v-if="canStopExecution"
+          :icon="Close"
+          type="danger"
+          :loading="stoppingExecution"
+          @click="stopActiveExecution"
+        >
+          结束运行
+        </el-button>
         <el-button @click="clearExecutionLogs">清空</el-button>
         <el-button type="primary" @click="logDialogVisible = false">关闭</el-button>
       </template>
@@ -1297,13 +1306,16 @@ function applyBackendRunState(run: TestExecutionRun) {
   const nodeMap = new Map(caseDraft.nodes.map((node) => [node.id, node]))
   const currentNode = run.current_node_id ? nodeMap.get(run.current_node_id) : null
   const waitingNode = run.waiting_node_id ? nodeMap.get(run.waiting_node_id) : null
+  const previousWaitingNodeId = waitingInputNode.value?.id ?? null
 
   runningNodeId.value = isTerminalExecutionStatus(run.status) ? null : run.current_node_id ?? null
   selectedNodeId.value = run.current_node_id ?? selectedNodeId.value
   selectedEdgeId.value = null
   waitingInputNode.value = waitingNode ?? null
-  if (waitingNode) {
+  if (waitingNode && waitingNode.id !== previousWaitingNodeId) {
     runtimeInputValue.value = defaultRuntimeInputValue(waitingNode)
+  } else if (!waitingNode) {
+    runtimeInputValue.value = ''
   }
 
   const orderedNodes = resolveFlowPreviewNodes()

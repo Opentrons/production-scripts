@@ -190,8 +190,6 @@ class TestExecutionManager:
                 run.updated_at = utc_now()
             else:
                 self._mark_node_running(run, next_node.id)
-                if next_node.kind == "end":
-                    self._complete_run_locked(run_id, run, "passed", "流程执行完成")
             return run
 
     def complete_run(self, run_id: str, payload: TestExecutionCompleteRequest) -> TestExecutionRunResponse:
@@ -371,7 +369,9 @@ class TestExecutionManager:
                 continue
 
             if current.kind == "end":
-                self._complete_run_locked(run_id, run, "passed", "流程执行完成")
+                # End is a flow milestone, not the remote process exit.  Keep
+                # the SSH session alive until the command reports its exit
+                # status in _run_ssh_worker.
                 break
 
             if current.kind != "expect":
@@ -411,9 +411,6 @@ class TestExecutionManager:
                 break
             current = next_node
             self._mark_node_running(run, current.id)
-            if current.kind == "end":
-                self._complete_run_locked(run_id, run, "passed", "流程执行完成")
-                break
 
         return output_buffer[-12000:]
 
