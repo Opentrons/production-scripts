@@ -12,8 +12,8 @@
                     "left_front": 0.0
                 },
                 "definition": [
-                    "left_front",
-                    "left_rear"
+                    "left_rear",
+                    "left_front"
                 ]
             },
             "C3-Y": {
@@ -23,12 +23,12 @@
                     318
                 ],
                 "compensation": {
-                    "left_rear": -0.14,
-                    "left_front": 0.0
+                    "right_rear": -0.14,
+                    "right_front": 0.0
                 },
                 "definition": [
-                    "left_front",
-                    "left_rear"
+                    "right_rear",
+                    "right_front"
                 ]
             },
             "A2-Y": {
@@ -42,8 +42,8 @@
                     "left_front": 0.0
                 },
                 "definition": [
-                    "left_front",
-                    "left_rear"
+                    "left_rear",
+                    "left_front"
                 ]
             },
             "C1-X": {
@@ -266,7 +266,11 @@
                 "compensation": {
                     "left_rear": 0.094,
                     "left_front": 0.0
-                }
+                },
+                "definition": [
+                    "left_rear",
+                    "left_front"
+                ]
             },
             "Y-C1-Right": {
                 "Point": [
@@ -275,9 +279,13 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.143999999999998,
+                    "right_rear": 0.144,
                     "right_front": 0.0
-                }
+                },
+                "definition": [
+                    "right_rear",
+                    "right_front"
+                ]
             },
             "Y-C3-Right": {
                 "Point": [
@@ -288,7 +296,11 @@
                 "compensation": {
                     "right_rear": 0.16,
                     "right_front": 0.0
-                }
+                },
+                "definition": [
+                    "right_rear",
+                    "right_front"
+                ]
             },
             "Y-A2-Right": {
                 "Point": [
@@ -297,9 +309,13 @@
                     299.16
                 ],
                 "compensation": {
-                    "right_rear": 0.129999999999999,
+                    "right_rear": 0.13,
                     "right_front": 0.0
-                }
+                },
+                "definition": [
+                    "right_rear",
+                    "right_front"
+                ]
             },
             "UninstallPos": {
                 "Point": [
