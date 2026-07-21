@@ -55,6 +55,7 @@ export interface DuroConnectionStatus {
   token_valid: boolean
   token_expires_at: string | null
   base_url: string
+  remote_chrome_configured: boolean
 }
 
 export interface DuroBomNode {

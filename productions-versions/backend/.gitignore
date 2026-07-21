@@ -6,5 +6,7 @@ auth/credentials.json
 auth/token.json
 auth/sheettoken.json
 auth/duro_token.txt
+auth/cookies.txt
+auth/duro-chrome-profile/
 ghelper-test/skill_config.json
 ghelper-test/*.yml

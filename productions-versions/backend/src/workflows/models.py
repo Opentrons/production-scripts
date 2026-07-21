@@ -12,6 +12,12 @@ WorkflowStatus = Literal["draft", "active", "paused"]
 WorkflowRunStatus = Literal["queued", "running", "succeeded", "failed", "skipped"]
 WorkflowTriggerType = Literal["manual", "scheduled"]
 WorkflowStepKind = Literal["duro_bom_fetch", "bom_compare", "report", "custom"]
+WorkflowBomDifferenceStatus = Literal[
+    "missing_in_duro",
+    "extra_in_duro",
+    "quantity_mismatch",
+    "quantity_unknown",
+]
 
 
 def utc_now() -> datetime:
@@ -71,6 +77,34 @@ class WorkflowTriggerRequest(BaseModel):
     trigger_type: WorkflowTriggerType = "manual"
 
 
+class WorkflowBomDifference(BaseModel):
+    status: WorkflowBomDifferenceStatus
+    part_number: str
+    name: str = ""
+    sop_quantity: float | None = None
+    duro_quantity: float | None = None
+    quantity_delta: float | None = None
+    sop_locations: list[str] = Field(default_factory=list)
+    duro_paths: list[str] = Field(default_factory=list)
+
+
+class WorkflowBomReport(BaseModel):
+    generated_at: datetime = Field(default_factory=utc_now)
+    sop_source_count: int = 0
+    sop_material_count: int = 0
+    duro_material_count: int = 0
+    matched_count: int = 0
+    missing_in_duro_count: int = 0
+    extra_in_duro_count: int = 0
+    quantity_mismatch_count: int = 0
+    quantity_unknown_count: int = 0
+    differences: list[WorkflowBomDifference] = Field(default_factory=list)
+
+    @property
+    def difference_count(self) -> int:
+        return len(self.differences)
+
+
 class WorkflowRun(BaseModel):
     id: str = Field(default_factory=lambda: new_id("run"))
     workflow_id: str
@@ -79,6 +113,7 @@ class WorkflowRun(BaseModel):
     status: WorkflowRunStatus = "queued"
     message: str = ""
     logs: list[str] = Field(default_factory=list)
+    report: WorkflowBomReport | None = None
     created_at: datetime = Field(default_factory=utc_now)
     started_at: datetime | None = None
     finished_at: datetime | None = None

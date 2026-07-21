@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 
-from sop.models import SopBomMaterial, SopBomSection
+from sop.models import SopBomMaterial, SopBomSection, SopPartReference
 
 
 BOM_PAGE_MARKERS = (
@@ -11,7 +11,7 @@ BOM_PAGE_MARKERS = (
     "material list",
     "matrail list",
 )
-PART_NUMBER_PATTERN = re.compile(r"(?P<part_number>\d{3,4}-\d{5})")
+PART_NUMBER_PATTERN = re.compile(r"(?<!\d)(?P<part_number>\d{3,4}-\d{5})(?!\d)")
 QUANTITY_PATTERN = re.compile(r"^\s+(?P<quantity>\d+(?:\.\d+)?)\b(?P<note>.*)$")
 LEADING_SEQUENCE_PATTERN = re.compile(r"^\s*(?P<sequence>\d{1,3})\s+(?P<name>.+)$")
 TRAILING_SEQUENCE_PATTERN = re.compile(r"(?P<name>.*?[A-Za-z,)])(?P<sequence>\d{1,3})$")
@@ -30,6 +30,52 @@ def analyze_bom_pages(layout_pages: list[tuple[int, str]]) -> tuple[list[SopBomS
         if section.materials:
             sections.append(section)
     return sections, _aggregate_materials(sections)
+
+
+def analyze_part_references(
+    pages: list[tuple[int, str]],
+    bom_materials: list[SopBomMaterial],
+) -> list[SopPartReference]:
+    """Aggregate part-number references from non-BOM pages.
+
+    BOM material names take precedence over names inferred from surrounding
+    document text. Every pattern occurrence counts once, including repeated
+    occurrences on the same page or source line.
+    """
+
+    bom_names = {
+        material.part_number: material.name.strip()
+        for material in bom_materials
+        if material.name.strip()
+    }
+    references: OrderedDict[str, SopPartReference] = OrderedDict()
+    for page_number, text in pages:
+        for source_line in text.splitlines():
+            matches = list(PART_NUMBER_PATTERN.finditer(source_line))
+            if not matches:
+                continue
+            cleaned_line = source_line.strip()
+            for part_match in matches:
+                part_number = part_match.group("part_number")
+                inferred_name = _infer_reference_name(source_line, part_match)
+                reference = references.get(part_number)
+                if reference is None:
+                    reference = SopPartReference(
+                        part_number=part_number,
+                        name=bom_names.get(part_number, inferred_name),
+                    )
+                    references[part_number] = reference
+                elif part_number in bom_names:
+                    reference.name = bom_names[part_number]
+                elif not reference.name and inferred_name:
+                    reference.name = inferred_name
+
+                reference.occurrences += 1
+                reference.quantity = reference.occurrences
+                if page_number not in reference.pages:
+                    reference.pages.append(page_number)
+                reference.source_lines.append(cleaned_line)
+    return list(references.values())
 
 
 def _parse_bom_page(page_number: int, text: str) -> SopBomSection:
@@ -140,3 +186,21 @@ def _ends_with_product_number(value: str) -> bool:
 def _looks_like_document_header(value: str) -> bool:
     normalized = value.lower()
     return any(marker in normalized for marker in ("sop no", "page no", "otsz-sop"))
+
+
+def _infer_reference_name(source_line: str, part_match: re.Match[str]) -> str:
+    before = source_line[:part_match.start()].strip()
+    after = source_line[part_match.end():].strip()
+    candidates = [before, after]
+    for candidate in candidates:
+        cleaned = re.sub(
+            r"(?i)\b(?:part\s*(?:number|no\.?|#)|p/?n|item\s*(?:number|no\.?))\b",
+            " ",
+            candidate,
+        )
+        cleaned = re.sub(r"(?:物料)?料号|图号|零件号|编号", " ", cleaned)
+        cleaned = re.sub(r"^[\s:：,，;；|/\\\-–—]+|[\s:：,，;；|/\\\-–—]+$", "", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        if cleaned and not _looks_like_document_header(cleaned):
+            return cleaned[:200]
+    return ""

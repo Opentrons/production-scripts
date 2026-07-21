@@ -13,7 +13,7 @@
     </header>
 
     <el-alert
-      v-if="connectionStatus && (!connectionStatus.configured || !connectionStatus.token_valid)"
+      v-if="connectionStatus && (!connectionStatus.configured || (!connectionStatus.token_valid && !connectionStatus.remote_chrome_configured))"
       class="token-alert"
       type="warning"
       :closable="false"
@@ -22,7 +22,7 @@
       <template #title>{{ connectionStatus.configured ? 'Duro token 已过期' : 'Duro token 尚未配置' }}</template>
       <template #default>
         <span v-if="connectionStatus.token_expires_at">过期时间：{{ formatDate(connectionStatus.token_expires_at) }}。</span>
-        请在后端设置 <code>PRODUCTIONS_VERSIONS_DURO_TOKEN</code> 后重新加载。
+        请配置 Remote Chrome，或在后端设置 <code>PRODUCTIONS_VERSIONS_DURO_TOKEN</code> 后重新加载。
       </template>
     </el-alert>
 
@@ -355,7 +355,10 @@ async function loadProducts(refresh = false) {
   try {
     const statusResponse = await duroApi.status()
     connectionStatus.value = statusResponse.data
-    if (!statusResponse.data.configured || !statusResponse.data.token_valid) {
+    if (
+      !statusResponse.data.configured ||
+      (!statusResponse.data.token_valid && !statusResponse.data.remote_chrome_configured)
+    ) {
       productResponse.value = null
       return
     }

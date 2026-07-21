@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router as api_router
+from duro.runtime import duro_browser_token_provider
 from workflows.runtime import workflow_scheduler, workflow_service
 
 
@@ -15,6 +16,8 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         workflow_scheduler.stop()
+        if duro_browser_token_provider is not None:
+            duro_browser_token_provider.close()
 
 
 app = FastAPI(

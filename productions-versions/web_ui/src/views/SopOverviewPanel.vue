@@ -178,8 +178,8 @@
           show-icon
         />
 
-        <el-tabs v-else v-model="analysisTab" class="analysis-tabs">
-          <el-tab-pane label="BOM 料耗汇总" name="summary">
+        <el-tabs v-model="analysisTab" class="analysis-tabs">
+          <el-tab-pane label="BOM 物料汇总" name="summary">
             <div class="bom-toolbar">
               <el-input v-model="bomSearchText" :prefix-icon="Search" clearable placeholder="搜索料号或物料名称" />
               <span>同一料号跨分段出现时，数量为累计值</span>
@@ -200,6 +200,37 @@
                 <template #default="{ row }">{{ row.sections.join('、') }}</template>
               </el-table-column>
               <el-table-column label="页码" width="110">
+                <template #default="{ row }">{{ row.pages.join(', ') }}</template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+
+          <el-tab-pane label="全文料号引用" name="references">
+            <div class="bom-toolbar">
+              <el-input
+                v-model="referenceSearchText"
+                :prefix-icon="Search"
+                clearable
+                placeholder="搜索全文料号或物料名称"
+              />
+              <span>
+                已排除物料清单页 · {{ analysis.full_text_material_count }} 个料号，
+                共 {{ analysis.full_text_occurrence_count }} 次引用
+              </span>
+            </div>
+            <el-table
+              :data="filteredFullTextReferences"
+              height="520"
+              border
+              empty-text="除物料清单页外，没有识别到料号引用"
+            >
+              <el-table-column prop="part_number" label="料号" width="140" fixed />
+              <el-table-column label="物料名称" min-width="330" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.name || '未识别' }}</template>
+              </el-table-column>
+              <el-table-column prop="occurrences" label="出现次数" width="110" align="center" />
+              <el-table-column prop="quantity" label="当前物料数量" width="130" align="center" />
+              <el-table-column label="出现页码" min-width="160">
                 <template #default="{ row }">{{ row.pages.join(', ') }}</template>
               </el-table-column>
             </el-table>
@@ -277,6 +308,7 @@ const analysis = ref<SopPdfAnalysis | null>(null)
 const selectedEntry = ref<SopCatalogEntry | null>(null)
 const analysisTab = ref('summary')
 const bomSearchText = ref('')
+const referenceSearchText = ref('')
 
 const projectOptions = computed(() =>
   [...new Set((catalog.value?.entries ?? []).map((entry) => entry.project).filter(Boolean))].sort()
@@ -313,6 +345,14 @@ const filteredBomMaterials = computed(() => {
   )
 })
 
+const filteredFullTextReferences = computed(() => {
+  const keyword = referenceSearchText.value.trim().toLowerCase()
+  if (!keyword) return analysis.value?.full_text_references ?? []
+  return (analysis.value?.full_text_references ?? []).filter((reference) =>
+    reference.part_number.toLowerCase().includes(keyword) || reference.name.toLowerCase().includes(keyword)
+  )
+})
+
 async function loadCatalog(refresh = false) {
   loading.value = true
   try {
@@ -337,6 +377,7 @@ async function openAnalysis(entry: SopCatalogEntry) {
   analysisError.value = ''
   analysisTab.value = 'summary'
   bomSearchText.value = ''
+  referenceSearchText.value = ''
   analysisDrawerVisible.value = true
   analysisLoading.value = true
   try {

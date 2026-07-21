@@ -15,7 +15,7 @@
 - 下载 Google Drive 中的 SOP PDF，提取页数、元数据和逐页文本。
 - 识别 PDF 中的“物料清单 / Material List”，提取料号、物料名称和数量，并按料号汇总料耗。
 - 前端提供 SOP 子菜单、SOP 总览、筛选和 BOM 分析详情。
-- 后端通过短期 Bearer token 抓取 Duro 产品列表与产品 BOM，并保留产品版本、状态、图片和 BOM 关系字段。
+- 后端优先通过 `DURO_API_KEY` 抓取 Duro 产品列表与产品 BOM；临时 Bearer token 仍可覆盖，并保留产品版本、状态、图片和 BOM 关系字段。
 - 前端提供 `Duro → 产品总览`，支持产品搜索、状态/Revision 筛选、图片预览、产品详情和可折叠 BOM 树。
 
 Duro 产品与 BOM 查询连接器已经接入；工作流中的自动 BOM 差异核对步骤尚未接入，当前触发 Duro BOM 工作流仍会记录为“等待配置”，不会生成虚假的核对结果。
@@ -136,12 +136,36 @@ GET  /api/duro/products/{product_id}/bom?refresh=true
 GET  /api/duro/components/{component_id}/children
 ```
 
-Token 通过环境变量提供：
+服务器部署优先使用 `backend/.env` 中的 Duro API Key：
+
+```dotenv
+DURO_API_KEY=...
+```
+
+`.env` 已被 git 忽略，不会提交到仓库。后端默认请求 Duro 的 API Origin `https://mfgapi.duro.app`；如果部署环境必须走 `mfg.duro.app` 代理，可设置 `PRODUCTIONS_VERSIONS_DURO_BASE_URL`。若临时调试时显式设置了短期 token，`PRODUCTIONS_VERSIONS_DURO_TOKEN` 会覆盖 API Key：
 
 ```bash
 export PRODUCTIONS_VERSIONS_DURO_TOKEN='...'
 ```
 
-本地也可以写入被 git 忽略的 `backend/auth/duro_token.txt`。后端会解析 JWT 过期时间，过期或缺失时返回明确的 401，不会在 API 或日志中返回 token。产品列表、产品 BOM 和组件子项默认缓存五分钟。
+本地也可以写入被 git 忽略的 `backend/auth/duro_token.txt` 作为最后一级回退。后端会解析 JWT 过期时间，过期或缺失时返回明确的 401，不会在 API 或日志中返回 token。API Key 本身若被 Duro 撤销或过期，需要在 `.env` 中替换后重启后端；它不能由一个已过期的 token 自动推导出新的 key。产品列表、产品 BOM 和组件子项默认缓存五分钟。
+
+如果 Duro API Key 不被产品接口接受，也可以将从 `auth.duro.app` 导出的登录 Cookie 写入 `backend/auth/cookies.txt`。后端支持浏览器扩展 JSON、Netscape cookies.txt，以及 `refresh_token=...; other_cookie=...` 原始 Cookie 请求头格式；文件必须包含 HttpOnly 登录会话 Cookie，仅有 FullStory、Datadog 等统计 Cookie 无法刷新 token。产品请求认证失败时，后端会通过 Duro refresh endpoint 获取并缓存新的 access token，然后自动重试一次。若 Duro 同时轮换 refresh token，后端会将新 Cookie 原子写回文件并设置为 `0600` 权限。`cookies.txt` 已被 git 忽略，也可以通过 `PRODUCTIONS_VERSIONS_DURO_COOKIES_PATH` 修改路径。
+
+对于绑定浏览器会话的 refresh token，推荐使用 Playwright Remote Chrome。启动专用 Chrome：
+
+```bash
+cd productions-versions
+make remote-chrome
+```
+
+在打开的 Chrome 窗口中登录 Duro，然后保持该 Chrome 运行。后端通过 `http://127.0.0.1:9222` 的 CDP 接口连接浏览器，在 Duro 页面上下文中获取并缓存 access token，不再手工复制 Cookie。远程或容器化 Chrome 可通过以下环境变量指定：
+
+```dotenv
+PRODUCTIONS_VERSIONS_DURO_REMOTE_CHROME_URL=http://remote-chrome:9222
+PRODUCTIONS_VERSIONS_DURO_REMOTE_CHROME_APP_URL=https://mfg.duro.app/dashboard
+```
+
+CDP 端口拥有完整浏览器控制能力，只应监听 localhost 或受保护的内网。
 
 产品 BOM 根节点通过 Duro 产品详情接口读取第一层子项；前端展开有下级的组件时，再读取该组件的下一层子项，避免大型 BOM 一次性递归造成请求超时。下一阶段由 `duro_bom_fetch` 步骤复用这些接口拉取 BOM，`bom_compare` 步骤生成差异，`report` 步骤保存并展示报告。

@@ -97,3 +97,4 @@ class DuroConnectionStatus(BaseModel):
     token_valid: bool
     token_expires_at: datetime | None = None
     base_url: str
+    remote_chrome_configured: bool = False

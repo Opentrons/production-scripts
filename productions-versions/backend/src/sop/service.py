@@ -15,7 +15,7 @@ from settings import (
     SOP_PDF_MAX_BYTES,
     SOP_PDF_MAX_TEXT_CHARS,
 )
-from sop.bom_analyzer import analyze_bom_pages, is_bom_page
+from sop.bom_analyzer import analyze_bom_pages, analyze_part_references, is_bom_page
 from sop.models import (
     SopCatalogEntry,
     SopMasterSheetResponse,
@@ -77,6 +77,7 @@ class SopService:
 
         pages: list[SopPdfPage] = []
         bom_layout_pages: list[tuple[int, str]] = []
+        reference_text_pages: list[tuple[int, str]] = []
         total_text_length = 0
         truncated = False
         for page_number, page in enumerate(reader.pages, start=1):
@@ -91,6 +92,8 @@ class SopService:
                     )
                 except Exception:
                     bom_layout_pages.append((page_number, page_text))
+            else:
+                reference_text_pages.append((page_number, page_text))
 
             remaining = SOP_PDF_MAX_TEXT_CHARS - total_text_length
             if remaining <= 0:
@@ -109,6 +112,7 @@ class SopService:
             )
 
         bom_sections, bom_materials = analyze_bom_pages(bom_layout_pages)
+        full_text_references = analyze_part_references(reference_text_pages, bom_materials)
         pdf_metadata = {
             str(key).lstrip("/"): str(value)
             for key, value in (reader.metadata or {}).items()
@@ -130,6 +134,9 @@ class SopService:
             bom_occurrence_count=sum(len(section.materials) for section in bom_sections),
             bom_sections=bom_sections,
             bom_materials=bom_materials,
+            full_text_material_count=len(full_text_references),
+            full_text_occurrence_count=sum(item.occurrences for item in full_text_references),
+            full_text_references=full_text_references,
             analyzed_at=utc_now(),
         )
         with self._cache_lock:

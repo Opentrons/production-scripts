@@ -23,6 +23,7 @@ DEFAULT_CONNECT_TIMEOUT_SECONDS = int(os.getenv("GHELPER_CONNECT_TIMEOUT_SECONDS
 DEFAULT_NODE_TIMEOUT_SECONDS = int(os.getenv("GHELPER_NODE_TIMEOUT_SECONDS", "12"))
 DEFAULT_SUBSCRIPTION_TIMEOUT_SECONDS = int(os.getenv("GHELPER_SUBSCRIPTION_TIMEOUT_SECONDS", "30"))
 DEFAULT_MAX_THREADS = int(os.getenv("GHELPER_MONITOR_THREADS", "25"))
+DEFAULT_SUBSCRIPTION_USER_AGENT = os.getenv("GHELPER_SUBSCRIPTION_USER_AGENT", "clash")
 
 
 @dataclass(frozen=True)
@@ -123,7 +124,11 @@ def update_subscription_config(
     username = str(subscription.get("username", "")).strip()
     password = str(subscription.get("password", "")).strip()
     auth = (username, password) if username and password else None
-    headers = {"User-Agent": "data-handler-ghelper-monitor/1.0"}
+    # Ghelper selects the subscription format from the User-Agent. Generic
+    # clients receive a base64 URI list, while Clash clients receive the YAML
+    # document consumed by this node tester.
+    user_agent = str(subscription.get("user_agent", DEFAULT_SUBSCRIPTION_USER_AGENT)).strip()
+    headers = {"User-Agent": user_agent or DEFAULT_SUBSCRIPTION_USER_AGENT}
 
     last_error: Exception | None = None
     for label, proxies in subscription_request_attempts(config):

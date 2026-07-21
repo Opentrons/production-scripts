@@ -1,4 +1,4 @@
-from sop.bom_analyzer import analyze_bom_pages, is_bom_page
+from sop.bom_analyzer import analyze_bom_pages, analyze_part_references, is_bom_page
 
 
 SAMPLE_LAYOUT_PAGE = """
@@ -38,3 +38,30 @@ Station                  Final Assembly material list            Version
     assert material.occurrences == 2
     assert material.pages == [5, 10]
     assert material.sections == ["底板组装物料清单", "最终组装物料清单"]
+
+
+def test_aggregates_part_references_and_uses_bom_material_name() -> None:
+    _, bom_materials = analyze_bom_pages([(5, SAMPLE_LAYOUT_PAGE)])
+    pages = [
+        (1, "安装 415-00390，并确认 415-00390 已锁紧。"),
+        (3, "替换件 438-00210 安装完成。\n备用零件 Part No: 999-12345 TEST BRACKET"),
+    ]
+
+    references = analyze_part_references(pages, bom_materials)
+
+    brace = next(item for item in references if item.part_number == "415-00390")
+    assert brace.name == "DECK BRACE, VERTICAL, OT3"
+    assert brace.occurrences == 2
+    assert brace.quantity == 2
+    assert brace.pages == [1]
+
+    unknown = next(item for item in references if item.part_number == "999-12345")
+    assert unknown.name == "备用零件"
+    assert unknown.occurrences == 1
+    assert unknown.pages == [3]
+
+
+def test_part_number_pattern_does_not_match_inside_longer_numbers() -> None:
+    references = analyze_part_references([(1, "无效 1415-003900；有效 415-00390")], [])
+
+    assert [item.part_number for item in references] == ["415-00390"]

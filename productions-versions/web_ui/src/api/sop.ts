@@ -47,6 +47,15 @@ export interface SopBomSection {
   materials: SopBomMaterial[]
 }
 
+export interface SopPartReference {
+  part_number: string
+  name: string
+  occurrences: number
+  quantity: number
+  pages: number[]
+  source_lines: string[]
+}
+
 export interface SopPdfPage {
   page_number: number
   text: string
@@ -69,6 +78,9 @@ export interface SopPdfAnalysis {
   bom_occurrence_count: number
   bom_sections: SopBomSection[]
   bom_materials: SopBomMaterial[]
+  full_text_material_count: number
+  full_text_occurrence_count: number
+  full_text_references: SopPartReference[]
   cached: boolean
   analyzed_at: string
 }

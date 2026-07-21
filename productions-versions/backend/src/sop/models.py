@@ -61,6 +61,15 @@ class SopBomSection(BaseModel):
     materials: list[SopBomMaterial] = Field(default_factory=list)
 
 
+class SopPartReference(BaseModel):
+    part_number: str
+    name: str = ""
+    occurrences: int = 0
+    quantity: int = 0
+    pages: list[int] = Field(default_factory=list)
+    source_lines: list[str] = Field(default_factory=list)
+
+
 class SopPdfAnalysisResponse(BaseModel):
     file_id: str
     filename: str
@@ -77,5 +86,8 @@ class SopPdfAnalysisResponse(BaseModel):
     bom_occurrence_count: int = 0
     bom_sections: list[SopBomSection] = Field(default_factory=list)
     bom_materials: list[SopBomMaterial] = Field(default_factory=list)
+    full_text_material_count: int = 0
+    full_text_occurrence_count: int = 0
+    full_text_references: list[SopPartReference] = Field(default_factory=list)
     cached: bool = False
     analyzed_at: datetime = Field(default_factory=utc_now)
