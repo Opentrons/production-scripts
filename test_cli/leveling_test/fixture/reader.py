@@ -66,39 +66,17 @@ class Reader:
         if announce:
             ui.fixture_search([mount.value for mount in expected_mounts])
         lasers = {}
-        for port in port_list:
+        # The fixture wiring has a stable default order.  Bind discovered
+        # ports to the mounts required by the selected test instead of
+        # probing each sensor with the legacy GetMount command.
+        for mount, port in zip(expected_mounts, port_list):
             laser = LaserSensor()
             try:
                 with redirect_stdout(io.StringIO()):
                     laser.init_device(select_default=port.device)
-
-                # The CH96 fixture is a single left-side fixture and legacy
-                # firmware does not reliably implement the GetMount command.
-                # Keep the v8.6.0 behavior: accept the opened fixture without
-                # probing its mount.
-                if test_name == TestNameLeveling.CH96_Leveling:
-                    lasers[Mount.LEFT] = laser
-                    if announce:
-                        ui.fixture_found(Mount.LEFT.value)
-                    break
-
-                with redirect_stdout(io.StringIO()):
-                    mount_str = laser.get_mount(quiet=True)
-                found_mount = None
-                if mount_str == Mount.LEFT.value:
-                    found_mount = Mount.LEFT
-                elif mount_str == Mount.RIGHT.value:
-                    found_mount = Mount.RIGHT
-
-                if found_mount in expected_mounts and found_mount not in lasers:
-                    lasers[found_mount] = laser
-                    if announce:
-                        ui.fixture_found(found_mount.value)
-                else:
-                    cls._close_unused_laser(laser)
-
-                if all(mount in lasers for mount in expected_mounts):
-                    break
+                lasers[mount] = laser
+                if announce:
+                    ui.fixture_found(mount.value)
             except ValueError:
                 cls._close_unused_laser(laser)
                 continue

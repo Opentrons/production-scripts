@@ -45,9 +45,9 @@ class CH96_Leveling(LevelingBase):
                 # A2/C1 use positive -> right and negative -> left; C3 has the
                 # opposite local orientation.
                 if self.slot_config.slot_name == SlotName.C3:
-                    await self.move_right(abs(step)) if step < 0 else await self.move_left(abs(step))
-                else:
                     await self.move_right(abs(step)) if step > 0 else await self.move_left(abs(step))
+                else:
+                    await self.move_right(abs(step)) if step < 0 else await self.move_left(abs(step))
             elif self.__direction == Direction.X:
                 await self.move_forward(abs(step)) if step > 0 else await self.move_back(abs(step))
             elif self.__direction == Direction.Z:
