@@ -1,4 +1,9 @@
-from sop.bom_analyzer import analyze_bom_pages, analyze_part_references, is_bom_page
+from sop.bom_analyzer import (
+    analyze_bom_pages,
+    analyze_part_references,
+    extract_material_lines,
+    is_bom_page,
+)
 
 
 SAMPLE_LAYOUT_PAGE = """
@@ -65,3 +70,16 @@ def test_part_number_pattern_does_not_match_inside_longer_numbers() -> None:
     references = analyze_part_references([(1, "无效 1415-003900；有效 415-00390")], [])
 
     assert [item.part_number for item in references] == ["415-00390"]
+
+
+def test_extract_material_lines_omits_other_pages_and_lines() -> None:
+    pages = [
+        (1, "准备工具\n安装 415-00390，并锁紧。\n检查外观"),
+        (2, "本页没有任何物料"),
+        (3, "使用 438-00210 完成装配。\n无效编号 1415-003900"),
+    ]
+
+    assert extract_material_lines(pages) == [
+        (1, "安装 415-00390，并锁紧。"),
+        (3, "使用 438-00210 完成装配。"),
+    ]

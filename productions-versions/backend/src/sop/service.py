@@ -15,7 +15,12 @@ from settings import (
     SOP_PDF_MAX_BYTES,
     SOP_PDF_MAX_TEXT_CHARS,
 )
-from sop.bom_analyzer import analyze_bom_pages, analyze_part_references, is_bom_page
+from sop.bom_analyzer import (
+    analyze_bom_pages,
+    analyze_part_references,
+    extract_material_lines,
+    is_bom_page,
+)
 from sop.models import (
     SopCatalogEntry,
     SopMasterSheetResponse,
@@ -75,7 +80,7 @@ class SopService:
         except Exception as exc:
             raise SopAnalysisError(f"PDF 无法解析: {exc}") from exc
 
-        pages: list[SopPdfPage] = []
+        extracted_text_pages: list[tuple[int, str]] = []
         bom_layout_pages: list[tuple[int, str]] = []
         reference_text_pages: list[tuple[int, str]] = []
         total_text_length = 0
@@ -95,6 +100,8 @@ class SopService:
             else:
                 reference_text_pages.append((page_number, page_text))
 
+            extracted_text_pages.append((page_number, page_text))
+
             remaining = SOP_PDF_MAX_TEXT_CHARS - total_text_length
             if remaining <= 0:
                 truncated = True
@@ -103,16 +110,13 @@ class SopService:
                 page_text = page_text[:remaining]
                 truncated = True
             total_text_length += len(page_text)
-            pages.append(
-                SopPdfPage(
-                    page_number=page_number,
-                    text=page_text,
-                    text_length=len(page_text),
-                )
-            )
 
         bom_sections, bom_materials = analyze_bom_pages(bom_layout_pages)
         full_text_references = analyze_part_references(reference_text_pages, bom_materials)
+        pages = [
+            SopPdfPage(page_number=page_number, text=text, text_length=len(text))
+            for page_number, text in extract_material_lines(extracted_text_pages)
+        ]
         pdf_metadata = {
             str(key).lstrip("/"): str(value)
             for key, value in (reader.metadata or {}).items()

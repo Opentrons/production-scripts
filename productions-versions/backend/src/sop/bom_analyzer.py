@@ -78,6 +78,21 @@ def analyze_part_references(
     return list(references.values())
 
 
+def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """Return only pages and source lines that contain a material part number."""
+
+    material_pages: list[tuple[int, str]] = []
+    for page_number, text in pages:
+        matching_lines = [
+            source_line.strip()
+            for source_line in text.splitlines()
+            if PART_NUMBER_PATTERN.search(source_line)
+        ]
+        if matching_lines:
+            material_pages.append((page_number, "\n".join(matching_lines)))
+    return material_pages
+
+
 def _parse_bom_page(page_number: int, text: str) -> SopBomSection:
     section_name = _section_name(text, page_number)
     materials: list[SopBomMaterial] = []

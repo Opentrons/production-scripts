@@ -161,10 +161,6 @@
             <strong>{{ analysis.bom_occurrence_count }}</strong>
           </article>
           <article>
-            <span>BOM 分段</span>
-            <strong>{{ analysis.bom_sections.length }}</strong>
-          </article>
-          <article>
             <span>提取文本</span>
             <strong>{{ analysis.text_length.toLocaleString() }}</strong>
           </article>
@@ -182,7 +178,7 @@
           <el-tab-pane label="BOM 物料汇总" name="summary">
             <div class="bom-toolbar">
               <el-input v-model="bomSearchText" :prefix-icon="Search" clearable placeholder="搜索料号或物料名称" />
-              <span>同一料号跨分段出现时，数量为累计值</span>
+              <span>同一料号多次出现时，数量为累计值</span>
             </div>
             <el-table :data="filteredBomMaterials" height="520" border>
               <el-table-column prop="part_number" label="料号" width="130" fixed />
@@ -196,9 +192,6 @@
                 </template>
               </el-table-column>
               <el-table-column prop="occurrences" label="出现次数" width="90" align="center" />
-              <el-table-column label="BOM 分段" min-width="220" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.sections.join('、') }}</template>
-              </el-table-column>
               <el-table-column label="页码" width="110">
                 <template #default="{ row }">{{ row.pages.join(', ') }}</template>
               </el-table-column>
@@ -236,42 +229,19 @@
             </el-table>
           </el-tab-pane>
 
-          <el-tab-pane label="按 BOM 分段" name="sections">
-            <el-collapse class="bom-section-collapse">
-              <el-collapse-item
-                v-for="section in analysis.bom_sections"
-                :key="`${section.page_number}-${section.name}`"
-                :name="section.page_number"
-              >
-                <template #title>
-                  <div class="section-collapse-title">
-                    <strong>{{ section.name }}</strong>
-                    <span>第 {{ section.page_number }} 页 · {{ section.materials.length }} 项</span>
-                  </div>
-                </template>
-                <el-table :data="section.materials" max-height="420" size="small">
-                  <el-table-column prop="part_number" label="料号" width="130" />
-                  <el-table-column prop="name" label="物料名称" min-width="360" />
-                  <el-table-column label="数量" width="100" align="right">
-                    <template #default="{ row }">{{ formatQuantity(row.quantity) }}</template>
-                  </el-table-column>
-                </el-table>
-              </el-collapse-item>
-            </el-collapse>
-          </el-tab-pane>
-
           <el-tab-pane label="PDF 原文" name="text">
             <el-collapse class="pdf-page-collapse">
               <el-collapse-item v-for="page in analysis.pages" :key="page.page_number" :name="page.page_number">
                 <template #title>
                   <div class="section-collapse-title">
                     <strong>第 {{ page.page_number }} 页</strong>
-                    <span>{{ page.text_length.toLocaleString() }} 字符</span>
+                    <span>仅显示包含物料的原文行</span>
                   </div>
                 </template>
-                <pre>{{ page.text || '该页没有可提取文本' }}</pre>
+                <pre>{{ page.text }}</pre>
               </el-collapse-item>
             </el-collapse>
+            <el-empty v-if="analysis.pages.length === 0" description="PDF 中没有识别到包含物料的原文行" />
           </el-tab-pane>
         </el-tabs>
       </div>
