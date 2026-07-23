@@ -9,6 +9,7 @@ from upload_handler.models import TestTypes
 FinishMode = Literal["all_present", "all_match"]
 FieldSource = Literal["metadata", "config"]
 FinishEvaluator = Callable[[list[list[Any]]], bool]
+ResultValidator = Callable[[list[list[Any]], dict[str, Any]], str | None]
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class CsvParserDefinition:
     config_range: CsvSectionDefinition | None = None
     default_finished: bool = True
     metadata_operator_alias: str | None = "operator-name"
+    result_validator: ResultValidator | None = None
 
     @property
     def sn_fields(self) -> tuple[CsvFieldDefinition, ...]:
@@ -176,6 +178,40 @@ def evaluate_gantry_stress_finished(rows: list[list[Any]]) -> bool:
     return not any(_row_has_fail_count_one(row) for row in rows[GANTRY_STRESS_REQUIRED_DATA_ROWS:])
 
 
+def validate_leveling_robot_serial_numbers(rows: list[list[Any]], result: dict[str, Any]) -> str | None:
+    expected_sn = str(result.get("sn") or "").strip()
+    if not expected_sn:
+        return "Leveling report is missing robot serial number"
+
+    metadata = result.get("metadata") or {}
+    metadata_serials = {
+        str(metadata.get(key) or "").strip()
+        for key in ("robot", "session-id")
+        if str(metadata.get(key) or "").strip()
+    }
+    data_serials: set[str] = set()
+    for row_index, row in enumerate(rows[:-1]):
+        normalized_cells = [str(value).strip().upper() for value in row]
+        if "ROBOT_SN" not in normalized_cells:
+            continue
+        serial_column = normalized_cells.index("ROBOT_SN")
+        next_row = rows[row_index + 1]
+        if serial_column < len(next_row):
+            serial_number = str(next_row[serial_column]).strip()
+            if serial_number:
+                data_serials.add(serial_number)
+
+    mismatched = sorted((metadata_serials | data_serials) - {expected_sn})
+    if mismatched:
+        return (
+            f"Leveling robot SN mismatch: expected {expected_sn}, "
+            f"found {', '.join(mismatched)}"
+        )
+    if not data_serials:
+        return "Leveling report does not contain any ROBOT_SN data rows"
+    return None
+
+
 GENERAl_QC_DEFINITION = {
     "metadata_range": CsvSectionDefinition("META_DATA_START", "META_DATA_END"),
     "finish_range": CsvFinishDefinition(
@@ -206,6 +242,20 @@ OT3_XY_CALIBRATION_DEFINITION = {
     "sn": CsvFieldDefinition("test_tag", extra_words=("-qc", "-recorder", "-results")),
     "kind": CsvFieldDefinition(("operator-name", "test_operator")),
     "test_name": CsvFieldDefinition("test_name"),
+}
+
+TEST_CLI_LEVELING_DEFINITION = {
+    "metadata_range": CsvSectionDefinition("METADATA", "-------------------"),
+    "finish_range": CsvFinishDefinition(
+        "RESULTS",
+        "--------",
+        mode="all_match",
+        expected_word="PASS",
+    ),
+    "sn": CsvFieldDefinition("robot"),
+    "kind": CsvFieldDefinition("operator-name"),
+    "test_name": CsvFieldDefinition("test-name"),
+    "result_validator": validate_leveling_robot_serial_numbers,
 }
 
 PARSER_DEFINITIONS: dict[str, CsvParserDefinition] = {
@@ -282,7 +332,7 @@ PARSER_DEFINITIONS: dict[str, CsvParserDefinition] = {
     "robot_update_leveling": CsvParserDefinition(
         upload_config_key="robot_update_leveling",
         test_type=TestTypes.Leveling_Test,
-        **GENERAl_QC_DEFINITION,
+        **TEST_CLI_LEVELING_DEFINITION,
     ),
 }
 

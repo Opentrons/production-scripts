@@ -1,11 +1,13 @@
 {
   "disabled_folders": [
-    "FLEX",
     "GRIPPER",
     "P1KS",
     "P50M",
     "P50S",
     "P200-CH96",
     "P1000-CH96"
-  ]
+  ],
+  "expected_parse_failures": {
+    "Flex/FLXU3020260601004-leveling-report-2026-07-22.csv": "Leveling robot SN mismatch"
+  }
 }

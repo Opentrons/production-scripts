@@ -132,10 +132,30 @@ def test_datas_case_csv_parse(
     failures: list[str] = []
     for csv_file in csv_files:
         relative_csv_file = csv_file.relative_to(data_case_dir).as_posix()
+        configured_file_key = f"{data_case_dir.name}/{relative_csv_file}"
         datas_csv_progress(f"parse start: {data_case_dir.name}/{relative_csv_file}")
         parse_result = extract_csv(str(csv_file))
         file_report = _file_report(csv_file, data_case_dir, parse_result)
         parse_failures = _validate_parse_result(csv_file, parse_result)
+        expected_failure = str(
+            datas_csv_config.get("expected_parse_failures", {}).get(configured_file_key, "")
+        )
+        if expected_failure:
+            actual_error = "; ".join(parse_failures)
+            if expected_failure not in actual_error:
+                failures.append(
+                    f"{csv_file.name}: expected parse failure containing "
+                    f"{expected_failure!r}, got {actual_error!r}"
+                )
+                file_report["status"] = "failed"
+            else:
+                file_report["status"] = "expected_failure"
+            file_report["error"] = actual_error
+            case_report["files"].append(file_report)
+            datas_csv_progress(
+                f"expected parse failure: {configured_file_key} - {actual_error}"
+            )
+            continue
         if parse_failures and upload_client is None:
             file_report["status"] = "failed"
             file_report["error"] = "; ".join(parse_failures)

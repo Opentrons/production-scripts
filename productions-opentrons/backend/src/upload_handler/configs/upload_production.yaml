@@ -578,7 +578,7 @@ robot_update_z_stage:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
   ifcopytemplate:
-    default: 13A3YbGCU8Px6QKGffDs1e1eeOQ4THOk8PK_AxWWCjas
+    default: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
   csv_target_sheet_name: Z-Stage
   result_cell: '!B18:B18'
   total_result_cell: '!A18:A18'
@@ -635,7 +635,7 @@ robot_update_diagnostic:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
   ifcopytemplate:
-    default: 13A3YbGCU8Px6QKGffDs1e1eeOQ4THOk8PK_AxWWCjas
+    default: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
   csv_target_sheet_name: DiagnosticWithCosmeticPanel
   result_cell: '!C18:C18'
   total_result_cell: '!A18:A18'
@@ -692,7 +692,7 @@ robot_update_xy_belt_calibration:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
   ifcopytemplate:
-    default: 13A3YbGCU8Px6QKGffDs1e1eeOQ4THOk8PK_AxWWCjas
+    default: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
   csv_target_sheet_name: XY-Calibration
   result_cell: '!D18:D18'
   total_result_cell: '!A18:A18'
@@ -747,7 +747,7 @@ robot_update_gantry_stress:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
   ifcopytemplate:
-    default: 13A3YbGCU8Px6QKGffDs1e1eeOQ4THOk8PK_AxWWCjas
+    default: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
   csv_target_sheet_name: Gantry-Stress
   result_cell: '!E18:E18'
   total_result_cell: '!A18:A18'
@@ -763,6 +763,9 @@ robot_update_gantry_stress:
   - I
   - J
   - K
+  - L
+  - M
+  - N
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
@@ -808,22 +811,12 @@ robot_update_leveling:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
   ifcopytemplate:
-    default: 13A3YbGCU8Px6QKGffDs1e1eeOQ4THOk8PK_AxWWCjas
+    default: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
   csv_target_sheet_name: Leveling
   result_cell: '!F18:F18'
   total_result_cell: '!A18:A18'
   Range:
-  - A
-  - B
-  - C
-  - D
-  - E
-  - F
-  - G
-  - H
-  - I
-  - J
-  - K
+  - A-AP
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
@@ -869,7 +862,7 @@ gripper_update_diagnostic:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
   ifcopytemplate:
-    default: 13A3YbGCU8Px6QKGffDs1e1eeOQ4THOk8PK_AxWWCjas
+    default: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
   csv_target_sheet_name: Leveling
   result_cell: '!F18:F18'
   total_result_cell: '!A18:A18'

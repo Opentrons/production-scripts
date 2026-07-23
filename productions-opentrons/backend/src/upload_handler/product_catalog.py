@@ -295,7 +295,7 @@ UPLOAD_DATABASE_CONFIGS = {
     ),
 }
 
-SERIAL_NUMBER_METADATA_KEYS = ("test_tag", "pipette", "test_device_id", "serial-number")
+SERIAL_NUMBER_METADATA_KEYS = ("test_tag", "pipette", "test_device_id", "serial-number", "robot")
 SERIAL_NUMBER_EXTRA_WORDS = ("-qc", "-recorder", "-results")
 
 

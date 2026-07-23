@@ -329,6 +329,11 @@ def parse_csv_by_definition(
         if not result.get("kind_stage_type") or result.get("kind_stage_type") == "NA":
             result["kind_stage_type"] = "Production"
 
+        if definition.result_validator:
+            validation_error = definition.result_validator(rows, result)
+            if validation_error:
+                result["error"] = validation_error
+
         return result
     except FileNotFoundError:
         result["error"] = f"文件未找到: {file_path}"

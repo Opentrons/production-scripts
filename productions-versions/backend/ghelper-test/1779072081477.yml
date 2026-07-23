@@ -14,194 +14,194 @@ mixed-port: 9981
 mode: rule
 proxies:
 - name: 美国西雅图
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 0f273178-tiqn40-tso5oi-1t3g7.se.oshuawei.com
+  server: 4ec037f3-timxs0-twbmqu-1swze.se.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国西雅图2
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 6adf45ce-tiqn40-tso5oi-1t3g7.sv.plebai.net
+  server: be0ce7da-timxs0-twbmqu-1swze.sv.plebai.net
   tls: true
   type: socks5
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国洛杉矶[CM]
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 5228
-  server: 489a710a-tiqn40-tso5oi-1t3g7.us.oshuawei.com
+  server: 4a2c6f46-timxs0-twbmqu-1swze.us.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国硅谷
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 6a439d57-tiqn40-tso5oi-1t3g7.sj.oshuawei.com
+  server: 71005caf-timxs0-twbmqu-1swze.sj.oshuawei.com
   tls: true
   type: socks5
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国硅谷2
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: bf0ab010-tiqn40-tso5oi-1t3g7.sj.hyhuawei.com
+  server: a26ff9de-timxs0-twbmqu-1swze.sj.hyhuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国硅谷3
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 63e67db1-tiqn40-tso5oi-1t3g7.u12.oshuawei.com
+  server: 12b1fee5-timxs0-twbmqu-1swze.u12.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国圣何塞
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 9829b425-tiqn40-tso5oi-1t3g7.sjc.oshuawei.com
+  server: dde73c23-timxs0-twbmqu-1swze.sjc.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国洛杉矶
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 30d0e2d3-tiqn40-tso5oi-1t3g7.los.gotochinatown.net
+  server: 8df54d94-timxs0-twbmqu-1swze.los.gotochinatown.net
   tls: true
   type: socks5
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国洛杉矶2
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 30d0e2d3-tiqn40-tso5oi-1t3g7.los.gotochinatown.net
+  server: 8df54d94-timxs0-twbmqu-1swze.los.gotochinatown.net
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 美国ISP
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 8443
-  server: 50994386-tiqn40-tso5oi-1t3g7.isp.cdnkuaishou.com
+  server: 45838956-timxs0-twbmqu-1swze.isp.cdnkuaishou.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇭🇰香港中转[CM]
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 5228
-  server: a2efd95b-tiqn40-tso5oi-1t3g7.cm4.oshuawei.com
+  server: aee93b35-timxs0-twbmqu-1swze.cm4.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇭🇰香港精品4
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 2292589b-tiqn40-tso5oi-1t3g7.hkt2.cdnhuawei.com
+  server: ec112f30-timxs0-twbmqu-1swze.hkt2.cdnhuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇭🇰香港精品3
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 8443
-  server: e8557fff-tiqn40-tso5oi-1t3g7.hkt.cdnhuawei.com
+  server: 4add6e23-timxs0-twbmqu-1swze.hkt.cdnhuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇭🇰香港精品2
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 2292589b-tiqn40-tso5oi-1t3g7.hkt2.cdnhuawei.com
+  server: ec112f30-timxs0-twbmqu-1swze.hkt2.cdnhuawei.com
   tls: true
   type: socks5
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇬🇧 英国
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 7728428f-tiqn40-tso5oi-1t3g7.uk.oshuawei.com
+  server: 665cb68f-timxs0-twbmqu-1swze.uk.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇫🇷 法国
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 2abee202-tiqn40-tso5oi-1t3g7.fr.oshuawei.com
+  server: 103d45ae-timxs0-twbmqu-1swze.fr.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇩🇪 德国
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 1ac8f85f-tiqn40-tso5oi-1t3g7.de3.oshuawei.com
+  server: 754121e9-timxs0-twbmqu-1swze.de3.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇲🇾 马来西亚
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 5228
-  server: a3b04fcf-tiqn40-tso5oi-1t3g7.my.oshuawei.com
+  server: 915fc21e-timxs0-twbmqu-1swze.my.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇹🇭 泰国[CM]
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 32232
-  server: 66381801-tiqn40-tso5oi-1t3g7.id.oshuawei.com
+  server: ab6ba709-timxs0-twbmqu-1swze.id.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇰🇷韩國
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 31433
-  server: 64e1c73e-tiqn40-tso5oi-1t3g7.kr.oshuawei.com
+  server: b3dc28bb-timxs0-twbmqu-1swze.kr.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇨🇳 台湾
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 5078a3dc-tiqn40-tso5oi-1t3g7.tw3.p5pv.com
+  server: bd879820-timxs0-twbmqu-1swze.tw3.p5pv.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇯🇵 日本
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 494bf0be-tiqn40-tso5oi-1t3g7.jp.oshuawei.com
+  server: 9d714d58-timxs0-twbmqu-1swze.jp.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇮🇩 印尼
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 5228
-  server: 66381801-tiqn40-tso5oi-1t3g7.id.oshuawei.com
+  server: ab6ba709-timxs0-twbmqu-1swze.id.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇯🇵 日本4
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 894da86d-tiqn40-tso5oi-1t3g7.jp4.oshuawei.com
+  server: 7677a860-timxs0-twbmqu-1swze.jp4.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇸🇬 新加坡[CM]
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 5228
-  server: 729e523e-tiqn40-tso5oi-1t3g7.sg2.oshuawei.com
+  server: a4f4ac83-timxs0-twbmqu-1swze.sg2.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇸🇬 新加坡
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: 38199ff3-tiqn40-tso5oi-1t3g7.sg.oshuawei.com
+  server: 083f4f26-timxs0-twbmqu-1swze.sg.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - name: 🇸🇬 新加坡3
-  password: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  password: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
   port: 443
-  server: fc6a248b-tiqn40-tso5oi-1t3g7.sg3.oshuawei.com
+  server: 70f878e2-timxs0-twbmqu-1swze.sg3.oshuawei.com
   tls: true
   type: http
-  username: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  username: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 - alterId: 0
   cipher: auto
   name: 线路少请更换软件看公告
@@ -210,7 +210,7 @@ proxies:
   server: hostloc.com
   tls: true
   type: vmess
-  uuid: 54322e50-525b-11f1-9960-f23c91cfbbc9
+  uuid: bee5ae96-0baa-11f0-90e2-f23c913c8d2b
 proxy-groups:
 - name: Ghelper
   proxies:

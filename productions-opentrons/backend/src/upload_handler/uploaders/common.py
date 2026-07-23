@@ -1,8 +1,6 @@
 from datetime import datetime
 
 from settings import get_logger
-from upload_handler.utils.constants import ROWSINDEX
-
 logger = get_logger(__name__)
 
 
@@ -118,14 +116,59 @@ class UploadCommonMixin:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def prepare_csv_batch_updates(csv_data: list, datalen: int) -> tuple[list, list]:
+    def _column_to_number(column: str) -> int:
+        value = 0
+        for char in column.strip().upper():
+            if not "A" <= char <= "Z":
+                raise ValueError(f"Invalid spreadsheet column: {column}")
+            value = value * 26 + ord(char) - ord("A") + 1
+        return value
+
+    @staticmethod
+    def _number_to_column(number: int) -> str:
+        if number < 1:
+            raise ValueError(f"Invalid spreadsheet column number: {number}")
+        column = ""
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            column = chr(ord("A") + remainder) + column
+        return column
+
+    @classmethod
+    def normalize_csv_columns(cls, configured_range: list[str]) -> list[str]:
+        """Expand compact column entries such as ``A-AP`` into column names."""
+        columns: list[str] = []
+        for entry in configured_range:
+            value = str(entry).strip().upper()
+            if "-" not in value:
+                cls._column_to_number(value)
+                columns.append(value)
+                continue
+
+            start, end = (part.strip() for part in value.split("-", 1))
+            start_number = cls._column_to_number(start)
+            end_number = cls._column_to_number(end)
+            if start_number > end_number:
+                raise ValueError(f"Invalid spreadsheet column range: {entry}")
+            columns.extend(
+                cls._number_to_column(number)
+                for number in range(start_number, end_number + 1)
+            )
+        return columns
+
+    @classmethod
+    def prepare_csv_batch_updates(cls, csv_data: list, configured_range: list[str]) -> tuple[list, list]:
         """Normalize row widths and split CSV rows into 1000-row batches with A1 ranges."""
+        columns = cls.normalize_csv_columns(configured_range)
+        datalen = len(columns)
+        if datalen == 0:
+            raise ValueError("CSV upload range must include at least one column")
         alldatalist = []
         allrangelist = []
         starrange = 1
         setdatalen = len(csv_data)
         setdata = []
-        range_col = ROWSINDEX[datalen - 1]
+        range_col = columns[-1]
 
         for i, row in enumerate(csv_data):
             cells = row[0]
@@ -133,6 +176,12 @@ class UploadCommonMixin:
             if cell_count < datalen:
                 cells.extend([""] * (datalen - cell_count))
             elif cell_count > datalen:
+                extra_values = cells[datalen:]
+                if any(str(value).strip() for value in extra_values):
+                    raise ValueError(
+                        f"CSV row {i + 1} contains data beyond configured range "
+                        f"{columns[0]}-{columns[-1]}: {cell_count} columns"
+                    )
                 cells = cells[:datalen]
                 row[0] = cells
 
@@ -158,9 +207,8 @@ class UploadCommonMixin:
         ranglist: list,
     ) -> bool:
         """Read a CSV file and write its contents to a spreadsheet in batches."""
-        datalen = len(ranglist)
         csv_data = self.csv_driver.read_csv_rows(path=filepath)
-        alldatalist, allrangelist = self.prepare_csv_batch_updates(csv_data, datalen)
+        alldatalist, allrangelist = self.prepare_csv_batch_updates(csv_data, ranglist)
         return self.gdrive.update_excel_sheet_page_batch(
             spreadsheet_id=spreadsheet_id,
             sheet_name=sheet_name,
