@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import threading
+import time
 
 from pypdf import PdfWriter
 
@@ -100,3 +102,36 @@ def test_pdf_analysis_reads_drive_pdf() -> None:
     assert response.filename == "SOP.pdf"
     assert response.page_count == 1
     assert response.metadata["Title"] == "SOP Example"
+
+
+def test_concurrent_master_sheet_requests_share_one_google_read() -> None:
+    driver = FakeGoogleDriver()
+    original_read = driver.read_sheet_by_gid
+
+    def delayed_read(spreadsheet_id: str, sheet_gid: int) -> GoogleSheetData:
+        time.sleep(0.05)
+        return original_read(spreadsheet_id, sheet_gid)
+
+    driver.read_sheet_by_gid = delayed_read  # type: ignore[method-assign]
+    service = SopService(driver, spreadsheet_id="sheet-id", sheet_gid=1, cache_seconds=300)  # type: ignore[arg-type]
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(service.get_master_sheet())) for _ in range(4)]
+
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(results) == 4
+    assert driver.sheet_read_count == 1
+
+
+def test_refresh_returns_cached_sheet_while_background_update_runs() -> None:
+    driver = FakeGoogleDriver()
+    service = SopService(driver, spreadsheet_id="sheet-id", sheet_gid=1, cache_seconds=300)  # type: ignore[arg-type]
+    service.get_master_sheet()
+
+    refreshed = service.get_master_sheet(refresh=True)
+
+    assert refreshed.cached is True
+    assert refreshed.total_rows == 2

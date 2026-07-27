@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -40,6 +41,7 @@ class SopPdfPage(BaseModel):
     page_number: int
     text: str
     text_length: int
+    category: Literal["instruction", "material_list", "tool_list"] = "instruction"
 
 
 class SopBomMaterial(BaseModel):
@@ -89,5 +91,9 @@ class SopPdfAnalysisResponse(BaseModel):
     full_text_material_count: int = 0
     full_text_occurrence_count: int = 0
     full_text_references: list[SopPartReference] = Field(default_factory=list)
+    ai_enabled: bool = False
+    ai_used: bool = False
+    ai_fallback: bool = False
+    ai_error: str | None = None
     cached: bool = False
     analyzed_at: datetime = Field(default_factory=utc_now)

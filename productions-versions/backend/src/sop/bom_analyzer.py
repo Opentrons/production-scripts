@@ -2,16 +2,50 @@ from __future__ import annotations
 
 import re
 from collections import OrderedDict
+from typing import Literal
 
 from sop.models import SopBomMaterial, SopBomSection, SopPartReference
 
 
-BOM_PAGE_MARKERS = (
+SopPageCategory = Literal["instruction", "material_list", "tool_list"]
+
+MATERIAL_LIST_MARKERS = (
     "物料清单",
+    "材料清单",
+    "零件清单",
+    "辅料清单",
     "material list",
     "matrail list",
+    "parts list",
+    "bill of materials",
+)
+TOOL_LIST_MARKERS = (
+    "工具清单",
+    "工具列表",
+    "所需工具",
+    "工装清单",
+    "治具清单",
+    "tool list",
+    "tools list",
+    "required tools",
+    "fixture list",
+)
+INSTRUCTION_MARKERS = (
+    "操作步骤",
+    "组装步骤",
+    "安装步骤",
+    "操作说明",
+    "作业步骤",
+    "assembly procedure",
+    "work instruction",
+    "installation procedure",
+)
+ACTION_PATTERN = re.compile(
+    r"(?:组装|安装|固定|锁紧|检查|确认|放入|取出|assemble|install|fasten|tighten|check|place|remove)",
+    re.IGNORECASE,
 )
 PART_NUMBER_PATTERN = re.compile(r"(?<!\d)(?P<part_number>\d{3,4}-\d{5})(?!\d)")
+PREFIX_QUANTITY_PATTERN = re.compile(r"(?P<quantity>\d+)\s*[xX×*]\s*$")
 QUANTITY_PATTERN = re.compile(r"^\s+(?P<quantity>\d+(?:\.\d+)?)\b(?P<note>.*)$")
 LEADING_SEQUENCE_PATTERN = re.compile(r"^\s*(?P<sequence>\d{1,3})\s+(?P<name>.+)$")
 TRAILING_SEQUENCE_PATTERN = re.compile(r"(?P<name>.*?[A-Za-z,)])(?P<sequence>\d{1,3})$")
@@ -19,8 +53,47 @@ UNIT_PATTERN = re.compile(r"^\s*(?P<unit>PCS?|EA|SET|ML|L|G|KG)\b", re.IGNORECAS
 
 
 def is_bom_page(text: str) -> bool:
-    normalized = text.lower()
-    return any(marker in normalized for marker in BOM_PAGE_MARKERS)
+    return _contains_marker(text, MATERIAL_LIST_MARKERS)
+
+
+def classify_sop_page(text: str, previous_category: SopPageCategory = "instruction") -> SopPageCategory:
+    if _contains_marker(text, MATERIAL_LIST_MARKERS):
+        return "material_list"
+    if _contains_marker(text, TOOL_LIST_MARKERS):
+        return "tool_list"
+    if _contains_marker(text, INSTRUCTION_MARKERS) or _action_line_count(text) >= 2:
+        return "instruction"
+    if previous_category == "material_list" and _looks_like_continued_table(text, require_part_numbers=True):
+        return "material_list"
+    if previous_category == "tool_list" and _looks_like_continued_table(text, require_part_numbers=False):
+        return "tool_list"
+    return "instruction"
+
+
+def _contains_marker(text: str, markers: tuple[str, ...]) -> bool:
+    normalized = re.sub(r"\s+", " ", text.casefold())
+    return any(marker in normalized for marker in markers)
+
+
+def _action_line_count(text: str) -> int:
+    return sum(bool(ACTION_PATTERN.search(line)) for line in text.splitlines() if line.strip())
+
+
+def _looks_like_continued_table(text: str, require_part_numbers: bool) -> bool:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) < 3:
+        return False
+    header_text = " ".join(lines[:8]).casefold()
+    has_table_header = (
+        ("序号" in header_text or "no." in header_text or "item" in header_text)
+        and ("名称" in header_text or "name" in header_text or "description" in header_text)
+        and ("数量" in header_text or "qty" in header_text or "quantity" in header_text)
+    )
+    part_number_lines = sum(bool(PART_NUMBER_PATTERN.search(line)) for line in lines)
+    if require_part_numbers:
+        return has_table_header or part_number_lines >= 3 and part_number_lines / len(lines) >= 0.5
+    short_rows = sum(len(line) <= 100 for line in lines)
+    return has_table_header or short_rows >= 4 and short_rows / len(lines) >= 0.7
 
 
 def analyze_bom_pages(layout_pages: list[tuple[int, str]]) -> tuple[list[SopBomSection], list[SopBomMaterial]]:
@@ -49,6 +122,7 @@ def analyze_part_references(
         if material.name.strip()
     }
     references: OrderedDict[str, SopPartReference] = OrderedDict()
+    page_quantities: dict[str, dict[int, tuple[int, bool]]] = {}
     for page_number, text in pages:
         for source_line in text.splitlines():
             matches = list(PART_NUMBER_PATTERN.finditer(source_line))
@@ -71,7 +145,17 @@ def analyze_part_references(
                     reference.name = inferred_name
 
                 reference.occurrences += 1
-                reference.quantity = reference.occurrences
+                quantity_match = PREFIX_QUANTITY_PATTERN.search(source_line[:part_match.start()])
+                explicit_quantity = int(quantity_match.group("quantity")) if quantity_match else None
+                quantities_for_part = page_quantities.setdefault(part_number, {})
+                page_quantity, has_explicit_quantity = quantities_for_part.get(page_number, (0, False))
+                if explicit_quantity is not None:
+                    page_quantity = max(page_quantity, explicit_quantity)
+                    has_explicit_quantity = True
+                elif not has_explicit_quantity:
+                    page_quantity += 1
+                quantities_for_part[page_number] = (page_quantity, has_explicit_quantity)
+                reference.quantity = sum(quantity for quantity, _ in quantities_for_part.values())
                 if page_number not in reference.pages:
                     reference.pages.append(page_number)
                 reference.source_lines.append(cleaned_line)

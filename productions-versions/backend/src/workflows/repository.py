@@ -1,90 +1,171 @@
 from __future__ import annotations
 
 import json
+import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from threading import RLock
-from typing import Any
+from typing import Any, Iterator
 
 from workflows.models import Workflow, WorkflowRun
 
 
 class WorkflowRepository:
-    def __init__(self, store_path: Path) -> None:
+    """SQLite-backed workflow storage with optional one-time JSON migration."""
+
+    def __init__(self, store_path: Path, legacy_json_path: Path | None = None) -> None:
         self.store_path = store_path
+        self.legacy_json_path = legacy_json_path
         self._lock = RLock()
+        self._initialize_database()
 
     def list_workflows(self) -> list[Workflow]:
-        with self._lock:
-            document = self._read_document()
-            return [Workflow.model_validate(item) for item in document["workflows"]]
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT workflows.payload, COUNT(workflow_runs.id)
+                FROM workflows
+                LEFT JOIN workflow_runs ON workflow_runs.workflow_id = workflows.id
+                GROUP BY workflows.id
+                ORDER BY workflows.updated_at DESC
+                """
+            ).fetchall()
+        workflows = []
+        for payload, run_count in rows:
+            workflow = Workflow.model_validate_json(payload)
+            workflow.run_count = int(run_count)
+            workflows.append(workflow)
+        return workflows
 
     def get_workflow(self, workflow_id: str) -> Workflow | None:
-        return next((item for item in self.list_workflows() if item.id == workflow_id), None)
+        with self._lock, self._connect() as connection:
+            row = connection.execute("SELECT payload FROM workflows WHERE id = ?", (workflow_id,)).fetchone()
+        return Workflow.model_validate_json(row[0]) if row else None
 
     def save_workflow(self, workflow: Workflow) -> Workflow:
-        with self._lock:
-            document = self._read_document()
-            workflows = document["workflows"]
-            for index, item in enumerate(workflows):
-                if item.get("id") == workflow.id:
-                    workflows[index] = workflow.model_dump(mode="json")
-                    break
-            else:
-                workflows.append(workflow.model_dump(mode="json"))
-            self._write_document(document)
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO workflows (id, updated_at, payload) VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload
+                """,
+                (workflow.id, workflow.updated_at.isoformat(), workflow.model_dump_json()),
+            )
         return workflow
 
     def delete_workflow(self, workflow_id: str) -> bool:
-        with self._lock:
-            document = self._read_document()
-            original_count = len(document["workflows"])
-            document["workflows"] = [item for item in document["workflows"] if item.get("id") != workflow_id]
-            if len(document["workflows"]) == original_count:
-                return False
-            document["runs"] = [item for item in document["runs"] if item.get("workflow_id") != workflow_id]
-            self._write_document(document)
-            return True
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute("DELETE FROM workflows WHERE id = ?", (workflow_id,))
+        return cursor.rowcount > 0
 
     def list_runs(self, workflow_id: str | None = None, limit: int = 30) -> list[WorkflowRun]:
-        with self._lock:
-            document = self._read_document()
-            runs = [WorkflowRun.model_validate(item) for item in document["runs"]]
+        query = "SELECT payload FROM workflow_runs"
+        parameters: list[Any] = []
         if workflow_id:
-            runs = [item for item in runs if item.workflow_id == workflow_id]
-        runs.sort(key=lambda item: item.created_at, reverse=True)
-        return runs[:limit]
+            query += " WHERE workflow_id = ?"
+            parameters.append(workflow_id)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        parameters.append(max(0, limit))
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [WorkflowRun.model_validate_json(row[0]) for row in rows]
 
     def save_run(self, run: WorkflowRun) -> WorkflowRun:
-        with self._lock:
-            document = self._read_document()
-            runs = document["runs"]
-            for index, item in enumerate(runs):
-                if item.get("id") == run.id:
-                    runs[index] = run.model_dump(mode="json")
-                    break
-            else:
-                runs.append(run.model_dump(mode="json"))
-            document["runs"] = runs[-500:]
-            self._write_document(document)
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO workflow_runs (id, workflow_id, created_at, payload) VALUES (?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    workflow_id = excluded.workflow_id,
+                    created_at = excluded.created_at,
+                    payload = excluded.payload
+                """,
+                (run.id, run.workflow_id, run.created_at.isoformat(), run.model_dump_json()),
+            )
+            connection.execute(
+                """
+                DELETE FROM workflow_runs WHERE id IN (
+                    SELECT id FROM workflow_runs ORDER BY created_at DESC LIMIT -1 OFFSET 500
+                )
+                """
+            )
         return run
 
-    def _read_document(self) -> dict[str, list[dict[str, Any]]]:
-        if not self.store_path.exists():
-            return {"workflows": [], "runs": []}
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.store_path, timeout=10)
         try:
-            payload = json.loads(self.store_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return {"workflows": [], "runs": []}
-        return {
-            "workflows": list(payload.get("workflows", [])),
-            "runs": list(payload.get("runs", [])),
-        }
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 10000")
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
-    def _write_document(self, document: dict[str, list[dict[str, Any]]]) -> None:
+    def _initialize_database(self) -> None:
         self.store_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = self.store_path.with_suffix(".tmp")
-        temporary_path.write_text(
-            json.dumps(document, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        temporary_path.replace(self.store_path)
+        with self._lock, self._connect() as connection:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS workflows (
+                    id TEXT PRIMARY KEY,
+                    updated_at TEXT NOT NULL,
+                    payload TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS workflow_runs (
+                    id TEXT PRIMARY KEY,
+                    workflow_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_created
+                    ON workflow_runs(workflow_id, created_at DESC);
+                CREATE TABLE IF NOT EXISTS workflow_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                """
+            )
+            migrated = connection.execute(
+                "SELECT 1 FROM workflow_metadata WHERE key = 'legacy_json_migrated'"
+            ).fetchone()
+            if not migrated:
+                record_count = connection.execute(
+                    "SELECT (SELECT COUNT(*) FROM workflows) + (SELECT COUNT(*) FROM workflow_runs)"
+                ).fetchone()[0]
+                if record_count == 0:
+                    self._migrate_legacy_json(connection)
+                connection.execute(
+                    "INSERT INTO workflow_metadata (key, value) VALUES ('legacy_json_migrated', '1')"
+                )
+
+    def _migrate_legacy_json(self, connection: sqlite3.Connection) -> None:
+        if self.legacy_json_path is None or not self.legacy_json_path.exists():
+            return
+        try:
+            document = json.loads(self.legacy_json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+
+        for item in document.get("workflows", []):
+            try:
+                workflow = Workflow.model_validate(item)
+            except (TypeError, ValueError):
+                continue
+            connection.execute(
+                "INSERT OR IGNORE INTO workflows (id, updated_at, payload) VALUES (?, ?, ?)",
+                (workflow.id, workflow.updated_at.isoformat(), workflow.model_dump_json()),
+            )
+
+        for item in document.get("runs", []):
+            try:
+                run = WorkflowRun.model_validate(item)
+            except (TypeError, ValueError):
+                continue
+            if connection.execute("SELECT 1 FROM workflows WHERE id = ?", (run.workflow_id,)).fetchone():
+                connection.execute(
+                    "INSERT OR IGNORE INTO workflow_runs (id, workflow_id, created_at, payload) VALUES (?, ?, ?, ?)",
+                    (run.id, run.workflow_id, run.created_at.isoformat(), run.model_dump_json()),
+                )

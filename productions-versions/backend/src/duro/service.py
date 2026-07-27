@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import threading
 import time
+from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel
 
 from duro.client import DuroClient
 from duro.models import (
@@ -17,13 +21,21 @@ from settings import DURO_PRODUCT_CACHE_SECONDS
 
 
 class DuroService:
-    def __init__(self, client: DuroClient, cache_seconds: int = DURO_PRODUCT_CACHE_SECONDS) -> None:
+    def __init__(
+        self,
+        client: DuroClient,
+        cache_seconds: int = DURO_PRODUCT_CACHE_SECONDS,
+        cache_path: Path | None = None,
+    ) -> None:
         self.client = client
         self.cache_seconds = max(0, cache_seconds)
+        self.cache_path = cache_path
         self._lock = threading.RLock()
         self._search_cache: dict[str, tuple[float, DuroProductSearchResponse]] = {}
         self._product_bom_cache: dict[str, tuple[float, DuroProductBomResponse]] = {}
         self._component_cache: dict[str, tuple[float, DuroComponentChildrenResponse]] = {}
+        if self.cache_path is not None:
+            self._initialize_disk_cache()
 
     def search_products(
         self,
@@ -35,10 +47,19 @@ class DuroService:
             cached = self._search_cache.get(cache_key)
             if not refresh and cached and time.monotonic() - cached[0] < self.cache_seconds:
                 return cached[1].model_copy(update={"cached": True})
+        if not refresh:
+            disk_cached = self._get_disk_cached(
+                f"products:{cache_key}", DuroProductSearchResponse
+            )
+            if disk_cached is not None:
+                with self._lock:
+                    self._search_cache[cache_key] = (time.monotonic(), disk_cached)
+                return disk_cached.model_copy(update={"cached": True})
 
         response = self.client.search_products(payload)
         with self._lock:
             self._search_cache[cache_key] = (time.monotonic(), response)
+        self._set_disk_cached(f"products:{cache_key}", response)
         return response
 
     def list_products(self, refresh: bool = False) -> DuroProductSearchResponse:
@@ -46,9 +67,15 @@ class DuroService:
 
     def get_product_bom(self, product_id: str, refresh: bool = False) -> DuroProductBomResponse:
         normalized_id = product_id.strip()
+        disk_key = f"product-bom:{normalized_id}"
         cached = self._get_cached(self._product_bom_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
+        if not refresh:
+            disk_cached = self._get_disk_cached(disk_key, DuroProductBomResponse)
+            if disk_cached is not None:
+                self._set_cached(self._product_bom_cache, normalized_id, disk_cached)
+                return disk_cached.model_copy(update={"cached": True})
 
         product = self.client.get_product(normalized_id)
         product.setdefault("_id", normalized_id)
@@ -66,6 +93,7 @@ class DuroService:
             source_url=f"{self.client.base_url}/product/view/{normalized_id}",
         )
         self._set_cached(self._product_bom_cache, normalized_id, response)
+        self._set_disk_cached(disk_key, response)
         return response
 
     def get_component_children(
@@ -74,9 +102,15 @@ class DuroService:
         refresh: bool = False,
     ) -> DuroComponentChildrenResponse:
         normalized_id = component_id.strip()
+        disk_key = f"component:{normalized_id}"
         cached = self._get_cached(self._component_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
+        if not refresh:
+            disk_cached = self._get_disk_cached(disk_key, DuroComponentChildrenResponse)
+            if disk_cached is not None:
+                self._set_cached(self._component_cache, normalized_id, disk_cached)
+                return disk_cached.model_copy(update={"cached": True})
 
         component = self.client.get_component(normalized_id)
         children = self._map_children(component.get("children"), normalized_id)
@@ -86,7 +120,56 @@ class DuroService:
             count=len(children),
         )
         self._set_cached(self._component_cache, normalized_id, response)
+        self._set_disk_cached(disk_key, response)
         return response
+
+    def _initialize_disk_cache(self) -> None:
+        assert self.cache_path is not None
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.cache_path, timeout=10) as connection:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS duro_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    expires_at REAL NOT NULL,
+                    payload TEXT NOT NULL
+                )
+                """
+            )
+
+    def _get_disk_cached(self, key: str, model_type: type[BaseModel]) -> Any | None:
+        if self.cache_path is None or self.cache_seconds <= 0:
+            return None
+        with self._lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
+            row = connection.execute(
+                "SELECT expires_at, payload FROM duro_cache WHERE cache_key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return None
+            if row[0] <= time.time():
+                connection.execute("DELETE FROM duro_cache WHERE cache_key = ?", (key,))
+                return None
+        try:
+            return model_type.model_validate_json(row[1])
+        except ValueError:
+            with self._lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
+                connection.execute("DELETE FROM duro_cache WHERE cache_key = ?", (key,))
+            return None
+
+    def _set_disk_cached(self, key: str, value: BaseModel) -> None:
+        if self.cache_path is None or self.cache_seconds <= 0:
+            return
+        with self._lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
+            connection.execute(
+                """
+                INSERT INTO duro_cache (cache_key, expires_at, payload) VALUES (?, ?, ?)
+                ON CONFLICT(cache_key) DO UPDATE SET
+                    expires_at = excluded.expires_at,
+                    payload = excluded.payload
+                """,
+                (key, time.time() + self.cache_seconds, value.model_dump_json()),
+            )
 
     def _map_children(self, value: Any, parent_id: str) -> list[DuroBomNode]:
         if not isinstance(value, list):

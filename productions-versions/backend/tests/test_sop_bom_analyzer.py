@@ -1,9 +1,11 @@
 from sop.bom_analyzer import (
     analyze_bom_pages,
     analyze_part_references,
+    classify_sop_page,
     extract_material_lines,
     is_bom_page,
 )
+from sop.models import SopPdfPage
 
 
 SAMPLE_LAYOUT_PAGE = """
@@ -14,6 +16,12 @@ Station                  Deck Assembly material list             Version
   1             DECK BRACE, HORIZONTAL, OT3                     415-00391      3
 SCREW, SHOULDER, 5MM OD, 18MM LENGTH, HEX23                     438-00210      4
 """
+
+
+def test_pdf_page_accepts_content_category() -> None:
+    page = SopPdfPage(page_number=2, text="工具清单", text_length=4, category="tool_list")
+
+    assert page.category == "tool_list"
 
 
 def test_detects_and_parses_bom_material_table() -> None:
@@ -27,6 +35,22 @@ def test_detects_and_parses_bom_material_table() -> None:
     assert sections[0].materials[0].part_number == "415-00390"
     assert sections[0].materials[0].quantity == 2
     assert sections[0].materials[2].name.endswith("HEX")
+
+
+def test_classifies_material_and_tool_lists_anywhere_in_document() -> None:
+    assert classify_sop_page("第 20 页\n材料清单\n序号 名称 料号 数量") == "material_list"
+    assert classify_sop_page("第 35 页\n工具清单\n序号 工具名称 数量") == "tool_list"
+    assert classify_sop_page("组装步骤\n安装 415-00390 并检查") == "instruction"
+
+
+def test_continued_material_table_inherits_category_until_instructions_resume() -> None:
+    continuation = """序号 名称 料号 数量
+1 BRACKET 415-00390 2
+2 SCREW 438-00210 4
+3 COVER 415-00391 1
+"""
+    assert classify_sop_page(continuation, "material_list") == "material_list"
+    assert classify_sop_page("操作步骤\n安装 415-00390\n检查 438-00210", "material_list") == "instruction"
 
 
 def test_aggregates_same_part_across_bom_sections() -> None:
@@ -70,6 +94,24 @@ def test_part_number_pattern_does_not_match_inside_longer_numbers() -> None:
     references = analyze_part_references([(1, "无效 1415-003900；有效 415-00390")], [])
 
     assert [item.part_number for item in references] == ["415-00390"]
+
+
+def test_quantity_before_part_number_is_used_without_double_counting_translation() -> None:
+    references = analyze_part_references(
+        [
+            (
+                61,
+                "1 卡簧 4×467-00004 固定螺丝\n"
+                "1 E-clip 4x467-00004 fasten screw",
+            )
+        ],
+        [],
+    )
+
+    retaining_ring = next(item for item in references if item.part_number == "467-00004")
+    assert retaining_ring.occurrences == 2
+    assert retaining_ring.quantity == 4
+    assert retaining_ring.pages == [61]
 
 
 def test_extract_material_lines_omits_other_pages_and_lines() -> None:

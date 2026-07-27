@@ -74,6 +74,39 @@ def test_product_search_uses_cache() -> None:
     assert client.call_count == 1
 
 
+def test_product_page_cache_survives_service_restart(tmp_path) -> None:
+    cache_path = tmp_path / "duro-cache.sqlite3"
+    first_client = FakeDuroClient()
+    first_service = DuroService(
+        first_client, cache_seconds=300, cache_path=cache_path  # type: ignore[arg-type]
+    )
+    first_service.list_products()
+
+    second_client = FakeDuroClient()
+    second_service = DuroService(
+        second_client, cache_seconds=300, cache_path=cache_path  # type: ignore[arg-type]
+    )
+    response = second_service.list_products()
+
+    assert response.cached is True
+    assert response.products[0].name == "Robot"
+    assert second_client.call_count == 0
+
+
+def test_refresh_replaces_persistent_product_cache(tmp_path) -> None:
+    cache_path = tmp_path / "duro-cache.sqlite3"
+    client = FakeDuroClient()
+    service = DuroService(
+        client, cache_seconds=300, cache_path=cache_path  # type: ignore[arg-type]
+    )
+
+    service.list_products()
+    refreshed = service.list_products(refresh=True)
+
+    assert refreshed.cached is False
+    assert client.call_count == 2
+
+
 def test_product_bom_maps_relationship_fields_and_uses_cache() -> None:
     client = FakeDuroClient()
     service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]

@@ -18,9 +18,8 @@ from google_driver.proxy import (
     apply_oauth_proxy,
     build_auth_request,
     build_google_service,
-    refresh_best_proxy,
-    select_proxy_url,
 )
+from google_driver.proxy_manager import google_proxy_manager
 from settings import (
     GOOGLE_CREDENTIALS_PATH,
     GOOGLE_INTERACTIVE_AUTH,
@@ -88,6 +87,7 @@ class GoogleDriver:
         self._drive_service = None
         self._sheets_service = None
         self._proxy_url: str | None = None
+        self._proxy_version = -1
 
     def get_sheet_metadata(self, spreadsheet_id: str) -> list[dict[str, Any]]:
         response = self._execute(
@@ -183,7 +183,7 @@ class GoogleDriver:
         try:
             content = self._download_media(metadata, export_mime_type)
         except Exception as exc:
-            if not self._should_retry(exc) or not refresh_best_proxy():
+            if not self._should_retry(exc) or not google_proxy_manager.failover(self._proxy_url):
                 raise GoogleDriverError(f"Google Drive 文件下载失败: {exc}") from exc
             self._ensure_services(force=True)
             try:
@@ -213,9 +213,16 @@ class GoogleDriver:
 
     def _ensure_services(self, force: bool = False) -> None:
         with self._lock:
-            if not force and self._drive_service is not None and self._sheets_service is not None:
+            proxy_url, proxy_version = google_proxy_manager.current()
+            if (
+                not force
+                and self._drive_service is not None
+                and self._sheets_service is not None
+                and proxy_version == self._proxy_version
+            ):
                 return
-            self._proxy_url = select_proxy_url()
+            self._proxy_url = proxy_url
+            self._proxy_version = proxy_version
             self._credentials = self._load_credentials(self._proxy_url)
             self._drive_service = build_google_service(
                 "drive",
@@ -267,8 +274,8 @@ class GoogleDriver:
         except Exception as exc:
             if not self._should_retry(exc):
                 raise GoogleDriverError(f"Google API 请求失败: {exc}") from exc
-            refreshed_proxy = refresh_best_proxy()
-            if not refreshed_proxy:
+            fallback_proxy = google_proxy_manager.failover(self._proxy_url)
+            if not fallback_proxy:
                 raise GoogleDriverError(f"Google API 请求失败: {exc}") from exc
             self._ensure_services(force=True)
             try:

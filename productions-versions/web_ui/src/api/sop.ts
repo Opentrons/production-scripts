@@ -60,6 +60,7 @@ export interface SopPdfPage {
   page_number: number
   text: string
   text_length: number
+  category: 'instruction' | 'material_list' | 'tool_list'
 }
 
 export interface SopPdfAnalysis {
@@ -81,6 +82,10 @@ export interface SopPdfAnalysis {
   full_text_material_count: number
   full_text_occurrence_count: number
   full_text_references: SopPartReference[]
+  ai_enabled: boolean
+  ai_used: boolean
+  ai_fallback: boolean
+  ai_error: string | null
   cached: boolean
   analyzed_at: string
 }

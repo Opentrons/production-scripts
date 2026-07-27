@@ -54,6 +54,22 @@ def test_remote_chrome_provider_caches_access_token_until_forced() -> None:
     assert page.call_count == 2
 
 
+def test_remote_chrome_provider_exposes_refresh_status() -> None:
+    token = make_token(datetime.now(timezone.utc) + timedelta(hours=1))
+    page = FakePage([{"status": 200, "data": {"access_token": token}}])
+    provider = FakeRemoteChromeProvider(page)
+    try:
+        provider.get_access_token()
+        status = provider.status()
+    finally:
+        provider.close()
+
+    assert status["token_valid"] is True
+    assert status["token_expires_at"] is not None
+    assert status["last_success_at"] is not None
+    assert status["last_error"] == ""
+
+
 def test_remote_chrome_provider_reports_logged_out_session() -> None:
     page = FakePage([{"status": 401, "data": None}])
     provider = FakeRemoteChromeProvider(page)

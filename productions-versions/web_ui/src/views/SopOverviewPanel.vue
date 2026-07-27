@@ -12,29 +12,6 @@
       </div>
     </header>
 
-    <section class="metric-grid sop-metric-grid">
-      <article class="metric-card">
-        <span>SOP 总数</span>
-        <strong>{{ catalog?.total_rows ?? 0 }}</strong>
-        <small>{{ catalog?.sheet_title || 'All Project SOP' }}</small>
-      </article>
-      <article class="metric-card">
-        <span>可分析 PDF</span>
-        <strong>{{ catalog?.linked_file_count ?? 0 }}</strong>
-        <small>已解析 Google Drive 文件 ID</small>
-      </article>
-      <article class="metric-card">
-        <span>产品项目</span>
-        <strong>{{ projectOptions.length }}</strong>
-        <small>按合并单元格自动归类</small>
-      </article>
-      <article class="metric-card is-accent">
-        <span>当前筛选</span>
-        <strong>{{ filteredEntries.length }}</strong>
-        <small>{{ catalog?.cached ? '来自五分钟缓存' : '来自 Google Sheets' }}</small>
-      </article>
-    </section>
-
     <section class="sop-catalog-card">
       <div class="sop-toolbar">
         <div class="section-label">
@@ -52,7 +29,7 @@
             <el-option v-for="project in projectOptions" :key="project" :label="project" :value="project" />
           </el-select>
           <el-select v-model="selectedProcess" clearable filterable placeholder="全部 Process">
-            <el-option label="Include Assembly" :value="DEFAULT_PROCESS_FILTER" />
+            <el-option v-if="!selectedProject" label="Include Assembly" :value="DEFAULT_PROCESS_FILTER" />
             <el-option v-for="process in processOptions" :key="process" :label="process" :value="process" />
           </el-select>
           <el-select v-model="selectedStatus" clearable placeholder="全部状态">
@@ -68,13 +45,13 @@
       <el-table
         v-else
         :data="filteredEntries"
-        height="610"
+        height="clamp(360px, calc(100vh - 300px), 760px)"
         row-class-name="sop-table-row"
         empty-text="没有符合条件的 SOP"
         @row-click="openAnalysis"
       >
-        <el-table-column prop="project" label="项目" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="process" label="工序 / SOP" min-width="260" show-overflow-tooltip>
+        <el-table-column prop="project" label="项目" min-width="170" align="center" header-align="center" show-overflow-tooltip />
+        <el-table-column prop="process" label="工序 / SOP" min-width="260" align="center" header-align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="process-cell">
               <strong>{{ row.process || '未命名 SOP' }}</strong>
@@ -82,19 +59,19 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="issue_date" label="发行日期" width="130" />
-        <el-table-column prop="status" label="阶段" width="90">
+        <el-table-column prop="issue_date" label="发行日期" width="130" align="center" header-align="center" />
+        <el-table-column prop="status" label="阶段" width="90" align="center" header-align="center">
           <template #default="{ row }">
             <span class="sop-status-pill" :class="`is-${row.status.toLowerCase()}`">{{ row.status || '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="PDF" width="100" align="center">
+        <el-table-column label="PDF" width="100" align="center" header-align="center">
           <template #default="{ row }">
             <el-icon v-if="row.drive_file_id" class="pdf-ready-icon"><DocumentChecked /></el-icon>
             <span v-else class="missing-link">无链接</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="130" align="right">
+        <el-table-column label="操作" width="130" align="center" header-align="center">
           <template #default="{ row }">
             <el-button text type="primary" :disabled="!row.drive_file_id" @click.stop="openAnalysis(row)">
               分析 BOM
@@ -107,6 +84,14 @@
         <span>更新时间：{{ formatDate(catalog?.fetched_at ?? null) }}</span>
       </footer>
     </section>
+
+    <footer class="sop-board-footer" aria-label="SOP 数量看板">
+      <span>SOP <strong>{{ catalog?.total_rows ?? 0 }}</strong></span>
+      <span>可分析 PDF <strong>{{ catalog?.linked_file_count ?? 0 }}</strong></span>
+      <span>产品项目 <strong>{{ projectOptions.length }}</strong></span>
+      <span>当前筛选 <strong>{{ filteredEntries.length }}</strong></span>
+      <span class="sop-cache-state">{{ catalog?.cached ? '缓存数据' : 'Google Sheets' }}</span>
+    </footer>
 
     <el-drawer
       v-model="analysisDrawerVisible"
@@ -151,6 +136,28 @@
           </a>
         </section>
 
+        <el-alert
+          v-if="analysis.ai_used"
+          title="已使用 AI 结合整份 SOP 文本识别物料和数量（包含 *10、X22 等数量表达）"
+          type="success"
+          :closable="false"
+          show-icon
+        />
+        <el-alert
+          v-else-if="analysis.ai_fallback"
+          :title="`AI 识别失败，已使用本地规则解析兜底：${analysis.ai_error || '未知错误'}`"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+        <el-alert
+          v-else-if="analysis.ai_error"
+          :title="analysis.ai_error"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+
         <section class="analysis-metrics">
           <article>
             <span>唯一料号</span>
@@ -180,7 +187,7 @@
               <el-input v-model="bomSearchText" :prefix-icon="Search" clearable placeholder="搜索料号或物料名称" />
               <span>同一料号多次出现时，数量为累计值</span>
             </div>
-            <el-table :data="filteredBomMaterials" height="520" border>
+            <el-table :data="filteredBomMaterials" height="calc(100vh - 300px)" border>
               <el-table-column prop="part_number" label="料号" width="130" fixed />
               <el-table-column prop="name" label="物料名称" min-width="330" show-overflow-tooltip />
               <el-table-column label="料耗数量" width="110" align="right">
@@ -213,7 +220,7 @@
             </div>
             <el-table
               :data="filteredFullTextReferences"
-              height="520"
+              height="calc(100vh - 300px)"
               border
               empty-text="除物料清单页外，没有识别到料号引用"
             >
@@ -235,7 +242,7 @@
                 <template #title>
                   <div class="section-collapse-title">
                     <strong>第 {{ page.page_number }} 页</strong>
-                    <span>仅显示包含物料的原文行</span>
+                    <span>{{ sopPageCategoryText[page.category] }} · 仅显示包含物料的原文行</span>
                   </div>
                 </template>
                 <pre>{{ page.text }}</pre>
@@ -250,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Document,
@@ -279,13 +286,23 @@ const selectedEntry = ref<SopCatalogEntry | null>(null)
 const analysisTab = ref('summary')
 const bomSearchText = ref('')
 const referenceSearchText = ref('')
+const sopPageCategoryText = {
+  instruction: '操作内容',
+  material_list: '材料清单',
+  tool_list: '工具清单'
+}
 
 const projectOptions = computed(() =>
   [...new Set((catalog.value?.entries ?? []).map((entry) => entry.project).filter(Boolean))].sort()
 )
 
 const processOptions = computed(() =>
-  [...new Set((catalog.value?.entries ?? []).map((entry) => entry.process).filter(Boolean))].sort()
+  [...new Set(
+    (catalog.value?.entries ?? [])
+      .filter((entry) => !selectedProject.value || entry.project === selectedProject.value)
+      .map((entry) => entry.process)
+      .filter(Boolean)
+  )]
 )
 
 const statusOptions = computed(() => Object.keys(catalog.value?.status_counts ?? {}).sort())
@@ -321,6 +338,12 @@ const filteredFullTextReferences = computed(() => {
   return (analysis.value?.full_text_references ?? []).filter((reference) =>
     reference.part_number.toLowerCase().includes(keyword) || reference.name.toLowerCase().includes(keyword)
   )
+})
+
+watch(selectedProject, (project) => {
+  if (project && !processOptions.value.includes(selectedProcess.value)) {
+    selectedProcess.value = ''
+  }
 })
 
 async function loadCatalog(refresh = false) {
@@ -390,11 +413,39 @@ onMounted(() => loadCatalog())
 }
 
 .sop-catalog-card {
+  margin-top: 24px;
   overflow: hidden;
   border: 1px solid #d9e0e5;
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 12px 34px rgba(18, 33, 47, 0.06);
+}
+
+.sop-board-footer {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border-top: 1px solid #e2e7ea;
+  color: #7d8993;
+  font-size: 10px;
+}
+
+.sop-board-footer span {
+  white-space: nowrap;
+}
+
+.sop-board-footer strong {
+  margin-left: 4px;
+  color: #23313d;
+  font-size: 12px;
+}
+
+.sop-board-footer .sop-cache-state {
+  color: #29957e;
 }
 
 .sop-toolbar {
@@ -423,7 +474,7 @@ onMounted(() => loadCatalog())
 }
 
 .sop-loading-state {
-  height: 610px;
+  height: clamp(360px, calc(100vh - 300px), 760px);
 }
 
 .sop-loading-state .el-icon,
@@ -666,6 +717,31 @@ onMounted(() => loadCatalog())
 @media (max-width: 1350px) {
   .sop-filter-row {
     grid-template-columns: minmax(190px, 1fr) 130px 180px 100px;
+  }
+}
+
+@media (max-width: 900px) {
+  .sop-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sop-filter-row {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sop-board-footer,
+  .catalog-footer {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .sop-filter-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import unicodedata
 from datetime import timedelta
 from typing import Any
 
@@ -31,7 +32,7 @@ def build_duro_bom_steps() -> list[WorkflowStep]:
         WorkflowStep(
             name="核对 Duro BOM",
             kind="bom_compare",
-            description="汇总所选 Assembly SOP 的全文料号引用，并与 Duro BOM 核对料号和出现次数。",
+            description="汇总所选 SOP 的全文料号引用，并与 Duro BOM 核对料号和出现次数。",
         ),
         WorkflowStep(
             name="核对报告",
@@ -61,6 +62,9 @@ def build_duro_bom_workflow() -> Workflow:
             "duro_product_cpn": "",
             "duro_product_revision": "",
             "target_revision": "",
+            "duro_submenu_ids": [],
+            "duro_submenus": [],
+            "ignored_sop_product_keywords": [],
             "ignored_part_numbers": [],
         },
         steps=build_duro_bom_steps(),
@@ -94,6 +98,13 @@ class WorkflowService:
                     if normalized.model_dump() != original:
                         self.repository.save_workflow(normalized)
             for run in self.repository.list_runs(limit=500):
+                if run.status in {"queued", "running"}:
+                    run.status = "failed"
+                    run.message = "后端服务重启，原执行线程已中断"
+                    run.logs.append(run.message)
+                    run.finished_at = utc_now()
+                    self.repository.save_run(run)
+                    continue
                 if run.report is not None and run.report.sop_material_count == 0:
                     run.status = "failed"
                     run.message = "SOP 核对源为空，历史差异报告已作废"
@@ -193,21 +204,25 @@ class WorkflowService:
         try:
             if workflow.kind == "duro_bom_check":
                 sop_sources = self._configured_sop_sources(workflow)
+                ignored_sop_keywords = self._configured_ignored_sop_product_keywords(workflow)
                 duro_source = str(workflow.configuration.get("duro_product_id") or "").strip()
+                duro_submenu_ids = self._configured_duro_submenu_ids(workflow)
                 run.logs.append("检查 SOP 与 Duro 数据源配置。")
-                if not sop_sources or not duro_source:
+                if not sop_sources or not duro_source or not duro_submenu_ids:
                     missing = []
                     if not sop_sources:
-                        missing.append("SOP Include Assembly")
+                        missing.append("SOP")
                     if not duro_source:
                         missing.append("Duro 产品")
+                    if duro_source and not duro_submenu_ids:
+                        missing.append("Duro 扫描子菜单")
                     run.status = "skipped"
                     run.message = f"请先配置数据源：{'、'.join(missing)}"
                     run.logs.append(run.message)
                     return
                 if self.sop_service is None or self.duro_service is None:
                     raise RuntimeError("工作流 BOM 核对服务未初始化")
-                run.logs.append(f"读取 {len(sop_sources)} 份 Assembly SOP。")
+                run.logs.append(f"读取 {len(sop_sources)} 份 SOP。")
                 self.repository.save_run(run)
                 sop_materials = self._collect_sop_references(sop_sources)
                 run.logs.append(f"SOP 全文引用汇总完成：{len(sop_materials)} 个料号。")
@@ -217,9 +232,19 @@ class WorkflowService:
                     f"读取 Duro 产品：{workflow.configuration.get('duro_product_name') or duro_source}。"
                 )
                 self.repository.save_run(run)
-                duro_materials = self._collect_duro_materials(duro_source)
-                run.logs.append(f"Duro BOM 展开完成：{len(duro_materials)} 个料号。")
+                duro_materials, duro_submenus = self._collect_duro_materials(duro_source, duro_submenu_ids)
+                run.logs.append(
+                    f"Duro BOM 展开完成：扫描 {len(duro_submenus)} 个子菜单，"
+                    f"识别 {len(duro_materials)} 个料号。"
+                )
                 self.repository.save_run(run)
+
+                if ignored_sop_keywords:
+                    removed_sop = self._remove_materials_by_name(sop_materials, ignored_sop_keywords)
+                    run.logs.append(
+                        f"按产品名称关键字过滤 SOP 物料：移除 {removed_sop} 项。"
+                    )
+                    self.repository.save_run(run)
 
                 ignored_part_numbers = self._configured_ignored_part_numbers(workflow)
                 if ignored_part_numbers:
@@ -234,7 +259,7 @@ class WorkflowService:
                     )
                     self.repository.save_run(run)
 
-                report = self._build_bom_report(sop_sources, sop_materials, duro_materials)
+                report = self._build_bom_report(sop_sources, sop_materials, duro_materials, duro_submenus)
                 run.report = report
                 run.status = "succeeded"
                 run.message = (
@@ -281,6 +306,35 @@ class WorkflowService:
                 }
             ]
         configuration["sop_sources"] = sources
+        raw_submenu_ids = configuration.get("duro_submenu_ids")
+        submenu_ids = raw_submenu_ids if isinstance(raw_submenu_ids, list) else []
+        configuration["duro_submenu_ids"] = list(
+            dict.fromkeys(
+                normalized
+                for value in submenu_ids
+                if (normalized := str(value).strip())
+            )
+        )
+        raw_submenus = configuration.get("duro_submenus")
+        submenus = [dict(item) for item in raw_submenus if isinstance(item, dict)] if isinstance(raw_submenus, list) else []
+        configuration["duro_submenus"] = [
+            {
+                "id": str(item.get("id") or "").strip(),
+                "label": str(item.get("label") or "").strip(),
+            }
+            for item in submenus
+            if str(item.get("id") or "").strip()
+        ]
+        raw_sop_keywords = configuration.get("ignored_sop_product_keywords")
+        sop_keywords = raw_sop_keywords if isinstance(raw_sop_keywords, list) else []
+        seen_sop_keywords: set[str] = set()
+        configuration["ignored_sop_product_keywords"] = [
+            keyword
+            for value in sop_keywords
+            if (keyword := str(value).strip())
+            and not (normalized := keyword.casefold()) in seen_sop_keywords
+            and not seen_sop_keywords.add(normalized)
+        ]
         raw_ignored = configuration.get("ignored_part_numbers")
         ignored = raw_ignored if isinstance(raw_ignored, list) else []
         configuration["ignored_part_numbers"] = list(
@@ -334,6 +388,47 @@ class WorkflowService:
             if (normalized := str(value).strip().upper())
         }
 
+    def _configured_ignored_sop_product_keywords(self, workflow: Workflow) -> list[str]:
+        raw_values = workflow.configuration.get("ignored_sop_product_keywords")
+        values = raw_values if isinstance(raw_values, list) else []
+        return list(
+            dict.fromkeys(
+                normalized
+                for value in values
+                if (normalized := self._normalize_sop_product_text(value))
+            )
+        )
+
+    @classmethod
+    def _material_name_matches_keywords(cls, name: Any, keywords: list[str]) -> bool:
+        normalized_name = cls._normalize_sop_product_text(name)
+        return any(cls._normalize_sop_product_text(keyword) in normalized_name for keyword in keywords)
+
+    @classmethod
+    def _remove_materials_by_name(cls, materials: dict[str, dict[str, Any]], keywords: list[str]) -> int:
+        matched_part_numbers = [
+            part_number
+            for part_number, material in materials.items()
+            if cls._material_name_matches_keywords(material.get("name"), keywords)
+        ]
+        for part_number in matched_part_numbers:
+            materials.pop(part_number, None)
+        return len(matched_part_numbers)
+
+    @staticmethod
+    def _normalize_sop_product_text(value: Any) -> str:
+        text = unicodedata.normalize("NFKC", str(value or "")).casefold().replace("μ", "u")
+        return "".join(text.split())
+
+    def _configured_duro_submenu_ids(self, workflow: Workflow) -> set[str]:
+        raw_values = workflow.configuration.get("duro_submenu_ids")
+        values = raw_values if isinstance(raw_values, list) else []
+        return {
+            normalized
+            for value in values
+            if (normalized := str(value).strip())
+        }
+
     def _collect_sop_references(self, sources: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         assert self.sop_service is not None
         materials: dict[str, dict[str, Any]] = {}
@@ -357,7 +452,7 @@ class WorkflowService:
                         "locations": [],
                     },
                 )
-                current["quantity"] += float(material.occurrences)
+                current["quantity"] += float(getattr(material, "quantity", 0) or material.occurrences)
                 if len(material.name) > len(str(current["name"])):
                     current["name"] = material.name
                 location = f"{label}：第 {', '.join(str(page) for page in material.pages)} 页"
@@ -365,13 +460,26 @@ class WorkflowService:
                     current["locations"].append(location)
         return materials
 
-    def _collect_duro_materials(self, product_id: str) -> dict[str, dict[str, Any]]:
+    def _collect_duro_materials(
+        self,
+        product_id: str,
+        selected_submenu_ids: set[str],
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
         assert self.duro_service is not None
         response = self.duro_service.get_product_bom(product_id)
         materials: dict[str, dict[str, Any]] = {}
         visited_nodes = 0
 
-        def visit(node: DuroBomNode, multiplier: float, path: list[str], ancestors: set[str]) -> None:
+        selected_submenus: list[dict[str, str]] = []
+
+        def visit(
+            node: DuroBomNode,
+            multiplier: float,
+            path: list[str],
+            ancestors: set[str],
+            submenu_id: str,
+            submenu_label: str,
+        ) -> None:
             nonlocal visited_nodes
             visited_nodes += 1
             if visited_nodes > 5000:
@@ -385,7 +493,13 @@ class WorkflowService:
             if node.cpn:
                 current = materials.setdefault(
                     node.cpn,
-                    {"name": node.name, "quantity": 0.0, "paths": []},
+                    {
+                        "name": node.name,
+                        "quantity": 0.0,
+                        "paths": [],
+                        "submenu_ids": [],
+                        "submenu_labels": [],
+                    },
                 )
                 current["quantity"] += effective_quantity
                 if len(node.name) > len(str(current["name"])):
@@ -393,22 +507,45 @@ class WorkflowService:
                 path_text = " > ".join(current_path)
                 if path_text not in current["paths"] and len(current["paths"]) < 20:
                     current["paths"].append(path_text)
+                if submenu_id not in current["submenu_ids"]:
+                    current["submenu_ids"].append(submenu_id)
+                if submenu_label not in current["submenu_labels"]:
+                    current["submenu_labels"].append(submenu_label)
             if not node.has_children or node.id in ancestors:
                 return
             children = self.duro_service.get_component_children(node.id).children
             next_ancestors = {*ancestors, node.id}
             for child in children:
-                visit(child, effective_quantity, current_path, next_ancestors)
+                visit(child, effective_quantity, current_path, next_ancestors, submenu_id, submenu_label)
 
-        for child in response.root.children:
-            visit(child, 1.0, [response.root.cpn or response.root.name or product_id], set())
-        return materials
+        root_label = response.root.cpn or response.root.name or product_id
+        for submenu in response.root.children:
+            if submenu.id not in selected_submenu_ids:
+                continue
+            submenu_label = submenu.cpn or submenu.name or submenu.id
+            selected_submenus.append({"id": submenu.id, "label": submenu_label, "name": submenu.name})
+            submenu_quantity = self._number(submenu.quantity, default=1.0)
+            children = self.duro_service.get_component_children(submenu.id).children
+            for child in children:
+                visit(
+                    child,
+                    submenu_quantity,
+                    [root_label, submenu_label],
+                    {submenu.id},
+                    submenu.id,
+                    submenu_label,
+                )
+        missing_ids = selected_submenu_ids - {item["id"] for item in selected_submenus}
+        if missing_ids:
+            raise RuntimeError(f"Duro 子菜单不存在或已失效：{', '.join(sorted(missing_ids))}")
+        return materials, selected_submenus
 
     def _build_bom_report(
         self,
         sources: list[dict[str, Any]],
         sop_materials: dict[str, dict[str, Any]],
         duro_materials: dict[str, dict[str, Any]],
+        duro_submenus: list[dict[str, str]],
     ) -> WorkflowBomReport:
         differences: list[WorkflowBomDifference] = []
         matched_count = 0
@@ -423,6 +560,8 @@ class WorkflowService:
                         name=str(duro["name"]),
                         duro_quantity=self._rounded(duro["quantity"]),
                         duro_paths=list(duro["paths"]),
+                        duro_submenu_ids=list(duro["submenu_ids"]),
+                        duro_submenu_labels=list(duro["submenu_labels"]),
                     )
                 )
                 continue
@@ -449,6 +588,8 @@ class WorkflowService:
                         duro_quantity=duro_quantity,
                         sop_locations=list(sop["locations"]),
                         duro_paths=list(duro["paths"]),
+                        duro_submenu_ids=list(duro["submenu_ids"]),
+                        duro_submenu_labels=list(duro["submenu_labels"]),
                     )
                 )
             elif abs(sop_quantity - duro_quantity) > 1e-6:
@@ -462,6 +603,8 @@ class WorkflowService:
                         quantity_delta=self._rounded(duro_quantity - sop_quantity),
                         sop_locations=list(sop["locations"]),
                         duro_paths=list(duro["paths"]),
+                        duro_submenu_ids=list(duro["submenu_ids"]),
+                        duro_submenu_labels=list(duro["submenu_labels"]),
                     )
                 )
             else:
@@ -476,6 +619,7 @@ class WorkflowService:
             extra_in_duro_count=sum(item.status == "extra_in_duro" for item in differences),
             quantity_mismatch_count=sum(item.status == "quantity_mismatch" for item in differences),
             quantity_unknown_count=sum(item.status == "quantity_unknown" for item in differences),
+            duro_submenus=duro_submenus,
             differences=differences,
         )
 

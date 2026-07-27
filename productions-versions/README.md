@@ -82,7 +82,27 @@ make test
 make web-ui-build
 ```
 
-运行数据默认写入 `backend/data/workflows.json`，该文件不会提交到 git。可通过 `PRODUCTIONS_VERSIONS_DATA_DIR` 修改数据目录。
+## SOP 文本 AI 识别（无上下文记忆）
+
+后端提供一个无状态的 OpenAI-compatible LLM 接口，用于把单个 SOP 文本切片转换成料号、料号名和数量。每次请求独立处理，不保存会话或上下文；未配置 LLM 时，原有本地规则解析仍然可用。
+
+在 `backend/.env` 中配置：
+
+```dotenv
+LLM_API_KEY=你的 API Key
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-chat
+```
+
+调用 `POST /api/sop/ai/extract-materials`：
+
+```json
+{"page_number": 3, "text": "物料清单\\n支架 ABC-123 2 件\\n螺钉 M3-001 8 pcs"}
+```
+
+返回 `materials` 数组，每项包含 `part_number`、`name`、`quantity`、`unit`、`confidence` 和页码。该接口适合由前端按页或按约 3 万字符以内的文本切片调用，再在前端或工作流层汇总去重。
+
+工作流和执行记录默认临时写入 `backend/data/workflows.sqlite3`（SQLite，WAL 模式），该文件不会提交到 git。首次启动会自动导入已有的 `backend/data/workflows.json`。可通过 `PRODUCTIONS_VERSIONS_DATA_DIR` 修改数据目录，或通过 `PRODUCTIONS_VERSIONS_WORKFLOW_DB_PATH` 单独指定数据库文件。
 
 ## Google Drive 与 SOP 总表
 

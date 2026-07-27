@@ -10,17 +10,31 @@ from workflows.models import (
 from workflows.runtime import workflow_service
 from workflows.service import WorkflowNotFoundError
 from duro.routes import router as duro_router
+from google_driver.proxy_manager import google_proxy_manager
 from sop.routes import router as sop_router
+from llm.routes import router as sop_ai_router
 
 
 router = APIRouter()
 router.include_router(duro_router)
 router.include_router(sop_router)
+router.include_router(sop_ai_router)
 
 
 @router.get("/health")
 def health() -> dict[str, object]:
     return {"success": True, "service": "productions-versions"}
+
+
+@router.get("/google/status")
+def google_status() -> dict[str, object]:
+    return google_proxy_manager.status()
+
+
+@router.post("/google/proxy/refresh")
+def refresh_google_proxy() -> dict[str, object]:
+    started = google_proxy_manager.refresh_async()
+    return {**google_proxy_manager.status(), "started": started}
 
 
 @router.get("/workflows", response_model=list[Workflow])

@@ -18,20 +18,65 @@ from settings import (
 from sop.bom_analyzer import (
     analyze_bom_pages,
     analyze_part_references,
+    classify_sop_page,
     extract_material_lines,
-    is_bom_page,
+    SopPageCategory,
 )
 from sop.models import (
     SopCatalogEntry,
+    SopBomMaterial,
     SopMasterSheetResponse,
+    SopPartReference,
     SopPdfAnalysisResponse,
     SopPdfPage,
     utc_now,
 )
+from llm.service import llm_service
 
 
 class SopAnalysisError(RuntimeError):
     pass
+
+
+def _merge_bom_materials(
+    local_materials: list[SopBomMaterial],
+    ai_materials: list[SopBomMaterial],
+) -> list[SopBomMaterial]:
+    merged = {item.part_number.strip().upper(): item.model_copy(deep=True) for item in local_materials}
+    for item in ai_materials:
+        key = item.part_number.strip().upper()
+        current = merged.get(key)
+        if current is None:
+            merged[key] = item.model_copy(deep=True)
+            continue
+        if item.name and len(item.name) > len(current.name):
+            current.name = item.name
+        if item.quantity is not None:
+            current.quantity = max(current.quantity or 0, item.quantity)
+        current.unit = current.unit or item.unit
+        current.confidence = min(current.confidence, item.confidence)
+        current.pages = list(dict.fromkeys([*current.pages, *item.pages]))
+    return list(merged.values())
+
+
+def _merge_part_references(
+    local_references: list[SopPartReference],
+    ai_references: list[SopPartReference],
+) -> list[SopPartReference]:
+    merged = {item.part_number.strip().upper(): item.model_copy(deep=True) for item in local_references}
+    for item in ai_references:
+        key = item.part_number.strip().upper()
+        current = merged.get(key)
+        if current is None:
+            merged[key] = item.model_copy(deep=True)
+            continue
+        if item.name and len(item.name) > len(current.name):
+            current.name = item.name
+        current.occurrences = max(current.occurrences, item.occurrences)
+        current.quantity = max(current.quantity, item.quantity)
+        current.pages = list(dict.fromkeys([*current.pages, *item.pages]))
+        current.source_lines = list(dict.fromkeys([*current.source_lines, *item.source_lines]))
+    return list(merged.values())
 
 
 class SopService:
@@ -47,22 +92,69 @@ class SopService:
         self.sheet_gid = sheet_gid
         self.cache_seconds = max(0, cache_seconds)
         self._cache_lock = threading.RLock()
+        self._cache_condition = threading.Condition(self._cache_lock)
         self._cached_master_sheet: SopMasterSheetResponse | None = None
         self._cached_at_monotonic = 0.0
+        self._master_refreshing = False
+        self._last_master_refresh_error = ""
         self._pdf_cache: dict[str, tuple[float, SopPdfAnalysisResponse]] = {}
 
     def get_master_sheet(self, refresh: bool = False) -> SopMasterSheetResponse:
         with self._cache_lock:
-            if not refresh and self._cache_is_valid():
-                assert self._cached_master_sheet is not None
+            if self._cached_master_sheet is not None:
+                if refresh or not self._cache_is_valid():
+                    self._start_master_refresh_locked()
                 return self._cached_master_sheet.model_copy(update={"cached": True})
 
+            if self._master_refreshing:
+                while self._master_refreshing:
+                    self._cache_condition.wait()
+                if self._cached_master_sheet is not None:
+                    return self._cached_master_sheet.model_copy(update={"cached": True})
+
+            self._master_refreshing = True
+
+        try:
+            response = self._read_master_sheet()
+            with self._cache_lock:
+                self._store_master_sheet_locked(response)
+            return response
+        finally:
+            with self._cache_lock:
+                self._master_refreshing = False
+                self._cache_condition.notify_all()
+
+    def _read_master_sheet(self) -> SopMasterSheetResponse:
         sheet_data = self.google_driver.read_sheet_by_gid(self.spreadsheet_id, self.sheet_gid)
-        response = self._build_master_sheet_response(sheet_data)
-        with self._cache_lock:
-            self._cached_master_sheet = response
-            self._cached_at_monotonic = time.monotonic()
-        return response
+        return self._build_master_sheet_response(sheet_data)
+
+    def _start_master_refresh_locked(self) -> None:
+        if self._master_refreshing:
+            return
+        self._master_refreshing = True
+        threading.Thread(
+            target=self._refresh_master_sheet_background,
+            name="sop-master-sheet-refresh",
+            daemon=True,
+        ).start()
+
+    def _refresh_master_sheet_background(self) -> None:
+        try:
+            response = self._read_master_sheet()
+            with self._cache_lock:
+                self._store_master_sheet_locked(response)
+                self._last_master_refresh_error = ""
+        except Exception as exc:
+            with self._cache_lock:
+                self._last_master_refresh_error = str(exc)
+        finally:
+            with self._cache_lock:
+                self._master_refreshing = False
+                self._cache_condition.notify_all()
+
+    def _store_master_sheet_locked(self, response: SopMasterSheetResponse) -> None:
+        self._cached_master_sheet = response
+        self._cached_at_monotonic = time.monotonic()
 
     def analyze_pdf(self, file_id_or_url: str) -> SopPdfAnalysisResponse:
         cache_key = self.google_driver.parse_drive_file_id(file_id_or_url) or file_id_or_url
@@ -83,6 +175,8 @@ class SopService:
         extracted_text_pages: list[tuple[int, str]] = []
         bom_layout_pages: list[tuple[int, str]] = []
         reference_text_pages: list[tuple[int, str]] = []
+        page_categories: dict[int, SopPageCategory] = {}
+        previous_category: SopPageCategory = "instruction"
         total_text_length = 0
         truncated = False
         for page_number, page in enumerate(reader.pages, start=1):
@@ -90,14 +184,17 @@ class SopService:
                 page_text = page.extract_text() or ""
             except Exception as exc:
                 page_text = f"[页面文本提取失败: {exc}]"
-            if is_bom_page(page_text):
+            page_category = classify_sop_page(page_text, previous_category)
+            page_categories[page_number] = page_category
+            previous_category = page_category
+            if page_category == "material_list":
                 try:
                     bom_layout_pages.append(
                         (page_number, page.extract_text(extraction_mode="layout") or page_text)
                     )
                 except Exception:
                     bom_layout_pages.append((page_number, page_text))
-            else:
+            elif page_category == "instruction":
                 reference_text_pages.append((page_number, page_text))
 
             extracted_text_pages.append((page_number, page_text))
@@ -113,8 +210,59 @@ class SopService:
 
         bom_sections, bom_materials = analyze_bom_pages(bom_layout_pages)
         full_text_references = analyze_part_references(reference_text_pages, bom_materials)
+        ai_enabled = bool(llm_service.api_key)
+        ai_used = False
+        ai_fallback = False
+        ai_error: str | None = None
+        if ai_enabled:
+            try:
+                ai_material_pages = extract_material_lines(extracted_text_pages)
+                ai_materials = llm_service.extract_sop_pages(ai_material_pages)
+                if ai_materials:
+                    ai_used = True
+                    ai_bom_materials = [
+                        SopBomMaterial(
+                            part_number=item.part_number,
+                            name=item.name,
+                            quantity=item.quantity,
+                            unit=item.unit,
+                            pages=[item.page_number] if item.page_number else [],
+                            occurrences=1,
+                            confidence=item.confidence,
+                            source_lines=[],
+                        )
+                        for item in ai_materials
+                    ]
+                    bom_materials = _merge_bom_materials(bom_materials, ai_bom_materials)
+                    ai_reference_pages = extract_material_lines(reference_text_pages)
+                    ai_references = llm_service.extract_sop_pages(ai_reference_pages) if ai_reference_pages else []
+                    ai_part_references = [
+                        SopPartReference(
+                            part_number=item.part_number,
+                            name=item.name,
+                            occurrences=1,
+                            quantity=int(item.quantity or 0),
+                            pages=[item.page_number] if item.page_number else [],
+                            source_lines=[],
+                        )
+                        for item in ai_references
+                    ]
+                    full_text_references = _merge_part_references(full_text_references, ai_part_references)
+                else:
+                    ai_fallback = True
+                    ai_error = "AI 未识别到物料，使用本地规则解析"
+            except Exception as exc:
+                ai_fallback = True
+                ai_error = str(exc)[:500]
+        elif not ai_enabled:
+            ai_error = "未配置 LLM_API_KEY，使用本地规则解析"
         pages = [
-            SopPdfPage(page_number=page_number, text=text, text_length=len(text))
+            SopPdfPage(
+                page_number=page_number,
+                text=text,
+                text_length=len(text),
+                category=page_categories.get(page_number, "instruction"),
+            )
             for page_number, text in extract_material_lines(extracted_text_pages)
         ]
         pdf_metadata = {
@@ -133,14 +281,22 @@ class SopService:
             text_truncated=truncated,
             metadata=pdf_metadata,
             pages=pages,
-            bom_detected=bool(bom_sections),
+            bom_detected=bool(bom_sections or bom_materials),
             bom_material_count=len(bom_materials),
-            bom_occurrence_count=sum(len(section.materials) for section in bom_sections),
+            bom_occurrence_count=(
+                len(bom_materials)
+                if ai_used
+                else sum(len(section.materials) for section in bom_sections)
+            ),
             bom_sections=bom_sections,
             bom_materials=bom_materials,
             full_text_material_count=len(full_text_references),
             full_text_occurrence_count=sum(item.occurrences for item in full_text_references),
             full_text_references=full_text_references,
+            ai_enabled=ai_enabled,
+            ai_used=ai_used,
+            ai_fallback=ai_fallback,
+            ai_error=ai_error,
             analyzed_at=utc_now(),
         )
         with self._cache_lock:

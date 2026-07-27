@@ -56,6 +56,12 @@ export interface DuroConnectionStatus {
   token_expires_at: string | null
   base_url: string
   remote_chrome_configured: boolean
+  remote_chrome_connected: boolean
+  remote_chrome_token_valid: boolean
+  remote_chrome_token_expires_at: string | null
+  remote_chrome_last_success_at: string | null
+  remote_chrome_error: string
+  auto_refresh_active: boolean
 }
 
 export interface DuroBomNode {

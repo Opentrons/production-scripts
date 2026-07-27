@@ -37,6 +37,7 @@ export interface Workflow {
   updated_at: string
   last_run_at: string | null
   next_run_at: string | null
+  run_count: number
 }
 
 export interface WorkflowRun {
@@ -53,6 +54,12 @@ export interface WorkflowRun {
   finished_at: string | null
 }
 
+export interface WorkflowDuroSubmenu {
+  id: string
+  label: string
+  name: string
+}
+
 export interface WorkflowBomDifference {
   status: WorkflowBomDifferenceStatus
   part_number: string
@@ -62,6 +69,8 @@ export interface WorkflowBomDifference {
   quantity_delta: number | null
   sop_locations: string[]
   duro_paths: string[]
+  duro_submenu_ids: string[]
+  duro_submenu_labels: string[]
 }
 
 export interface WorkflowBomReport {
@@ -74,6 +83,7 @@ export interface WorkflowBomReport {
   extra_in_duro_count: number
   quantity_mismatch_count: number
   quantity_unknown_count: number
+  duro_submenus: WorkflowDuroSubmenu[]
   differences: WorkflowBomDifference[]
 }
 

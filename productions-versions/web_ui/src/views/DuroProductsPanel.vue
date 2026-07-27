@@ -26,28 +26,18 @@
       </template>
     </el-alert>
 
-    <section class="metric-grid duro-metric-grid">
-      <article class="metric-card">
-        <span>产品总数</span>
-        <strong>{{ productResponse?.count ?? 0 }}</strong>
-        <small>{{ productResponse?.cached ? '来自五分钟缓存' : '来自 Duro API' }}</small>
-      </article>
-      <article class="metric-card">
-        <span>Production</span>
-        <strong>{{ statusCount('PRODUCTION') }}</strong>
-        <small>已进入生产阶段</small>
-      </article>
-      <article class="metric-card">
-        <span>Design</span>
-        <strong>{{ statusCount('DESIGN') }}</strong>
-        <small>设计开发阶段</small>
-      </article>
-      <article class="metric-card is-accent">
-        <span>Obsolete</span>
-        <strong>{{ statusCount('OBSOLETE') }}</strong>
-        <small>已停用产品</small>
-      </article>
-    </section>
+    <el-alert
+      v-if="connectionStatus?.remote_chrome_configured && connectionStatus.remote_chrome_error"
+      class="token-alert"
+      type="warning"
+      :closable="false"
+      show-icon
+      title="Duro token 自动刷新未就绪"
+    >
+      <template #default>
+        {{ connectionStatus.remote_chrome_error }}。请在自动打开的专用 Chrome 窗口登录 Duro；登录后后台会自动刷新，无需重启后端。
+      </template>
+    </el-alert>
 
     <section class="duro-products-card">
       <div class="duro-toolbar">
@@ -88,7 +78,7 @@
       <el-table
         v-else
         :data="filteredProducts"
-        height="610"
+        height="clamp(360px, calc(100vh - 300px), 760px)"
         row-class-name="duro-product-row"
         empty-text="没有符合条件的产品"
         @row-click="openProduct"
@@ -140,7 +130,15 @@
       </footer>
     </section>
 
-    <el-drawer v-model="productDrawerVisible" size="780px" class="duro-product-drawer">
+    <footer class="duro-board-footer" aria-label="Duro 产品数量看板">
+      <span>产品总数 <strong>{{ productResponse?.count ?? 0 }}</strong></span>
+      <span>Production <strong>{{ statusCount('PRODUCTION') }}</strong></span>
+      <span>Design <strong>{{ statusCount('DESIGN') }}</strong></span>
+      <span>Obsolete <strong>{{ statusCount('OBSOLETE') }}</strong></span>
+      <span class="duro-source-state">{{ productResponse?.cached ? '缓存数据' : 'Duro API' }}</span>
+    </footer>
+
+    <el-drawer v-model="productDrawerVisible" size="min(780px, 100vw)" class="duro-product-drawer">
       <template #header>
         <div class="drawer-product-title">
           <span class="drawer-product-icon"><el-icon><Box /></el-icon></span>
@@ -502,11 +500,39 @@ onMounted(() => loadProducts())
 }
 
 .duro-products-card {
+  margin-top: 24px;
   overflow: hidden;
   border: 1px solid #d9e0e5;
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 12px 34px rgba(18, 33, 47, 0.06);
+}
+
+.duro-board-footer {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border-top: 1px solid #e2e7ea;
+  color: #7d8993;
+  font-size: 10px;
+}
+
+.duro-board-footer span {
+  white-space: nowrap;
+}
+
+.duro-board-footer strong {
+  margin-left: 4px;
+  color: #23313d;
+  font-size: 12px;
+}
+
+.duro-board-footer .duro-source-state {
+  color: #29957e;
 }
 
 .duro-toolbar {
@@ -526,7 +552,7 @@ onMounted(() => loadProducts())
 }
 
 .duro-loading-state {
-  height: 610px;
+  height: clamp(360px, calc(100vh - 300px), 760px);
   display: grid;
   place-content: center;
   justify-items: center;
@@ -984,5 +1010,30 @@ onMounted(() => loadProducts())
   border: 1px solid #e0e6e9;
   border-radius: 8px;
   background: #f7f9fa;
+}
+
+@media (max-width: 900px) {
+  .duro-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .duro-filter-row {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(120px, 0.5fr));
+  }
+
+  .duro-board-footer {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .duro-filter-row,
+  .image-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

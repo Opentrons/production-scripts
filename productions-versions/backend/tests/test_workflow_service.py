@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 from types import SimpleNamespace
 
 from duro.models import DuroBomNode
-from workflows.models import WorkflowCreate, WorkflowSchedule, WorkflowStep, WorkflowUpdate
+from workflows.models import (
+    Workflow,
+    WorkflowCreate,
+    WorkflowRun,
+    WorkflowSchedule,
+    WorkflowStep,
+    WorkflowUpdate,
+    utc_now,
+)
 from workflows.repository import WorkflowRepository
 from workflows.service import WorkflowService
 
 
 def make_service(tmp_path: Path) -> WorkflowService:
-    return WorkflowService(WorkflowRepository(tmp_path / "workflows.json"))
+    return WorkflowService(WorkflowRepository(tmp_path / "workflows.sqlite3"))
 
 
 def test_initialize_creates_duro_bom_workflow(tmp_path: Path) -> None:
@@ -24,6 +33,8 @@ def test_initialize_creates_duro_bom_workflow(tmp_path: Path) -> None:
     assert workflows[0].kind == "duro_bom_check"
     assert workflows[0].configuration["sop_drive_file_id"] == ""
     assert workflows[0].configuration["duro_product_id"] == ""
+    assert workflows[0].configuration["duro_submenu_ids"] == []
+    assert workflows[0].configuration["ignored_sop_product_keywords"] == []
     assert workflows[0].configuration["ignored_part_numbers"] == []
     assert [step.kind for step in workflows[0].steps] == ["bom_compare", "report"]
     assert [step.name for step in workflows[0].steps] == ["核对 Duro BOM", "核对报告"]
@@ -49,6 +60,57 @@ def test_create_and_schedule_workflow(tmp_path: Path) -> None:
     assert updated.next_run_at is None
 
 
+def test_workflow_persists_after_repository_reopens(tmp_path: Path) -> None:
+    database_path = tmp_path / "workflows.sqlite3"
+    first_service = WorkflowService(WorkflowRepository(database_path))
+    created = first_service.create_workflow(WorkflowCreate(name="SQLite 工作流"))
+
+    second_service = WorkflowService(WorkflowRepository(database_path))
+
+    assert second_service.get_workflow(created.id).name == "SQLite 工作流"
+
+
+def test_initialize_marks_interrupted_runs_failed(tmp_path: Path) -> None:
+    repository = WorkflowRepository(tmp_path / "workflows.sqlite3")
+    workflow = repository.save_workflow(Workflow(name="Interrupted workflow"))
+    run = repository.save_run(
+        WorkflowRun(
+            workflow_id=workflow.id,
+            workflow_name=workflow.name,
+            trigger_type="manual",
+            status="running",
+            logs=["开始执行工作流"],
+            started_at=utc_now(),
+        )
+    )
+
+    service = WorkflowService(repository)
+    recovered = service.list_runs(workflow_id=workflow.id)[0]
+
+    assert recovered.id == run.id
+    assert recovered.status == "failed"
+    assert recovered.finished_at is not None
+    assert recovered.message == "后端服务重启，原执行线程已中断"
+    assert recovered.logs[-1] == recovered.message
+
+
+def test_repository_migrates_legacy_json_once(tmp_path: Path) -> None:
+    database_path = tmp_path / "workflows.sqlite3"
+    legacy_path = tmp_path / "workflows.json"
+    legacy_workflow = Workflow(name="旧 JSON 工作流")
+    legacy_path.write_text(
+        json.dumps({"workflows": [legacy_workflow.model_dump(mode="json")], "runs": []}),
+        encoding="utf-8",
+    )
+
+    repository = WorkflowRepository(database_path, legacy_json_path=legacy_path)
+    legacy_path.write_text('{"workflows": [], "runs": []}', encoding="utf-8")
+    reopened_repository = WorkflowRepository(database_path, legacy_json_path=legacy_path)
+
+    assert repository.get_workflow(legacy_workflow.id) is not None
+    assert reopened_repository.get_workflow(legacy_workflow.id) is not None
+
+
 def test_workflow_persists_sop_and_duro_source_configuration(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     workflow = service.create_workflow(
@@ -63,6 +125,9 @@ def test_workflow_persists_sop_and_duro_source_configuration(tmp_path: Path) -> 
                 "duro_product_name": "Flex Robot",
                 "duro_product_revision": "A1",
                 "target_revision": "A1",
+                "duro_submenu_ids": ["submenu-a"],
+                "duro_submenus": [{"id": "submenu-a", "label": "930-00004"}],
+                "ignored_sop_product_keywords": [" Robot ", "robot", "Legacy"],
                 "ignored_part_numbers": [" 100-00001 ", "100-00001"],
             },
         )
@@ -75,6 +140,8 @@ def test_workflow_persists_sop_and_duro_source_configuration(tmp_path: Path) -> 
     assert stored.configuration["sop_sources"][0]["project"] == "Flex Robot"
     assert stored.configuration["duro_product_id"] == "duro-product-id"
     assert stored.configuration["target_revision"] == "A1"
+    assert stored.configuration["duro_submenu_ids"] == ["submenu-a"]
+    assert stored.configuration["ignored_sop_product_keywords"] == ["Robot", "Legacy"]
     assert stored.configuration["ignored_part_numbers"] == ["100-00001"]
 
 
@@ -91,7 +158,18 @@ def test_manual_duro_run_requires_sop_and_duro_sources(tmp_path: Path) -> None:
         current = service.list_runs(workflow_id=workflow.id, limit=1)[0]
 
     assert current.status == "skipped"
-    assert current.message == "请先配置数据源：SOP Include Assembly、Duro 产品"
+    assert current.message == "请先配置数据源：SOP、Duro 产品"
+
+
+def test_material_name_keyword_matching_normalizes_micro_symbol_case_and_spaces(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+
+    assert service._material_name_matches_keywords("Flex Robot Pro", ["robot"])
+    assert service._material_name_matches_keywords("FLEX ROBOT PRO", ["flex robot"])
+    assert service._material_name_matches_keywords("200ul Plunger", ["200μl"])
+    assert service._material_name_matches_keywords("200 µL O-ring", ["200ul"])
+    assert service._material_name_matches_keywords("200 μl logo", ["200 uL"])
+    assert not service._material_name_matches_keywords("Flex Robot Pro", ["heater"])
 
 
 class FakeSopService:
@@ -120,21 +198,24 @@ class FakeDuroService:
                 name="Product",
                 cpn="999-00001",
                 children=[
-                    DuroBomNode(id="bolt", name="Bolt", cpn="100-00001", quantity=5),
-                    DuroBomNode(id="assembly", name="Sub Assembly", cpn="200-00001", quantity=2, has_children=True),
-                    DuroBomNode(id="grease", name="Grease", cpn="100-00003", quantity=1),
+                    DuroBomNode(id="assembly", name="Scan Menu", cpn="930-00004", quantity=1, has_children=True),
                 ],
             )
         )
 
     def get_component_children(self, component_id: str):
-        assert component_id == "assembly"
-        return SimpleNamespace(
-            children=[
+        children = {
+            "assembly": [
+                DuroBomNode(id="bolt", name="Bolt", cpn="100-00001", quantity=5),
+                DuroBomNode(id="nested", name="Nested Assembly", cpn="200-00001", quantity=2, has_children=True),
+                DuroBomNode(id="grease", name="Grease", cpn="100-00003", quantity=1),
+            ],
+            "nested": [
                 DuroBomNode(id="washer", name="Washer", cpn="100-00002", quantity=1),
                 DuroBomNode(id="extra", name="Extra", cpn="100-00004", quantity=1),
-            ]
-        )
+            ],
+        }
+        return SimpleNamespace(children=children[component_id])
 
 
 class EmptySopService:
@@ -144,7 +225,7 @@ class EmptySopService:
 
 def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None:
     service = WorkflowService(
-        WorkflowRepository(tmp_path / "workflows.json"),
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
         sop_service=FakeSopService(),  # type: ignore[arg-type]
         duro_service=FakeDuroService(),  # type: ignore[arg-type]
     )
@@ -160,6 +241,9 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
                 ],
                 "duro_product_id": "duro-product",
                 "duro_product_name": "Product",
+                "duro_submenu_ids": ["assembly"],
+                "duro_submenus": [{"id": "assembly", "label": "930-00004"}],
+                "ignored_sop_product_keywords": ["clip"],
                 "ignored_part_numbers": [" 100-00004 ", "100-00004"],
             },
         )
@@ -175,18 +259,31 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
     assert current.status == "succeeded"
     assert current.report is not None
     assert current.report.sop_source_count == 2
+    assert current.report.sop_material_count == 3
     assert current.report.matched_count == 2
-    assert current.report.missing_in_duro_count == 1
+    assert current.report.duro_material_count == 4
+    assert current.report.missing_in_duro_count == 0
     assert current.report.extra_in_duro_count == 1
     assert current.report.quantity_mismatch_count == 1
     assert current.report.quantity_unknown_count == 0
-    assert len(current.report.differences) == 3
+    assert len(current.report.differences) == 2
     assert all(item.part_number != "100-00004" for item in current.report.differences)
+    assert all(item.part_number != "100-00005" for item in current.report.differences)
+    assert all(item.part_number != "930-00004" for item in current.report.differences)
+    assert all(item.part_number != "999-00001" for item in current.report.differences)
+    assert current.report.duro_submenus == [
+        {"id": "assembly", "label": "930-00004", "name": "Scan Menu"}
+    ]
+    assert all(
+        item.duro_submenu_ids == ["assembly"]
+        for item in current.report.differences
+        if item.status != "missing_in_duro"
+    )
 
 
 def test_manual_duro_run_rejects_sop_without_full_text_references(tmp_path: Path) -> None:
     service = WorkflowService(
-        WorkflowRepository(tmp_path / "workflows.json"),
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
         sop_service=EmptySopService(),  # type: ignore[arg-type]
         duro_service=FakeDuroService(),  # type: ignore[arg-type]
     )
@@ -199,6 +296,7 @@ def test_manual_duro_run_rejects_sop_without_full_text_references(tmp_path: Path
                     {"drive_file_id": "sop-empty", "project": "Robot", "process": "Assembly"},
                 ],
                 "duro_product_id": "duro-product",
+                "duro_submenu_ids": ["assembly"],
             },
         )
     )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -36,8 +37,13 @@ class DuroRemoteChromeTokenProvider:
         self._playwright: Any = None
         self._browser: Any = None
         self._page: Any = None
+        self._connected = False
         self._access_token = ""
         self._access_token_expires_at: datetime | None = None
+        self._last_error = ""
+        self._last_success_at: datetime | None = None
+        self._auto_refresh_thread: threading.Thread | None = None
+        self._auto_refresh_stop = threading.Event()
 
     @property
     def configured(self) -> bool:
@@ -48,20 +54,69 @@ class DuroRemoteChromeTokenProvider:
             return ""
         future = self._executor.submit(self._get_access_token_on_worker, force)
         try:
-            return future.result(timeout=self.timeout_seconds + 10)
+            token = future.result(timeout=self.timeout_seconds + 10)
+            self._last_error = ""
+            self._last_success_at = datetime.now(timezone.utc)
+            return token
         except DuroRemoteChromeError:
+            self._last_error = str(future.exception()) if future.done() and future.exception() else "Remote Chrome 刷新失败"
             raise
         except Exception as exc:
+            self._last_error = str(exc)
             raise DuroRemoteChromeError(f"Remote Chrome 获取 Duro token 失败: {exc}") from exc
+
+    def start_auto_refresh(self, interval_seconds: int = 30) -> None:
+        if self._auto_refresh_thread and self._auto_refresh_thread.is_alive():
+            return
+        self._auto_refresh_stop.clear()
+        self._auto_refresh_thread = threading.Thread(
+            target=self._auto_refresh_loop,
+            args=(max(5, interval_seconds),),
+            name="duro-token-auto-refresh",
+            daemon=True,
+        )
+        self._auto_refresh_thread.start()
+
+    def stop_auto_refresh(self) -> None:
+        self._auto_refresh_stop.set()
+        if self._auto_refresh_thread and self._auto_refresh_thread.is_alive():
+            self._auto_refresh_thread.join(timeout=2)
+        self._auto_refresh_thread = None
+
+    def status(self) -> dict[str, Any]:
+        expires_at = self._access_token_expires_at or (
+            self._token_expiry(self._access_token) if self._access_token else None
+        )
+        return {
+            "connected": self._connected,
+            "token_valid": bool(self._access_token) and (
+                expires_at is None or expires_at > datetime.now(timezone.utc)
+            ),
+            "token_expires_at": expires_at,
+            "last_success_at": self._last_success_at,
+            "last_error": self._last_error,
+            "auto_refresh_active": bool(
+                self._auto_refresh_thread and self._auto_refresh_thread.is_alive()
+            ),
+        }
 
     def close(self) -> None:
         if getattr(self, "_executor", None) is None:
             return
         try:
+            self.stop_auto_refresh()
             self._executor.submit(self._reset_connection).result(timeout=self.timeout_seconds)
         finally:
             self._executor.shutdown(wait=True, cancel_futures=True)
             self._executor = None  # type: ignore[assignment]
+
+    def _auto_refresh_loop(self, interval_seconds: int) -> None:
+        while not self._auto_refresh_stop.is_set():
+            try:
+                self.get_access_token()
+            except DuroRemoteChromeError:
+                pass
+            self._auto_refresh_stop.wait(interval_seconds)
 
     def _get_access_token_on_worker(self, force: bool) -> str:
         if not force and self._cached_token_is_valid():
@@ -145,6 +200,7 @@ class DuroRemoteChromeTokenProvider:
                     timeout=self.timeout_seconds * 1000,
                 )
             self._page = page
+            self._connected = True
             return page
         except DuroRemoteChromeError:
             raise
@@ -189,6 +245,7 @@ class DuroRemoteChromeTokenProvider:
     def _reset_connection(self) -> None:
         self._page = None
         self._browser = None
+        self._connected = False
         if self._playwright is not None:
             try:
                 self._playwright.stop()

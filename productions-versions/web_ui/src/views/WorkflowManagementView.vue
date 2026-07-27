@@ -28,17 +28,6 @@
           <el-icon><FolderOpened /></el-icon>
           SOP
         </button>
-        <div class="nav-submenu" :class="{ 'is-open': activeModule === 'sop' }">
-          <button
-            class="nav-subitem"
-            :class="{ 'is-active': activeModule === 'sop' }"
-            type="button"
-            @click="activeModule = 'sop'"
-          >
-            <span></span>
-            SOP 总览
-          </button>
-        </div>
         <button
           class="nav-item"
           :class="{ 'is-active': activeModule === 'duro' }"
@@ -48,35 +37,14 @@
           <el-icon><Box /></el-icon>
           Duro
         </button>
-        <div class="nav-submenu" :class="{ 'is-open': activeModule === 'duro' }">
-          <button
-            class="nav-subitem"
-            :class="{ 'is-active': activeModule === 'duro' }"
-            type="button"
-            @click="activeModule = 'duro'"
-          >
-            <span></span>
-            产品总览
-          </button>
-        </div>
-        <button class="nav-item" type="button" disabled>
-          <el-icon><Clock /></el-icon>
-          运行记录
-          <span class="soon-label">Soon</span>
-        </button>
-        <button class="nav-item" type="button" disabled>
-          <el-icon><Setting /></el-icon>
-          集成配置
-          <span class="soon-label">Soon</span>
-        </button>
       </nav>
 
       <div class="sidebar-note">
-        <span class="status-dot is-ready"></span>
-        <div>
-          <strong>数据源已接入</strong>
-          <span>SOP / Duro API</span>
+        <div class="sidebar-note-title">
+          <span class="status-dot" :class="dataSourceStatusClass"></span>
+          <strong>{{ dataSourceStatusTitle }}</strong>
         </div>
+        <span class="sidebar-note-detail" :title="dataSourceErrorDetail">{{ dataSourceStatusDetail }}</span>
       </div>
     </aside>
 
@@ -88,70 +56,76 @@
           <p>创建、编排并运行产品版本与 BOM 核对流程。</p>
         </div>
         <div class="topbar-actions">
+          <el-button type="primary" :icon="Plus" @click="createDialogVisible = true">新建工作流</el-button>
           <el-button :icon="Refresh" :loading="loading" @click="loadWorkflows">刷新</el-button>
         </div>
       </header>
 
-      <section class="metric-grid">
-        <article class="metric-card">
-          <span>工作流总数</span>
-          <strong>{{ workflows.length }}</strong>
-          <small>{{ activeWorkflowCount }} 个已启用</small>
-        </article>
-        <article class="metric-card">
-          <span>定时任务</span>
-          <strong>{{ scheduledWorkflowCount }}</strong>
-          <small>按配置自动触发</small>
-        </article>
-        <article class="metric-card">
-          <span>最近运行</span>
-          <strong>{{ latestRunStatus }}</strong>
-          <small>{{ latestRunTime }}</small>
-        </article>
-        <article class="metric-card is-accent">
-          <span>Duro BOM</span>
-          <strong>Ready</strong>
-          <small>工作流骨架已初始化</small>
-        </article>
-      </section>
-
-      <section class="workspace">
-        <aside class="workflow-list-panel">
+      <section
+        class="workspace"
+        :class="{ 'is-list-only': !editorVisible, 'is-list-hidden': editorVisible && !workflowListVisible }"
+      >
+        <aside v-if="workflowListVisible" class="workflow-list-panel">
           <div class="panel-heading">
             <div>
               <span>WORKFLOWS</span>
               <strong>工作流列表</strong>
             </div>
+            <el-button
+              v-if="editorVisible"
+              text
+              :icon="Close"
+              aria-label="关闭工作流列表"
+              @click="closeWorkflowList"
+            >关闭</el-button>
           </div>
-
-          <el-button class="workflow-create-button" type="primary" :icon="Plus" @click="createDialogVisible = true">
-            新建工作流
-          </el-button>
 
           <div class="workflow-list-scroll">
             <div v-if="loading && !workflows.length" class="list-state">正在加载工作流…</div>
             <div v-else-if="!workflows.length" class="list-state">还没有工作流</div>
-            <button
+            <div
               v-for="workflow in workflows"
               :key="workflow.id"
               class="workflow-list-item"
               :class="{ 'is-selected': workflow.id === selectedWorkflowId }"
-              type="button"
-              @click="selectWorkflow(workflow.id)"
+              @click="openWorkflowEditor(workflow.id)"
             >
               <span class="workflow-type-icon" :class="`is-${workflow.kind}`">
                 <el-icon><Files v-if="workflow.kind === 'duro_bom_check'" /><Connection v-else /></el-icon>
               </span>
               <span class="workflow-list-copy">
                 <strong>{{ workflow.name }}</strong>
-                <small>{{ workflow.steps.length }} 个步骤 · {{ scheduleText(workflow) }}</small>
+                <small class="workflow-list-meta">
+                  <span class="workflow-list-meta-left">
+                    {{ workflow.steps.length }} 步 · 历史 {{ workflow.run_count || 0 }} 次 ·
+                    上一次运行 {{ formatLastRunDate(workflow.last_run_at) }}
+                    <span class="workflow-status" :class="`is-${workflow.status}`">{{ statusText[workflow.status] }}</span>
+                  </span>
+                </small>
               </span>
-              <span class="workflow-status" :class="`is-${workflow.status}`">{{ statusText[workflow.status] }}</span>
-            </button>
+              <el-dropdown
+                trigger="click"
+                placement="bottom-end"
+                @click.stop
+                @command="handleWorkflowCommand(workflow, $event)"
+              >
+                <button class="workflow-more-button" type="button" aria-label="工作流操作" @click.stop>
+                  <el-icon><MoreFilled /></el-icon>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                    <el-dropdown-item command="run" :disabled="isWorkflowRunning(workflow.id)">运行</el-dropdown-item>
+                    <el-dropdown-item command="history">运行历史</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </div>
         </aside>
 
-        <section v-if="selectedWorkflow && editForm" class="builder-panel">
+        <section v-if="editorVisible && selectedWorkflow && editForm" class="builder-panel">
           <header class="builder-header">
             <div class="builder-title">
               <span class="builder-icon"><el-icon><Files /></el-icon></span>
@@ -164,9 +138,16 @@
               </div>
             </div>
             <div class="builder-actions">
-              <el-button :icon="Delete" @click="deleteSelectedWorkflow">删除</el-button>
-              <el-button :icon="VideoPlay" :loading="triggering" @click="triggerSelectedWorkflow">手动运行</el-button>
-              <el-button type="primary" :icon="Check" :loading="saving" @click="saveSelectedWorkflow">保存</el-button>
+              <template v-if="builderTab === 'editor'">
+                <el-button
+                  :icon="VideoPlay"
+                  :loading="triggering"
+                  :disabled="isWorkflowRunning(selectedWorkflow.id)"
+                  @click="triggerSelectedWorkflow"
+                >运行</el-button>
+                <el-button type="primary" :icon="Check" :loading="saving" @click="saveSelectedWorkflow">保存</el-button>
+              </template>
+              <el-button text :icon="Close" aria-label="关闭" @click="closeWorkflowEditor">关闭</el-button>
             </div>
           </header>
 
@@ -224,16 +205,40 @@
                   <header>
                     <div class="section-label">
                       <span>SOP SOURCE</span>
-                      <strong>Include Assembly 产品</strong>
+                      <strong>SOP 产品</strong>
                     </div>
                     <el-button
                       text
                       :icon="Refresh"
                       :loading="sopSourcesLoading"
-                      @click="loadSopSources(true)"
-                    >刷新</el-button>
+                      @click="loadSopSources(false)"
+                    >更新缓存</el-button>
                   </header>
-                  <p>仅显示 Process 包含 Assembly 且不包含 QC 的 SOP；核对只使用全文料号引用，不读取物料清单页。</p>
+                  <p>可按产品和工序筛选全部 SOP；核对只使用全文料号引用，不读取物料清单页。</p>
+                  <div class="sop-source-filters">
+                    <el-select
+                      v-model="sopProjectFilter"
+                      clearable
+                      filterable
+                      placeholder="筛选产品"
+                      @change="sopProcessFilter = ''"
+                    >
+                      <el-option
+                        v-for="project in sopProjectOptions"
+                        :key="project"
+                        :label="project"
+                        :value="project"
+                      />
+                    </el-select>
+                    <el-select v-model="sopProcessFilter" clearable filterable placeholder="筛选工序">
+                      <el-option
+                        v-for="process in sopProcessOptions"
+                        :key="process"
+                        :label="process"
+                        :value="process"
+                      />
+                    </el-select>
+                  </div>
                   <el-select
                     v-model="sourceConfiguration.sop_drive_file_ids"
                     filterable
@@ -242,11 +247,11 @@
                     collapse-tags
                     :max-collapse-tags="2"
                     :loading="sopSourcesLoading"
-                    placeholder="选择一个或多个 Include Assembly SOP"
+                    placeholder="选择一个或多个 SOP"
                     @change="handleSopSourceChange"
                   >
                     <el-option
-                      v-for="entry in includeAssemblySopOptions"
+                      v-for="entry in displayedSopOptions"
                       :key="`${entry.row_number}-${entry.drive_file_id}`"
                       :label="sopOptionLabel(entry)"
                       :value="entry.drive_file_id || ''"
@@ -278,14 +283,16 @@
                       text
                       :icon="Refresh"
                       :loading="duroProductsLoading"
-                      @click="loadDuroProducts(true)"
-                    >刷新</el-button>
+                      @click="loadDuroProducts(false)"
+                    >更新缓存</el-button>
                   </header>
                   <p>通过当前 Duro 产品 API 加载产品、料号及当前 Revision。</p>
                   <el-select
                     v-model="sourceConfiguration.duro_product_id"
                     filterable
                     clearable
+                    placement="bottom-start"
+                    :fallback-placements="['top-start', 'bottom-start']"
                     :loading="duroProductsLoading"
                     placeholder="选择 Duro 产品"
                     @change="handleDuroProductChange"
@@ -302,6 +309,41 @@
                       </div>
                     </el-option>
                   </el-select>
+                  <el-collapse
+                    v-if="sourceConfiguration.duro_product_id"
+                    v-model="duroSubmenuCollapse"
+                    class="duro-submenu-selector"
+                  >
+                    <el-collapse-item name="submenus">
+                      <template #title>
+                        <div class="duro-submenu-collapse-title">
+                          <strong>选择子项目</strong>
+                          <span>已选择 {{ sourceConfiguration.duro_submenu_ids?.length || 0 }} 项</span>
+                        </div>
+                      </template>
+                      <div class="duro-submenu-heading">
+                        <span>子项目仅用于限定扫描范围，本身不参与核对；只扫描其下级 BOM 料号。</span>
+                      </div>
+                      <div v-if="duroSubmenusLoading" class="duro-submenu-state">正在读取缓存的 BOM 子项目…</div>
+                      <el-alert v-else-if="duroSubmenusError" type="warning" :closable="false" show-icon>
+                        {{ duroSubmenusError }}
+                      </el-alert>
+                      <el-checkbox-group
+                        v-else-if="duroSubmenuOptions.length"
+                        v-model="sourceConfiguration.duro_submenu_ids"
+                        class="duro-submenu-options"
+                        @change="handleDuroSubmenuChange"
+                      >
+                        <el-checkbox v-for="submenu in duroSubmenuOptions" :key="submenu.id" :value="submenu.id">
+                          <span class="duro-submenu-option-copy">
+                            <strong>{{ duroSubmenuLabel(submenu) }}</strong>
+                            <small>{{ submenu.name || '未命名子项目' }}</small>
+                          </span>
+                        </el-checkbox>
+                      </el-checkbox-group>
+                      <div v-else class="duro-submenu-state">该产品没有可选择的第一层 BOM 子项目。</div>
+                    </el-collapse-item>
+                  </el-collapse>
                   <el-alert v-if="duroProductsError" type="warning" :closable="false" show-icon>
                     {{ duroProductsError }}
                   </el-alert>
@@ -318,22 +360,42 @@
               </section>
 
               <section v-if="editForm.kind === 'duro_bom_check'" class="workflow-filter-panel">
-                <div class="section-label">
-                  <span>BOM PART FILTER</span>
-                  <strong>忽略 BOM 料号</strong>
+                <div class="workflow-filter-item">
+                  <div class="section-label">
+                    <span>SOP PRODUCT FILTER</span>
+                    <strong>忽略 SOP 相关产品</strong>
+                  </div>
+                  <el-input-tag
+                    v-model="sourceConfiguration.ignored_sop_product_keywords"
+                    clearable
+                    trigger="Enter"
+                    :save-on-blur="true"
+                    placeholder="输入产品关键字后按 Enter"
+                    @change="normalizeIgnoredSopProductKeywords"
+                  />
+                  <div class="workflow-filter-summary">
+                    已配置 {{ sourceConfiguration.ignored_sop_product_keywords?.length || 0 }} 个产品关键字；
+                    SOP 物料名称包含任一关键字时不计入差异，不影响 Duro 物料。
+                  </div>
                 </div>
 
-                <el-input-tag
-                  v-model="sourceConfiguration.ignored_part_numbers"
-                  clearable
-                  trigger="Enter"
-                  :save-on-blur="true"
-                  placeholder="输入料号后按 Enter，例如 100-00001"
-                  @change="normalizeIgnoredPartNumbers"
-                />
-                <div class="workflow-filter-summary">
-                  已配置 {{ sourceConfiguration.ignored_part_numbers?.length || 0 }} 个忽略料号；
-                  执行时会同时从 SOP 与 Duro BOM 中排除。
+                <div class="workflow-filter-item">
+                  <div class="section-label">
+                    <span>BOM PART FILTER</span>
+                    <strong>忽略 BOM 料号</strong>
+                  </div>
+                  <el-input-tag
+                    v-model="sourceConfiguration.ignored_part_numbers"
+                    clearable
+                    trigger="Enter"
+                    :save-on-blur="true"
+                    placeholder="输入料号后按 Enter，例如 100-00001"
+                    @change="normalizeIgnoredPartNumbers"
+                  />
+                  <div class="workflow-filter-summary">
+                    已配置 {{ sourceConfiguration.ignored_part_numbers?.length || 0 }} 个忽略料号；
+                    执行时会同时从 SOP 与 Duro BOM 中排除。
+                  </div>
                 </div>
               </section>
 
@@ -378,20 +440,25 @@
                 <el-collapse-item v-for="run in workflowRuns" :key="run.id" :name="run.id">
                   <template #title>
                     <div class="run-history-title" :class="{ 'has-warning': runHasWarnings(run) }">
-                      <span class="run-status-icon" :class="runStatusClass(run)"></span>
-                      <div>
+                      <div class="run-summary-copy">
                         <span class="run-primary-status" :class="runStatusClass(run)">
+                          <span class="run-status-icon" :class="runStatusClass(run)"></span>
                           {{ runStatusText[run.status] }}
                         </span>
-                        <small>{{ run.message || '工作流正在运行' }}</small>
+                        <el-tooltip :content="runMessageText(run)" placement="top" :show-after="300">
+                          <small class="run-message-line" :class="{ 'is-failure-reason': run.status === 'failed' }">
+                            <span>{{ truncatedRunMessage(run) }}</span>
+                            <em v-if="run.finished_at">· 耗时 {{ formatRunDuration(run) }}</em>
+                          </small>
+                        </el-tooltip>
                       </div>
                       <div class="run-warning-summary" :class="{ 'is-warning': runHasWarnings(run), 'is-clear': runSucceededWithoutWarnings(run) }">
                         <template v-if="runHasWarnings(run) && run.report">
-                          <strong>警告 {{ runWarningCount(run) }}</strong>
-                          <span v-if="run.report.missing_in_duro_count">缺失 {{ run.report.missing_in_duro_count }}</span>
-                          <span v-if="run.report.extra_in_duro_count">冗余 {{ run.report.extra_in_duro_count }}</span>
-                          <span v-if="run.report.quantity_mismatch_count">数量 {{ run.report.quantity_mismatch_count }}</span>
-                          <span v-if="run.report.quantity_unknown_count">未知 {{ run.report.quantity_unknown_count }}</span>
+                          <strong class="is-total-warning">警告 {{ runWarningCount(run) }}</strong>
+                          <span v-if="run.report.missing_in_duro_count" class="is-missing">缺失 {{ run.report.missing_in_duro_count }}</span>
+                          <span v-if="run.report.extra_in_duro_count" class="is-extra">冗余 {{ run.report.extra_in_duro_count }}</span>
+                          <span v-if="run.report.quantity_mismatch_count" class="is-quantity">数量 {{ run.report.quantity_mismatch_count }}</span>
+                          <span v-if="run.report.quantity_unknown_count" class="is-unknown">未知 {{ run.report.quantity_unknown_count }}</span>
                         </template>
                         <span v-else-if="runSucceededWithoutWarnings(run)">无警告</span>
                         <span v-else>—</span>
@@ -407,10 +474,10 @@
                       <article><span>全文引用料号</span><strong>{{ run.report.sop_material_count }}</strong></article>
                       <article><span>Duro 料号</span><strong>{{ run.report.duro_material_count }}</strong></article>
                       <article><span>一致</span><strong>{{ run.report.matched_count }}</strong></article>
-                      <article class="is-danger"><span>缺失</span><strong>{{ run.report.missing_in_duro_count }}</strong></article>
-                      <article class="is-warning"><span>冗余</span><strong>{{ run.report.extra_in_duro_count }}</strong></article>
-                      <article class="is-warning"><span>数量差异</span><strong>{{ run.report.quantity_mismatch_count }}</strong></article>
-                      <article><span>数量未知</span><strong>{{ run.report.quantity_unknown_count }}</strong></article>
+                      <article class="is-danger"><span>缺失</span><strong>{{ filteredDifferenceCount(run, 'missing_in_duro') }}</strong></article>
+                      <article class="is-warning"><span>冗余</span><strong>{{ filteredDifferenceCount(run, 'extra_in_duro') }}</strong></article>
+                      <article class="is-warning"><span>数量差异</span><strong>{{ filteredDifferenceCount(run, 'quantity_mismatch') }}</strong></article>
+                      <article><span>数量未知</span><strong>{{ filteredDifferenceCount(run, 'quantity_unknown') }}</strong></article>
                     </div>
                     <div class="bom-report-toolbar">
                       <div>
@@ -419,18 +486,44 @@
                           显示 {{ filteredReportDifferences(run).length }} / {{ run.report.differences.length }} 项
                         </span>
                       </div>
-                      <el-select
-                        :model-value="reportFilter(run.id)"
-                        class="difference-filter-select"
-                        @change="setReportFilter(run.id, $event)"
-                      >
-                        <el-option label="全部差异" value="all" />
-                        <el-option label="不看数量差异" value="structure" />
-                        <el-option label="只看 Duro 缺失" value="missing_in_duro" />
-                        <el-option label="只看 Duro 冗余" value="extra_in_duro" />
-                        <el-option label="只看数量差异" value="quantity_mismatch" />
-                        <el-option label="只看数量未知" value="quantity_unknown" />
-                      </el-select>
+                      <div class="bom-report-filters">
+                        <el-select
+                          v-if="run.report.duro_submenus.length"
+                          :model-value="reportSubmenuFilter(run.id)"
+                          class="submenu-filter-select"
+                          multiple
+                          clearable
+                          collapse-tags
+                          :max-collapse-tags="2"
+                          popper-class="submenu-filter-popper"
+                          placeholder="全部下级BOM"
+                          @change="setReportSubmenuFilter(run.id, $event)"
+                        >
+                          <el-option
+                            v-for="submenu in run.report.duro_submenus"
+                            :key="submenu.id"
+                            :label="reportSubmenuLabel(submenu)"
+                            :value="submenu.id"
+                          >
+                            <div class="report-submenu-option">
+                              <strong>{{ submenu.label }}</strong>
+                              <span>{{ submenu.name || '未命名子菜单' }}</span>
+                            </div>
+                          </el-option>
+                        </el-select>
+                        <el-select
+                          :model-value="reportFilter(run.id)"
+                          class="difference-filter-select"
+                          @change="setReportFilter(run.id, $event)"
+                        >
+                          <el-option label="全部差异" value="all" />
+                          <el-option label="不看数量差异" value="structure" />
+                          <el-option label="只看 Duro 缺失" value="missing_in_duro" />
+                          <el-option label="只看 Duro 冗余" value="extra_in_duro" />
+                          <el-option label="只看数量差异" value="quantity_mismatch" />
+                          <el-option label="只看数量未知" value="quantity_unknown" />
+                        </el-select>
+                      </div>
                     </div>
                     <el-table
                       :data="filteredReportDifferences(run)"
@@ -448,6 +541,9 @@
                       </el-table-column>
                       <el-table-column prop="part_number" label="料号" width="130" />
                       <el-table-column prop="name" label="物料名称" min-width="260" show-overflow-tooltip />
+                      <el-table-column label="Duro 子菜单" min-width="150" show-overflow-tooltip>
+                        <template #default="{ row }">{{ row.duro_submenu_labels.join('、') || '—' }}</template>
+                      </el-table-column>
                       <el-table-column label="SOP 数量" width="100" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.sop_quantity) }}</template>
                       </el-table-column>
@@ -481,11 +577,14 @@
           </div>
         </section>
 
-        <section v-else class="builder-empty">
-          <el-icon><Connection /></el-icon>
-          <strong>选择一个工作流开始编辑</strong>
-        </section>
       </section>
+
+      <footer class="workflow-board-footer" aria-label="工作流数量看板">
+        <span>工作流 <strong>{{ workflows.length }}</strong></span>
+        <span>已启用 <strong>{{ activeWorkflowCount }}</strong></span>
+        <span>定时任务 <strong>{{ scheduledWorkflowCount }}</strong></span>
+        <span>Duro BOM <strong>{{ duroWorkflowCount }}</strong></span>
+      </footer>
     </main>
     <SopOverviewPanel v-else-if="activeModule === 'sop'" />
     <DuroProductsPanel v-else />
@@ -523,21 +622,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Box,
   Check,
-  Clock,
+  Close,
   Connection,
   DataAnalysis,
-  Delete,
   DocumentChecked,
   Files,
   FolderOpened,
+  MoreFilled,
   Plus,
   Refresh,
-  Setting,
   VideoPlay
 } from '@element-plus/icons-vue'
 import DuroProductsPanel from '@/views/DuroProductsPanel.vue'
 import SopOverviewPanel from '@/views/SopOverviewPanel.vue'
-import { duroApi, type DuroProduct } from '@/api/duro'
+import { duroApi, type DuroBomNode, type DuroProduct } from '@/api/duro'
 import { sopApi, type SopCatalogEntry } from '@/api/sop'
 import {
   workflowApi,
@@ -558,6 +656,9 @@ const activeModule = ref<'workflows' | 'sop' | 'duro'>('workflows')
 const saving = ref(false)
 const creating = ref(false)
 const triggering = ref(false)
+const editorVisible = ref(false)
+const workflowListVisible = ref(true)
+const runningWorkflowIds = ref<Set<string>>(new Set())
 const workflows = ref<Workflow[]>([])
 const workflowRuns = ref<WorkflowRun[]>([])
 const selectedWorkflowId = ref<string | null>(null)
@@ -566,11 +667,20 @@ const createDialogVisible = ref(false)
 const builderTab = ref<'editor' | 'history'>('editor')
 const sopSourcesLoading = ref(false)
 const sopSourcesError = ref('')
+const sopSourceChecked = ref(false)
 const sopCatalogEntries = ref<SopCatalogEntry[]>([])
+const sopProjectFilter = ref('')
+const sopProcessFilter = ref('')
 const duroProductsLoading = ref(false)
 const duroProductsError = ref('')
+const duroSourceChecked = ref(false)
 const duroProducts = ref<DuroProduct[]>([])
+const duroSubmenusLoading = ref(false)
+const duroSubmenusError = ref('')
+const duroSubmenuOptions = ref<DuroBomNode[]>([])
+const duroSubmenuCollapse = ref<string[]>([])
 const reportDifferenceFilters = reactive<Record<string, ReportDifferenceFilter>>({})
+const reportSubmenuFilters = reactive<Record<string, string[]>>({})
 
 type ReportDifferenceFilter = 'all' | 'structure' | WorkflowBomDifferenceStatus
 
@@ -597,6 +707,9 @@ interface WorkflowSourceConfiguration extends Record<string, unknown> {
   duro_product_cpn?: string
   duro_product_revision?: string
   target_revision?: string
+  duro_submenu_ids?: string[]
+  duro_submenus?: Array<{ id: string; label: string }>
+  ignored_sop_product_keywords?: string[]
   ignored_part_numbers?: string[]
 }
 
@@ -608,7 +721,7 @@ const createForm = reactive({
 
 const statusText: Record<WorkflowStatus, string> = {
   draft: '草稿',
-  active: '启用',
+  active: '启动',
   paused: '暂停'
 }
 
@@ -645,24 +758,41 @@ const selectedWorkflow = computed(() =>
 
 const activeWorkflowCount = computed(() => workflows.value.filter((item) => item.status === 'active').length)
 const scheduledWorkflowCount = computed(() => workflows.value.filter((item) => item.schedule.enabled).length)
-const latestRun = computed(() => workflowRuns.value[0] ?? null)
-const latestRunStatus = computed(() => latestRun.value ? runStatusText[latestRun.value.status] : '—')
-const latestRunTime = computed(() => latestRun.value ? formatDate(latestRun.value.created_at) : '暂无运行记录')
+const duroWorkflowCount = computed(() => workflows.value.filter((item) => item.kind === 'duro_bom_check').length)
 const sourceConfiguration = computed(
   () => editForm.value?.configuration as WorkflowSourceConfiguration
 )
-const includeAssemblySopOptions = computed(() =>
+const allSopOptions = computed(() =>
   sopCatalogEntries.value
-    .filter((entry) => {
-      const process = entry.process.toLowerCase()
-      return process.includes('assembly') && !process.includes('qc') && Boolean(entry.drive_file_id)
-    })
+    .filter((entry) => Boolean(entry.drive_file_id))
     .sort((left, right) =>
       `${left.project}\u0000${left.process}\u0000${left.issue_date}`.localeCompare(
         `${right.project}\u0000${right.process}\u0000${right.issue_date}`
       )
     )
 )
+const sopProjectOptions = computed(() =>
+  [...new Set(allSopOptions.value.map((entry) => entry.project || '未分类产品'))].sort((a, b) => a.localeCompare(b))
+)
+const sopProcessOptions = computed(() =>
+  [...new Set(
+    allSopOptions.value
+      .filter((entry) => !sopProjectFilter.value || (entry.project || '未分类产品') === sopProjectFilter.value)
+      .map((entry) => entry.process || '未命名工序')
+  )].sort((a, b) => a.localeCompare(b))
+)
+const filteredSopOptions = computed(() =>
+  allSopOptions.value.filter((entry) =>
+    (!sopProjectFilter.value || (entry.project || '未分类产品') === sopProjectFilter.value)
+    && (!sopProcessFilter.value || (entry.process || '未命名工序') === sopProcessFilter.value)
+  )
+)
+const displayedSopOptions = computed(() => {
+  const selectedIds = new Set(sourceConfiguration.value?.sop_drive_file_ids ?? [])
+  return allSopOptions.value.filter((entry) =>
+    filteredSopOptions.value.includes(entry) || Boolean(entry.drive_file_id && selectedIds.has(entry.drive_file_id))
+  )
+})
 const duroProductOptions = computed(() =>
   [...duroProducts.value].sort((left, right) =>
     (left.cpn || left.name || left._id).localeCompare(right.cpn || right.name || right._id)
@@ -670,12 +800,39 @@ const duroProductOptions = computed(() =>
 )
 const selectedSopEntries = computed(() => {
   const fileIds = new Set(sourceConfiguration.value?.sop_drive_file_ids ?? [])
-  return includeAssemblySopOptions.value.filter((entry) => entry.drive_file_id && fileIds.has(entry.drive_file_id))
+  return allSopOptions.value.filter((entry) => entry.drive_file_id && fileIds.has(entry.drive_file_id))
 })
 const selectedDuroProduct = computed(() => {
   const productId = sourceConfiguration.value?.duro_product_id
   return duroProducts.value.find((product) => product._id === productId) ?? null
 })
+const dataSourcesChecking = computed(() =>
+  sopSourcesLoading.value || duroProductsLoading.value || !sopSourceChecked.value || !duroSourceChecked.value
+)
+const dataSourcesConnected = computed(() =>
+  !dataSourcesChecking.value && !sopSourcesError.value && !duroProductsError.value
+)
+const dataSourceStatusClass = computed(() => ({
+  'is-ready': dataSourcesConnected.value,
+  'is-error': !dataSourcesChecking.value && !dataSourcesConnected.value
+}))
+const dataSourceStatusTitle = computed(() => {
+  if (dataSourcesChecking.value) return '正在检测数据源'
+  return dataSourcesConnected.value ? '数据源已接入' : '数据源接入失败'
+})
+const dataSourceStatusDetail = computed(() => {
+  if (dataSourcesChecking.value) return '正在检查 SOP / Duro API'
+  if (dataSourcesConnected.value) return 'SOP / Duro API'
+  if (sopSourcesError.value && duroProductsError.value) return 'SOP、Duro API 获取失败'
+  if (sopSourcesError.value) return 'SOP 获取失败'
+  return 'Duro API 获取失败'
+})
+const dataSourceErrorDetail = computed(() =>
+  [
+    sopSourcesError.value ? `SOP：${sopSourcesError.value}` : '',
+    duroProductsError.value ? `Duro API：${duroProductsError.value}` : ''
+  ].filter(Boolean).join('\n')
+)
 
 function cloneWorkflowPayload(workflow: Workflow): WorkflowPayload {
   return {
@@ -706,6 +863,15 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
   const ignoredPartNumbers = Array.isArray(configuration.ignored_part_numbers)
     ? [...new Set(configuration.ignored_part_numbers.map((value) => String(value).trim().toUpperCase()).filter(Boolean))]
     : []
+  const ignoredSopProductKeywords = Array.isArray(configuration.ignored_sop_product_keywords)
+    ? uniqueKeywords(configuration.ignored_sop_product_keywords.map(String))
+    : []
+  const submenuIds = Array.isArray(configuration.duro_submenu_ids)
+    ? [...new Set(configuration.duro_submenu_ids.map(String).filter(Boolean))]
+    : []
+  const submenus = Array.isArray(configuration.duro_submenus)
+    ? configuration.duro_submenus.filter((item): item is { id: string; label: string } => Boolean(item && typeof item === 'object' && 'id' in item))
+    : []
   return {
     sop_drive_file_id: '',
     sop_project: '',
@@ -721,6 +887,9 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     ...configuration,
     sop_drive_file_ids: fileIds,
     sop_sources: configuredSources,
+    duro_submenu_ids: submenuIds,
+    duro_submenus: submenus,
+    ignored_sop_product_keywords: ignoredSopProductKeywords,
     ignored_part_numbers: ignoredPartNumbers
   }
 }
@@ -731,13 +900,15 @@ async function loadWorkflows() {
     const response = await workflowApi.list()
     workflows.value = response.data
     const currentId = selectedWorkflowId.value
-    const nextSelection = response.data.find((item) => item.id === currentId) ?? response.data[0] ?? null
-    if (nextSelection) {
+    const nextSelection = response.data.find((item) => item.id === currentId) ?? null
+    if (nextSelection && editorVisible.value) {
       selectWorkflow(nextSelection.id)
-    } else {
+    } else if (!nextSelection) {
       selectedWorkflowId.value = null
       editForm.value = null
       workflowRuns.value = []
+      editorVisible.value = false
+      workflowListVisible.value = true
     }
   } catch (error) {
     console.error(error)
@@ -752,7 +923,62 @@ function selectWorkflow(workflowId: string) {
   if (!workflow) return
   selectedWorkflowId.value = workflowId
   editForm.value = cloneWorkflowPayload(workflow)
+  const productId = String(editForm.value.configuration.duro_product_id || '')
+  if (workflow.kind === 'duro_bom_check' && productId) void loadDuroSubmenus(productId)
   void loadRuns(workflowId)
+}
+
+function openWorkflowEditor(workflowId: string) {
+  selectWorkflow(workflowId)
+  builderTab.value = 'editor'
+  editorVisible.value = true
+  workflowListVisible.value = true
+}
+
+function openWorkflowHistory(workflowId: string) {
+  selectWorkflow(workflowId)
+  builderTab.value = 'history'
+  editorVisible.value = true
+  workflowListVisible.value = true
+}
+
+function closeWorkflowEditor() {
+  editorVisible.value = false
+  workflowListVisible.value = true
+  editForm.value = null
+  workflowRuns.value = []
+}
+
+function closeWorkflowList() {
+  if (!editorVisible.value) return
+  workflowListVisible.value = false
+}
+
+function handleWorkflowCommand(workflow: Workflow, command: string | number | object) {
+  if (command === 'edit') {
+    openWorkflowEditor(workflow.id)
+    return
+  }
+  if (command === 'run') {
+    void triggerWorkflow(workflow)
+    return
+  }
+  if (command === 'history') {
+    openWorkflowHistory(workflow.id)
+    return
+  }
+  if (command === 'delete') void deleteWorkflow(workflow)
+}
+
+function isWorkflowRunning(workflowId: string) {
+  return runningWorkflowIds.value.has(workflowId)
+}
+
+function setWorkflowRunning(workflowId: string, running: boolean) {
+  const next = new Set(runningWorkflowIds.value)
+  if (running) next.add(workflowId)
+  else next.delete(workflowId)
+  runningWorkflowIds.value = next
 }
 
 async function loadSopSources(refresh = false) {
@@ -766,6 +992,7 @@ async function loadSopSources(refresh = false) {
     sopSourcesError.value = error?.response?.data?.detail || error?.message || 'SOP 数据源加载失败'
   } finally {
     sopSourcesLoading.value = false
+    sopSourceChecked.value = true
   }
 }
 
@@ -780,13 +1007,14 @@ async function loadDuroProducts(refresh = false) {
     duroProductsError.value = error?.response?.data?.detail || error?.message || 'Duro 产品加载失败'
   } finally {
     duroProductsLoading.value = false
+    duroSourceChecked.value = true
   }
 }
 
 function handleSopSourceChange(fileIds: string[]) {
   if (!editForm.value) return
   const configuration = sourceConfiguration.value
-  const selected = includeAssemblySopOptions.value.filter(
+  const selected = allSopOptions.value.filter(
     (entry) => entry.drive_file_id && fileIds.includes(entry.drive_file_id)
   )
   configuration.sop_drive_file_ids = selected.map((entry) => entry.drive_file_id || '').filter(Boolean)
@@ -816,12 +1044,65 @@ function handleDuroProductChange(productId: string) {
   configuration.duro_product_cpn = product?.cpn || ''
   configuration.duro_product_revision = product?.revision || ''
   configuration.target_revision = product?.revision || ''
+  configuration.duro_submenu_ids = []
+  configuration.duro_submenus = []
+  duroSubmenuOptions.value = []
+  duroSubmenusError.value = ''
+  duroSubmenuCollapse.value = productId ? ['submenus'] : []
+  if (productId) void loadDuroSubmenus(productId)
+}
+
+async function loadDuroSubmenus(productId: string) {
+  duroSubmenusLoading.value = true
+  duroSubmenusError.value = ''
+  try {
+    const response = await duroApi.productBom(productId, false)
+    duroSubmenuOptions.value = response.data.root.children
+    const validIds = new Set(duroSubmenuOptions.value.map((item) => item.id))
+    if (editForm.value) {
+      const configuration = sourceConfiguration.value
+      configuration.duro_submenu_ids = (configuration.duro_submenu_ids ?? []).filter((id) => validIds.has(id))
+      handleDuroSubmenuChange(configuration.duro_submenu_ids)
+    }
+  } catch (error: any) {
+    console.error(error)
+    duroSubmenuOptions.value = []
+    duroSubmenusError.value = error?.response?.data?.detail || error?.message || 'Duro BOM 子菜单加载失败'
+  } finally {
+    duroSubmenusLoading.value = false
+  }
+}
+
+function handleDuroSubmenuChange(submenuIds: string[]) {
+  if (!editForm.value) return
+  const selectedIds = new Set(submenuIds)
+  sourceConfiguration.value.duro_submenus = duroSubmenuOptions.value
+    .filter((submenu) => selectedIds.has(submenu.id))
+    .map((submenu) => ({ id: submenu.id, label: duroSubmenuLabel(submenu) }))
+}
+
+function duroSubmenuLabel(submenu: DuroBomNode) {
+  return submenu.cpn || submenu.alias || submenu.name || submenu.id
 }
 
 function normalizeIgnoredPartNumbers(values?: string[]) {
   sourceConfiguration.value.ignored_part_numbers = [
     ...new Set((values ?? []).map((value) => value.trim().toUpperCase()).filter(Boolean))
   ]
+}
+
+function normalizeIgnoredSopProductKeywords(values?: string[]) {
+  sourceConfiguration.value.ignored_sop_product_keywords = uniqueKeywords(values ?? [])
+}
+
+function uniqueKeywords(values: string[]) {
+  const seen = new Set<string>()
+  return values.map((value) => value.trim()).filter((value) => {
+    const normalized = value.toLocaleLowerCase()
+    if (!normalized || seen.has(normalized)) return false
+    seen.add(normalized)
+    return true
+  })
 }
 
 function sopOptionLabel(entry: SopCatalogEntry) {
@@ -840,8 +1121,10 @@ async function loadRuns(workflowId: string) {
     if (selectedWorkflowId.value === workflowId) {
       workflowRuns.value = response.data
     }
+    return response.data
   } catch (error) {
     console.error(error)
+    return []
   }
 }
 
@@ -888,7 +1171,8 @@ async function createWorkflow() {
     const response = await workflowApi.create(payload)
     workflows.value = [response.data, ...workflows.value]
     selectWorkflow(response.data.id)
-    builderTab.value = 'editor'
+    editorVisible.value = false
+    workflowListVisible.value = true
     createDialogVisible.value = false
     ElMessage.success('工作流已创建')
   } catch (error) {
@@ -899,9 +1183,7 @@ async function createWorkflow() {
   }
 }
 
-async function deleteSelectedWorkflow() {
-  const workflow = selectedWorkflow.value
-  if (!workflow) return
+async function deleteWorkflow(workflow: Workflow) {
   try {
     await ElMessageBox.confirm(`确认删除“${workflow.name}”？`, '删除工作流', {
       confirmButtonText: '删除',
@@ -915,12 +1197,12 @@ async function deleteSelectedWorkflow() {
   try {
     await workflowApi.remove(workflow.id)
     workflows.value = workflows.value.filter((item) => item.id !== workflow.id)
-    const next = workflows.value[0]
-    if (next) selectWorkflow(next.id)
-    else {
+    if (selectedWorkflowId.value === workflow.id) {
       selectedWorkflowId.value = null
       editForm.value = null
       workflowRuns.value = []
+      editorVisible.value = false
+      workflowListVisible.value = true
     }
     ElMessage.success('工作流已删除')
   } catch (error) {
@@ -932,31 +1214,41 @@ async function deleteSelectedWorkflow() {
 async function triggerSelectedWorkflow() {
   const workflow = selectedWorkflow.value
   if (!workflow) return
+  await triggerWorkflow(workflow)
+}
+
+async function triggerWorkflow(workflow: Workflow) {
+  if (isWorkflowRunning(workflow.id)) return
+  setWorkflowRunning(workflow.id, true)
   triggering.value = true
   try {
     const response = await workflowApi.trigger(workflow.id)
     ElMessage.success('工作流已触发')
-    builderTab.value = 'history'
+    if (editorVisible.value && selectedWorkflowId.value === workflow.id) builderTab.value = 'history'
     void pollWorkflowRun(workflow.id, response.data.id)
     await loadWorkflows()
   } catch (error) {
     console.error(error)
     ElMessage.error('工作流触发失败')
+    setWorkflowRunning(workflow.id, false)
   } finally {
     triggering.value = false
   }
 }
 
 async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
-  await loadRuns(workflowId)
-  const run = workflowRuns.value.find((item) => item.id === runId)
-  if (!run || !['queued', 'running'].includes(run.status) || attempt >= 120) return
+  const runs = await loadRuns(workflowId)
+  const run = runs.find((item) => item.id === runId)
+  if (!run || !['queued', 'running'].includes(run.status) || attempt >= 120) {
+    setWorkflowRunning(workflowId, false)
+    return
+  }
   window.setTimeout(() => void pollWorkflowRun(workflowId, runId, attempt + 1), 1000)
 }
 
 function duroTemplateSteps(): WorkflowStep[] {
   return [
-    createStep('核对 Duro BOM', 'bom_compare', '汇总所选 Assembly SOP 的全文料号引用，并与 Duro BOM 核对料号和出现次数。'),
+    createStep('核对 Duro BOM', 'bom_compare', '汇总所选 SOP 的全文料号引用，并与 Duro BOM 核对料号和出现次数。'),
     createStep('核对报告', 'report', '输出缺失料号、冗余料号、数量差异和无法比较项。')
   ]
 }
@@ -987,6 +1279,33 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
+function formatLastRunDate(value: string | null) {
+  if (!value) return '从未运行'
+  return new Date(value).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
+
+function formatRunDuration(run: WorkflowRun) {
+  if (!run.finished_at) return '—'
+  const start = new Date(run.started_at || run.created_at).getTime()
+  const finish = new Date(run.finished_at).getTime()
+  const milliseconds = Math.max(0, finish - start)
+  if (milliseconds < 1000) return `${milliseconds} 毫秒`
+  const totalSeconds = Math.round(milliseconds / 1000)
+  if (totalSeconds < 60) return `${totalSeconds} 秒`
+  const totalMinutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (totalMinutes < 60) return `${totalMinutes} 分 ${seconds} 秒`
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return `${hours} 小时 ${minutes} 分`
+}
+
 function formatReportQuantity(value: number | null) {
   if (value === null || value === undefined) return '—'
   return Number.isInteger(value) ? value.toString() : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
@@ -1012,6 +1331,21 @@ function runStatusClass(run: WorkflowRun) {
   return runHasWarnings(run) ? 'is-warning' : `is-${run.status}`
 }
 
+function runMessageText(run: WorkflowRun) {
+  const message = run.message.trim()
+  if (message) return run.status === 'failed' ? `失败原因：${message}` : message
+  if (run.status === 'failed') {
+    const lastLog = run.logs[run.logs.length - 1]?.replace(/^运行失败[：:]\s*/, '').trim()
+    return `失败原因：${lastLog || '未提供失败原因'}`
+  }
+  return '工作流正在运行'
+}
+
+function truncatedRunMessage(run: WorkflowRun, limit = 38) {
+  const message = runMessageText(run)
+  return message.length > limit ? `${message.slice(0, limit)}…` : message
+}
+
 function reportFilter(runId: string): ReportDifferenceFilter {
   return reportDifferenceFilters[runId] || 'all'
 }
@@ -1020,14 +1354,36 @@ function setReportFilter(runId: string, value: string) {
   reportDifferenceFilters[runId] = value as ReportDifferenceFilter
 }
 
+function reportSubmenuFilter(runId: string) {
+  return reportSubmenuFilters[runId] || []
+}
+
+function setReportSubmenuFilter(runId: string, value: string[]) {
+  reportSubmenuFilters[runId] = value || []
+}
+
+function reportSubmenuLabel(submenu: { label: string; name: string }) {
+  return submenu.name && submenu.name !== submenu.label
+    ? `${submenu.label} · ${submenu.name}`
+    : submenu.label
+}
+
 function filteredReportDifferences(run: WorkflowRun) {
   const differences = run.report?.differences ?? []
   const filter = reportFilter(run.id)
-  if (filter === 'all') return differences
+  const submenuFilters = reportSubmenuFilter(run.id)
+  const bySubmenu = submenuFilters.length === 0
+    ? differences
+    : differences.filter((item) => item.duro_submenu_ids.some((id) => submenuFilters.includes(id)))
+  if (filter === 'all') return bySubmenu
   if (filter === 'structure') {
-    return differences.filter((item) => ['missing_in_duro', 'extra_in_duro'].includes(item.status))
+    return bySubmenu.filter((item) => ['missing_in_duro', 'extra_in_duro'].includes(item.status))
   }
-  return differences.filter((item) => item.status === filter)
+  return bySubmenu.filter((item) => item.status === filter)
+}
+
+function filteredDifferenceCount(run: WorkflowRun, status: WorkflowBomDifferenceStatus) {
+  return filteredReportDifferences(run).filter((item) => item.status === status).length
 }
 
 function differenceRowClassName({ row }: { row: { status: WorkflowBomDifferenceStatus } }) {

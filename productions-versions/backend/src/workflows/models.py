@@ -71,6 +71,7 @@ class Workflow(WorkflowBase):
     updated_at: datetime = Field(default_factory=utc_now)
     last_run_at: datetime | None = None
     next_run_at: datetime | None = None
+    run_count: int = 0
 
 
 class WorkflowTriggerRequest(BaseModel):
@@ -86,6 +87,8 @@ class WorkflowBomDifference(BaseModel):
     quantity_delta: float | None = None
     sop_locations: list[str] = Field(default_factory=list)
     duro_paths: list[str] = Field(default_factory=list)
+    duro_submenu_ids: list[str] = Field(default_factory=list)
+    duro_submenu_labels: list[str] = Field(default_factory=list)
 
 
 class WorkflowBomReport(BaseModel):
@@ -98,6 +101,7 @@ class WorkflowBomReport(BaseModel):
     extra_in_duro_count: int = 0
     quantity_mismatch_count: int = 0
     quantity_unknown_count: int = 0
+    duro_submenus: list[dict[str, str]] = Field(default_factory=list)
     differences: list[WorkflowBomDifference] = Field(default_factory=list)
 
     @property

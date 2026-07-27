@@ -107,12 +107,19 @@ class DuroClient:
             self.browser_token_provider
             and getattr(self.browser_token_provider, "configured", True)
         )
+        browser_status = self.browser_token_provider.status() if self.browser_token_provider else {}
         return DuroConnectionStatus(
             configured=bool(token) or remote_chrome_configured,
             token_valid=bool(token) and (expires_at is None or expires_at > now),
             token_expires_at=expires_at,
             base_url=self.base_url,
             remote_chrome_configured=remote_chrome_configured,
+            remote_chrome_connected=bool(browser_status.get("connected")),
+            remote_chrome_token_valid=bool(browser_status.get("token_valid")),
+            remote_chrome_token_expires_at=browser_status.get("token_expires_at"),
+            remote_chrome_last_success_at=browser_status.get("last_success_at"),
+            remote_chrome_error=str(browser_status.get("last_error") or ""),
+            auto_refresh_active=bool(browser_status.get("auto_refresh_active")),
         )
 
     def _access_token(self) -> str:
