@@ -1,2 +1,18 @@
 /backend/auth/
 /backend/data/
+
+# Local credentials and private keys
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+**/credentials*.json
+**/secrets*.json
+**/*token*.txt
+**/cookies*.txt
