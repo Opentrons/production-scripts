@@ -123,7 +123,7 @@ def update_subscription_config(
     username = str(subscription.get("username", "")).strip()
     password = str(subscription.get("password", "")).strip()
     auth = (username, password) if username and password else None
-    headers = {"User-Agent": "data-handler-ghelper-monitor/1.0"}
+    headers = {"User-Agent": "clash-verge/v1.7.7"}
 
     last_error: Exception | None = None
     for label, proxies in subscription_request_attempts(config):
