@@ -114,6 +114,17 @@ def test_quantity_before_part_number_is_used_without_double_counting_translation
     assert retaining_ring.pages == [61]
 
 
+def test_reference_name_uses_nearest_material_noun_phrase() -> None:
+    references = analyze_part_references(
+        [(1, "所有螺丝拧紧,需要确保柱塞块 415-00635")],
+        [],
+    )
+
+    assert len(references) == 1
+    assert references[0].part_number == "415-00635"
+    assert references[0].name == "柱塞块"
+
+
 def test_extract_material_lines_omits_other_pages_and_lines() -> None:
     pages = [
         (1, "准备工具\n安装 415-00390，并锁紧。\n检查外观"),

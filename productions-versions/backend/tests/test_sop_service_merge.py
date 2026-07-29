@@ -40,3 +40,20 @@ def test_llm_quantity_enriches_matching_local_reference() -> None:
     assert merged[0].quantity == 4
     assert merged[0].pages == [61]
     assert merged[0].name == "卡簧/Retaining ring"
+
+
+def test_llm_short_material_name_replaces_instruction_sentence() -> None:
+    local = [
+        SopPartReference(
+            part_number="415-00635",
+            name="所有螺丝拧紧,需要确保柱塞块",
+            occurrences=1,
+            quantity=1,
+            pages=[12],
+        )
+    ]
+    ai = [SopPartReference(part_number="415-00635", name="柱塞块", occurrences=1, quantity=1)]
+
+    merged = _merge_part_references(local, ai)
+
+    assert merged[0].name == "柱塞块"

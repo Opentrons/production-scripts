@@ -169,11 +169,19 @@ def test_material_name_keyword_matching_normalizes_micro_symbol_case_and_spaces(
     assert service._material_name_matches_keywords("200ul Plunger", ["200μl"])
     assert service._material_name_matches_keywords("200 µL O-ring", ["200ul"])
     assert service._material_name_matches_keywords("200 μl logo", ["200 uL"])
+    assert service._material_name_matches_keywords("200容量 弹簧441-00067", ["200 容量 441-00067"])
+    assert service._material_name_matches_keywords("200 容量密封圈 441-00067", ["200 容量 441-00067"])
+    assert service._material_name_matches_keywords(
+        "96装入压块,1000容量的弹簧441-00037,200容量弹簧441-00067",
+        ["200 Volume"],
+    )
+    assert not service._material_name_matches_keywords("441-00067 弹簧 200容量", ["200 容量 441-00067"])
     assert not service._material_name_matches_keywords("Flex Robot Pro", ["heater"])
 
 
 class FakeSopService:
-    def analyze_pdf(self, file_id: str):
+    def analyze_pdf(self, file_id: str, refresh: bool = False):
+        assert refresh is True
         materials = {
             "sop-a": [
                 SimpleNamespace(part_number="100-00001", name="Bolt", occurrences=2, pages=[1]),
@@ -189,7 +197,8 @@ class FakeSopService:
 
 
 class FakeDuroService:
-    def get_product_bom(self, product_id: str):
+    def get_product_bom(self, product_id: str, refresh: bool = False):
+        assert refresh is True
         assert product_id == "duro-product"
         return SimpleNamespace(
             root=DuroBomNode(
@@ -203,7 +212,8 @@ class FakeDuroService:
             )
         )
 
-    def get_component_children(self, component_id: str):
+    def get_component_children(self, component_id: str, refresh: bool = False):
+        assert refresh is True
         children = {
             "assembly": [
                 DuroBomNode(id="bolt", name="Bolt", cpn="100-00001", quantity=5),
@@ -219,7 +229,8 @@ class FakeDuroService:
 
 
 class EmptySopService:
-    def analyze_pdf(self, file_id: str):
+    def analyze_pdf(self, file_id: str, refresh: bool = False):
+        assert refresh is True
         return SimpleNamespace(full_text_references=[])
 
 
@@ -244,7 +255,13 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
                 "duro_submenu_ids": ["assembly"],
                 "duro_submenus": [{"id": "assembly", "label": "930-00004"}],
                 "ignored_sop_product_keywords": ["clip"],
-                "ignored_part_numbers": [" 100-00004 ", "100-00004"],
+                "ignored_part_numbers": [" 100-00004 ", "100-00004", "100-00002"],
+                "ignored_sop_product_keyword_reasons": {"clip": "该产品不参与当前核对"},
+                "ignored_part_number_reasons": {
+                    "100-00004": "测试用辅料",
+                    "100-00002": "该料号数量不参与核对",
+                },
+                "ignore_quantity_mismatch_warning": True,
             },
         )
     )
@@ -259,15 +276,28 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
     assert current.status == "succeeded"
     assert current.report is not None
     assert current.report.sop_source_count == 2
-    assert current.report.sop_material_count == 3
+    assert current.report.sop_material_count == 2
     assert current.report.matched_count == 2
-    assert current.report.duro_material_count == 4
+    assert current.report.duro_material_count == 3
     assert current.report.missing_in_duro_count == 0
     assert current.report.extra_in_duro_count == 1
-    assert current.report.quantity_mismatch_count == 1
+    assert current.report.quantity_mismatch_count == 0
     assert current.report.quantity_unknown_count == 0
-    assert len(current.report.differences) == 2
+    assert current.report.warning_difference_count == 1
+    assert len(current.report.differences) == 1
     assert all(item.part_number != "100-00004" for item in current.report.differences)
+    assert current.report.total_ignored_count == 3
+    assert {item.status for item in current.report.ignored_items} == {
+        "missing_in_duro",
+        "extra_in_duro",
+        "quantity_mismatch",
+    }
+    assert {item.ignore_reason for item in current.report.ignored_items} == {
+        "该产品不参与当前核对",
+        "测试用辅料",
+        "该料号数量不参与核对",
+    }
+    assert all(item.part_number != "100-00002" for item in current.report.differences)
     assert all(item.part_number != "100-00005" for item in current.report.differences)
     assert all(item.part_number != "930-00004" for item in current.report.differences)
     assert all(item.part_number != "999-00001" for item in current.report.differences)
@@ -279,6 +309,31 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
         for item in current.report.differences
         if item.status != "missing_in_duro"
     )
+
+
+def test_default_part_number_cleanup_is_compared_and_audited(tmp_path: Path) -> None:
+    service = WorkflowService(WorkflowRepository(tmp_path / "workflows.sqlite3"))
+    materials = {
+        "415-000656": {
+            "name": "清洗测试物料",
+            "quantity": 2.0,
+            "quantity_known": True,
+            "locations": ["SOP：第 1 页"],
+        },
+        "920-000131": {
+            "name": "第二个清洗测试物料",
+            "quantity": 1.0,
+            "quantity_known": True,
+            "locations": ["SOP：第 2 页"],
+        },
+    }
+
+    ignored = service._normalize_material_part_numbers(materials, "sop")
+
+    assert set(materials) == {"415-00656", "920-00131"}
+    assert {item.part_number for item in ignored} == {"415-000656", "920-000131"}
+    assert {item.normalized_part_number for item in ignored} == {"415-00656", "920-00131"}
+    assert all(item.ignore_type == "part_number_cleanup" for item in ignored)
 
 
 def test_manual_duro_run_rejects_sop_without_full_text_references(tmp_path: Path) -> None:

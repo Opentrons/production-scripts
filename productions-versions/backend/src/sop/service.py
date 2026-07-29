@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import io
+import sqlite3
 import threading
 import time
+from pathlib import Path
+from typing import Any
 
 from pypdf import PdfReader
+from pydantic import BaseModel
 
 from google_driver import GoogleDriveFile, GoogleDriver, GoogleDriverError, GoogleSheetData
 from settings import (
-    SOP_MASTER_CACHE_SECONDS,
     SOP_MASTER_SHEET_GID,
     SOP_MASTER_SPREADSHEET_ID,
-    SOP_PDF_CACHE_SECONDS,
     SOP_PDF_MAX_BYTES,
     SOP_PDF_MAX_TEXT_CHARS,
 )
@@ -31,7 +33,7 @@ from sop.models import (
     SopPdfPage,
     utc_now,
 )
-from llm.service import llm_service
+from llm.service import choose_material_name, llm_service
 
 
 class SopAnalysisError(RuntimeError):
@@ -49,8 +51,7 @@ def _merge_bom_materials(
         if current is None:
             merged[key] = item.model_copy(deep=True)
             continue
-        if item.name and len(item.name) > len(current.name):
-            current.name = item.name
+        current.name = choose_material_name(current.name, item.name)
         if item.quantity is not None:
             current.quantity = max(current.quantity or 0, item.quantity)
         current.unit = current.unit or item.unit
@@ -70,8 +71,7 @@ def _merge_part_references(
         if current is None:
             merged[key] = item.model_copy(deep=True)
             continue
-        if item.name and len(item.name) > len(current.name):
-            current.name = item.name
+        current.name = choose_material_name(current.name, item.name)
         current.occurrences = max(current.occurrences, item.occurrences)
         current.quantity = max(current.quantity, item.quantity)
         current.pages = list(dict.fromkeys([*current.pages, *item.pages]))
@@ -85,26 +85,35 @@ class SopService:
         google_driver: GoogleDriver,
         spreadsheet_id: str = SOP_MASTER_SPREADSHEET_ID,
         sheet_gid: int = SOP_MASTER_SHEET_GID,
-        cache_seconds: int = SOP_MASTER_CACHE_SECONDS,
+        cache_seconds: int = 0,
+        cache_path: Path | None = None,
     ) -> None:
         self.google_driver = google_driver
         self.spreadsheet_id = spreadsheet_id
         self.sheet_gid = sheet_gid
+        # Kept for constructor compatibility; cache entries are intentionally
+        # persistent and are replaced only by an explicit refresh.
         self.cache_seconds = max(0, cache_seconds)
+        self.cache_path = cache_path
         self._cache_lock = threading.RLock()
         self._cache_condition = threading.Condition(self._cache_lock)
         self._cached_master_sheet: SopMasterSheetResponse | None = None
-        self._cached_at_monotonic = 0.0
         self._master_refreshing = False
-        self._last_master_refresh_error = ""
-        self._pdf_cache: dict[str, tuple[float, SopPdfAnalysisResponse]] = {}
+        self._pdf_cache: dict[str, SopPdfAnalysisResponse] = {}
+        if self.cache_path is not None:
+            self._initialize_disk_cache()
 
     def get_master_sheet(self, refresh: bool = False) -> SopMasterSheetResponse:
         with self._cache_lock:
-            if self._cached_master_sheet is not None:
-                if refresh or not self._cache_is_valid():
-                    self._start_master_refresh_locked()
-                return self._cached_master_sheet.model_copy(update={"cached": True})
+            if not refresh:
+                if self._cached_master_sheet is not None:
+                    return self._cached_master_sheet.model_copy(update={"cached": True})
+                disk_cached = self._get_disk_cached(
+                    f"master:{self.spreadsheet_id}:{self.sheet_gid}", SopMasterSheetResponse
+                )
+                if disk_cached is not None:
+                    self._cached_master_sheet = disk_cached
+                    return disk_cached.model_copy(update={"cached": True})
 
             if self._master_refreshing:
                 while self._master_refreshing:
@@ -117,7 +126,8 @@ class SopService:
         try:
             response = self._read_master_sheet()
             with self._cache_lock:
-                self._store_master_sheet_locked(response)
+                self._cached_master_sheet = response
+                self._set_disk_cached(f"master:{self.spreadsheet_id}:{self.sheet_gid}", response)
             return response
         finally:
             with self._cache_lock:
@@ -128,40 +138,17 @@ class SopService:
         sheet_data = self.google_driver.read_sheet_by_gid(self.spreadsheet_id, self.sheet_gid)
         return self._build_master_sheet_response(sheet_data)
 
-    def _start_master_refresh_locked(self) -> None:
-        if self._master_refreshing:
-            return
-        self._master_refreshing = True
-        threading.Thread(
-            target=self._refresh_master_sheet_background,
-            name="sop-master-sheet-refresh",
-            daemon=True,
-        ).start()
-
-    def _refresh_master_sheet_background(self) -> None:
-        try:
-            response = self._read_master_sheet()
-            with self._cache_lock:
-                self._store_master_sheet_locked(response)
-                self._last_master_refresh_error = ""
-        except Exception as exc:
-            with self._cache_lock:
-                self._last_master_refresh_error = str(exc)
-        finally:
-            with self._cache_lock:
-                self._master_refreshing = False
-                self._cache_condition.notify_all()
-
-    def _store_master_sheet_locked(self, response: SopMasterSheetResponse) -> None:
-        self._cached_master_sheet = response
-        self._cached_at_monotonic = time.monotonic()
-
-    def analyze_pdf(self, file_id_or_url: str) -> SopPdfAnalysisResponse:
+    def analyze_pdf(self, file_id_or_url: str, refresh: bool = False) -> SopPdfAnalysisResponse:
         cache_key = self.google_driver.parse_drive_file_id(file_id_or_url) or file_id_or_url
         with self._cache_lock:
-            cached_pdf = self._pdf_cache.get(cache_key)
-            if cached_pdf and time.monotonic() - cached_pdf[0] < SOP_PDF_CACHE_SECONDS:
-                return cached_pdf[1].model_copy(update={"cached": True})
+            if not refresh:
+                cached_pdf = self._pdf_cache.get(cache_key)
+                if cached_pdf is not None:
+                    return cached_pdf.model_copy(update={"cached": True})
+                disk_cached = self._get_disk_cached(f"pdf:{cache_key}", SopPdfAnalysisResponse)
+                if disk_cached is not None:
+                    self._pdf_cache[cache_key] = disk_cached
+                    return disk_cached.model_copy(update={"cached": True})
 
         metadata, content = self.google_driver.download_file_bytes(file_id_or_url)
         self._validate_pdf(metadata, content)
@@ -300,8 +287,54 @@ class SopService:
             analyzed_at=utc_now(),
         )
         with self._cache_lock:
-            self._pdf_cache[cache_key] = (time.monotonic(), response)
+            self._pdf_cache[cache_key] = response
+            self._set_disk_cached(f"pdf:{cache_key}", response)
         return response
+
+    def _initialize_disk_cache(self) -> None:
+        assert self.cache_path is not None
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.cache_path, timeout=10) as connection:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sop_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    updated_at REAL NOT NULL,
+                    payload TEXT NOT NULL
+                )
+                """
+            )
+
+    def _get_disk_cached(self, key: str, model_type: type[BaseModel]) -> Any | None:
+        if self.cache_path is None:
+            return None
+        with self._cache_lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
+            row = connection.execute(
+                "SELECT payload FROM sop_cache WHERE cache_key = ?", (key,)
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            return model_type.model_validate_json(row[0])
+        except ValueError:
+            with self._cache_lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
+                connection.execute("DELETE FROM sop_cache WHERE cache_key = ?", (key,))
+            return None
+
+    def _set_disk_cached(self, key: str, value: BaseModel) -> None:
+        if self.cache_path is None:
+            return
+        with self._cache_lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
+            connection.execute(
+                """
+                INSERT INTO sop_cache (cache_key, updated_at, payload) VALUES (?, ?, ?)
+                ON CONFLICT(cache_key) DO UPDATE SET
+                    updated_at = excluded.updated_at,
+                    payload = excluded.payload
+                """,
+                (key, time.time(), value.model_dump_json()),
+            )
 
     def _build_master_sheet_response(self, sheet_data: GoogleSheetData) -> SopMasterSheetResponse:
         if not sheet_data.cells:
@@ -357,12 +390,6 @@ class SopService:
             status_counts=status_counts,
             entries=entries,
             fetched_at=utc_now(),
-        )
-
-    def _cache_is_valid(self) -> bool:
-        return (
-            self._cached_master_sheet is not None
-            and time.monotonic() - self._cached_at_monotonic < self.cache_seconds
         )
 
     def _validate_pdf(self, metadata: GoogleDriveFile, content: bytes) -> None:

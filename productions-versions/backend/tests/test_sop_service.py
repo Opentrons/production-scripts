@@ -126,12 +126,41 @@ def test_concurrent_master_sheet_requests_share_one_google_read() -> None:
     assert driver.sheet_read_count == 1
 
 
-def test_refresh_returns_cached_sheet_while_background_update_runs() -> None:
+def test_refresh_fetches_and_replaces_sheet_cache() -> None:
     driver = FakeGoogleDriver()
     service = SopService(driver, spreadsheet_id="sheet-id", sheet_gid=1, cache_seconds=300)  # type: ignore[arg-type]
     service.get_master_sheet()
 
     refreshed = service.get_master_sheet(refresh=True)
 
-    assert refreshed.cached is True
+    assert refreshed.cached is False
     assert refreshed.total_rows == 2
+    assert driver.sheet_read_count == 2
+
+
+def test_master_sheet_cache_survives_service_restart(tmp_path) -> None:
+    cache_path = tmp_path / "sop-cache.sqlite3"
+    first_driver = FakeGoogleDriver()
+    first_service = SopService(first_driver, spreadsheet_id="sheet-id", sheet_gid=1, cache_path=cache_path)  # type: ignore[arg-type]
+    first_service.get_master_sheet()
+
+    second_driver = FakeGoogleDriver()
+    second_service = SopService(second_driver, spreadsheet_id="sheet-id", sheet_gid=1, cache_path=cache_path)  # type: ignore[arg-type]
+    cached = second_service.get_master_sheet()
+
+    assert cached.cached is True
+    assert second_driver.sheet_read_count == 0
+
+
+def test_pdf_analysis_cache_survives_service_restart(tmp_path) -> None:
+    cache_path = tmp_path / "sop-cache.sqlite3"
+    first_driver = FakeGoogleDriver()
+    first_service = SopService(first_driver, cache_path=cache_path)  # type: ignore[arg-type]
+    first_service.analyze_pdf("pdf-file-id")
+
+    second_driver = FakeGoogleDriver()
+    second_service = SopService(second_driver, cache_path=cache_path)  # type: ignore[arg-type]
+    cached = second_service.analyze_pdf("pdf-file-id")
+
+    assert cached.cached is True
+    assert cached.filename == "SOP.pdf"

@@ -115,6 +115,10 @@ export const duroApi = {
     api.get<DuroProductSearchResponse>('/duro/products', { params: { refresh } }),
   productBom: (productId: string, refresh = false) =>
     api.get<DuroProductBomResponse>(`/duro/products/${encodeURIComponent(productId)}/bom`, { params: { refresh } }),
+  searchProductBom: (productId: string, query: string) =>
+    api.get<DuroProductBomResponse>(`/duro/products/${encodeURIComponent(productId)}/bom/search`, {
+      params: { q: query }
+    }),
   componentChildren: (componentId: string, refresh = false) =>
     api.get<DuroComponentChildrenResponse>(`/duro/components/${encodeURIComponent(componentId)}/children`, {
       params: { refresh }

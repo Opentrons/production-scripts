@@ -115,6 +115,7 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                    <el-dropdown-item command="copy" :disabled="isWorkflowCopying(workflow.id)">复制</el-dropdown-item>
                     <el-dropdown-item command="run" :disabled="isWorkflowRunning(workflow.id)">运行</el-dropdown-item>
                     <el-dropdown-item command="history">运行历史</el-dropdown-item>
                     <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
@@ -165,7 +166,7 @@
               @click="builderTab = 'history'"
             >
               历史运行
-              <span>{{ workflowRuns.length }}</span>
+              <span>{{ historyTotal }}</span>
             </button>
           </nav>
 
@@ -198,6 +199,13 @@
                     <em>分钟</em>
                   </div>
                 </label>
+                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field quantity-warning-field">
+                  <span>忽略数量差异告警</span>
+                  <div class="quantity-warning-control">
+                    <el-switch v-model="sourceConfiguration.ignore_quantity_mismatch_warning" />
+                    <em>仍显示数量差异，不计入警告</em>
+                  </div>
+                </label>
               </section>
 
               <section v-if="editForm.kind === 'duro_bom_check'" class="workflow-source-grid">
@@ -211,8 +219,8 @@
                       text
                       :icon="Refresh"
                       :loading="sopSourcesLoading"
-                      @click="loadSopSources(false)"
-                    >更新缓存</el-button>
+                      @click="loadSopSources(true)"
+                    >手动刷新</el-button>
                   </header>
                   <p>可按产品和工序筛选全部 SOP；核对只使用全文料号引用，不读取物料清单页。</p>
                   <div class="sop-source-filters">
@@ -283,8 +291,8 @@
                       text
                       :icon="Refresh"
                       :loading="duroProductsLoading"
-                      @click="loadDuroProducts(false)"
-                    >更新缓存</el-button>
+                      @click="loadDuroProducts(true)"
+                    >手动刷新</el-button>
                   </header>
                   <p>通过当前 Duro 产品 API 加载产品、料号及当前 Revision。</p>
                   <el-select
@@ -363,35 +371,41 @@
                 <div class="workflow-filter-item">
                   <div class="section-label">
                     <span>SOP PRODUCT FILTER</span>
-                    <strong>忽略 SOP 相关产品</strong>
+                    <div class="ignore-rule-title">
+                      <strong>忽略 SOP 相关产品</strong>
+                      <button type="button" aria-label="添加忽略 SOP 产品规则" @click="openIgnoreRuleDialog('sop')">
+                        <el-icon><Plus /></el-icon>
+                      </button>
+                    </div>
                   </div>
-                  <el-input-tag
-                    v-model="sourceConfiguration.ignored_sop_product_keywords"
-                    clearable
-                    trigger="Enter"
-                    :save-on-blur="true"
-                    placeholder="输入产品关键字后按 Enter"
-                    @change="normalizeIgnoredSopProductKeywords"
-                  />
+                  <div v-if="sourceConfiguration.ignored_sop_product_keywords?.length" class="ignore-rule-list">
+                    <div v-for="keyword in sourceConfiguration.ignored_sop_product_keywords" :key="keyword">
+                      <el-tag closable @close="removeIgnoredSopKeyword(keyword)">{{ keyword }}</el-tag>
+                      <span>{{ sourceConfiguration.ignored_sop_product_keyword_reasons?.[keyword] }}</span>
+                    </div>
+                  </div>
                   <div class="workflow-filter-summary">
                     已配置 {{ sourceConfiguration.ignored_sop_product_keywords?.length || 0 }} 个产品关键字；
-                    SOP 物料名称包含任一关键字时不计入差异，不影响 Duro 物料。
+                    SOP 物料名称包含关键片段且顺序一致时不计入差异，片段之间允许出现其它文字。
                   </div>
                 </div>
 
                 <div class="workflow-filter-item">
                   <div class="section-label">
                     <span>BOM PART FILTER</span>
-                    <strong>忽略 BOM 料号</strong>
+                    <div class="ignore-rule-title">
+                      <strong>忽略 BOM 料号</strong>
+                      <button type="button" aria-label="添加忽略 BOM 料号" @click="openIgnoreRuleDialog('part')">
+                        <el-icon><Plus /></el-icon>
+                      </button>
+                    </div>
                   </div>
-                  <el-input-tag
-                    v-model="sourceConfiguration.ignored_part_numbers"
-                    clearable
-                    trigger="Enter"
-                    :save-on-blur="true"
-                    placeholder="输入料号后按 Enter，例如 100-00001"
-                    @change="normalizeIgnoredPartNumbers"
-                  />
+                  <div v-if="sourceConfiguration.ignored_part_numbers?.length" class="ignore-rule-list">
+                    <div v-for="partNumber in sourceConfiguration.ignored_part_numbers" :key="partNumber">
+                      <el-tag closable @close="removeIgnoredPartNumber(partNumber)">{{ partNumber }}</el-tag>
+                      <span>{{ sourceConfiguration.ignored_part_number_reasons?.[partNumber] }}</span>
+                    </div>
+                  </div>
                   <div class="workflow-filter-summary">
                     已配置 {{ sourceConfiguration.ignored_part_numbers?.length || 0 }} 个忽略料号；
                     执行时会同时从 SOP 与 Duro BOM 中排除。
@@ -428,21 +442,82 @@
               <div class="section-heading-row">
                 <div class="section-label">
                   <span>EXECUTION HISTORY</span>
-                  <strong>历史运行</strong>
+                  <div class="history-title-line">
+                    <strong>历史运行</strong>
+                    <button
+                      class="history-refresh-icon"
+                      type="button"
+                      aria-label="刷新运行记录"
+                      title="刷新运行记录"
+                      :disabled="historyLoading"
+                      @click="loadRuns(selectedWorkflow.id)"
+                    >
+                      <el-icon :class="{ 'is-loading': historyLoading }"><Refresh /></el-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="history-filter-panel">
+                  <div class="history-stat-grid">
+                    <article class="is-success"><span>成功</span><strong>{{ historySuccessCount }}</strong></article>
+                    <article class="is-failed"><span>失败</span><strong>{{ historyFailedCount }}</strong></article>
+                    <article class="is-warning"><span>告警</span><strong>{{ historyWarningCount }}</strong></article>
+                  </div>
+                  <el-date-picker
+                    v-model="historyDateRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    unlink-panels
+                    clearable
+                    @change="handleHistoryDateChange"
+                  />
                 </div>
                 <div class="history-actions">
+                  <button
+                    class="history-delete-button"
+                    type="button"
+                    :disabled="deletingRuns"
+                    @click="handleHistoryDeleteButton"
+                  >
+                    <el-icon><Delete /></el-icon>
+                    <span>{{ selectedRunCount ? '删除全部' : '删除记录' }}</span>
+                  </button>
+                  <button
+                    v-if="historySelectionMode"
+                    class="history-selection-cancel"
+                    type="button"
+                    @click="cancelHistorySelection"
+                  >取消</button>
                   <span class="next-run-text">下次运行：{{ formatDate(selectedWorkflow.next_run_at) }}</span>
-                  <el-button :icon="Refresh" @click="loadRuns(selectedWorkflow.id)">刷新记录</el-button>
                 </div>
               </div>
-              <div v-if="!workflowRuns.length" class="empty-runs">还没有运行记录，点击“手动运行”验证触发链路。</div>
-              <el-collapse v-else class="run-history-collapse">
+              <div v-if="historyLoading" class="empty-runs">正在加载运行历史…</div>
+              <div v-else-if="!workflowRuns.length" class="empty-runs">还没有运行记录，点击“手动运行”验证触发链路。</div>
+              <el-collapse
+                v-else
+                v-model="activeRunIds"
+                class="run-history-collapse"
+                @change="handleRunCollapseChange"
+              >
                 <el-collapse-item v-for="run in workflowRuns" :key="run.id" :name="run.id">
                   <template #title>
-                    <div class="run-history-title" :class="{ 'has-warning': runHasWarnings(run) }">
+                    <div
+                      class="run-history-title"
+                      :class="{ 'has-warning': runHasWarnings(run), 'is-selecting': historySelectionMode }"
+                    >
+                      <span v-if="historySelectionMode" class="run-history-checkbox" @click.stop>
+                        <el-checkbox
+                          :model-value="selectedRunIds.has(run.id)"
+                          @change="toggleRunSelection(run.id, Boolean($event))"
+                        />
+                      </span>
                       <div class="run-summary-copy">
                         <span class="run-primary-status" :class="runStatusClass(run)">
-                          <span class="run-status-icon" :class="runStatusClass(run)"></span>
+                          <el-icon v-if="run.status === 'running'" class="run-status-glyph is-running">
+                            <Loading />
+                          </el-icon>
+                          <span v-else class="run-status-icon" :class="runStatusClass(run)"></span>
                           {{ runStatusText[run.status] }}
                         </span>
                         <el-tooltip :content="runMessageText(run)" placement="top" :show-after="300">
@@ -452,15 +527,14 @@
                           </small>
                         </el-tooltip>
                       </div>
-                      <div class="run-warning-summary" :class="{ 'is-warning': runHasWarnings(run), 'is-clear': runSucceededWithoutWarnings(run) }">
-                        <template v-if="runHasWarnings(run) && run.report">
+                      <div class="run-warning-summary" :class="{ 'is-warning': runHasWarnings(run) }">
+                        <template v-if="run.report">
                           <strong class="is-total-warning">警告 {{ runWarningCount(run) }}</strong>
-                          <span v-if="run.report.missing_in_duro_count" class="is-missing">缺失 {{ run.report.missing_in_duro_count }}</span>
-                          <span v-if="run.report.extra_in_duro_count" class="is-extra">冗余 {{ run.report.extra_in_duro_count }}</span>
-                          <span v-if="run.report.quantity_mismatch_count" class="is-quantity">数量 {{ run.report.quantity_mismatch_count }}</span>
-                          <span v-if="run.report.quantity_unknown_count" class="is-unknown">未知 {{ run.report.quantity_unknown_count }}</span>
+                          <span class="is-missing">Duro 缺失 {{ run.report.missing_in_duro_count }}</span>
+                          <span class="is-extra">Duro 冗余 {{ run.report.extra_in_duro_count }}</span>
+                          <span class="is-quantity">数量差异 {{ run.report.quantity_mismatch_count }}</span>
+                          <span class="is-unknown">数量未知 {{ run.report.quantity_unknown_count }}</span>
                         </template>
-                        <span v-else-if="runSucceededWithoutWarnings(run)">无警告</span>
                         <span v-else>—</span>
                       </div>
                       <span class="run-trigger-type">{{ run.trigger_type === 'manual' ? '手动' : '定时' }}</span>
@@ -468,25 +542,50 @@
                     </div>
                   </template>
 
-                  <div v-if="run.report" class="bom-report">
+                  <div v-if="runDetailLoading[run.id] && !runDetailLoaded[run.id]" class="empty-runs">
+                    正在加载运行结果和核对明细…
+                  </div>
+                  <el-alert
+                    v-else-if="runDetailErrors[run.id]"
+                    :title="runDetailErrors[run.id]"
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                  />
+                  <div v-else-if="runDetailLoaded[run.id] && run.report" class="bom-report">
                     <div class="bom-report-metrics">
                       <article><span>SOP 源</span><strong>{{ run.report.sop_source_count }}</strong></article>
                       <article><span>全文引用料号</span><strong>{{ run.report.sop_material_count }}</strong></article>
                       <article><span>Duro 料号</span><strong>{{ run.report.duro_material_count }}</strong></article>
                       <article><span>一致</span><strong>{{ run.report.matched_count }}</strong></article>
-                      <article class="is-danger"><span>缺失</span><strong>{{ filteredDifferenceCount(run, 'missing_in_duro') }}</strong></article>
-                      <article class="is-warning"><span>冗余</span><strong>{{ filteredDifferenceCount(run, 'extra_in_duro') }}</strong></article>
-                      <article class="is-warning"><span>数量差异</span><strong>{{ filteredDifferenceCount(run, 'quantity_mismatch') }}</strong></article>
-                      <article><span>数量未知</span><strong>{{ filteredDifferenceCount(run, 'quantity_unknown') }}</strong></article>
+                      <article class="is-danger"><span>缺失</span><strong>{{ run.report.missing_in_duro_count }}</strong></article>
+                      <article class="is-warning"><span>冗余</span><strong>{{ run.report.extra_in_duro_count }}</strong></article>
+                      <article class="is-warning"><span>数量差异</span><strong>{{ run.report.quantity_mismatch_count }}</strong></article>
+                      <article><span>数量未知</span><strong>{{ run.report.quantity_unknown_count }}</strong></article>
+                      <article class="is-ignored"><span>已忽略</span><strong>{{ run.report.total_ignored_count }}</strong></article>
                     </div>
-                    <div class="bom-report-toolbar">
-                      <div>
-                        <strong>差异明细</strong>
-                        <span>
-                          显示 {{ filteredReportDifferences(run).length }} / {{ run.report.differences.length }} 项
-                        </span>
+                    <nav class="report-detail-nav" aria-label="核对结果明细导航">
+                      <div class="report-detail-nav-pages">
+                        <button
+                          type="button"
+                          :class="{ 'is-active': reportView(run.id) === 'differences' }"
+                          @click="setReportView(run.id, 'differences')"
+                        >差异明细 <small>共 {{ run.report.total_difference_count }} 项，显示 {{ filteredReportDifferences(run).length }} 项</small></button>
+                        <button
+                          type="button"
+                          :class="{ 'is-active': reportView(run.id) === 'ignored' }"
+                          @click="setReportView(run.id, 'ignored')"
+                        >已忽略 <small>共 {{ run.report.total_ignored_count }} 项，显示 {{ filteredReportIgnoredItems(run).length }} 项</small></button>
                       </div>
                       <div class="bom-report-filters">
+                        <el-input
+                          :model-value="reportSearchText(run.id)"
+                          class="report-search-input"
+                          :prefix-icon="Search"
+                          clearable
+                          placeholder="搜索料号 / 名称"
+                          @input="setReportSearchText(run.id, String($event))"
+                        />
                         <el-select
                           v-if="run.report.duro_submenus.length"
                           :model-value="reportSubmenuFilter(run.id)"
@@ -516,7 +615,7 @@
                           class="difference-filter-select"
                           @change="setReportFilter(run.id, $event)"
                         >
-                          <el-option label="全部差异" value="all" />
+                          <el-option label="全部类型" value="all" />
                           <el-option label="不看数量差异" value="structure" />
                           <el-option label="只看 Duro 缺失" value="missing_in_duro" />
                           <el-option label="只看 Duro 冗余" value="extra_in_duro" />
@@ -524,7 +623,8 @@
                           <el-option label="只看数量未知" value="quantity_unknown" />
                         </el-select>
                       </div>
-                    </div>
+                    </nav>
+                    <template v-if="reportView(run.id) === 'differences'">
                     <el-table
                       :data="filteredReportDifferences(run)"
                       :row-class-name="differenceRowClassName"
@@ -560,19 +660,52 @@
                         <template #default="{ row }">{{ row.duro_paths.join('；') || '—' }}</template>
                       </el-table-column>
                     </el-table>
+                    </template>
+                    <template v-else>
+                        <el-table :data="filteredReportIgnoredItems(run)" border max-height="520" empty-text="没有符合筛选条件的已忽略数据">
+                          <el-table-column label="原差异" width="120">
+                            <template #default="{ row }">
+                              <span v-if="row.ignore_type === 'part_number_cleanup'" class="difference-status is-cleanup">料号清洗</span>
+                              <span v-else class="difference-status" :class="`is-${row.status}`">{{ differenceLabel(row.status) }}</span>
+                            </template>
+                          </el-table-column>
+                          <el-table-column prop="part_number" label="原料号" width="140" />
+                          <el-table-column prop="name" label="物料名称" min-width="180" show-overflow-tooltip />
+                          <el-table-column label="Duro 子菜单" min-width="150" show-overflow-tooltip>
+                            <template #default="{ row }">{{ row.duro_submenu_labels.join('、') || '—' }}</template>
+                          </el-table-column>
+                          <el-table-column label="忽略类型" width="130">
+                            <template #default="{ row }">
+                              {{ row.ignore_type === 'part_number_cleanup' ? '默认料号清洗' : row.ignore_type === 'part_number' ? '忽略料号' : 'SOP 产品关键字' }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column prop="ignore_value" label="命中规则" width="140" show-overflow-tooltip />
+                          <el-table-column prop="ignore_reason" label="忽略原因" min-width="220" show-overflow-tooltip />
+                        </el-table>
+                    </template>
                   </div>
                   <el-alert
-                    v-else-if="run.status === 'running' || run.status === 'queued'"
+                    v-else-if="runDetailLoaded[run.id] && (run.status === 'running' || run.status === 'queued')"
                     title="正在读取并核对 BOM，请稍后刷新运行记录"
                     type="info"
                     :closable="false"
                     show-icon
                   />
-                  <div v-else class="run-log-list">
+                  <div v-else-if="runDetailLoaded[run.id]" class="run-log-list">
                     <span v-for="(log, index) in run.logs" :key="index">{{ log }}</span>
                   </div>
                 </el-collapse-item>
               </el-collapse>
+              <el-pagination
+                v-if="historyTotal > historyPageSize"
+                class="history-pagination"
+                background
+                layout="prev, pager, next, total"
+                :current-page="historyPage"
+                :page-size="historyPageSize"
+                :total="historyTotal"
+                @current-change="handleHistoryPageChange"
+              />
             </section>
           </div>
         </section>
@@ -613,6 +746,51 @@
       </template>
     </el-dialog>
 
+    <el-dialog
+      v-model="ignoreRuleDialogVisible"
+      :title="ignoreRuleDialogType === 'sop' ? '添加忽略 SOP 产品规则' : '添加忽略 BOM 料号'"
+      width="480px"
+    >
+      <div class="ignore-rule-dialog-form">
+        <label>
+          <span>{{ ignoreRuleDialogType === 'sop' ? '产品关键字' : 'BOM 料号' }}</span>
+          <el-input
+            v-if="ignoreRuleDialogType === 'sop'"
+            v-model="pendingSopKeyword"
+            placeholder="例如 200μl"
+            @keyup.enter="addIgnoredSopKeyword"
+          />
+          <el-input
+            v-else
+            v-model="pendingPartNumber"
+            placeholder="例如 100-00001"
+            @keyup.enter="addIgnoredPartNumber"
+          />
+        </label>
+        <label>
+          <span>忽略原因</span>
+          <el-input
+            v-if="ignoreRuleDialogType === 'sop'"
+            v-model="pendingSopKeywordReason"
+            type="textarea"
+            :rows="3"
+            placeholder="必填，请说明忽略原因"
+          />
+          <el-input
+            v-else
+            v-model="pendingPartNumberReason"
+            type="textarea"
+            :rows="3"
+            placeholder="必填，请说明忽略原因"
+          />
+        </label>
+      </div>
+      <template #footer>
+        <el-button @click="ignoreRuleDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmIgnoreRule">添加</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -625,12 +803,15 @@ import {
   Close,
   Connection,
   DataAnalysis,
+  Delete,
   DocumentChecked,
   Files,
   FolderOpened,
+  Loading,
   MoreFilled,
   Plus,
   Refresh,
+  Search,
   VideoPlay
 } from '@element-plus/icons-vue'
 import DuroProductsPanel from '@/views/DuroProductsPanel.vue'
@@ -659,8 +840,25 @@ const triggering = ref(false)
 const editorVisible = ref(false)
 const workflowListVisible = ref(true)
 const runningWorkflowIds = ref<Set<string>>(new Set())
+const pollingRunIds = ref<Set<string>>(new Set())
+const copyingWorkflowIds = ref<Set<string>>(new Set())
 const workflows = ref<Workflow[]>([])
 const workflowRuns = ref<WorkflowRun[]>([])
+const activeRunIds = ref<string[]>([])
+const runDetailLoaded = reactive<Record<string, boolean>>({})
+const runDetailLoading = reactive<Record<string, boolean>>({})
+const runDetailErrors = reactive<Record<string, string>>({})
+const historyLoading = ref(false)
+const historyPage = ref(1)
+const historyPageSize = ref(10)
+const historyTotal = ref(0)
+const historySuccessCount = ref(0)
+const historyFailedCount = ref(0)
+const historyWarningCount = ref(0)
+const historyDateRange = ref<[Date, Date] | null>(null)
+const historySelectionMode = ref(false)
+const selectedRunIds = ref<Set<string>>(new Set())
+const deletingRuns = ref(false)
 const selectedWorkflowId = ref<string | null>(null)
 const editForm = ref<WorkflowPayload | null>(null)
 const createDialogVisible = ref(false)
@@ -681,6 +879,14 @@ const duroSubmenuOptions = ref<DuroBomNode[]>([])
 const duroSubmenuCollapse = ref<string[]>([])
 const reportDifferenceFilters = reactive<Record<string, ReportDifferenceFilter>>({})
 const reportSubmenuFilters = reactive<Record<string, string[]>>({})
+const reportViews = reactive<Record<string, 'differences' | 'ignored'>>({})
+const reportSearchTexts = reactive<Record<string, string>>({})
+const pendingSopKeyword = ref('')
+const pendingSopKeywordReason = ref('')
+const pendingPartNumber = ref('')
+const pendingPartNumberReason = ref('')
+const ignoreRuleDialogVisible = ref(false)
+const ignoreRuleDialogType = ref<'sop' | 'part'>('sop')
 
 type ReportDifferenceFilter = 'all' | 'structure' | WorkflowBomDifferenceStatus
 
@@ -711,6 +917,9 @@ interface WorkflowSourceConfiguration extends Record<string, unknown> {
   duro_submenus?: Array<{ id: string; label: string }>
   ignored_sop_product_keywords?: string[]
   ignored_part_numbers?: string[]
+  ignored_sop_product_keyword_reasons?: Record<string, string>
+  ignored_part_number_reasons?: Record<string, string>
+  ignore_quantity_mismatch_warning?: boolean
 }
 
 const createForm = reactive({
@@ -755,6 +964,7 @@ const differenceStatusText: Record<WorkflowBomDifferenceStatus, string> = {
 const selectedWorkflow = computed(() =>
   workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value) ?? null
 )
+const selectedRunCount = computed(() => selectedRunIds.value.size)
 
 const activeWorkflowCount = computed(() => workflows.value.filter((item) => item.status === 'active').length)
 const scheduledWorkflowCount = computed(() => workflows.value.filter((item) => item.schedule.enabled).length)
@@ -866,6 +1076,12 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
   const ignoredSopProductKeywords = Array.isArray(configuration.ignored_sop_product_keywords)
     ? uniqueKeywords(configuration.ignored_sop_product_keywords.map(String))
     : []
+  const keywordReasons = configuration.ignored_sop_product_keyword_reasons && typeof configuration.ignored_sop_product_keyword_reasons === 'object'
+    ? configuration.ignored_sop_product_keyword_reasons as Record<string, unknown>
+    : {}
+  const partReasons = configuration.ignored_part_number_reasons && typeof configuration.ignored_part_number_reasons === 'object'
+    ? configuration.ignored_part_number_reasons as Record<string, unknown>
+    : {}
   const submenuIds = Array.isArray(configuration.duro_submenu_ids)
     ? [...new Set(configuration.duro_submenu_ids.map(String).filter(Boolean))]
     : []
@@ -890,7 +1106,14 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     duro_submenu_ids: submenuIds,
     duro_submenus: submenus,
     ignored_sop_product_keywords: ignoredSopProductKeywords,
-    ignored_part_numbers: ignoredPartNumbers
+    ignored_part_numbers: ignoredPartNumbers,
+    ignored_sop_product_keyword_reasons: Object.fromEntries(
+      ignoredSopProductKeywords.map((keyword) => [keyword, String(keywordReasons[keyword] || '历史配置未填写原因')])
+    ),
+    ignored_part_number_reasons: Object.fromEntries(
+      ignoredPartNumbers.map((partNumber) => [partNumber, String(partReasons[partNumber] || '历史配置未填写原因')])
+    ),
+    ignore_quantity_mismatch_warning: Boolean(configuration.ignore_quantity_mismatch_warning)
   }
 }
 
@@ -921,6 +1144,11 @@ async function loadWorkflows() {
 function selectWorkflow(workflowId: string) {
   const workflow = workflows.value.find((item) => item.id === workflowId)
   if (!workflow) return
+  if (selectedWorkflowId.value !== workflowId) {
+    historyPage.value = 1
+    historyDateRange.value = null
+    activeRunIds.value = []
+  }
   selectedWorkflowId.value = workflowId
   editForm.value = cloneWorkflowPayload(workflow)
   const productId = String(editForm.value.configuration.duro_product_id || '')
@@ -932,14 +1160,14 @@ function openWorkflowEditor(workflowId: string) {
   selectWorkflow(workflowId)
   builderTab.value = 'editor'
   editorVisible.value = true
-  workflowListVisible.value = true
+  workflowListVisible.value = false
 }
 
 function openWorkflowHistory(workflowId: string) {
   selectWorkflow(workflowId)
   builderTab.value = 'history'
   editorVisible.value = true
-  workflowListVisible.value = true
+  workflowListVisible.value = false
 }
 
 function closeWorkflowEditor() {
@@ -947,6 +1175,7 @@ function closeWorkflowEditor() {
   workflowListVisible.value = true
   editForm.value = null
   workflowRuns.value = []
+  activeRunIds.value = []
 }
 
 function closeWorkflowList() {
@@ -963,6 +1192,10 @@ function handleWorkflowCommand(workflow: Workflow, command: string | number | ob
     void triggerWorkflow(workflow)
     return
   }
+  if (command === 'copy') {
+    void copyWorkflow(workflow)
+    return
+  }
   if (command === 'history') {
     openWorkflowHistory(workflow.id)
     return
@@ -972,6 +1205,10 @@ function handleWorkflowCommand(workflow: Workflow, command: string | number | ob
 
 function isWorkflowRunning(workflowId: string) {
   return runningWorkflowIds.value.has(workflowId)
+}
+
+function isWorkflowCopying(workflowId: string) {
+  return copyingWorkflowIds.value.has(workflowId)
 }
 
 function setWorkflowRunning(workflowId: string, running: boolean) {
@@ -1085,14 +1322,69 @@ function duroSubmenuLabel(submenu: DuroBomNode) {
   return submenu.cpn || submenu.alias || submenu.name || submenu.id
 }
 
-function normalizeIgnoredPartNumbers(values?: string[]) {
+function addIgnoredPartNumber() {
+  const partNumber = pendingPartNumber.value.trim().toUpperCase()
+  const reason = pendingPartNumberReason.value.trim()
+  if (!partNumber) return ElMessage.warning('请输入 BOM 料号')
+  if (!reason) return ElMessage.warning('添加忽略料号前必须填写原因')
   sourceConfiguration.value.ignored_part_numbers = [
-    ...new Set((values ?? []).map((value) => value.trim().toUpperCase()).filter(Boolean))
+    ...new Set([...(sourceConfiguration.value.ignored_part_numbers ?? []), partNumber])
   ]
+  sourceConfiguration.value.ignored_part_number_reasons = {
+    ...(sourceConfiguration.value.ignored_part_number_reasons ?? {}),
+    [partNumber]: reason
+  }
+  pendingPartNumber.value = ''
+  pendingPartNumberReason.value = ''
+  ignoreRuleDialogVisible.value = false
 }
 
-function normalizeIgnoredSopProductKeywords(values?: string[]) {
-  sourceConfiguration.value.ignored_sop_product_keywords = uniqueKeywords(values ?? [])
+function removeIgnoredPartNumber(partNumber: string) {
+  sourceConfiguration.value.ignored_part_numbers = (sourceConfiguration.value.ignored_part_numbers ?? [])
+    .filter((value) => value !== partNumber)
+  const reasons = { ...(sourceConfiguration.value.ignored_part_number_reasons ?? {}) }
+  delete reasons[partNumber]
+  sourceConfiguration.value.ignored_part_number_reasons = reasons
+}
+
+function addIgnoredSopKeyword() {
+  const keyword = pendingSopKeyword.value.trim()
+  const reason = pendingSopKeywordReason.value.trim()
+  if (!keyword) return ElMessage.warning('请输入 SOP 产品关键字')
+  if (!reason) return ElMessage.warning('添加产品关键字前必须填写原因')
+  sourceConfiguration.value.ignored_sop_product_keywords = uniqueKeywords([
+    ...(sourceConfiguration.value.ignored_sop_product_keywords ?? []),
+    keyword
+  ])
+  sourceConfiguration.value.ignored_sop_product_keyword_reasons = {
+    ...(sourceConfiguration.value.ignored_sop_product_keyword_reasons ?? {}),
+    [keyword]: reason
+  }
+  pendingSopKeyword.value = ''
+  pendingSopKeywordReason.value = ''
+  ignoreRuleDialogVisible.value = false
+}
+
+function openIgnoreRuleDialog(type: 'sop' | 'part') {
+  ignoreRuleDialogType.value = type
+  pendingSopKeyword.value = ''
+  pendingSopKeywordReason.value = ''
+  pendingPartNumber.value = ''
+  pendingPartNumberReason.value = ''
+  ignoreRuleDialogVisible.value = true
+}
+
+function confirmIgnoreRule() {
+  if (ignoreRuleDialogType.value === 'sop') addIgnoredSopKeyword()
+  else addIgnoredPartNumber()
+}
+
+function removeIgnoredSopKeyword(keyword: string) {
+  sourceConfiguration.value.ignored_sop_product_keywords = (sourceConfiguration.value.ignored_sop_product_keywords ?? [])
+    .filter((value) => value !== keyword)
+  const reasons = { ...(sourceConfiguration.value.ignored_sop_product_keyword_reasons ?? {}) }
+  delete reasons[keyword]
+  sourceConfiguration.value.ignored_sop_product_keyword_reasons = reasons
 }
 
 function uniqueKeywords(values: string[]) {
@@ -1116,15 +1408,159 @@ function duroProductLabel(product: DuroProduct) {
 }
 
 async function loadRuns(workflowId: string) {
+  historyLoading.value = true
   try {
-    const response = await workflowApi.runs(workflowId)
+    const [createdFrom, createdTo] = historyDateParams()
+    const response = await workflowApi.runs(
+      workflowId,
+      historyPage.value,
+      historyPageSize.value,
+      createdFrom,
+      createdTo
+    )
     if (selectedWorkflowId.value === workflowId) {
-      workflowRuns.value = response.data
+      historyTotal.value = response.data.total
+      historySuccessCount.value = response.data.success_count
+      historyFailedCount.value = response.data.failed_count
+      historyWarningCount.value = response.data.warning_count
+      workflowRuns.value = response.data.items.map((summary) => {
+        const current = workflowRuns.value.find((run) => run.id === summary.id)
+        if (
+          current?.report &&
+          summary.report &&
+          runDetailLoaded[summary.id] &&
+          current.status === summary.status
+        ) {
+          return {
+            ...summary,
+            report: {
+              ...summary.report,
+              differences: current.report.differences,
+              total_difference_count: summary.report.total_difference_count,
+              ignored_items: current.report.ignored_items,
+              total_ignored_count: summary.report.total_ignored_count
+            }
+          }
+        }
+        return summary
+      })
+      for (const run of workflowRuns.value) {
+        if (['queued', 'running'].includes(run.status)) {
+          setWorkflowRunning(workflowId, true)
+          startPollingWorkflowRun(workflowId, run.id)
+        }
+      }
     }
-    return response.data
+    return response.data.items
   } catch (error) {
     console.error(error)
     return []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function historyDateParams(): [string | undefined, string | undefined] {
+  if (!historyDateRange.value) return [undefined, undefined]
+  const start = new Date(historyDateRange.value[0])
+  const end = new Date(historyDateRange.value[1])
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
+  return [start.toISOString(), end.toISOString()]
+}
+
+function handleHistoryDateChange() {
+  historyPage.value = 1
+  activeRunIds.value = []
+  cancelHistorySelection()
+  if (selectedWorkflowId.value) void loadRuns(selectedWorkflowId.value)
+}
+
+function handleHistoryPageChange(page: number) {
+  historyPage.value = page
+  activeRunIds.value = []
+  cancelHistorySelection()
+  if (selectedWorkflowId.value) void loadRuns(selectedWorkflowId.value)
+}
+
+function toggleRunSelection(runId: string, selected: boolean) {
+  const next = new Set(selectedRunIds.value)
+  if (selected) next.add(runId)
+  else next.delete(runId)
+  selectedRunIds.value = next
+}
+
+function cancelHistorySelection() {
+  historySelectionMode.value = false
+  selectedRunIds.value = new Set()
+}
+
+async function handleHistoryDeleteButton() {
+  if (!historySelectionMode.value) {
+    historySelectionMode.value = true
+    return
+  }
+  if (!selectedRunCount.value || deletingRuns.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedRunCount.value} 条运行记录？删除后无法恢复。`,
+      '批量删除运行记录',
+      {
+        confirmButtonText: '删除全部',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  deletingRuns.value = true
+  try {
+    const response = await workflowApi.deleteRuns([...selectedRunIds.value])
+    const deletedCount = response.data.deleted_count
+    const remainingTotal = Math.max(0, historyTotal.value - deletedCount)
+    const lastPage = Math.max(1, Math.ceil(remainingTotal / historyPageSize.value))
+    historyPage.value = Math.min(historyPage.value, lastPage)
+    cancelHistorySelection()
+    if (selectedWorkflowId.value) await loadRuns(selectedWorkflowId.value)
+    await loadWorkflows()
+    ElMessage.success(`已删除 ${deletedCount} 条运行记录`)
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('运行记录删除失败')
+  } finally {
+    deletingRuns.value = false
+  }
+}
+
+function handleRunCollapseChange(activeNames: string | number | Array<string | number>) {
+  const names = Array.isArray(activeNames) ? activeNames.map(String) : [String(activeNames)]
+  for (const runId of names) {
+    if (runId && !runDetailLoaded[runId] && !runDetailLoading[runId]) {
+      void loadRunDetail(runId)
+    }
+  }
+}
+
+async function loadRunDetail(runId: string) {
+  if (runDetailLoading[runId]) return
+  const run = workflowRuns.value.find((item) => item.id === runId)
+  if (!run) return
+  runDetailLoading[runId] = true
+  runDetailErrors[runId] = ''
+  try {
+    const response = await workflowApi.runDetail(runId)
+    const index = workflowRuns.value.findIndex((item) => item.id === runId)
+    if (index < 0) return
+    const detail = response.data.run
+    workflowRuns.value[index] = detail
+    runDetailLoaded[runId] = true
+  } catch (error: any) {
+    console.error(error)
+    runDetailErrors[runId] = error?.response?.data?.detail || error?.message || '运行明细加载失败'
+  } finally {
+    runDetailLoading[runId] = false
   }
 }
 
@@ -1183,6 +1619,25 @@ async function createWorkflow() {
   }
 }
 
+async function copyWorkflow(workflow: Workflow) {
+  if (isWorkflowCopying(workflow.id)) return
+  copyingWorkflowIds.value = new Set(copyingWorkflowIds.value).add(workflow.id)
+  try {
+    const payload = cloneWorkflowPayload(workflow)
+    payload.name = `${workflow.name}-副本`
+    await workflowApi.create(payload)
+    await loadWorkflows()
+    ElMessage.success(`已复制“${workflow.name}”`)
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('工作流复制失败')
+  } finally {
+    const next = new Set(copyingWorkflowIds.value)
+    next.delete(workflow.id)
+    copyingWorkflowIds.value = next
+  }
+}
+
 async function deleteWorkflow(workflow: Workflow) {
   try {
     await ElMessageBox.confirm(`确认删除“${workflow.name}”？`, '删除工作流', {
@@ -1225,7 +1680,7 @@ async function triggerWorkflow(workflow: Workflow) {
     const response = await workflowApi.trigger(workflow.id)
     ElMessage.success('工作流已触发')
     if (editorVisible.value && selectedWorkflowId.value === workflow.id) builderTab.value = 'history'
-    void pollWorkflowRun(workflow.id, response.data.id)
+    startPollingWorkflowRun(workflow.id, response.data.id)
     await loadWorkflows()
   } catch (error) {
     console.error(error)
@@ -1236,12 +1691,35 @@ async function triggerWorkflow(workflow: Workflow) {
   }
 }
 
+function startPollingWorkflowRun(workflowId: string, runId: string) {
+  if (pollingRunIds.value.has(runId)) return
+  pollingRunIds.value = new Set(pollingRunIds.value).add(runId)
+  void pollWorkflowRun(workflowId, runId)
+}
+
+function stopPollingWorkflowRun(runId: string) {
+  const next = new Set(pollingRunIds.value)
+  next.delete(runId)
+  pollingRunIds.value = next
+}
+
 async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
-  const runs = await loadRuns(workflowId)
-  const run = runs.find((item) => item.id === runId)
-  if (!run || !['queued', 'running'].includes(run.status) || attempt >= 120) {
-    setWorkflowRunning(workflowId, false)
-    return
+  try {
+    const response = await workflowApi.runDetail(runId, 0, 1)
+    const run = response.data.run
+    if (!run || !['queued', 'running'].includes(run.status) || attempt >= 1800) {
+      stopPollingWorkflowRun(runId)
+      setWorkflowRunning(workflowId, false)
+      if (selectedWorkflowId.value === workflowId) await loadRuns(workflowId)
+      return
+    }
+  } catch (error) {
+    console.error(error)
+    if (attempt >= 1800) {
+      stopPollingWorkflowRun(runId)
+      setWorkflowRunning(workflowId, false)
+      return
+    }
   }
   window.setTimeout(() => void pollWorkflowRun(workflowId, runId, attempt + 1), 1000)
 }
@@ -1316,15 +1794,14 @@ function differenceLabel(status: string) {
 }
 
 function runWarningCount(run: WorkflowRun) {
-  return run.report?.differences.length ?? 0
+  return run.report?.warning_difference_count
+    ?? run.report?.total_difference_count
+    ?? run.report?.differences.length
+    ?? 0
 }
 
 function runHasWarnings(run: WorkflowRun) {
   return run.status === 'succeeded' && runWarningCount(run) > 0
-}
-
-function runSucceededWithoutWarnings(run: WorkflowRun) {
-  return run.status === 'succeeded' && runWarningCount(run) === 0
 }
 
 function runStatusClass(run: WorkflowRun) {
@@ -1332,6 +1809,7 @@ function runStatusClass(run: WorkflowRun) {
 }
 
 function runMessageText(run: WorkflowRun) {
+  if (run.status === 'succeeded' && run.report) return `核对完成：${runWarningCount(run)} 项警告`
   const message = run.message.trim()
   if (message) return run.status === 'failed' ? `失败原因：${message}` : message
   if (run.status === 'failed') {
@@ -1348,6 +1826,22 @@ function truncatedRunMessage(run: WorkflowRun, limit = 38) {
 
 function reportFilter(runId: string): ReportDifferenceFilter {
   return reportDifferenceFilters[runId] || 'all'
+}
+
+function reportView(runId: string) {
+  return reportViews[runId] || 'differences'
+}
+
+function setReportView(runId: string, view: 'differences' | 'ignored') {
+  reportViews[runId] = view
+}
+
+function reportSearchText(runId: string) {
+  return reportSearchTexts[runId] || ''
+}
+
+function setReportSearchText(runId: string, value: string) {
+  reportSearchTexts[runId] = value
 }
 
 function setReportFilter(runId: string, value: string) {
@@ -1369,21 +1863,39 @@ function reportSubmenuLabel(submenu: { label: string; name: string }) {
 }
 
 function filteredReportDifferences(run: WorkflowRun) {
-  const differences = run.report?.differences ?? []
-  const filter = reportFilter(run.id)
-  const submenuFilters = reportSubmenuFilter(run.id)
+  return filterReportItems(run.report?.differences ?? [], run.id)
+}
+
+function filteredReportIgnoredItems(run: WorkflowRun) {
+  return filterReportItems(run.report?.ignored_items ?? [], run.id)
+}
+
+function filterReportItems<T extends {
+  status: WorkflowBomDifferenceStatus
+  duro_submenu_ids: string[]
+  part_number: string
+  name: string
+  normalized_part_number?: string | null
+}>(
+  items: T[],
+  runId: string
+) {
+  const filter = reportFilter(runId)
+  const submenuFilters = reportSubmenuFilter(runId)
+  const keyword = reportSearchText(runId).trim().toLowerCase()
+  const bySearch = keyword
+    ? items.filter((item) => [item.part_number, item.normalized_part_number, item.name]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(keyword)))
+    : items
   const bySubmenu = submenuFilters.length === 0
-    ? differences
-    : differences.filter((item) => item.duro_submenu_ids.some((id) => submenuFilters.includes(id)))
+    ? bySearch
+    : bySearch.filter((item) => item.duro_submenu_ids.some((id) => submenuFilters.includes(id)))
   if (filter === 'all') return bySubmenu
   if (filter === 'structure') {
     return bySubmenu.filter((item) => ['missing_in_duro', 'extra_in_duro'].includes(item.status))
   }
   return bySubmenu.filter((item) => item.status === filter)
-}
-
-function filteredDifferenceCount(run: WorkflowRun, status: WorkflowBomDifferenceStatus) {
-  return filteredReportDifferences(run).filter((item) => item.status === status).length
 }
 
 function differenceRowClassName({ row }: { row: { status: WorkflowBomDifferenceStatus } }) {

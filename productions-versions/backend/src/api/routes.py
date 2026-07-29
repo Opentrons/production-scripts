@@ -1,9 +1,15 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from workflows.models import (
     Workflow,
     WorkflowCreate,
     WorkflowRun,
+    WorkflowRunDetailResponse,
+    WorkflowRunDeleteRequest,
+    WorkflowRunDeleteResponse,
+    WorkflowRunPage,
     WorkflowTriggerRequest,
     WorkflowUpdate,
 )
@@ -79,9 +85,35 @@ def trigger_workflow(workflow_id: str, payload: WorkflowTriggerRequest) -> Workf
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get("/workflow-runs", response_model=list[WorkflowRun])
+@router.get("/workflow-runs", response_model=WorkflowRunPage)
 def list_workflow_runs(
     workflow_id: str | None = Query(default=None),
-    limit: int = Query(default=30, ge=1, le=200),
-) -> list[WorkflowRun]:
-    return workflow_service.list_runs(workflow_id=workflow_id, limit=limit)
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=50),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+) -> WorkflowRunPage:
+    return workflow_service.list_run_page(
+        workflow_id=workflow_id,
+        page=page,
+        page_size=page_size,
+        created_from=created_from.isoformat() if created_from else None,
+        created_to=created_to.isoformat() if created_to else None,
+    )
+
+
+@router.delete("/workflow-runs", response_model=WorkflowRunDeleteResponse)
+def delete_workflow_runs(payload: WorkflowRunDeleteRequest) -> WorkflowRunDeleteResponse:
+    return workflow_service.delete_runs(payload.run_ids)
+
+
+@router.get("/workflow-runs/{run_id}", response_model=WorkflowRunDetailResponse)
+def get_workflow_run_detail(
+    run_id: str,
+    difference_offset: int = Query(default=0, ge=0),
+    difference_limit: int = Query(default=5000, ge=1, le=5000),
+) -> WorkflowRunDetailResponse:
+    try:
+        return workflow_service.get_run_detail(run_id, difference_offset, difference_limit)
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

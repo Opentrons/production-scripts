@@ -1,3 +1,5 @@
+import sqlite3
+
 from duro.models import DuroProduct, DuroProductSearchRequest, DuroProductSearchResponse
 from duro.service import DuroService
 
@@ -90,6 +92,22 @@ def test_product_page_cache_survives_service_restart(tmp_path) -> None:
 
     assert response.cached is True
     assert response.products[0].name == "Robot"
+    assert second_client.call_count == 0
+
+
+def test_persistent_cache_is_not_expired_by_legacy_timestamp(tmp_path) -> None:
+    cache_path = tmp_path / "duro-cache.sqlite3"
+    first_client = FakeDuroClient()
+    first_service = DuroService(first_client, cache_seconds=300, cache_path=cache_path)  # type: ignore[arg-type]
+    first_service.list_products()
+    with sqlite3.connect(cache_path) as connection:
+        connection.execute("UPDATE duro_cache SET expires_at = 0")
+
+    second_client = FakeDuroClient()
+    second_service = DuroService(second_client, cache_seconds=300, cache_path=cache_path)  # type: ignore[arg-type]
+    cached = second_service.list_products()
+
+    assert cached.cached is True
     assert second_client.call_count == 0
 
 

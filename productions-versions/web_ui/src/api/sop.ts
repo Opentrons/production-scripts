@@ -98,6 +98,6 @@ const api = axios.create({
 export const sopApi = {
   masterSheet: (refresh = false) =>
     api.get<SopMasterSheet>('/sop/master-sheet', { params: { refresh } }),
-  analyze: (fileId: string) =>
-    api.get<SopPdfAnalysis>(`/sop/files/${encodeURIComponent(fileId)}/analysis`)
+  analyze: (fileId: string, refresh = false) =>
+    api.get<SopPdfAnalysis>(`/sop/files/${encodeURIComponent(fileId)}/analysis`, { params: { refresh } })
 }

@@ -91,6 +91,13 @@ class WorkflowBomDifference(BaseModel):
     duro_submenu_labels: list[str] = Field(default_factory=list)
 
 
+class WorkflowBomIgnoredItem(WorkflowBomDifference):
+    ignore_type: Literal["sop_product_keyword", "part_number", "part_number_cleanup"]
+    ignore_value: str
+    ignore_reason: str
+    normalized_part_number: str | None = None
+
+
 class WorkflowBomReport(BaseModel):
     generated_at: datetime = Field(default_factory=utc_now)
     sop_source_count: int = 0
@@ -103,6 +110,10 @@ class WorkflowBomReport(BaseModel):
     quantity_unknown_count: int = 0
     duro_submenus: list[dict[str, str]] = Field(default_factory=list)
     differences: list[WorkflowBomDifference] = Field(default_factory=list)
+    total_difference_count: int = 0
+    ignored_items: list[WorkflowBomIgnoredItem] = Field(default_factory=list)
+    total_ignored_count: int = 0
+    warning_difference_count: int | None = None
 
     @property
     def difference_count(self) -> int:
@@ -121,3 +132,29 @@ class WorkflowRun(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+class WorkflowRunDetailResponse(BaseModel):
+    run: WorkflowRun
+    difference_offset: int = 0
+    difference_limit: int = 5000
+    difference_total: int = 0
+    has_more: bool = False
+
+
+class WorkflowRunPage(BaseModel):
+    items: list[WorkflowRun] = Field(default_factory=list)
+    total: int = 0
+    page: int = 1
+    page_size: int = 10
+    success_count: int = 0
+    failed_count: int = 0
+    warning_count: int = 0
+
+
+class WorkflowRunDeleteRequest(BaseModel):
+    run_ids: list[str] = Field(min_length=1, max_length=200)
+
+
+class WorkflowRunDeleteResponse(BaseModel):
+    deleted_count: int = 0

@@ -135,7 +135,7 @@
       <span>Production <strong>{{ statusCount('PRODUCTION') }}</strong></span>
       <span>Design <strong>{{ statusCount('DESIGN') }}</strong></span>
       <span>Obsolete <strong>{{ statusCount('OBSOLETE') }}</strong></span>
-      <span class="duro-source-state">{{ productResponse?.cached ? '缓存数据' : 'Duro API' }}</span>
+      <span class="duro-source-state">{{ productResponse?.cached ? 'SQLite 缓存' : 'Duro API' }}</span>
     </footer>
 
     <el-drawer v-model="productDrawerVisible" size="min(780px, 100vw)" class="duro-product-drawer">
@@ -174,8 +174,23 @@
               <div v-if="bomResponse" class="bom-summary">
                 <article><span>产品 Revision</span><strong>{{ bomResponse.root.revision || '—' }}</strong></article>
                 <article><span>第一层物料</span><strong>{{ bomResponse.direct_child_count }}</strong></article>
-                <article><span>数据来源</span><strong>{{ bomResponse.cached ? '五分钟缓存' : 'Duro API' }}</strong></article>
+                <article><span>数据来源</span><strong>{{ bomResponse.cached ? 'SQLite 缓存' : 'Duro API' }}</strong></article>
                 <article><span>更新时间</span><strong>{{ formatDate(bomResponse.fetched_at) }}</strong></article>
+              </div>
+
+              <div v-if="bomResponse" class="bom-search-row">
+                <el-input
+                  v-model="bomSearchText"
+                  :prefix-icon="Search"
+                  clearable
+                  placeholder="搜索 BOM 料号或产品名"
+                  aria-label="搜索 BOM 料号或产品名"
+                />
+                <span v-if="bomSearchLoading">正在搜索全部 BOM 层级…</span>
+                <span v-else-if="bomSearchResponse && countBomMatches(bomSearchResponse.root)">
+                  找到 {{ countBomMatches(bomSearchResponse.root) }} 个匹配项
+                </span>
+                <span v-else-if="bomSearchResponse">没有匹配的 BOM</span>
               </div>
 
               <div v-if="bomLoading && !bomResponse" class="bom-loading-state">
@@ -200,6 +215,7 @@
                   <span>状态</span>
                 </div>
                 <el-tree
+                  v-if="!bomSearchResponse"
                   :key="bomTreeVersion"
                   class="bom-tree"
                   node-key="ui_key"
@@ -227,7 +243,37 @@
                     </div>
                   </template>
                 </el-tree>
+                <el-tree
+                  v-else
+                  class="bom-tree"
+                  node-key="ui_key"
+                  :data="countBomMatches(bomSearchResponse.root) ? [decorateSearchTree(bomSearchResponse.root, 'search-root', 0)] : []"
+                  :props="bomTreeProps"
+                  default-expand-all
+                  :expand-on-click-node="false"
+                  empty-text="没有匹配的 BOM"
+                >
+                  <template #default="{ data }">
+                    <div class="bom-node-row" :class="{ 'is-product': data.node_type === 'product' }">
+                      <div class="bom-node-identity">
+                        <el-icon><Box /></el-icon>
+                        <div>
+                          <strong>{{ data.cpn || data.alias || data.id }}</strong>
+                          <span>{{ data.name || '未命名物料' }}</span>
+                        </div>
+                      </div>
+                      <span class="revision-pill">{{ data.revision || '—' }}</span>
+                      <span class="bom-quantity">{{ displayQuantity(data) }}</span>
+                      <span class="duro-status-pill" :class="`is-${(data.status || '').toLowerCase()}`">
+                        {{ data.status || '—' }}
+                      </span>
+                    </div>
+                  </template>
+                </el-tree>
               </div>
+              <el-alert v-if="bomSearchError" class="bom-inline-error" type="warning" :closable="false">
+                {{ bomSearchError }}
+              </el-alert>
               <el-alert v-if="bomError && bomResponse" class="bom-inline-error" type="warning" :closable="false">
                 {{ bomError }}
               </el-alert>
@@ -287,7 +333,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Box, Link, Loading, Refresh, Search } from '@element-plus/icons-vue'
 import {
@@ -313,6 +359,12 @@ const detailTab = ref<'bom' | 'info'>('bom')
 const bomLoading = ref(false)
 const bomError = ref('')
 const bomResponse = ref<DuroProductBomResponse | null>(null)
+const bomSearchText = ref('')
+const bomSearchResponse = ref<DuroProductBomResponse | null>(null)
+const bomSearchLoading = ref(false)
+const bomSearchError = ref('')
+const bomSearchRequestVersion = ref(0)
+let bomSearchTimer: ReturnType<typeof setTimeout> | null = null
 const bomTreeVersion = ref(0)
 const bomRequestVersion = ref(0)
 const refreshExpandedComponents = ref(false)
@@ -382,6 +434,9 @@ function openProduct(product: DuroProduct) {
   selectedProduct.value = product
   detailTab.value = 'bom'
   bomResponse.value = null
+  bomSearchText.value = ''
+  bomSearchResponse.value = null
+  bomSearchError.value = ''
   bomError.value = ''
   bomTreeVersion.value += 1
   productDrawerVisible.value = true
@@ -455,6 +510,47 @@ function decorateBomNode(node: DuroBomNode, parentKey: string, index: number, is
   }
 }
 
+function decorateSearchTree(node: DuroBomNode, parentKey: string, index: number): DuroTreeNode {
+  const decorated = decorateBomNode(node, parentKey, index, node.node_type === 'product')
+  decorated.children = node.children.map((child, childIndex) =>
+    decorateSearchTree(child, decorated.ui_key, childIndex)
+  )
+  decorated.is_leaf = decorated.children.length === 0
+  return decorated
+}
+
+async function searchProductBom() {
+  const productId = selectedProduct.value?._id
+  const query = bomSearchText.value.trim()
+  if (!productId || !query) return
+  const requestVersion = ++bomSearchRequestVersion.value
+  bomSearchLoading.value = true
+  bomSearchError.value = ''
+  try {
+    const response = await duroApi.searchProductBom(productId, query)
+    if (
+      requestVersion !== bomSearchRequestVersion.value ||
+      selectedProduct.value?._id !== productId ||
+      bomSearchText.value.trim() !== query
+    ) return
+    bomSearchResponse.value = response.data
+  } catch (error: any) {
+    console.error(error)
+    if (requestVersion !== bomSearchRequestVersion.value) return
+    bomSearchError.value = error?.response?.data?.detail || error?.message || 'BOM 全层级搜索失败'
+  } finally {
+    if (requestVersion === bomSearchRequestVersion.value) bomSearchLoading.value = false
+  }
+}
+
+function countBomMatches(node: DuroBomNode): number {
+  const keyword = bomSearchText.value.trim().toLowerCase()
+  const currentMatches = keyword && [node.cpn, node.name, node.alias, node.id]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(keyword)) ? 1 : 0
+  return currentMatches + node.children.reduce((total, child) => total + countBomMatches(child), 0)
+}
+
 function displayQuantity(node: DuroBomNode) {
   if (node.node_type === 'product') return '1'
   if (node.quantity === null || node.quantity === undefined || node.quantity === '') return '—'
@@ -484,7 +580,26 @@ function displayValue(value: unknown) {
   return String(value)
 }
 
+watch(bomSearchText, (value) => {
+  if (bomSearchTimer) clearTimeout(bomSearchTimer)
+  bomSearchRequestVersion.value += 1
+  bomSearchLoading.value = false
+  bomSearchResponse.value = null
+  bomSearchError.value = ''
+  if (!value.trim()) {
+    return
+  }
+  bomSearchLoading.value = true
+  bomSearchTimer = setTimeout(() => {
+    bomSearchTimer = null
+    void searchProductBom()
+  }, 400)
+})
+
 onMounted(() => loadProducts())
+onBeforeUnmount(() => {
+  if (bomSearchTimer) clearTimeout(bomSearchTimer)
+})
 </script>
 
 <style scoped>
@@ -745,6 +860,22 @@ onMounted(() => loadProducts())
   grid-template-columns: 1fr 1fr 1fr 1.45fr;
   gap: 9px;
   margin-top: 17px;
+}
+
+.bom-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.bom-search-row .el-input {
+  width: min(420px, 100%);
+}
+
+.bom-search-row > span {
+  color: #87939b;
+  font-size: 10px;
 }
 
 .bom-summary article {

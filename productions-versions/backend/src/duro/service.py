@@ -9,7 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from duro.client import DuroClient
+from duro.client import DuroApiError, DuroClient
 from duro.models import (
     DuroBomNode,
     DuroComponentChildrenResponse,
@@ -45,7 +45,7 @@ class DuroService:
         cache_key = json.dumps(payload.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
         with self._lock:
             cached = self._search_cache.get(cache_key)
-            if not refresh and cached and time.monotonic() - cached[0] < self.cache_seconds:
+            if not refresh and cached:
                 return cached[1].model_copy(update={"cached": True})
         if not refresh:
             disk_cached = self._get_disk_cached(
@@ -123,6 +123,61 @@ class DuroService:
         self._set_disk_cached(disk_key, response)
         return response
 
+    def search_product_bom(
+        self,
+        product_id: str,
+        query: str,
+        max_nodes: int = 5000,
+    ) -> DuroProductBomResponse:
+        keyword = query.strip().casefold()
+        if not keyword:
+            return self.get_product_bom(product_id)
+
+        response = self.get_product_bom(product_id)
+        visited_nodes = 0
+
+        def matches(node: DuroBomNode) -> bool:
+            return any(
+                keyword in str(value).casefold()
+                for value in (node.cpn, node.name, node.alias, node.id)
+                if value
+            )
+
+        def expand_and_filter(node: DuroBomNode, ancestors: frozenset[str]) -> DuroBomNode | None:
+            nonlocal visited_nodes
+            visited_nodes += 1
+            if visited_nodes > max_nodes:
+                raise DuroApiError(f"Duro BOM 节点超过 {max_nodes}，已停止搜索")
+
+            children = node.children
+            if node.node_type != "product" and node.has_children and node.id not in ancestors:
+                children = self.get_component_children(node.id).children
+
+            next_ancestors = ancestors | {node.id}
+            matched_children = [
+                matched
+                for child in children
+                if (matched := expand_and_filter(child, next_ancestors)) is not None
+            ]
+            if matches(node) or matched_children:
+                return node.model_copy(
+                    update={
+                        "children": matched_children,
+                        "has_children": bool(matched_children),
+                    }
+                )
+            return None
+
+        matched_root = expand_and_filter(response.root, frozenset())
+        root = matched_root or response.root.model_copy(update={"children": [], "has_children": False})
+        return response.model_copy(
+            update={
+                "root": root,
+                "direct_child_count": len(root.children),
+                "cached": response.cached,
+            }
+        )
+
     def _initialize_disk_cache(self) -> None:
         assert self.cache_path is not None
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -139,26 +194,23 @@ class DuroService:
             )
 
     def _get_disk_cached(self, key: str, model_type: type[BaseModel]) -> Any | None:
-        if self.cache_path is None or self.cache_seconds <= 0:
+        if self.cache_path is None:
             return None
         with self._lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
             row = connection.execute(
-                "SELECT expires_at, payload FROM duro_cache WHERE cache_key = ?", (key,)
+                "SELECT payload FROM duro_cache WHERE cache_key = ?", (key,)
             ).fetchone()
             if row is None:
                 return None
-            if row[0] <= time.time():
-                connection.execute("DELETE FROM duro_cache WHERE cache_key = ?", (key,))
-                return None
         try:
-            return model_type.model_validate_json(row[1])
+            return model_type.model_validate_json(row[0])
         except ValueError:
             with self._lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
                 connection.execute("DELETE FROM duro_cache WHERE cache_key = ?", (key,))
             return None
 
     def _set_disk_cached(self, key: str, value: BaseModel) -> None:
-        if self.cache_path is None or self.cache_seconds <= 0:
+        if self.cache_path is None:
             return
         with self._lock, sqlite3.connect(self.cache_path, timeout=10) as connection:
             connection.execute(
@@ -168,7 +220,7 @@ class DuroService:
                     expires_at = excluded.expires_at,
                     payload = excluded.payload
                 """,
-                (key, time.time() + self.cache_seconds, value.model_dump_json()),
+                (key, 0, value.model_dump_json()),
             )
 
     def _map_children(self, value: Any, parent_id: str) -> list[DuroBomNode]:
@@ -241,7 +293,7 @@ class DuroService:
     def _get_cached(self, cache: dict[str, tuple[float, Any]], key: str, refresh: bool) -> Any | None:
         with self._lock:
             cached = cache.get(key)
-            if not refresh and cached and time.monotonic() - cached[0] < self.cache_seconds:
+            if not refresh and cached:
                 return cached[1]
         return None
 

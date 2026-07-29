@@ -90,7 +90,7 @@
       <span>可分析 PDF <strong>{{ catalog?.linked_file_count ?? 0 }}</strong></span>
       <span>产品项目 <strong>{{ projectOptions.length }}</strong></span>
       <span>当前筛选 <strong>{{ filteredEntries.length }}</strong></span>
-      <span class="sop-cache-state">{{ catalog?.cached ? '缓存数据' : 'Google Sheets' }}</span>
+      <span class="sop-cache-state">{{ catalog?.cached ? 'SQLite 缓存' : 'Google Sheets' }}</span>
     </footer>
 
     <el-drawer
@@ -130,10 +130,20 @@
             <strong>{{ analysis.filename }}</strong>
             <span>{{ formatBytes(analysis.size) }} · {{ analysis.page_count }} 页 · {{ analysis.cached ? '缓存结果' : '最新分析' }}</span>
           </div>
-          <a v-if="selectedEntry?.link_url" :href="selectedEntry.link_url" target="_blank" rel="noreferrer">
-            <el-icon><Link /></el-icon>
-            查看原始 PDF
-          </a>
+          <div class="analysis-summary-actions">
+            <el-button
+              circle
+              :icon="Refresh"
+              :loading="analysisLoading"
+              aria-label="手动刷新 SOP PDF 分析"
+              title="手动刷新 SOP PDF 分析"
+              @click="refreshAnalysis"
+            />
+            <a v-if="selectedEntry?.link_url" :href="selectedEntry.link_url" target="_blank" rel="noreferrer">
+              <el-icon><Link /></el-icon>
+              查看原始 PDF
+            </a>
+          </div>
         </section>
 
         <el-alert
@@ -372,10 +382,18 @@ async function openAnalysis(entry: SopCatalogEntry) {
   bomSearchText.value = ''
   referenceSearchText.value = ''
   analysisDrawerVisible.value = true
+  await loadSelectedAnalysis(false)
+}
+
+async function loadSelectedAnalysis(refresh = false) {
+  const fileId = selectedEntry.value?.drive_file_id
+  if (!fileId) return
   analysisLoading.value = true
+  analysisError.value = ''
   try {
-    const response = await sopApi.analyze(entry.drive_file_id)
+    const response = await sopApi.analyze(fileId, refresh)
     analysis.value = response.data
+    if (refresh) ElMessage.success('SOP PDF 分析缓存已刷新')
   } catch (error: any) {
     console.error(error)
     analysisError.value = error?.response?.data?.detail || error?.message || 'PDF 下载或分析失败'
@@ -385,7 +403,11 @@ async function openAnalysis(entry: SopCatalogEntry) {
 }
 
 function retryAnalysis() {
-  if (selectedEntry.value) void openAnalysis(selectedEntry.value)
+  void loadSelectedAnalysis(true)
+}
+
+function refreshAnalysis() {
+  void loadSelectedAnalysis(true)
 }
 
 function formatDate(value: string | null) {
@@ -627,6 +649,12 @@ onMounted(() => loadCatalog())
   font-size: 11px;
   font-weight: 750;
   text-decoration: none;
+}
+
+.analysis-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .analysis-metrics {

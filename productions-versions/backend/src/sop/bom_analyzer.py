@@ -50,6 +50,15 @@ QUANTITY_PATTERN = re.compile(r"^\s+(?P<quantity>\d+(?:\.\d+)?)\b(?P<note>.*)$")
 LEADING_SEQUENCE_PATTERN = re.compile(r"^\s*(?P<sequence>\d{1,3})\s+(?P<name>.+)$")
 TRAILING_SEQUENCE_PATTERN = re.compile(r"(?P<name>.*?[A-Za-z,)])(?P<sequence>\d{1,3})$")
 UNIT_PATTERN = re.compile(r"^\s*(?P<unit>PCS?|EA|SET|ML|L|G|KG)\b", re.IGNORECASE)
+REFERENCE_NAME_ACTION_PATTERN = re.compile(
+    r"(?:需要|确保|确认|检查|使用|安装|组装|固定|锁紧|拧紧|放入|取出|替换|更换|完成)",
+    re.IGNORECASE,
+)
+REFERENCE_NAME_PREFIX_PATTERN = re.compile(
+    r"^(?:(?:所有)?[^,，。；;]{0,30}?(?:拧紧|锁紧|固定|安装|完成)\s*)?"
+    r"(?:需要)?(?:确保|确认|检查|使用|安装|组装|放入|取出|替换|更换|将|把)?\s*",
+    re.IGNORECASE,
+)
 
 
 def is_bom_page(text: str) -> bool:
@@ -290,7 +299,11 @@ def _looks_like_document_header(value: str) -> bool:
 def _infer_reference_name(source_line: str, part_match: re.Match[str]) -> str:
     before = source_line[:part_match.start()].strip()
     after = source_line[part_match.end():].strip()
-    candidates = [before, after]
+    if REFERENCE_NAME_ACTION_PATTERN.search(before):
+        before_segments = [item for item in re.split(r"[,，。；;]", before) if item.strip()]
+        candidates = [*reversed(before_segments), after, before]
+    else:
+        candidates = [before, after]
     for candidate in candidates:
         cleaned = re.sub(
             r"(?i)\b(?:part\s*(?:number|no\.?|#)|p/?n|item\s*(?:number|no\.?))\b",
@@ -298,6 +311,7 @@ def _infer_reference_name(source_line: str, part_match: re.Match[str]) -> str:
             candidate,
         )
         cleaned = re.sub(r"(?:物料)?料号|图号|零件号|编号", " ", cleaned)
+        cleaned = REFERENCE_NAME_PREFIX_PATTERN.sub("", cleaned)
         cleaned = re.sub(r"^[\s:：,，;；|/\\\-–—]+|[\s:：,，;；|/\\\-–—]+$", "", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         if cleaned and not _looks_like_document_header(cleaned):

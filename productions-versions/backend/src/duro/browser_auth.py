@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import threading
@@ -37,6 +38,7 @@ class DuroRemoteChromeTokenProvider:
         self._playwright: Any = None
         self._browser: Any = None
         self._page: Any = None
+        self._prefer_low_level_cdp = False
         self._connected = False
         self._access_token = ""
         self._access_token_expires_at: datetime | None = None
@@ -121,29 +123,36 @@ class DuroRemoteChromeTokenProvider:
     def _get_access_token_on_worker(self, force: bool) -> str:
         if not force and self._cached_token_is_valid():
             return self._access_token
-        page = self._ensure_page()
-        try:
-            result = page.evaluate(
-                """
-                async ({ authUrl }) => {
-                  const response = await fetch(`${authUrl}/api/v1/refresh_token`, {
-                    method: 'GET',
-                    credentials: 'include',
-                    headers: { accept: '*/*' },
-                  });
-                  const text = await response.text();
-                  let data = null;
-                  if (text) {
-                    try { data = JSON.parse(text); } catch (_) { data = null; }
-                  }
-                  return { status: response.status, data };
-                }
-                """,
-                {"authUrl": self.auth_url},
-            )
-        except Exception as exc:
-            self._reset_connection()
-            raise DuroRemoteChromeError(f"Remote Chrome 执行 Duro refresh 失败: {exc}") from exc
+        if self._prefer_low_level_cdp:
+            result = self._evaluate_refresh_via_cdp()
+        else:
+            try:
+                page = self._ensure_page()
+                result = page.evaluate(
+                    """
+                    async ({ authUrl }) => {
+                      const response = await fetch(`${authUrl}/api/v1/refresh_token`, {
+                        method: 'GET',
+                        credentials: 'include',
+                        headers: { accept: '*/*' },
+                      });
+                      const text = await response.text();
+                      let data = null;
+                      if (text) {
+                        try { data = JSON.parse(text); } catch (_) { data = null; }
+                      }
+                      return { status: response.status, data };
+                    }
+                    """,
+                    {"authUrl": self.auth_url},
+                )
+            except Exception as exc:
+                self._reset_connection()
+                self._prefer_low_level_cdp = True
+                try:
+                    result = self._evaluate_refresh_via_cdp()
+                except DuroRemoteChromeError as cdp_exc:
+                    raise cdp_exc from exc
 
         if not isinstance(result, dict):
             raise DuroRemoteChromeError("Remote Chrome 返回了无效的 Duro refresh 结果")
@@ -164,6 +173,163 @@ class DuroRemoteChromeTokenProvider:
         self._access_token = token
         self._access_token_expires_at = self._response_expiry(data, token)
         return token
+
+    def _evaluate_refresh_via_cdp(self) -> dict[str, Any]:
+        """Run the refresh call through the page target's raw CDP session.
+
+        Chrome can expose a valid page through Target.getTargets while
+        Playwright's high-level Page object is temporarily blank or detached.
+        Attaching to the target directly avoids navigating the user's tab and
+        keeps token refresh working across those Chrome/Playwright mismatches.
+        """
+
+        try:
+            return asyncio.run(self._evaluate_refresh_via_cdp_async())
+        except DuroRemoteChromeError:
+            raise
+        except Exception as exc:
+            self._connected = False
+            raise DuroRemoteChromeError(
+                f"Remote Chrome 底层 CDP refresh 失败: {exc}"
+            ) from exc
+
+    async def _evaluate_refresh_via_cdp_async(self) -> dict[str, Any]:
+        from playwright.async_api import async_playwright
+
+        playwright: Any = None
+        browser: Any = None
+        session: Any = None
+        attached_session_id = ""
+        try:
+            playwright = await async_playwright().start()
+            browser = await playwright.chromium.connect_over_cdp(
+                self.cdp_url,
+                timeout=self.timeout_seconds * 1000,
+            )
+            session = await browser.new_browser_cdp_session()
+            target_infos = (await session.send("Target.getTargets")).get("targetInfos", [])
+            target = next(
+                (
+                    item
+                    for item in target_infos
+                    if item.get("type") == "page"
+                    and "mfg.duro.app" in str(item.get("url") or "")
+                ),
+                None,
+            )
+            if target is None:
+                raise DuroRemoteChromeError(
+                    "Remote Chrome 中没有已打开的 Duro 页面，请先打开并登录 Duro"
+                )
+
+            attached = await session.send(
+                "Target.attachToTarget",
+                {"targetId": target["targetId"], "flatten": False},
+            )
+            attached_session_id = str(attached.get("sessionId") or "")
+            if not attached_session_id:
+                raise DuroRemoteChromeError("Remote Chrome 无法附加到 Duro 页面")
+
+            command_id = 1
+            loop = asyncio.get_running_loop()
+            response_future: asyncio.Future[dict[str, Any]] = loop.create_future()
+
+            def handle_target_message(event: dict[str, Any]) -> None:
+                if event.get("sessionId") != attached_session_id:
+                    return
+                try:
+                    message = json.loads(str(event.get("message") or "{}"))
+                except json.JSONDecodeError:
+                    return
+                if message.get("id") == command_id and not response_future.done():
+                    response_future.set_result(message)
+
+            session.on("Target.receivedMessageFromTarget", handle_target_message)
+            auth_url = json.dumps(self.auth_url)
+            expression = f"""
+                (async () => {{
+                  const authUrl = {auth_url};
+                  const response = await fetch(`${{authUrl}}/api/v1/refresh_token`, {{
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {{ accept: '*/*' }},
+                  }});
+                  const text = await response.text();
+                  let data = null;
+                  if (text) {{
+                    try {{ data = JSON.parse(text); }} catch (_) {{ data = null; }}
+                  }}
+                  return {{ status: response.status, data }};
+                }})()
+            """
+            await session.send(
+                "Target.sendMessageToTarget",
+                {
+                    "sessionId": attached_session_id,
+                    "message": json.dumps(
+                        {
+                            "id": command_id,
+                            "method": "Runtime.evaluate",
+                            "params": {
+                                "expression": expression,
+                                "awaitPromise": True,
+                                "returnByValue": True,
+                            },
+                        }
+                    ),
+                },
+            )
+            response = await asyncio.wait_for(
+                response_future,
+                timeout=self.timeout_seconds,
+            )
+            if response.get("error"):
+                raise DuroRemoteChromeError(
+                    f"Remote Chrome CDP 执行失败: {response['error']}"
+                )
+            evaluation = response.get("result") or {}
+            if evaluation.get("exceptionDetails"):
+                raise DuroRemoteChromeError(
+                    f"Remote Chrome CDP 页面执行失败: {evaluation['exceptionDetails']}"
+                )
+            remote_result = evaluation.get("result") or {}
+            value = remote_result.get("value")
+            if not isinstance(value, dict):
+                raise DuroRemoteChromeError("Remote Chrome CDP 返回了无效的 refresh 结果")
+            self._connected = True
+            return value
+        except DuroRemoteChromeError:
+            self._connected = False
+            raise
+        except Exception as exc:
+            self._connected = False
+            raise DuroRemoteChromeError(
+                f"Remote Chrome 底层 CDP refresh 失败: {exc}"
+            ) from exc
+        finally:
+            if session is not None and attached_session_id:
+                try:
+                    await session.send(
+                        "Target.detachFromTarget",
+                        {"sessionId": attached_session_id},
+                    )
+                except Exception:
+                    pass
+            if session is not None:
+                try:
+                    await session.detach()
+                except Exception:
+                    pass
+            if browser is not None:
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
+            if playwright is not None:
+                try:
+                    await playwright.stop()
+                except Exception:
+                    pass
 
     def _ensure_page(self) -> Any:
         if self._page is not None and not self._page.is_closed():

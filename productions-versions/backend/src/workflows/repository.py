@@ -70,6 +70,48 @@ class WorkflowRepository:
             rows = connection.execute(query, parameters).fetchall()
         return [WorkflowRun.model_validate_json(row[0]) for row in rows]
 
+    def list_runs_in_range(
+        self,
+        workflow_id: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+    ) -> list[WorkflowRun]:
+        query = "SELECT payload FROM workflow_runs"
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        if workflow_id:
+            clauses.append("workflow_id = ?")
+            parameters.append(workflow_id)
+        if created_from:
+            clauses.append("created_at >= ?")
+            parameters.append(created_from)
+        if created_to:
+            clauses.append("created_at <= ?")
+            parameters.append(created_to)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC"
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [WorkflowRun.model_validate_json(row[0]) for row in rows]
+
+    def get_run(self, run_id: str) -> WorkflowRun | None:
+        with self._lock, self._connect() as connection:
+            row = connection.execute("SELECT payload FROM workflow_runs WHERE id = ?", (run_id,)).fetchone()
+        return WorkflowRun.model_validate_json(row[0]) if row else None
+
+    def delete_runs(self, run_ids: list[str]) -> int:
+        normalized_ids = list(dict.fromkeys(run_id.strip() for run_id in run_ids if run_id.strip()))
+        if not normalized_ids:
+            return 0
+        placeholders = ",".join("?" for _ in normalized_ids)
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM workflow_runs WHERE id IN ({placeholders})",
+                normalized_ids,
+            )
+        return cursor.rowcount
+
     def save_run(self, run: WorkflowRun) -> WorkflowRun:
         with self._lock, self._connect() as connection:
             connection.execute(

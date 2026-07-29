@@ -73,6 +73,13 @@ export interface WorkflowBomDifference {
   duro_submenu_labels: string[]
 }
 
+export interface WorkflowBomIgnoredItem extends WorkflowBomDifference {
+  ignore_type: 'sop_product_keyword' | 'part_number' | 'part_number_cleanup'
+  ignore_value: string
+  ignore_reason: string
+  normalized_part_number: string | null
+}
+
 export interface WorkflowBomReport {
   generated_at: string
   sop_source_count: number
@@ -85,6 +92,32 @@ export interface WorkflowBomReport {
   quantity_unknown_count: number
   duro_submenus: WorkflowDuroSubmenu[]
   differences: WorkflowBomDifference[]
+  total_difference_count: number
+  ignored_items: WorkflowBomIgnoredItem[]
+  total_ignored_count: number
+  warning_difference_count: number | null
+}
+
+export interface WorkflowRunDetailResponse {
+  run: WorkflowRun
+  difference_offset: number
+  difference_limit: number
+  difference_total: number
+  has_more: boolean
+}
+
+export interface WorkflowRunPage {
+  items: WorkflowRun[]
+  total: number
+  page: number
+  page_size: number
+  success_count: number
+  failed_count: number
+  warning_count: number
+}
+
+export interface WorkflowRunDeleteResponse {
+  deleted_count: number
 }
 
 export type WorkflowPayload = Pick<
@@ -105,6 +138,25 @@ export const workflowApi = {
   remove: (workflowId: string) => api.delete(`/workflows/${workflowId}`),
   trigger: (workflowId: string) =>
     api.post<WorkflowRun>(`/workflows/${workflowId}/trigger`, { trigger_type: 'manual' }),
-  runs: (workflowId: string) =>
-    api.get<WorkflowRun[]>('/workflow-runs', { params: { workflow_id: workflowId, limit: 20 } })
+  runs: (
+    workflowId: string,
+    page = 1,
+    pageSize = 10,
+    createdFrom?: string,
+    createdTo?: string
+  ) => api.get<WorkflowRunPage>('/workflow-runs', {
+    params: {
+      workflow_id: workflowId,
+      page,
+      page_size: pageSize,
+      created_from: createdFrom || undefined,
+      created_to: createdTo || undefined
+    }
+  }),
+  runDetail: (runId: string, differenceOffset = 0, differenceLimit = 5000) =>
+    api.get<WorkflowRunDetailResponse>(`/workflow-runs/${encodeURIComponent(runId)}`, {
+      params: { difference_offset: differenceOffset, difference_limit: differenceLimit }
+    }),
+  deleteRuns: (runIds: string[]) =>
+    api.delete<WorkflowRunDeleteResponse>('/workflow-runs', { data: { run_ids: runIds } })
 }

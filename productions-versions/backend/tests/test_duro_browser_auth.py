@@ -37,6 +37,20 @@ class FakeRemoteChromeProvider(DuroRemoteChromeTokenProvider):
         return self.fake_page
 
 
+class FakeCdpFallbackProvider(DuroRemoteChromeTokenProvider):
+    def __init__(self, result: dict[str, object]) -> None:
+        super().__init__(cdp_url="http://chrome:9222")
+        self.result = result
+        self.fallback_calls = 0
+
+    def _ensure_page(self) -> FakePage:
+        raise DuroRemoteChromeError("Frame has been detached")
+
+    def _evaluate_refresh_via_cdp(self) -> dict[str, object]:
+        self.fallback_calls += 1
+        return self.result
+
+
 def test_remote_chrome_provider_caches_access_token_until_forced() -> None:
     token = make_token(datetime.now(timezone.utc) + timedelta(hours=1))
     page = FakePage([{"status": 200, "data": {"access_token": token}}])
@@ -76,5 +90,21 @@ def test_remote_chrome_provider_reports_logged_out_session() -> None:
     try:
         with pytest.raises(DuroRemoteChromeError, match="重新登录"):
             provider.get_access_token()
+    finally:
+        provider.close()
+
+
+def test_remote_chrome_provider_falls_back_to_low_level_cdp() -> None:
+    token = make_token(datetime.now(timezone.utc) + timedelta(hours=1))
+    provider = FakeCdpFallbackProvider(
+        {"status": 200, "data": {"access_token": token}}
+    )
+    try:
+        assert provider.get_access_token() == token
+        assert provider.status()["connected"] is False
+        assert provider.fallback_calls == 1
+
+        assert provider.get_access_token(force=True) == token
+        assert provider.fallback_calls == 2
     finally:
         provider.close()
