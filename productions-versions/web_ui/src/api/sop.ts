@@ -54,6 +54,21 @@ export interface SopPartReference {
   quantity: number
   pages: number[]
   source_lines: string[]
+  quantity_explanation: string
+  quantity_decisions: SopQuantityDecision[]
+}
+
+export interface SopQuantityDecision {
+  event_id: string
+  page_numbers: number[]
+  action: string
+  target: string
+  location: string
+  quantity_delta: number
+  accumulate: boolean
+  duplicate_of: string | null
+  reason: string
+  evidence: string
 }
 
 export interface SopPdfPage {

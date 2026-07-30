@@ -339,6 +339,14 @@ class WorkflowService:
                     return
                 if self.sop_service is None or self.duro_service is None:
                     raise RuntimeError("工作流 BOM 核对服务未初始化")
+                run.logs.append("运行前强制刷新 SOP 总表和 Duro 产品表。")
+                self.repository.save_run(run)
+                sop_sources, duro_source = self._refresh_run_data_sources(
+                    workflow,
+                    sop_sources,
+                    duro_source,
+                    run,
+                )
                 run.logs.append(f"读取 {len(sop_sources)} 份 SOP。")
                 self.repository.save_run(run)
                 sop_materials = self._collect_sop_references(sop_sources)
@@ -508,6 +516,206 @@ class WorkflowService:
             if str(file_id).strip()
         ]
 
+    def _refresh_run_data_sources(
+        self,
+        workflow: Workflow,
+        configured_sop_sources: list[dict[str, Any]],
+        configured_duro_product_id: str,
+        run: WorkflowRun,
+    ) -> tuple[list[dict[str, Any]], str]:
+        assert self.sop_service is not None
+        assert self.duro_service is not None
+
+        master_sheet = self.sop_service.get_master_sheet(refresh=True)
+        if bool(getattr(master_sheet, "cached", False)):
+            raise RuntimeError("SOP 总表强制刷新失败：服务返回了缓存数据")
+        fresh_sop_sources = [
+            self._sop_catalog_source(
+                self._match_sop_catalog_entry(source, list(master_sheet.entries))
+            )
+            for source in configured_sop_sources
+        ]
+        changed_sop_links = sum(
+            str(old.get("drive_file_id") or "").strip() != fresh["drive_file_id"]
+            for old, fresh in zip(configured_sop_sources, fresh_sop_sources)
+        )
+        run.logs.append(
+            f"SOP 总表实时刷新完成：定位 {len(fresh_sop_sources)} 份 SOP，"
+            f"更新 {changed_sop_links} 个源 PDF 链接。"
+        )
+
+        product_table = self.duro_service.list_products(refresh=True)
+        if bool(getattr(product_table, "cached", False)):
+            raise RuntimeError("Duro 产品表强制刷新失败：服务返回了缓存数据")
+        product = self._match_duro_product(
+            workflow,
+            list(product_table.products),
+            configured_duro_product_id,
+        )
+        fresh_duro_product_id = self._duro_product_text(product, "id")
+        if not fresh_duro_product_id:
+            raise RuntimeError("Duro 产品表中的目标产品缺少产品 ID")
+        product_changed = fresh_duro_product_id != configured_duro_product_id
+        run.logs.append(
+            f"Duro 产品表实时刷新完成：读取 {len(product_table.products)} 个产品，"
+            f"目标产品 ID {'已更新' if product_changed else '未变化'}。"
+        )
+
+        configuration = dict(workflow.configuration)
+        configuration["sop_sources"] = fresh_sop_sources
+        configuration["sop_drive_file_ids"] = [
+            source["drive_file_id"] for source in fresh_sop_sources
+        ]
+        first_source = fresh_sop_sources[0]
+        configuration["sop_drive_file_id"] = first_source["drive_file_id"]
+        configuration["sop_project"] = first_source["project"]
+        configuration["sop_process"] = first_source["process"]
+        configuration["sop_issue_date"] = first_source["issue_date"]
+        configuration["sop_link_url"] = first_source["link_url"]
+        configuration["sop_row_number"] = first_source["row_number"]
+        configuration["duro_product_id"] = fresh_duro_product_id
+        configuration["duro_product_name"] = self._duro_product_text(product, "name")
+        configuration["duro_product_cpn"] = self._duro_product_text(product, "cpn")
+        configuration["duro_product_revision"] = self._duro_product_text(product, "revision")
+        workflow.configuration = configuration
+        workflow.updated_at = utc_now()
+        self.repository.save_workflow(workflow)
+        self.repository.save_run(run)
+        return fresh_sop_sources, fresh_duro_product_id
+
+    def _match_sop_catalog_entry(
+        self,
+        source: dict[str, Any],
+        entries: list[Any],
+    ) -> Any:
+        linked_entries = [entry for entry in entries if self._sop_entry_text(entry, "drive_file_id")]
+        project = self._normalized_identity(source.get("project"))
+        process = self._normalized_identity(source.get("process"))
+        issue_date = self._normalized_identity(source.get("issue_date"))
+        row_number = str(source.get("row_number") or "").strip()
+        file_id = str(source.get("drive_file_id") or "").strip()
+
+        def same_identity(entry: Any) -> bool:
+            return (
+                (not project or self._normalized_identity(self._sop_entry_value(entry, "project")) == project)
+                and (not process or self._normalized_identity(self._sop_entry_value(entry, "process")) == process)
+            )
+
+        if row_number:
+            row_matches = [
+                entry
+                for entry in linked_entries
+                if str(self._sop_entry_value(entry, "row_number") or "").strip() == row_number
+                and same_identity(entry)
+            ]
+            if len(row_matches) == 1:
+                return row_matches[0]
+
+        identity_matches = [entry for entry in linked_entries if same_identity(entry)]
+        if (project or process) and issue_date:
+            dated_matches = [
+                entry
+                for entry in identity_matches
+                if self._normalized_identity(self._sop_entry_value(entry, "issue_date")) == issue_date
+            ]
+            if len(dated_matches) == 1:
+                return dated_matches[0]
+        if (project or process) and len(identity_matches) == 1:
+            return identity_matches[0]
+
+        file_matches = [
+            entry
+            for entry in linked_entries
+            if self._sop_entry_text(entry, "drive_file_id") == file_id
+        ]
+        if len(file_matches) == 1:
+            return file_matches[0]
+
+        label = " / ".join(value for value in (str(source.get("project") or "").strip(), str(source.get("process") or "").strip()) if value)
+        if len(identity_matches) > 1:
+            raise RuntimeError(f"刷新 SOP 总表后匹配到多条记录，无法确定当前链接：{label or file_id}")
+        raise RuntimeError(f"刷新 SOP 总表后未找到对应的当前 PDF 链接：{label or file_id}")
+
+    def _match_duro_product(
+        self,
+        workflow: Workflow,
+        products: list[Any],
+        configured_product_id: str,
+    ) -> Any:
+        id_matches = [
+            product
+            for product in products
+            if self._duro_product_text(product, "id") == configured_product_id
+        ]
+        if len(id_matches) == 1:
+            return id_matches[0]
+
+        configured_cpn = self._normalized_identity(workflow.configuration.get("duro_product_cpn"))
+        configured_name = self._normalized_identity(workflow.configuration.get("duro_product_name"))
+        configured_revision = self._normalized_identity(workflow.configuration.get("duro_product_revision"))
+
+        for field, expected in (("cpn", configured_cpn), ("name", configured_name)):
+            if not expected:
+                continue
+            matches = [
+                product
+                for product in products
+                if self._normalized_identity(self._duro_product_text(product, field)) == expected
+            ]
+            if configured_revision and len(matches) > 1:
+                matches = [
+                    product
+                    for product in matches
+                    if self._normalized_identity(self._duro_product_text(product, "revision"))
+                    == configured_revision
+                ]
+            if len(matches) == 1:
+                return matches[0]
+            if len(matches) > 1:
+                raise RuntimeError(f"刷新 Duro 产品表后匹配到多个目标产品：{expected}")
+
+        identity = (
+            str(workflow.configuration.get("duro_product_cpn") or "").strip()
+            or str(workflow.configuration.get("duro_product_name") or "").strip()
+            or configured_product_id
+        )
+        raise RuntimeError(f"刷新 Duro 产品表后未找到目标产品：{identity}")
+
+    @staticmethod
+    def _sop_entry_value(entry: Any, field: str) -> Any:
+        if isinstance(entry, dict):
+            return entry.get(field)
+        return getattr(entry, field, None)
+
+    @classmethod
+    def _sop_entry_text(cls, entry: Any, field: str) -> str:
+        return str(cls._sop_entry_value(entry, field) or "").strip()
+
+    @classmethod
+    def _sop_catalog_source(cls, entry: Any) -> dict[str, Any]:
+        return {
+            "drive_file_id": cls._sop_entry_text(entry, "drive_file_id"),
+            "project": cls._sop_entry_text(entry, "project"),
+            "process": cls._sop_entry_text(entry, "process"),
+            "issue_date": cls._sop_entry_text(entry, "issue_date"),
+            "link_url": cls._sop_entry_text(entry, "link_url"),
+            "row_number": cls._sop_entry_value(entry, "row_number"),
+        }
+
+    @staticmethod
+    def _duro_product_text(product: Any, field: str) -> str:
+        if isinstance(product, dict):
+            value = product.get(field)
+            if field == "id" and value is None:
+                value = product.get("_id")
+        else:
+            value = getattr(product, field, None)
+        return str(value or "").strip()
+
+    @staticmethod
+    def _normalized_identity(value: Any) -> str:
+        return " ".join(str(value or "").strip().casefold().split())
+
     def _configured_ignored_part_numbers(self, workflow: Workflow) -> set[str]:
         raw_values = workflow.configuration.get("ignored_part_numbers")
         values = raw_values if isinstance(raw_values, list) else []
@@ -596,6 +804,8 @@ class WorkflowService:
             # A workflow run is an explicit verification request: always
             # re-analyze the SOP and replace the persistent analysis cache.
             analysis = self.sop_service.analyze_pdf(file_id, refresh=True)
+            if bool(getattr(analysis, "cached", False)):
+                raise RuntimeError(f"SOP“{label}”强制刷新失败：服务返回了缓存分析")
             if not analysis.full_text_references:
                 raise RuntimeError(f"SOP“{label}”未识别到全文料号引用，无法执行 BOM 核对")
             for material in analysis.full_text_references:
@@ -606,6 +816,8 @@ class WorkflowService:
                         "quantity": 0.0,
                         "quantity_known": True,
                         "locations": [],
+                        "quantity_explanations": [],
+                        "quantity_decisions": [],
                     },
                 )
                 current["quantity"] += float(getattr(material, "quantity", 0) or material.occurrences)
@@ -614,6 +826,20 @@ class WorkflowService:
                 location = f"{label}：第 {', '.join(str(page) for page in material.pages)} 页"
                 if location not in current["locations"]:
                     current["locations"].append(location)
+                quantity_explanation = str(getattr(material, "quantity_explanation", "") or "")
+                if not quantity_explanation:
+                    material_quantity = float(getattr(material, "quantity", 0) or material.occurrences)
+                    quantity_explanation = (
+                        "大模型未返回该料号的完整语义累加明细，"
+                        f"当前采用 SOP 正文规则统计数量 {self._rounded(material_quantity):g}"
+                    )
+                explanation = f"{label}：{quantity_explanation}"
+                if explanation not in current["quantity_explanations"]:
+                    current["quantity_explanations"].append(explanation)
+                current["quantity_decisions"].extend(
+                    {"source": label, **decision.model_dump()}
+                    for decision in getattr(material, "quantity_decisions", [])
+                )
         return materials
 
     def _collect_duro_materials(
@@ -625,6 +851,8 @@ class WorkflowService:
         # A workflow run must compare against the current Duro BOM, not the
         # last page-view snapshot. The service refresh also updates SQLite.
         response = self.duro_service.get_product_bom(product_id, refresh=True)
+        if bool(getattr(response, "cached", False)):
+            raise RuntimeError("Duro 产品 BOM 强制刷新失败：服务返回了缓存数据")
         materials: dict[str, dict[str, Any]] = {}
         visited_nodes = 0
 
@@ -671,7 +899,10 @@ class WorkflowService:
                     current["submenu_labels"].append(submenu_label)
             if not node.has_children or node.id in ancestors:
                 return
-            children = self.duro_service.get_component_children(node.id, refresh=True).children
+            child_response = self.duro_service.get_component_children(node.id, refresh=True)
+            if bool(getattr(child_response, "cached", False)):
+                raise RuntimeError(f"Duro 子组件 {node.id} 强制刷新失败：服务返回了缓存数据")
+            children = child_response.children
             next_ancestors = {*ancestors, node.id}
             for child in children:
                 visit(child, effective_quantity, current_path, next_ancestors, submenu_id, submenu_label)
@@ -683,7 +914,10 @@ class WorkflowService:
             submenu_label = submenu.cpn or submenu.name or submenu.id
             selected_submenus.append({"id": submenu.id, "label": submenu_label, "name": submenu.name})
             submenu_quantity = self._number(submenu.quantity, default=1.0)
-            children = self.duro_service.get_component_children(submenu.id, refresh=True).children
+            child_response = self.duro_service.get_component_children(submenu.id, refresh=True)
+            if bool(getattr(child_response, "cached", False)):
+                raise RuntimeError(f"Duro 子菜单 {submenu.id} 强制刷新失败：服务返回了缓存数据")
+            children = child_response.children
             for child in children:
                 visit(
                     child,
@@ -731,6 +965,8 @@ class WorkflowService:
                         name=str(sop["name"]),
                         sop_quantity=self._rounded(sop["quantity"]) if sop["quantity_known"] else None,
                         sop_locations=list(sop["locations"]),
+                        sop_quantity_explanations=list(sop["quantity_explanations"]),
+                        sop_quantity_decisions=list(sop["quantity_decisions"]),
                     )
                 )
                 continue
@@ -745,6 +981,8 @@ class WorkflowService:
                         sop_quantity=None,
                         duro_quantity=duro_quantity,
                         sop_locations=list(sop["locations"]),
+                        sop_quantity_explanations=list(sop["quantity_explanations"]),
+                        sop_quantity_decisions=list(sop["quantity_decisions"]),
                         duro_paths=list(duro["paths"]),
                         duro_submenu_ids=list(duro["submenu_ids"]),
                         duro_submenu_labels=list(duro["submenu_labels"]),
@@ -760,6 +998,8 @@ class WorkflowService:
                         duro_quantity=duro_quantity,
                         quantity_delta=self._rounded(duro_quantity - sop_quantity),
                         sop_locations=list(sop["locations"]),
+                        sop_quantity_explanations=list(sop["quantity_explanations"]),
+                        sop_quantity_decisions=list(sop["quantity_decisions"]),
                         duro_paths=list(duro["paths"]),
                         duro_submenu_ids=list(duro["submenu_ids"]),
                         duro_submenu_labels=list(duro["submenu_labels"]),
@@ -873,7 +1113,9 @@ class WorkflowService:
                 if len(str(material.get("name") or "")) > len(str(existing.get("name") or "")):
                     existing["name"] = material.get("name") or ""
                 for field in (
-                    ("locations",) if source == "sop" else ("paths", "submenu_ids", "submenu_labels")
+                    ("locations", "quantity_explanations", "quantity_decisions")
+                    if source == "sop"
+                    else ("paths", "submenu_ids", "submenu_labels")
                 ):
                     for value in material.get(field, []):
                         if value not in existing.setdefault(field, []):
@@ -891,6 +1133,8 @@ class WorkflowService:
                     sop_quantity=self._rounded(material.get("quantity", 0)) if source == "sop" else None,
                     duro_quantity=self._rounded(material.get("quantity", 0)) if source == "duro" else None,
                     sop_locations=list(material.get("locations", [])),
+                    sop_quantity_explanations=list(material.get("quantity_explanations", [])),
+                    sop_quantity_decisions=list(material.get("quantity_decisions", [])),
                     duro_paths=list(material.get("paths", [])),
                     duro_submenu_ids=list(material.get("submenu_ids", [])),
                     duro_submenu_labels=list(material.get("submenu_labels", [])),

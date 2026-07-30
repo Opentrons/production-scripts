@@ -139,13 +139,13 @@
               </div>
             </div>
             <div class="builder-actions">
+              <el-button
+                :icon="VideoPlay"
+                :loading="triggering"
+                :disabled="isWorkflowRunning(selectedWorkflow.id)"
+                @click="triggerSelectedWorkflow"
+              >运行</el-button>
               <template v-if="builderTab === 'editor'">
-                <el-button
-                  :icon="VideoPlay"
-                  :loading="triggering"
-                  :disabled="isWorkflowRunning(selectedWorkflow.id)"
-                  @click="triggerSelectedWorkflow"
-                >运行</el-button>
                 <el-button type="primary" :icon="Check" :loading="saving" @click="saveSelectedWorkflow">保存</el-button>
               </template>
               <el-button text :icon="Close" aria-label="关闭" @click="closeWorkflowEditor">关闭</el-button>
@@ -632,6 +632,51 @@
                       border
                       empty-text="SOP BOM 与 Duro BOM 一致"
                     >
+                      <el-table-column type="expand" width="48">
+                        <template #default="{ row }">
+                          <div class="semantic-audit-panel">
+                            <div v-if="row.sop_quantity_explanations?.length" class="semantic-audit-summary">
+                              <strong>数量汇总说明</strong>
+                              <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
+                            </div>
+                            <div v-else-if="row.status === 'quantity_mismatch'" class="semantic-audit-summary">
+                              <strong>数量汇总说明</strong>
+                              <p>
+                                该历史记录未保存语义累加明细；当前 SOP 统计数量为
+                                {{ formatReportQuantity(row.sop_quantity) }}，Duro 数量为
+                                {{ formatReportQuantity(row.duro_quantity) }}。重新运行后将生成完整语义说明。
+                              </p>
+                            </div>
+                            <div v-if="row.sop_quantity_decisions?.length" class="semantic-decision-list">
+                              <article
+                                v-for="(decision, decisionIndex) in row.sop_quantity_decisions"
+                                :key="`${decision.source}-${decision.event_id}-${decisionIndex}`"
+                                class="semantic-decision-item"
+                              >
+                                <span class="semantic-decision-badge" :class="decision.accumulate ? 'is-added' : 'is-skipped'">
+                                  {{ decision.accumulate ? `累加 ${formatReportQuantity(decision.quantity_delta)}` : '不累加' }}
+                                </span>
+                                <div>
+                                  <strong>{{ decision.action || '语义判断' }}</strong>
+                                  <small>
+                                    {{ decision.source }}
+                                    <template v-if="decision.page_numbers?.length"> · 第 {{ decision.page_numbers.join('、') }} 页</template>
+                                    <template v-if="decision.target"> · 目标：{{ decision.target }}</template>
+                                    <template v-if="decision.location"> · 位置：{{ decision.location }}</template>
+                                  </small>
+                                  <p>{{ decision.reason || '—' }}</p>
+                                  <blockquote v-if="decision.evidence">{{ decision.evidence }}</blockquote>
+                                </div>
+                              </article>
+                            </div>
+                            <el-empty
+                              v-if="row.status !== 'quantity_mismatch' && !row.sop_quantity_explanations?.length && !row.sop_quantity_decisions?.length"
+                              description="暂无语义累加说明"
+                              :image-size="42"
+                            />
+                          </div>
+                        </template>
+                      </el-table-column>
                       <el-table-column label="差异类型" width="125">
                         <template #default="{ row }">
                           <span class="difference-status" :class="`is-${row.status}`">
@@ -663,9 +708,34 @@
                     </template>
                     <template v-else>
                         <el-table :data="filteredReportIgnoredItems(run)" border max-height="520" empty-text="没有符合筛选条件的已忽略数据">
+                          <el-table-column type="expand" width="48">
+                            <template #default="{ row }">
+                              <div class="semantic-audit-panel">
+                                <div v-if="row.sop_quantity_explanations?.length" class="semantic-audit-summary">
+                                  <strong>数量汇总说明</strong>
+                                  <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
+                                </div>
+                                <article
+                                  v-for="(decision, decisionIndex) in row.sop_quantity_decisions || []"
+                                  :key="`${decision.source}-${decision.event_id}-${decisionIndex}`"
+                                  class="semantic-decision-item"
+                                >
+                                  <span class="semantic-decision-badge" :class="decision.accumulate ? 'is-added' : 'is-skipped'">
+                                    {{ decision.accumulate ? `累加 ${formatReportQuantity(decision.quantity_delta)}` : '不累加' }}
+                                  </span>
+                                  <div>
+                                    <strong>{{ decision.action || '语义判断' }}</strong>
+                                    <small>{{ decision.source }}<template v-if="decision.page_numbers?.length"> · 第 {{ decision.page_numbers.join('、') }} 页</template></small>
+                                    <p>{{ decision.reason || '—' }}</p>
+                                    <blockquote v-if="decision.evidence">{{ decision.evidence }}</blockquote>
+                                  </div>
+                                </article>
+                              </div>
+                            </template>
+                          </el-table-column>
                           <el-table-column label="原差异" width="120">
                             <template #default="{ row }">
-                              <span v-if="row.ignore_type === 'part_number_cleanup'" class="difference-status is-cleanup">料号清洗</span>
+                              <span v-if="row.ignore_type === 'part_number_cleanup'" class="difference-status is-cleanup">物料清洗</span>
                               <span v-else class="difference-status" :class="`is-${row.status}`">{{ differenceLabel(row.status) }}</span>
                             </template>
                           </el-table-column>
@@ -848,6 +918,7 @@ const activeRunIds = ref<string[]>([])
 const runDetailLoaded = reactive<Record<string, boolean>>({})
 const runDetailLoading = reactive<Record<string, boolean>>({})
 const runDetailErrors = reactive<Record<string, string>>({})
+const runDetailReloadPending = reactive<Record<string, boolean>>({})
 const historyLoading = ref(false)
 const historyPage = ref(1)
 const historyPageSize = ref(10)
@@ -1419,12 +1490,23 @@ async function loadRuns(workflowId: string) {
       createdTo
     )
     if (selectedWorkflowId.value === workflowId) {
+      const currentRuns = new Map(workflowRuns.value.map((run) => [run.id, run]))
+      const expandedRunIds = new Set(activeRunIds.value)
+      const detailRunIdsToReload = new Set<string>()
       historyTotal.value = response.data.total
       historySuccessCount.value = response.data.success_count
       historyFailedCount.value = response.data.failed_count
       historyWarningCount.value = response.data.warning_count
       workflowRuns.value = response.data.items.map((summary) => {
-        const current = workflowRuns.value.find((run) => run.id === summary.id)
+        const current = currentRuns.get(summary.id)
+        const statusChanged = Boolean(current && current.status !== summary.status)
+        if (statusChanged) {
+          // 历史列表只返回摘要（差异数组为空）。运行结束后必须让旧的运行中明细失效，
+          // 否则展开项会一直把空摘要当成已经加载完成的明细。
+          runDetailLoaded[summary.id] = false
+          runDetailErrors[summary.id] = ''
+          if (expandedRunIds.has(summary.id)) detailRunIdsToReload.add(summary.id)
+        }
         if (
           current?.report &&
           summary.report &&
@@ -1449,6 +1531,9 @@ async function loadRuns(workflowId: string) {
           setWorkflowRunning(workflowId, true)
           startPollingWorkflowRun(workflowId, run.id)
         }
+      }
+      for (const runId of detailRunIdsToReload) {
+        void loadRunDetail(runId, true)
       }
     }
     return response.data.items
@@ -1543,10 +1628,14 @@ function handleRunCollapseChange(activeNames: string | number | Array<string | n
   }
 }
 
-async function loadRunDetail(runId: string) {
-  if (runDetailLoading[runId]) return
+async function loadRunDetail(runId: string, force = false) {
+  if (runDetailLoading[runId]) {
+    if (force) runDetailReloadPending[runId] = true
+    return
+  }
   const run = workflowRuns.value.find((item) => item.id === runId)
   if (!run) return
+  if (force) runDetailLoaded[runId] = false
   runDetailLoading[runId] = true
   runDetailErrors[runId] = ''
   try {
@@ -1561,6 +1650,10 @@ async function loadRunDetail(runId: string) {
     runDetailErrors[runId] = error?.response?.data?.detail || error?.message || '运行明细加载失败'
   } finally {
     runDetailLoading[runId] = false
+    if (runDetailReloadPending[runId]) {
+      runDetailReloadPending[runId] = false
+      void loadRunDetail(runId, true)
+    }
   }
 }
 

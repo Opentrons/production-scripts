@@ -78,6 +78,20 @@ class WorkflowTriggerRequest(BaseModel):
     trigger_type: WorkflowTriggerType = "manual"
 
 
+class WorkflowSopQuantityDecision(BaseModel):
+    source: str = ""
+    event_id: str = ""
+    page_numbers: list[int] = Field(default_factory=list)
+    action: str = ""
+    target: str = ""
+    location: str = ""
+    quantity_delta: float = 0
+    accumulate: bool = False
+    duplicate_of: str | None = None
+    reason: str = ""
+    evidence: str = ""
+
+
 class WorkflowBomDifference(BaseModel):
     status: WorkflowBomDifferenceStatus
     part_number: str
@@ -86,6 +100,8 @@ class WorkflowBomDifference(BaseModel):
     duro_quantity: float | None = None
     quantity_delta: float | None = None
     sop_locations: list[str] = Field(default_factory=list)
+    sop_quantity_explanations: list[str] = Field(default_factory=list)
+    sop_quantity_decisions: list[WorkflowSopQuantityDecision] = Field(default_factory=list)
     duro_paths: list[str] = Field(default_factory=list)
     duro_submenu_ids: list[str] = Field(default_factory=list)
     duro_submenu_labels: list[str] = Field(default_factory=list)

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import re
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from typing import Literal
 
 from sop.models import SopBomMaterial, SopBomSection, SopPartReference
 
 
 SopPageCategory = Literal["instruction", "material_list", "tool_list"]
+ReferenceLanguage = Literal["zh", "en", "other"]
 
 MATERIAL_LIST_MARKERS = (
     "物料清单",
@@ -44,8 +46,14 @@ ACTION_PATTERN = re.compile(
     r"(?:组装|安装|固定|锁紧|检查|确认|放入|取出|assemble|install|fasten|tighten|check|place|remove)",
     re.IGNORECASE,
 )
-PART_NUMBER_PATTERN = re.compile(r"(?<!\d)(?P<part_number>\d{3,4}-\d{5})(?!\d)")
+PART_NUMBER_PATTERN = re.compile(
+    r"(?<!\d)(?P<part_number>(?:\d{3}-0\d{5}(?![xX×*])|\d{3,4}-\d{5}))"
+    r"(?:(?!\d)|(?=\d{1,3}[xX×*]\d{3,4}-))"
+)
 PREFIX_QUANTITY_PATTERN = re.compile(r"(?P<quantity>\d+)\s*[xX×*]\s*$")
+CONCATENATED_PREFIX_QUANTITY_PATTERN = re.compile(
+    r"\d{3,4}-\d{5}(?P<quantity>\d{1,3})\s*[xX×*]\s*$"
+)
 QUANTITY_PATTERN = re.compile(r"^\s+(?P<quantity>\d+(?:\.\d+)?)\b(?P<note>.*)$")
 LEADING_SEQUENCE_PATTERN = re.compile(r"^\s*(?P<sequence>\d{1,3})\s+(?P<name>.+)$")
 TRAILING_SEQUENCE_PATTERN = re.compile(r"(?P<name>.*?[A-Za-z,)])(?P<sequence>\d{1,3})$")
@@ -59,6 +67,35 @@ REFERENCE_NAME_PREFIX_PATTERN = re.compile(
     r"(?:需要)?(?:确保|确认|检查|使用|安装|组装|放入|取出|替换|更换|将|把)?\s*",
     re.IGNORECASE,
 )
+CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+LATIN_PATTERN = re.compile(r"[A-Za-z]")
+
+
+@dataclass
+class _LanguageQuantity:
+    occurrences: int = 0
+    explicit_quantity: int | None = None
+
+
+@dataclass
+class _PagePartQuantity:
+    languages: dict[ReferenceLanguage, _LanguageQuantity] = field(default_factory=dict)
+
+    def add(self, language: ReferenceLanguage, explicit_quantity: int | None) -> None:
+        quantity = self.languages.setdefault(language, _LanguageQuantity())
+        quantity.occurrences += 1
+        if explicit_quantity is not None:
+            quantity.explicit_quantity = max(quantity.explicit_quantity or 0, explicit_quantity)
+
+    def resolve(self) -> int:
+        # SOPs commonly repeat a Chinese instruction as an English translation.
+        # Prefer the English quantity when present, then fall back to Chinese or
+        # language-neutral lines so bilingual text is not counted twice.
+        for language in ("en", "zh", "other"):
+            quantity = self.languages.get(language)
+            if quantity is not None and quantity.occurrences:
+                return quantity.explicit_quantity or quantity.occurrences
+        return 0
 
 
 def is_bom_page(text: str) -> bool:
@@ -121,8 +158,9 @@ def analyze_part_references(
     """Aggregate part-number references from non-BOM pages.
 
     BOM material names take precedence over names inferred from surrounding
-    document text. Every pattern occurrence counts once, including repeated
-    occurrences on the same page or source line.
+    document text. Raw occurrences retain every Chinese and English match for
+    traceability. Quantity prefers English matches per page and falls back to
+    Chinese only when no English match exists, avoiding translation double-counting.
     """
 
     bom_names = {
@@ -131,7 +169,7 @@ def analyze_part_references(
         if material.name.strip()
     }
     references: OrderedDict[str, SopPartReference] = OrderedDict()
-    page_quantities: dict[str, dict[int, tuple[int, bool]]] = {}
+    page_quantities: dict[str, dict[int, _PagePartQuantity]] = {}
     for page_number, text in pages:
         for source_line in text.splitlines():
             matches = list(PART_NUMBER_PATTERN.finditer(source_line))
@@ -154,21 +192,33 @@ def analyze_part_references(
                     reference.name = inferred_name
 
                 reference.occurrences += 1
-                quantity_match = PREFIX_QUANTITY_PATTERN.search(source_line[:part_match.start()])
+                quantity_prefix = source_line[:part_match.start()]
+                quantity_match = (
+                    CONCATENATED_PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
+                    or PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
+                )
                 explicit_quantity = int(quantity_match.group("quantity")) if quantity_match else None
                 quantities_for_part = page_quantities.setdefault(part_number, {})
-                page_quantity, has_explicit_quantity = quantities_for_part.get(page_number, (0, False))
-                if explicit_quantity is not None:
-                    page_quantity = max(page_quantity, explicit_quantity)
-                    has_explicit_quantity = True
-                elif not has_explicit_quantity:
-                    page_quantity += 1
-                quantities_for_part[page_number] = (page_quantity, has_explicit_quantity)
-                reference.quantity = sum(quantity for quantity, _ in quantities_for_part.values())
+                page_quantity = quantities_for_part.setdefault(page_number, _PagePartQuantity())
+                page_quantity.add(_reference_line_language(source_line), explicit_quantity)
+                reference.quantity = sum(quantity.resolve() for quantity in quantities_for_part.values())
                 if page_number not in reference.pages:
                     reference.pages.append(page_number)
                 reference.source_lines.append(cleaned_line)
     return list(references.values())
+
+
+def has_bilingual_reference_lines(source_lines: list[str]) -> bool:
+    languages = {_reference_line_language(line) for line in source_lines}
+    return "zh" in languages and "en" in languages
+
+
+def _reference_line_language(source_line: str) -> ReferenceLanguage:
+    if CJK_PATTERN.search(source_line):
+        return "zh"
+    if LATIN_PATTERN.search(source_line):
+        return "en"
+    return "other"
 
 
 def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:

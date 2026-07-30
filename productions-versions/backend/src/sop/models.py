@@ -63,6 +63,19 @@ class SopBomSection(BaseModel):
     materials: list[SopBomMaterial] = Field(default_factory=list)
 
 
+class SopQuantityDecision(BaseModel):
+    event_id: str = ""
+    page_numbers: list[int] = Field(default_factory=list)
+    action: str = ""
+    target: str = ""
+    location: str = ""
+    quantity_delta: float = 0
+    accumulate: bool = False
+    duplicate_of: str | None = None
+    reason: str = ""
+    evidence: str = ""
+
+
 class SopPartReference(BaseModel):
     part_number: str
     name: str = ""
@@ -70,6 +83,8 @@ class SopPartReference(BaseModel):
     quantity: int = 0
     pages: list[int] = Field(default_factory=list)
     source_lines: list[str] = Field(default_factory=list)
+    quantity_explanation: str = ""
+    quantity_decisions: list[SopQuantityDecision] = Field(default_factory=list)
 
 
 class SopPdfAnalysisResponse(BaseModel):

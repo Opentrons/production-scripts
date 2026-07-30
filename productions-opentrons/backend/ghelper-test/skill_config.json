@@ -9,7 +9,7 @@
   "proxy_latency_ms": 990.55,
   "proxy_test_url": "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
   "proxy_updated_at": "2026-07-23T02:16:41+00:00",
-  "ghelper_subscription_last_updated_at": "2026-07-29T08:32:24+00:00",
+  "ghelper_subscription_last_updated_at": "2026-07-30T07:41:10+00:00",
   "ghelper_subscription_node_count": 30,
   "ghelper_subscription_config_file": "1779072081477.yml"
 }

@@ -67,7 +67,18 @@
         </el-table-column>
         <el-table-column label="PDF" width="100" align="center" header-align="center">
           <template #default="{ row }">
-            <el-icon v-if="row.drive_file_id" class="pdf-ready-icon"><DocumentChecked /></el-icon>
+            <a
+              v-if="row.drive_file_id"
+              class="pdf-source-link"
+              :href="sourcePdfUrl(row)"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="打开源 SOP PDF"
+              aria-label="打开源 SOP PDF"
+              @click.stop
+            >
+              <el-icon class="pdf-ready-icon"><DocumentChecked /></el-icon>
+            </a>
             <span v-else class="missing-link">无链接</span>
           </template>
         </el-table-column>
@@ -234,6 +245,36 @@
               border
               empty-text="除物料清单页外，没有识别到料号引用"
             >
+              <el-table-column type="expand" width="48">
+                <template #default="{ row }">
+                  <div class="semantic-audit-panel">
+                    <div v-if="row.quantity_explanation" class="semantic-audit-summary">
+                      <strong>数量汇总说明</strong>
+                      <p>{{ row.quantity_explanation }}</p>
+                    </div>
+                    <article
+                      v-for="(decision, decisionIndex) in row.quantity_decisions || []"
+                      :key="`${decision.event_id}-${decisionIndex}`"
+                      class="semantic-decision-item"
+                    >
+                      <span class="semantic-decision-badge" :class="decision.accumulate ? 'is-added' : 'is-skipped'">
+                        {{ decision.accumulate ? `累加 ${formatQuantity(decision.quantity_delta)}` : '不累加' }}
+                      </span>
+                      <div>
+                        <strong>{{ decision.action || '语义判断' }}</strong>
+                        <small>
+                          <template v-if="decision.page_numbers?.length">第 {{ decision.page_numbers.join('、') }} 页</template>
+                          <template v-if="decision.target"> · 目标：{{ decision.target }}</template>
+                          <template v-if="decision.location"> · 位置：{{ decision.location }}</template>
+                        </small>
+                        <p>{{ decision.reason || '—' }}</p>
+                        <blockquote v-if="decision.evidence">{{ decision.evidence }}</blockquote>
+                      </div>
+                    </article>
+                    <el-empty v-if="!row.quantity_explanation && !row.quantity_decisions?.length" description="暂无语义累加说明" :image-size="42" />
+                  </div>
+                </template>
+              </el-table-column>
               <el-table-column prop="part_number" label="料号" width="140" fixed />
               <el-table-column label="物料名称" min-width="330" show-overflow-tooltip>
                 <template #default="{ row }">{{ row.name || '未识别' }}</template>
@@ -410,6 +451,13 @@ function refreshAnalysis() {
   void loadSelectedAnalysis(true)
 }
 
+function sourcePdfUrl(entry: SopCatalogEntry) {
+  if (entry.link_url) return entry.link_url
+  return entry.drive_file_id
+    ? `https://drive.google.com/file/d/${encodeURIComponent(entry.drive_file_id)}/view`
+    : '#'
+}
+
 function formatDate(value: string | null) {
   if (!value) return '—'
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
@@ -549,6 +597,21 @@ onMounted(() => loadCatalog())
 .pdf-ready-icon {
   color: #29957e;
   font-size: 18px;
+}
+
+.pdf-source-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.pdf-source-link:hover {
+  background: #e9f6f2;
+  transform: translateY(-1px);
 }
 
 .missing-link {

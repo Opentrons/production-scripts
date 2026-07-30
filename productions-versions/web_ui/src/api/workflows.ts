@@ -68,9 +68,25 @@ export interface WorkflowBomDifference {
   duro_quantity: number | null
   quantity_delta: number | null
   sop_locations: string[]
+  sop_quantity_explanations: string[]
+  sop_quantity_decisions: WorkflowSopQuantityDecision[]
   duro_paths: string[]
   duro_submenu_ids: string[]
   duro_submenu_labels: string[]
+}
+
+export interface WorkflowSopQuantityDecision {
+  source: string
+  event_id: string
+  page_numbers: number[]
+  action: string
+  target: string
+  location: string
+  quantity_delta: number
+  accumulate: boolean
+  duplicate_of: string | null
+  reason: string
+  evidence: string
 }
 
 export interface WorkflowBomIgnoredItem extends WorkflowBomDifference {

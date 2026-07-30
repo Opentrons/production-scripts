@@ -180,6 +180,30 @@ def test_material_name_keyword_matching_normalizes_micro_symbol_case_and_spaces(
 
 
 class FakeSopService:
+    def get_master_sheet(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            entries=[
+                SimpleNamespace(
+                    row_number=2,
+                    project="Robot",
+                    process="Assembly A",
+                    issue_date="2026-01-01",
+                    link_url="https://drive.google.com/file/d/sop-a/view",
+                    drive_file_id="sop-a",
+                ),
+                SimpleNamespace(
+                    row_number=3,
+                    project="Robot",
+                    process="Assembly B",
+                    issue_date="2026-01-01",
+                    link_url="https://drive.google.com/file/d/sop-b/view",
+                    drive_file_id="sop-b",
+                ),
+            ],
+        )
+
     def analyze_pdf(self, file_id: str, refresh: bool = False):
         assert refresh is True
         materials = {
@@ -197,6 +221,20 @@ class FakeSopService:
 
 
 class FakeDuroService:
+    def list_products(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            products=[
+                SimpleNamespace(
+                    id="duro-product",
+                    name="Product",
+                    cpn="999-00001",
+                    revision="A1",
+                )
+            ],
+        )
+
     def get_product_bom(self, product_id: str, refresh: bool = False):
         assert refresh is True
         assert product_id == "duro-product"
@@ -229,9 +267,167 @@ class FakeDuroService:
 
 
 class EmptySopService:
+    def get_master_sheet(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            entries=[
+                SimpleNamespace(
+                    row_number=2,
+                    project="Robot",
+                    process="Assembly",
+                    issue_date="2026-01-01",
+                    link_url="https://drive.google.com/file/d/sop-empty/view",
+                    drive_file_id="sop-empty",
+                )
+            ],
+        )
+
     def analyze_pdf(self, file_id: str, refresh: bool = False):
         assert refresh is True
         return SimpleNamespace(full_text_references=[])
+
+
+def test_workflow_adds_quantity_explanation_when_semantic_details_are_missing(tmp_path: Path) -> None:
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=FakeSopService(),  # type: ignore[arg-type]
+    )
+
+    materials = service._collect_sop_references(
+        [{"drive_file_id": "sop-a", "project": "Robot", "process": "Assembly"}]
+    )
+
+    assert materials["100-00001"]["quantity_explanations"] == [
+        "Robot / Assembly：大模型未返回该料号的完整语义累加明细，"
+        "当前采用 SOP 正文规则统计数量 2"
+    ]
+
+
+class CleanupMatchSopService:
+    def get_master_sheet(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            entries=[
+                SimpleNamespace(
+                    row_number=2,
+                    project="Robot",
+                    process="Assembly",
+                    issue_date="2026-01-01",
+                    link_url="https://drive.google.com/file/d/sop-cleanup/view",
+                    drive_file_id="sop-cleanup",
+                )
+            ],
+        )
+
+    def analyze_pdf(self, file_id: str, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            full_text_references=[
+                SimpleNamespace(
+                    part_number="415-000656",
+                    name="清洗后匹配物料",
+                    occurrences=1,
+                    quantity=1,
+                    pages=[8],
+                    quantity_explanation="正文语义判断为装入 1 个",
+                    quantity_decisions=[],
+                )
+            ]
+        )
+
+
+class CleanupMatchDuroService:
+    def list_products(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            products=[
+                SimpleNamespace(
+                    id="duro-product",
+                    name="Product",
+                    cpn="999-00001",
+                    revision="A1",
+                )
+            ],
+        )
+
+    def get_product_bom(self, product_id: str, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            root=DuroBomNode(
+                id="root",
+                node_type="product",
+                name="Product",
+                cpn="999-00001",
+                children=[
+                    DuroBomNode(
+                        id="assembly",
+                        name="Scan Menu",
+                        cpn="930-00004",
+                        quantity=1,
+                        has_children=True,
+                    ),
+                ],
+            )
+        )
+
+    def get_component_children(self, component_id: str, refresh: bool = False):
+        assert refresh is True
+        assert component_id == "assembly"
+        return SimpleNamespace(
+            children=[
+                DuroBomNode(
+                    id="cleaned-part",
+                    name="清洗后匹配物料",
+                    cpn="415-00656",
+                    quantity=1,
+                )
+            ]
+        )
+
+
+class RefreshedSourceSopService(CleanupMatchSopService):
+    def get_master_sheet(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            entries=[
+                SimpleNamespace(
+                    row_number=2,
+                    project="Robot",
+                    process="Assembly",
+                    issue_date="2026-07-30",
+                    link_url="https://drive.google.com/file/d/sop-current/view",
+                    drive_file_id="sop-current",
+                )
+            ],
+        )
+
+    def analyze_pdf(self, file_id: str, refresh: bool = False):
+        assert file_id == "sop-current"
+        return super().analyze_pdf(file_id, refresh)
+
+
+class RefreshedProductDuroService(CleanupMatchDuroService):
+    def list_products(self, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            products=[
+                SimpleNamespace(
+                    id="duro-current",
+                    name="Product",
+                    cpn="999-00001",
+                    revision="A1",
+                )
+            ],
+        )
+
+    def get_product_bom(self, product_id: str, refresh: bool = False):
+        assert product_id == "duro-current"
+        return super().get_product_bom(product_id, refresh)
 
 
 def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None:
@@ -334,6 +530,90 @@ def test_default_part_number_cleanup_is_compared_and_audited(tmp_path: Path) -> 
     assert {item.part_number for item in ignored} == {"415-000656", "920-000131"}
     assert {item.normalized_part_number for item in ignored} == {"415-00656", "920-00131"}
     assert all(item.ignore_type == "part_number_cleanup" for item in ignored)
+
+
+def test_cleanup_match_without_difference_is_kept_in_run_ignored_items(tmp_path: Path) -> None:
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=CleanupMatchSopService(),  # type: ignore[arg-type]
+        duro_service=CleanupMatchDuroService(),  # type: ignore[arg-type]
+    )
+    workflow = service.create_workflow(
+        WorkflowCreate(
+            name="清洗后无差异核对",
+            kind="duro_bom_check",
+            configuration={
+                "sop_sources": [
+                    {"drive_file_id": "sop-cleanup", "project": "Robot", "process": "Assembly"},
+                ],
+                "duro_product_id": "duro-product",
+                "duro_submenu_ids": ["assembly"],
+            },
+        )
+    )
+
+    run = service.trigger_workflow(workflow.id, "manual")
+    deadline = time.monotonic() + 2
+    current = run
+    while current.status in {"queued", "running"} and time.monotonic() < deadline:
+        time.sleep(0.01)
+        current = service.list_runs(workflow_id=workflow.id, limit=1)[0]
+
+    assert current.status == "succeeded"
+    assert current.report is not None
+    assert current.report.matched_count == 1
+    assert current.report.differences == []
+    assert current.report.total_ignored_count == 1
+    cleanup = current.report.ignored_items[0]
+    assert cleanup.ignore_type == "part_number_cleanup"
+    assert cleanup.part_number == "415-000656"
+    assert cleanup.normalized_part_number == "415-00656"
+    assert cleanup.ignore_reason == "默认料号清洗：415-000656 → 415-00656"
+
+
+def test_run_refreshes_source_tables_and_uses_current_sop_link_and_duro_product(tmp_path: Path) -> None:
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=RefreshedSourceSopService(),  # type: ignore[arg-type]
+        duro_service=RefreshedProductDuroService(),  # type: ignore[arg-type]
+    )
+    workflow = service.create_workflow(
+        WorkflowCreate(
+            name="实时数据源核对",
+            kind="duro_bom_check",
+            configuration={
+                "sop_sources": [
+                    {
+                        "drive_file_id": "sop-stale",
+                        "project": "Robot",
+                        "process": "Assembly",
+                        "issue_date": "2026-01-01",
+                        "row_number": 2,
+                    },
+                ],
+                "duro_product_id": "duro-stale",
+                "duro_product_name": "Product",
+                "duro_product_cpn": "999-00001",
+                "duro_product_revision": "A1",
+                "duro_submenu_ids": ["assembly"],
+            },
+        )
+    )
+
+    run = service.trigger_workflow(workflow.id, "manual")
+    deadline = time.monotonic() + 2
+    current = run
+    while current.status in {"queued", "running"} and time.monotonic() < deadline:
+        time.sleep(0.01)
+        current = service.list_runs(workflow_id=workflow.id, limit=1)[0]
+
+    stored = service.get_workflow(workflow.id)
+    assert current.status == "succeeded"
+    assert stored.configuration["sop_drive_file_ids"] == ["sop-current"]
+    assert stored.configuration["sop_sources"][0]["link_url"].endswith("/sop-current/view")
+    assert stored.configuration["duro_product_id"] == "duro-current"
+    assert any("更新 1 个源 PDF 链接" in message for message in current.logs)
+    assert any("目标产品 ID 已更新" in message for message in current.logs)
 
 
 def test_manual_duro_run_rejects_sop_without_full_text_references(tmp_path: Path) -> None:

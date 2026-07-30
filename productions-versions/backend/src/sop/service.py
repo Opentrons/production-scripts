@@ -22,6 +22,7 @@ from sop.bom_analyzer import (
     analyze_part_references,
     classify_sop_page,
     extract_material_lines,
+    has_bilingual_reference_lines,
     SopPageCategory,
 )
 from sop.models import (
@@ -31,6 +32,7 @@ from sop.models import (
     SopPartReference,
     SopPdfAnalysisResponse,
     SopPdfPage,
+    SopQuantityDecision,
     utc_now,
 )
 from llm.service import choose_material_name, llm_service
@@ -73,9 +75,33 @@ def _merge_part_references(
             continue
         current.name = choose_material_name(current.name, item.name)
         current.occurrences = max(current.occurrences, item.occurrences)
-        current.quantity = max(current.quantity, item.quantity)
+        # The deterministic parser already selects the English side of a
+        # bilingual instruction. Do not let an AI response that summed both
+        # translations inflate that quantity again.
+        if not has_bilingual_reference_lines(current.source_lines):
+            current.quantity = max(current.quantity, item.quantity)
         current.pages = list(dict.fromkeys([*current.pages, *item.pages]))
         current.source_lines = list(dict.fromkeys([*current.source_lines, *item.source_lines]))
+    return list(merged.values())
+
+
+def _merge_semantic_part_references(
+    local_references: list[SopPartReference],
+    semantic_references: list[SopPartReference],
+) -> list[SopPartReference]:
+    """Apply semantic quantities while retaining local pages and source evidence."""
+
+    merged = {item.part_number.strip().upper(): item.model_copy(deep=True) for item in local_references}
+    for item in semantic_references:
+        key = item.part_number.strip().upper()
+        current = merged.get(key)
+        if current is None:
+            merged[key] = item.model_copy(deep=True)
+            continue
+        current.name = choose_material_name(current.name, item.name)
+        current.quantity = item.quantity
+        current.quantity_explanation = item.quantity_explanation
+        current.quantity_decisions = list(item.quantity_decisions)
     return list(merged.values())
 
 
@@ -99,6 +125,7 @@ class SopService:
         self._cache_condition = threading.Condition(self._cache_lock)
         self._cached_master_sheet: SopMasterSheetResponse | None = None
         self._master_refreshing = False
+        self._master_refresh_version = 0
         self._pdf_cache: dict[str, SopPdfAnalysisResponse] = {}
         if self.cache_path is not None:
             self._initialize_disk_cache()
@@ -116,10 +143,16 @@ class SopService:
                     return disk_cached.model_copy(update={"cached": True})
 
             if self._master_refreshing:
+                refresh_version = self._master_refresh_version
                 while self._master_refreshing:
                     self._cache_condition.wait()
-                if self._cached_master_sheet is not None:
-                    return self._cached_master_sheet.model_copy(update={"cached": True})
+                if (
+                    self._master_refresh_version > refresh_version
+                    and self._cached_master_sheet is not None
+                ):
+                    # The caller waited for another live Google Sheet refresh;
+                    # this is the newly fetched result, not a cache fallback.
+                    return self._cached_master_sheet.model_copy(update={"cached": False})
 
             self._master_refreshing = True
 
@@ -127,6 +160,7 @@ class SopService:
             response = self._read_master_sheet()
             with self._cache_lock:
                 self._cached_master_sheet = response
+                self._master_refresh_version += 1
                 self._set_disk_cached(f"master:{self.spreadsheet_id}:{self.sheet_gid}", response)
             return response
         finally:
@@ -221,20 +255,45 @@ class SopService:
                         for item in ai_materials
                     ]
                     bom_materials = _merge_bom_materials(bom_materials, ai_bom_materials)
-                    ai_reference_pages = extract_material_lines(reference_text_pages)
-                    ai_references = llm_service.extract_sop_pages(ai_reference_pages) if ai_reference_pages else []
-                    ai_part_references = [
-                        SopPartReference(
-                            part_number=item.part_number,
-                            name=item.name,
-                            occurrences=1,
-                            quantity=int(item.quantity or 0),
-                            pages=[item.page_number] if item.page_number else [],
-                            source_lines=[],
+                    ai_references = (
+                        llm_service.extract_sop_semantic_references(reference_text_pages)
+                        if reference_text_pages
+                        else []
+                    )
+                    local_reference_quantities = {
+                        item.part_number.strip().upper(): item.quantity
+                        for item in full_text_references
+                    }
+                    ai_part_references: list[SopPartReference] = []
+                    for item in ai_references:
+                        part_number = item.part_number.strip().upper()
+                        local_quantity = local_reference_quantities.get(part_number)
+                        use_semantic_quantity = item.confidence >= 0.5 or local_quantity is None
+                        quantity = int(item.quantity or 0) if use_semantic_quantity else local_quantity
+                        explanation = item.quantity_explanation
+                        if not use_semantic_quantity:
+                            explanation = (
+                                f"{explanation or '大模型未返回完整语义判断'}；"
+                                f"语义结果置信度不足，采用 SOP 正文规则统计数量 {quantity}"
+                            ).strip("；")
+                        ai_part_references.append(
+                            SopPartReference(
+                                part_number=item.part_number,
+                                name=item.name,
+                                occurrences=1,
+                                quantity=quantity,
+                                pages=[item.page_number] if item.page_number else [],
+                                source_lines=[],
+                                quantity_explanation=explanation,
+                                quantity_decisions=[
+                                    SopQuantityDecision.model_validate(decision.model_dump())
+                                    for decision in item.quantity_decisions
+                                ],
+                            )
                         )
-                        for item in ai_references
-                    ]
-                    full_text_references = _merge_part_references(full_text_references, ai_part_references)
+                    full_text_references = _merge_semantic_part_references(
+                        full_text_references, ai_part_references
+                    )
                 else:
                     ai_fallback = True
                     ai_error = "AI 未识别到物料，使用本地规则解析"

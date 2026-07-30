@@ -96,6 +96,25 @@ def test_part_number_pattern_does_not_match_inside_longer_numbers() -> None:
     assert [item.part_number for item in references] == ["415-00390"]
 
 
+def test_part_number_pattern_keeps_cleanup_candidates_for_workflow_audit() -> None:
+    references = analyze_part_references(
+        [(1, "安装 415-000656，并检查 920-000131。")],
+        [],
+    )
+
+    assert [item.part_number for item in references] == ["415-000656", "920-000131"]
+
+
+def test_concatenated_layout_quantities_do_not_create_false_cleanup_part_number() -> None:
+    references = analyze_part_references(
+        [(63, "4×438-001474×415-00650")],
+        [],
+    )
+
+    assert [item.part_number for item in references] == ["438-00147", "415-00650"]
+    assert [item.quantity for item in references] == [4, 4]
+
+
 def test_quantity_before_part_number_is_used_without_double_counting_translation() -> None:
     references = analyze_part_references(
         [
@@ -112,6 +131,34 @@ def test_quantity_before_part_number_is_used_without_double_counting_translation
     assert retaining_ring.occurrences == 2
     assert retaining_ring.quantity == 4
     assert retaining_ring.pages == [61]
+
+
+def test_bilingual_reference_quantity_uses_english_occurrences_only() -> None:
+    references = analyze_part_references(
+        [
+            (
+                61,
+                "安装卡簧 467-00004\n"
+                "检查卡簧 467-00004\n"
+                "Install E-clip 467-00004",
+            )
+        ],
+        [],
+    )
+
+    retaining_ring = references[0]
+    assert retaining_ring.occurrences == 3
+    assert retaining_ring.quantity == 1
+
+
+def test_reference_quantity_falls_back_to_chinese_when_english_is_absent() -> None:
+    references = analyze_part_references(
+        [(61, "安装卡簧 467-00004\n检查卡簧 467-00004")],
+        [],
+    )
+
+    assert references[0].occurrences == 2
+    assert references[0].quantity == 2
 
 
 def test_reference_name_uses_nearest_material_noun_phrase() -> None:

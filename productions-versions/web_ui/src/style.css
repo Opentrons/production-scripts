@@ -1723,6 +1723,96 @@ textarea {
   background: #fff4df !important;
 }
 
+.semantic-audit-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px 16px 58px;
+  background: #f7f9fa;
+}
+
+.semantic-audit-summary {
+  padding: 10px 12px;
+  border: 1px solid #dfe7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.semantic-audit-summary strong,
+.semantic-audit-summary p,
+.semantic-decision-item strong,
+.semantic-decision-item small,
+.semantic-decision-item p {
+  display: block;
+}
+
+.semantic-audit-summary strong {
+  margin-bottom: 5px;
+  color: #344852;
+  font-size: 12px;
+}
+
+.semantic-audit-summary p,
+.semantic-decision-item p,
+.semantic-decision-item blockquote {
+  margin: 0;
+  color: #687983;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.semantic-decision-list {
+  display: grid;
+  gap: 8px;
+}
+
+.semantic-decision-item {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.semantic-decision-item strong {
+  color: #344852;
+  font-size: 12px;
+}
+
+.semantic-decision-item small {
+  margin: 2px 0 5px;
+  color: #8a979f;
+  font-size: 10px;
+}
+
+.semantic-decision-item blockquote {
+  margin-top: 6px;
+  padding-left: 9px;
+  border-left: 2px solid #dbe3e7;
+  color: #7b8991;
+}
+
+.semantic-decision-badge {
+  align-self: start;
+  justify-self: start;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.semantic-decision-badge.is-added {
+  background: #def2e8;
+  color: #287b57;
+}
+
+.semantic-decision-badge.is-skipped {
+  background: #e9edf0;
+  color: #6f7c84;
+}
+
 .run-log-list {
   display: flex;
   flex-direction: column;
