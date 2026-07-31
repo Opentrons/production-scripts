@@ -7,7 +7,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Iterator
 
-from workflows.models import Workflow, WorkflowRun
+from workflows.models import Workflow, WorkflowIgnoredPartRule, WorkflowRun
 
 
 class WorkflowRepository:
@@ -56,6 +56,58 @@ class WorkflowRepository:
     def delete_workflow(self, workflow_id: str) -> bool:
         with self._lock, self._connect() as connection:
             cursor = connection.execute("DELETE FROM workflows WHERE id = ?", (workflow_id,))
+        return cursor.rowcount > 0
+
+    def list_ignored_part_rules(self, workflow_id: str) -> list[WorkflowIgnoredPartRule]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT workflow_id, part_number, reason, ignored_at
+                FROM workflow_ignored_part_rules
+                WHERE workflow_id = ?
+                ORDER BY ignored_at DESC, part_number ASC
+                """,
+                (workflow_id,),
+            ).fetchall()
+        return [
+            WorkflowIgnoredPartRule(
+                workflow_id=row[0],
+                part_number=row[1],
+                reason=row[2],
+                ignored_at=row[3],
+            )
+            for row in rows
+        ]
+
+    def save_ignored_part_rule(self, rule: WorkflowIgnoredPartRule) -> WorkflowIgnoredPartRule:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO workflow_ignored_part_rules (
+                    workflow_id, part_number, reason, ignored_at
+                ) VALUES (?, ?, ?, ?)
+                ON CONFLICT(workflow_id, part_number) DO UPDATE SET
+                    reason = excluded.reason,
+                    ignored_at = excluded.ignored_at
+                """,
+                (
+                    rule.workflow_id,
+                    rule.part_number,
+                    rule.reason,
+                    rule.ignored_at.isoformat(),
+                ),
+            )
+        return rule
+
+    def delete_ignored_part_rule(self, workflow_id: str, part_number: str) -> bool:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM workflow_ignored_part_rules
+                WHERE workflow_id = ? AND part_number = ?
+                """,
+                (workflow_id, part_number),
+            )
         return cursor.rowcount > 0
 
     def list_runs(self, workflow_id: str | None = None, limit: int = 30) -> list[WorkflowRun]:
@@ -164,6 +216,16 @@ class WorkflowRepository:
                 );
                 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_created
                     ON workflow_runs(workflow_id, created_at DESC);
+                CREATE TABLE IF NOT EXISTS workflow_ignored_part_rules (
+                    workflow_id TEXT NOT NULL,
+                    part_number TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    ignored_at TEXT NOT NULL,
+                    PRIMARY KEY (workflow_id, part_number),
+                    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_workflow_ignored_part_rules_workflow_time
+                    ON workflow_ignored_part_rules(workflow_id, ignored_at DESC);
                 CREATE TABLE IF NOT EXISTS workflow_metadata (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL

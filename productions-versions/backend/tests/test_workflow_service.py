@@ -8,6 +8,8 @@ from types import SimpleNamespace
 from duro.models import DuroBomNode
 from workflows.models import (
     Workflow,
+    WorkflowBomDifference,
+    WorkflowBomReport,
     WorkflowCreate,
     WorkflowRun,
     WorkflowSchedule,
@@ -177,6 +179,60 @@ def test_material_name_keyword_matching_normalizes_micro_symbol_case_and_spaces(
     )
     assert not service._material_name_matches_keywords("441-00067 弹簧 200容量", ["200 容量 441-00067"])
     assert not service._material_name_matches_keywords("Flex Robot Pro", ["heater"])
+
+
+def test_database_ignore_rule_marks_history_detail_and_future_report(tmp_path: Path) -> None:
+    repository = WorkflowRepository(tmp_path / "workflows.sqlite3")
+    service = WorkflowService(repository)
+    workflow = repository.save_workflow(Workflow(name="独立忽略库", kind="duro_bom_check"))
+    run = repository.save_run(
+        WorkflowRun(
+            workflow_id=workflow.id,
+            workflow_name=workflow.name,
+            trigger_type="manual",
+            status="succeeded",
+            report=WorkflowBomReport(
+                sop_material_count=1,
+                duro_material_count=1,
+                differences=[
+                    WorkflowBomDifference(
+                        status="extra_in_duro",
+                        part_number="438-00147",
+                        name="Screw",
+                        duro_quantity=4,
+                    )
+                ]
+            ),
+        )
+    )
+
+    rule = service.save_ignored_part_rule(workflow.id, "438-00147", "测试阶段不参与核对")
+    detail = service.get_run_detail(run.id).run
+
+    assert detail.report is not None
+    assert detail.report.differences[0].is_ignored is True
+    assert detail.report.differences[0].active_ignore_reason == "测试阶段不参与核对"
+    assert detail.report.differences[0].active_ignored_at == rule.ignored_at
+
+    updated_report = service._apply_ignored_differences(
+        workflow,
+        WorkflowBomReport(
+            duro_material_count=1,
+            differences=[
+                WorkflowBomDifference(
+                    status="extra_in_duro",
+                    part_number="438-00147",
+                    name="Screw",
+                    duro_quantity=4,
+                )
+            ],
+        ),
+    )
+
+    assert updated_report.differences == []
+    assert updated_report.total_ignored_count == 1
+    assert updated_report.ignored_items[0].ignore_reason == "测试阶段不参与核对"
+    assert updated_report.ignored_items[0].ignored_at == rule.ignored_at
 
 
 class FakeSopService:

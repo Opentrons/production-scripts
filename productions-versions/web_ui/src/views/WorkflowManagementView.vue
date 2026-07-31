@@ -626,26 +626,64 @@
                     </nav>
                     <template v-if="reportView(run.id) === 'differences'">
                     <el-table
+                      :ref="setDifferenceTableRef.bind(null, run.id)"
                       :data="filteredReportDifferences(run)"
                       :row-class-name="differenceRowClassName"
+                      row-key="part_number"
                       max-height="520"
                       border
                       empty-text="SOP BOM 与 Duro BOM 一致"
+                      @row-click="handleDifferenceRowClick(run.id, $event)"
                     >
-                      <el-table-column type="expand" width="48">
+                      <el-table-column width="48" align="center">
+                        <template #default="{ row }">
+                          <el-dropdown
+                            trigger="click"
+                            :disabled="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
+                            @command="handleDifferenceRowMenuCommand(run, row, $event)"
+                            @click.stop
+                          >
+                            <button
+                              class="difference-row-menu-button"
+                              type="button"
+                              aria-label="差异操作"
+                              title="差异操作"
+                              :disabled="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
+                              @click.stop
+                            >
+                              <el-icon><MoreFilled /></el-icon>
+                            </button>
+                            <template #dropdown>
+                              <el-dropdown-menu>
+                                <el-dropdown-item command="ignore" :disabled="row.is_ignored">
+                                  忽略料号
+                                </el-dropdown-item>
+                                <el-dropdown-item v-if="row.is_ignored" command="unignore">
+                                  取消忽略
+                                </el-dropdown-item>
+                                <el-dropdown-item command="expand" divided>
+                                  展开
+                                </el-dropdown-item>
+                              </el-dropdown-menu>
+                            </template>
+                          </el-dropdown>
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        type="expand"
+                        width="1"
+                        class-name="difference-native-expand-column"
+                        label-class-name="difference-native-expand-column"
+                      >
                         <template #default="{ row }">
                           <div class="semantic-audit-panel">
-                            <div v-if="row.sop_quantity_explanations?.length" class="semantic-audit-summary">
-                              <strong>数量汇总说明</strong>
-                              <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
+                            <div class="semantic-audit-summary">
+                              <strong>差异汇总说明</strong>
+                              <p>{{ differenceSummary(row) }}</p>
                             </div>
-                            <div v-else-if="row.status === 'quantity_mismatch'" class="semantic-audit-summary">
-                              <strong>数量汇总说明</strong>
-                              <p>
-                                该历史记录未保存语义累加明细；当前 SOP 统计数量为
-                                {{ formatReportQuantity(row.sop_quantity) }}，Duro 数量为
-                                {{ formatReportQuantity(row.duro_quantity) }}。重新运行后将生成完整语义说明。
-                              </p>
+                            <div v-if="row.sop_quantity_explanations?.length" class="semantic-audit-summary is-semantic-detail">
+                              <strong>语义数量说明</strong>
+                              <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
                             </div>
                             <div v-if="row.sop_quantity_decisions?.length" class="semantic-decision-list">
                               <article
@@ -669,19 +707,17 @@
                                 </div>
                               </article>
                             </div>
-                            <el-empty
-                              v-if="row.status !== 'quantity_mismatch' && !row.sop_quantity_explanations?.length && !row.sop_quantity_decisions?.length"
-                              description="暂无语义累加说明"
-                              :image-size="42"
-                            />
                           </div>
                         </template>
                       </el-table-column>
                       <el-table-column label="差异类型" width="125">
                         <template #default="{ row }">
-                          <span class="difference-status" :class="`is-${row.status}`">
-                            {{ differenceLabel(row.status) }}
-                          </span>
+                          <div class="difference-status-stack">
+                            <span class="difference-status" :class="`is-${row.status}`">
+                              {{ differenceLabel(row.status) }}
+                            </span>
+                            <span v-if="row.is_ignored" class="difference-ignored-tag">已忽略</span>
+                          </div>
                         </template>
                       </el-table-column>
                       <el-table-column prop="part_number" label="料号" width="130" />
@@ -751,6 +787,11 @@
                           </el-table-column>
                           <el-table-column prop="ignore_value" label="命中规则" width="140" show-overflow-tooltip />
                           <el-table-column prop="ignore_reason" label="忽略原因" min-width="220" show-overflow-tooltip />
+                          <el-table-column label="开始忽略" width="170">
+                            <template #default="{ row }">
+                              {{ row.ignored_at ? formatDate(row.ignored_at) : '历史配置' }}
+                            </template>
+                          </el-table-column>
                         </el-table>
                     </template>
                   </div>
@@ -866,7 +907,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus'
 import {
   Box,
   Check,
@@ -890,6 +931,7 @@ import { duroApi, type DuroBomNode, type DuroProduct } from '@/api/duro'
 import { sopApi, type SopCatalogEntry } from '@/api/sop'
 import {
   workflowApi,
+  type WorkflowBomDifference,
   type WorkflowBomDifferenceStatus,
   type Workflow,
   type WorkflowKind,
@@ -919,6 +961,8 @@ const runDetailLoaded = reactive<Record<string, boolean>>({})
 const runDetailLoading = reactive<Record<string, boolean>>({})
 const runDetailErrors = reactive<Record<string, string>>({})
 const runDetailReloadPending = reactive<Record<string, boolean>>({})
+const differenceIgnoreUpdating = reactive<Record<string, boolean>>({})
+const differenceTableRefs = new Map<string, TableInstance>()
 const historyLoading = ref(false)
 const historyPage = ref(1)
 const historyPageSize = ref(10)
@@ -1886,6 +1930,115 @@ function differenceLabel(status: string) {
   return differenceStatusText[status as WorkflowBomDifferenceStatus] || status
 }
 
+function differenceSummary(row: WorkflowBomDifference) {
+  const material = row.name ? `${row.part_number}（${row.name}）` : row.part_number
+  if (row.status === 'missing_in_duro') {
+    const locations = row.sop_locations.join('；') || '未记录 SOP 位置'
+    return `${material} 在 SOP 正文中出现，统计数量为 ${formatReportQuantity(row.sop_quantity)}，但在当前 Duro BOM 扫描范围内未找到。SOP 位置：${locations}。`
+  }
+  if (row.status === 'extra_in_duro') {
+    const paths = row.duro_paths.join('；') || '未记录 Duro 路径'
+    return `${material} 存在于当前 Duro BOM，数量为 ${formatReportQuantity(row.duro_quantity)}，但在所选 SOP 正文中未识别到。Duro 路径：${paths}。`
+  }
+  if (row.status === 'quantity_mismatch') {
+    return `${material} 在 SOP 中统计为 ${formatReportQuantity(row.sop_quantity)}，Duro BOM 中为 ${formatReportQuantity(row.duro_quantity)}，差值为 ${formatReportQuantity(row.quantity_delta)}（Duro - SOP）。`
+  }
+  return `${material} 已在 SOP 和 Duro BOM 中匹配，但 SOP 数量无法可靠确定；Duro 数量为 ${formatReportQuantity(row.duro_quantity)}。`
+}
+
+function differenceIgnoreKey(workflowId: string, partNumber: string) {
+  return `${workflowId}:${partNumber}`
+}
+
+function isDifferenceIgnoreUpdating(workflowId: string, partNumber: string) {
+  return Boolean(differenceIgnoreUpdating[differenceIgnoreKey(workflowId, partNumber)])
+}
+
+function setDifferenceTableRef(runId: string, instance: unknown) {
+  if (instance) differenceTableRefs.set(runId, instance as TableInstance)
+  else differenceTableRefs.delete(runId)
+}
+
+function handleDifferenceRowClick(runId: string, row: WorkflowBomDifference) {
+  differenceTableRefs.get(runId)?.toggleRowExpansion(row)
+}
+
+async function handleDifferenceRowMenuCommand(
+  run: WorkflowRun,
+  row: WorkflowBomDifference,
+  command: string | number | object
+) {
+  if (command === 'ignore') {
+    await ignoreWorkflowDifference(run, row)
+  } else if (command === 'unignore') {
+    await unignoreWorkflowDifference(run, row)
+  } else if (command === 'expand') {
+    differenceTableRefs.get(run.id)?.toggleRowExpansion(row, true)
+  }
+}
+
+async function ignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDifference) {
+  let reason = ''
+  try {
+    const response = await ElMessageBox.prompt(
+      `料号：${row.part_number}${row.name ? ` · ${row.name}` : ''}`,
+      '忽略该差异',
+      {
+        confirmButtonText: '确认忽略',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '必填，请填写忽略原因',
+        inputValidator: (value) => value.trim().length > 0 || '请填写忽略原因'
+      }
+    )
+    reason = response.value.trim()
+  } catch {
+    return
+  }
+
+  const key = differenceIgnoreKey(run.workflow_id, row.part_number)
+  differenceIgnoreUpdating[key] = true
+  try {
+    await workflowApi.ignorePart(run.workflow_id, row.part_number, reason)
+    await loadRunDetail(run.id, true)
+    ElMessage.success(`已忽略料号 ${row.part_number}`)
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error(error?.response?.data?.detail || '忽略料号失败')
+  } finally {
+    differenceIgnoreUpdating[key] = false
+  }
+}
+
+async function unignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDifference) {
+  try {
+    await ElMessageBox.confirm(
+      `确认取消忽略料号 ${row.part_number}？后续运行将重新统计该差异。`,
+      '取消忽略',
+      {
+        confirmButtonText: '确认取消',
+        cancelButtonText: '返回',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  const key = differenceIgnoreKey(run.workflow_id, row.part_number)
+  differenceIgnoreUpdating[key] = true
+  try {
+    await workflowApi.unignorePart(run.workflow_id, row.part_number)
+    await loadRunDetail(run.id, true)
+    ElMessage.success(`已取消忽略料号 ${row.part_number}`)
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error(error?.response?.data?.detail || '取消忽略失败')
+  } finally {
+    differenceIgnoreUpdating[key] = false
+  }
+}
+
 function runWarningCount(run: WorkflowRun) {
   return run.report?.warning_difference_count
     ?? run.report?.total_difference_count
@@ -1991,8 +2144,8 @@ function filterReportItems<T extends {
   return bySubmenu.filter((item) => item.status === filter)
 }
 
-function differenceRowClassName({ row }: { row: { status: WorkflowBomDifferenceStatus } }) {
-  return `difference-row is-${row.status}`
+function differenceRowClassName({ row }: { row: WorkflowBomDifference }) {
+  return `difference-row is-${row.status}${row.is_ignored ? ' is-ignored' : ''}`
 }
 
 onMounted(() => {

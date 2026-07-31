@@ -73,6 +73,16 @@ export interface WorkflowBomDifference {
   duro_paths: string[]
   duro_submenu_ids: string[]
   duro_submenu_labels: string[]
+  is_ignored: boolean
+  active_ignore_reason: string
+  active_ignored_at: string | null
+}
+
+export interface WorkflowIgnoredPartRule {
+  workflow_id: string
+  part_number: string
+  reason: string
+  ignored_at: string
 }
 
 export interface WorkflowSopQuantityDecision {
@@ -94,6 +104,7 @@ export interface WorkflowBomIgnoredItem extends WorkflowBomDifference {
   ignore_value: string
   ignore_reason: string
   normalized_part_number: string | null
+  ignored_at: string | null
 }
 
 export interface WorkflowBomReport {
@@ -152,6 +163,17 @@ export const workflowApi = {
   update: (workflowId: string, payload: Partial<WorkflowPayload>) =>
     api.patch<Workflow>(`/workflows/${workflowId}`, payload),
   remove: (workflowId: string) => api.delete(`/workflows/${workflowId}`),
+  ignoredParts: (workflowId: string) =>
+    api.get<WorkflowIgnoredPartRule[]>(`/workflows/${encodeURIComponent(workflowId)}/ignored-parts`),
+  ignorePart: (workflowId: string, partNumber: string, reason: string) =>
+    api.post<WorkflowIgnoredPartRule>(
+      `/workflows/${encodeURIComponent(workflowId)}/ignored-parts`,
+      { part_number: partNumber, reason }
+    ),
+  unignorePart: (workflowId: string, partNumber: string) =>
+    api.delete(
+      `/workflows/${encodeURIComponent(workflowId)}/ignored-parts/${encodeURIComponent(partNumber)}`
+    ),
   trigger: (workflowId: string) =>
     api.post<WorkflowRun>(`/workflows/${workflowId}/trigger`, { trigger_type: 'manual' }),
   runs: (

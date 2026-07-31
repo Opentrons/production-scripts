@@ -5,6 +5,8 @@ from fastapi import APIRouter, HTTPException, Query, status
 from workflows.models import (
     Workflow,
     WorkflowCreate,
+    WorkflowIgnoredPartRule,
+    WorkflowIgnoredPartRuleCreate,
     WorkflowRun,
     WorkflowRunDetailResponse,
     WorkflowRunDeleteRequest,
@@ -73,6 +75,49 @@ def update_workflow(workflow_id: str, payload: WorkflowUpdate) -> Workflow:
 def delete_workflow(workflow_id: str) -> None:
     try:
         workflow_service.delete_workflow(workflow_id)
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get(
+    "/workflows/{workflow_id}/ignored-parts",
+    response_model=list[WorkflowIgnoredPartRule],
+)
+def list_workflow_ignored_parts(workflow_id: str) -> list[WorkflowIgnoredPartRule]:
+    try:
+        return workflow_service.list_ignored_part_rules(workflow_id)
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/workflows/{workflow_id}/ignored-parts",
+    response_model=WorkflowIgnoredPartRule,
+    status_code=status.HTTP_201_CREATED,
+)
+def save_workflow_ignored_part(
+    workflow_id: str,
+    payload: WorkflowIgnoredPartRuleCreate,
+) -> WorkflowIgnoredPartRule:
+    try:
+        return workflow_service.save_ignored_part_rule(
+            workflow_id,
+            payload.part_number,
+            payload.reason,
+        )
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/workflows/{workflow_id}/ignored-parts/{part_number}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_workflow_ignored_part(workflow_id: str, part_number: str) -> None:
+    try:
+        workflow_service.delete_ignored_part_rule(workflow_id, part_number)
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

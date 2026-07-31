@@ -16,6 +16,7 @@ from workflows.models import (
     WorkflowBomIgnoredItem,
     WorkflowBomReport,
     WorkflowCreate,
+    WorkflowIgnoredPartRule,
     WorkflowRun,
     WorkflowRunDetailResponse,
     WorkflowRunDeleteResponse,
@@ -166,6 +167,38 @@ class WorkflowService:
         self.get_workflow(workflow_id)
         self.repository.delete_workflow(workflow_id)
 
+    def list_ignored_part_rules(self, workflow_id: str) -> list[WorkflowIgnoredPartRule]:
+        self.get_workflow(workflow_id)
+        return self.repository.list_ignored_part_rules(workflow_id)
+
+    def save_ignored_part_rule(
+        self,
+        workflow_id: str,
+        part_number: str,
+        reason: str,
+    ) -> WorkflowIgnoredPartRule:
+        self.get_workflow(workflow_id)
+        normalized_part_number = self._clean_part_number(part_number)
+        normalized_reason = reason.strip()
+        if not normalized_part_number:
+            raise ValueError("忽略料号不能为空")
+        if not normalized_reason:
+            raise ValueError("忽略原因不能为空")
+        return self.repository.save_ignored_part_rule(
+            WorkflowIgnoredPartRule(
+                workflow_id=workflow_id,
+                part_number=normalized_part_number,
+                reason=normalized_reason,
+            )
+        )
+
+    def delete_ignored_part_rule(self, workflow_id: str, part_number: str) -> bool:
+        self.get_workflow(workflow_id)
+        return self.repository.delete_ignored_part_rule(
+            workflow_id,
+            self._clean_part_number(part_number),
+        )
+
     def list_runs(self, workflow_id: str | None = None, limit: int = 30) -> list[WorkflowRun]:
         self.initialize()
         return self.repository.list_runs(workflow_id=workflow_id, limit=limit)
@@ -261,6 +294,26 @@ class WorkflowService:
         total = len(run.report.differences) if run.report else 0
         if run.report is not None:
             page = run.report.differences[difference_offset:difference_offset + difference_limit]
+            active_rules = {
+                rule.part_number: rule
+                for rule in self.repository.list_ignored_part_rules(run.workflow_id)
+            }
+            page = [
+                difference.model_copy(
+                    update={
+                        "is_ignored": True,
+                        "active_ignore_reason": active_rules[
+                            self._clean_part_number(difference.part_number)
+                        ].reason,
+                        "active_ignored_at": active_rules[
+                            self._clean_part_number(difference.part_number)
+                        ].ignored_at,
+                    }
+                )
+                if self._clean_part_number(difference.part_number) in active_rules
+                else difference
+                for difference in page
+            ]
             run = run.model_copy(
                 update={
                     "report": run.report.model_copy(
@@ -1032,6 +1085,11 @@ class WorkflowService:
         part_reasons = part_reasons if isinstance(part_reasons, dict) else {}
         keywords = self._configured_ignored_sop_product_keywords(workflow)
         ignored_parts = self._configured_ignored_part_numbers(workflow)
+        database_part_rules = {
+            rule.part_number: rule
+            for rule in self.repository.list_ignored_part_rules(workflow.id)
+        }
+        ignored_parts.update(database_part_rules)
         raw_ignored_parts = workflow.configuration.get("ignored_part_numbers")
         raw_ignored_parts = raw_ignored_parts if isinstance(raw_ignored_parts, list) else []
         ignored_part_rules = {
@@ -1045,7 +1103,14 @@ class WorkflowService:
             ignore_type: str | None = None
             ignore_value = ""
             reason = ""
-            if difference.part_number in ignored_parts:
+            ignored_at = None
+            database_rule = database_part_rules.get(difference.part_number)
+            if database_rule is not None:
+                ignore_type = "part_number"
+                ignore_value = database_rule.part_number
+                reason = database_rule.reason
+                ignored_at = database_rule.ignored_at
+            elif difference.part_number in ignored_parts:
                 ignore_type = "part_number"
                 ignore_value = ignored_part_rules.get(difference.part_number, difference.part_number)
                 reason = str(
@@ -1060,12 +1125,20 @@ class WorkflowService:
                     ignore_value = matched_keyword
                     reason = str(keyword_reasons.get(matched_keyword) or "历史配置未填写原因")
             if ignore_type:
+                ignored_difference = difference.model_copy(
+                    update={
+                        "is_ignored": True,
+                        "active_ignore_reason": reason,
+                        "active_ignored_at": ignored_at,
+                    }
+                )
                 ignored.append(
                     WorkflowBomIgnoredItem(
-                        **difference.model_dump(),
+                        **ignored_difference.model_dump(),
                         ignore_type=ignore_type,
                         ignore_value=ignore_value,
                         ignore_reason=reason,
+                        ignored_at=ignored_at,
                     )
                 )
             else:

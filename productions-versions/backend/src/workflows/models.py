@@ -78,6 +78,18 @@ class WorkflowTriggerRequest(BaseModel):
     trigger_type: WorkflowTriggerType = "manual"
 
 
+class WorkflowIgnoredPartRuleCreate(BaseModel):
+    part_number: str = Field(min_length=1, max_length=100)
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class WorkflowIgnoredPartRule(BaseModel):
+    workflow_id: str
+    part_number: str
+    reason: str
+    ignored_at: datetime = Field(default_factory=utc_now)
+
+
 class WorkflowSopQuantityDecision(BaseModel):
     source: str = ""
     event_id: str = ""
@@ -105,6 +117,9 @@ class WorkflowBomDifference(BaseModel):
     duro_paths: list[str] = Field(default_factory=list)
     duro_submenu_ids: list[str] = Field(default_factory=list)
     duro_submenu_labels: list[str] = Field(default_factory=list)
+    is_ignored: bool = False
+    active_ignore_reason: str = ""
+    active_ignored_at: datetime | None = None
 
 
 class WorkflowBomIgnoredItem(WorkflowBomDifference):
@@ -112,6 +127,7 @@ class WorkflowBomIgnoredItem(WorkflowBomDifference):
     ignore_value: str
     ignore_reason: str
     normalized_part_number: str | None = None
+    ignored_at: datetime | None = None
 
 
 class WorkflowBomReport(BaseModel):
