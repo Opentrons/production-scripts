@@ -2,11 +2,20 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from test_cli.leveling_test.fixture import reader
 from test_cli.leveling_test.type import Mount, TestNameLeveling as LevelingTestName
 
 
-def test_leveling_fixtures_use_default_port_order_without_get_mount(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "test_name",
+    [LevelingTestName.CH96_Leveling, LevelingTestName.Gripper_Leveling],
+)
+def test_single_mount_leveling_uses_default_port_without_get_mount(
+    monkeypatch,
+    test_name: LevelingTestName,
+) -> None:
     initialized_ports: list[str] = []
 
     class FakeLaser:
@@ -27,7 +36,7 @@ def test_leveling_fixtures_use_default_port_order_without_get_mount(monkeypatch)
     monkeypatch.setattr(reader, "LaserSensor", FakeLaser)
 
     lasers = reader.Reader.init_laser_stj_10m0(
-        LevelingTestName.Gripper_Leveling,
+        test_name,
         announce=False,
     )
 
@@ -35,15 +44,26 @@ def test_leveling_fixtures_use_default_port_order_without_get_mount(monkeypatch)
     assert isinstance(lasers[Mount.LEFT], FakeLaser)
 
 
-def test_dual_mount_leveling_uses_ports_in_default_mount_order(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "test_name",
+    [LevelingTestName.Z_Leveling, LevelingTestName.CH8_Leveling],
+)
+def test_dual_mount_leveling_probes_mount_instead_of_using_port_order(
+    monkeypatch,
+    test_name: LevelingTestName,
+) -> None:
     initialized_ports: list[str] = []
 
     class FakeLaser:
+        def __init__(self) -> None:
+            self.port = ""
+
         def init_device(self, select_default: str = "") -> None:
+            self.port = select_default
             initialized_ports.append(select_default)
 
         def get_mount(self, quiet: bool = False) -> str:
-            raise AssertionError("Leveling fixtures must not call GetMount")
+            return "right" if self.port == "COM_RIGHT" else "left"
 
         def close(self) -> None:
             pass
@@ -51,12 +71,14 @@ def test_dual_mount_leveling_uses_ports_in_default_mount_order(monkeypatch) -> N
     monkeypatch.setattr(
         reader.Reader,
         "get_com_list",
-        classmethod(lambda cls: [SimpleNamespace(device="COM_LEFT"), SimpleNamespace(device="COM_RIGHT")]),
+        classmethod(lambda cls: [SimpleNamespace(device="COM_RIGHT"), SimpleNamespace(device="COM_LEFT")]),
     )
     monkeypatch.setattr(reader, "LaserSensor", FakeLaser)
 
-    lasers = reader.Reader.init_laser_stj_10m0(LevelingTestName.Z_Leveling, announce=False)
+    lasers = reader.Reader.init_laser_stj_10m0(test_name, announce=False)
 
-    assert initialized_ports == ["COM_LEFT", "COM_RIGHT"]
+    assert initialized_ports == ["COM_RIGHT", "COM_LEFT"]
     assert isinstance(lasers[Mount.LEFT], FakeLaser)
     assert isinstance(lasers[Mount.RIGHT], FakeLaser)
+    assert lasers[Mount.LEFT].port == "COM_LEFT"
+    assert lasers[Mount.RIGHT].port == "COM_RIGHT"

@@ -66,17 +66,43 @@ class Reader:
         if announce:
             ui.fixture_search([mount.value for mount in expected_mounts])
         lasers = {}
-        # The fixture wiring has a stable default order.  Bind discovered
-        # ports to the mounts required by the selected test instead of
-        # probing each sensor with the legacy GetMount command.
-        for mount, port in zip(expected_mounts, port_list):
+        skip_mount_probe = test_name in (
+            TestNameLeveling.CH96_Leveling,
+            TestNameLeveling.Gripper_Leveling,
+        )
+        for port in port_list:
             laser = LaserSensor()
             try:
                 with redirect_stdout(io.StringIO()):
                     laser.init_device(select_default=port.device)
-                lasers[mount] = laser
-                if announce:
-                    ui.fixture_found(mount.value)
+
+                # CH96 and gripper use one left-side fixture whose firmware
+                # does not need to identify a mount. Z-stage and 8CH use two
+                # fixtures, so probe each device instead of relying on serial
+                # port enumeration order.
+                if skip_mount_probe:
+                    lasers[Mount.LEFT] = laser
+                    if announce:
+                        ui.fixture_found(Mount.LEFT.value)
+                    break
+
+                with redirect_stdout(io.StringIO()):
+                    mount_str = laser.get_mount(quiet=True)
+                found_mount = None
+                if mount_str == Mount.LEFT.value:
+                    found_mount = Mount.LEFT
+                elif mount_str == Mount.RIGHT.value:
+                    found_mount = Mount.RIGHT
+
+                if found_mount in expected_mounts and found_mount not in lasers:
+                    lasers[found_mount] = laser
+                    if announce:
+                        ui.fixture_found(found_mount.value)
+                else:
+                    cls._close_unused_laser(laser)
+
+                if all(mount in lasers for mount in expected_mounts):
+                    break
             except ValueError:
                 cls._close_unused_laser(laser)
                 continue
