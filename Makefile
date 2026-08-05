@@ -114,7 +114,7 @@ productions-opentrons-update:
 		DEPLOY_HOST=$(DEPLOY_HOST) \
 		PUSH_ARGS="$(PUSH_ARGS)" \
 		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
-		WEB_UI_BASE_PATH=$(WEB_UI_BASE_PATH)
+		WEB_UI_BASE_PATH=$(PRODUCTIONS_OPENTRONS_WEB_BASE_PATH)
 
 .PHONY: deploy-productions-opentrons
 deploy-productions-opentrons:

@@ -7,8 +7,10 @@ import requests
 from opentrons.opentrons_api.spec import (
     DEFAULT_OPENTRONS_VERSION,
     DEFAULT_PORT,
+    PATH_COMMANDS,
     PATH_HEALTH,
     PATH_INSTRUMENTS,
+    PATH_MAINTENANCE_RUNS,
     PATH_MODULES,
     PATH_PIPETTES,
     PATH_PROTOCOLS,
@@ -159,6 +161,132 @@ class OpentronsHttpClient:
         if mount:
             body["mount"] = mount
         return self.request("POST", PATH_ROBOT_HOME, json_body=body)
+
+    def home_axes(self, *, axes: list[str]) -> dict[str, Any]:
+        normalized_axes = list(dict.fromkeys(axis.strip() for axis in axes if axis.strip()))
+        if not normalized_axes:
+            raise ValueError("At least one motor axis is required")
+        payload = self.request(
+            "POST",
+            f"{PATH_COMMANDS}?waitUntilComplete=true&timeout=120000",
+            json_body={
+                "data": {
+                    "commandType": "home",
+                    "params": {"axes": normalized_axes},
+                }
+            },
+            timeout=130,
+        )
+        command = self.unwrap_data(payload)
+        if isinstance(command, dict) and command.get("status") == "failed":
+            error = command.get("error") or "Motor axis home failed"
+            if isinstance(error, dict):
+                error = error.get("detail") or error.get("message") or str(error)
+            raise OpentronsApiError(str(error), response=payload)
+        return payload
+
+    def create_maintenance_run(self) -> str:
+        payload = self.request(
+            "POST",
+            PATH_MAINTENANCE_RUNS,
+            json_body={"data": {}},
+        )
+        run = self.unwrap_data(payload)
+        run_id = run.get("id") if isinstance(run, dict) else None
+        if not run_id:
+            raise OpentronsApiError("Maintenance run response did not include an id", response=payload)
+        return str(run_id)
+
+    def execute_maintenance_command(
+        self,
+        *,
+        run_id: str,
+        command_type: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = self.request(
+            "POST",
+            f"{PATH_MAINTENANCE_RUNS}/{run_id}/commands?waitUntilComplete=true&timeout=120000",
+            json_body={
+                "data": {
+                    "commandType": command_type,
+                    "params": params,
+                }
+            },
+            timeout=130,
+        )
+        command = self.unwrap_data(payload)
+        if isinstance(command, dict) and command.get("status") == "failed":
+            error = command.get("error") or f"Maintenance command {command_type} failed"
+            if isinstance(error, dict):
+                error = error.get("detail") or error.get("message") or str(error)
+            raise OpentronsApiError(str(error), response=payload)
+        return payload
+
+    def move_axes_relative(self, *, run_id: str, axis_map: dict[str, float]) -> dict[str, Any]:
+        normalized_axis_map = {
+            axis.strip(): float(distance)
+            for axis, distance in axis_map.items()
+            if axis.strip() and float(distance) != 0
+        }
+        if not normalized_axis_map:
+            raise ValueError("At least one non-zero axis movement is required")
+        return self.execute_maintenance_command(
+            run_id=run_id,
+            command_type="robot/moveAxesRelative",
+            params={"axis_map": normalized_axis_map},
+        )
+
+    def close_gripper_jaw(self, *, run_id: str) -> dict[str, Any]:
+        return self.execute_maintenance_command(
+            run_id=run_id,
+            command_type="robot/closeGripperJaw",
+            params={},
+        )
+
+    def open_gripper_jaw(self, *, run_id: str) -> dict[str, Any]:
+        return self.execute_maintenance_command(
+            run_id=run_id,
+            command_type="robot/openGripperJaw",
+            params={},
+        )
+
+    def load_pipette(
+        self,
+        *,
+        run_id: str,
+        pipette_name: str,
+        mount: str,
+        pipette_id: str,
+    ) -> dict[str, Any]:
+        return self.execute_maintenance_command(
+            run_id=run_id,
+            command_type="loadPipette",
+            params={
+                "pipetteName": pipette_name,
+                "mount": mount,
+                "pipetteId": pipette_id,
+            },
+        )
+
+    def drop_tip_in_place(
+        self,
+        *,
+        run_id: str,
+        pipette_id: str,
+        home_after: bool | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"pipetteId": pipette_id}
+        if home_after is not None:
+            params["homeAfter"] = home_after
+        return self.execute_maintenance_command(
+            run_id=run_id,
+            command_type="unsafe/dropTipInPlace",
+            params=params,
+        )
+
+    def delete_maintenance_run(self, run_id: str) -> dict[str, Any]:
+        return self.request("DELETE", f"{PATH_MAINTENANCE_RUNS}/{run_id}")
 
     def move_robot(
         self,

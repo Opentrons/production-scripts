@@ -30,13 +30,23 @@ from api.models import (
     ProductManagementSyncResponse,
     RobotBatchCommandResponse,
     RobotCommandRequest,
+    RobotSshCommandCreateRequest,
+    RobotSshCommandBatchExecuteRequest,
+    RobotSshCommandExecuteRequest,
+    RobotSshCommandUpdateRequest,
     RobotActionResponse,
     RobotControlSummaryResponse,
     RobotFileContentResponse,
     RobotFileListResponse,
     RobotFileWriteRequest,
+    RobotTestingDataSelectionRequest,
     RobotHomeRequest,
     RobotInfo,
+    RobotJogDropTipRequest,
+    RobotJogGripperRequest,
+    RobotJogMoveRequest,
+    RobotJogRunRequest,
+    RobotLogDownloadRequest,
     RobotMoveRequest,
     RobotProtocolAnalyzeRequest,
     RobotProtocolListResponse,
@@ -68,15 +78,18 @@ from api.services import file_transfer as file_transfer_service
 from api.services import file_resources as file_resource_service
 from api.services import health as health_service
 from api.services import messages as message_service
+from api.services import diagnostic_logs as diagnostic_log_service
 from api.services import opentrons_control as opentrons_control_service
 from api.services import opentrons_protocols as opentrons_protocols_service
 from api.services import product_management as product_management_service
 from api.services import robots as robot_service
+from api.services import ssh_commands as ssh_command_service
 from api.services import upload as upload_service
 from api.services import upload_records as upload_record_service
 from api.services import upload_settings as upload_settings_service
 from api.services import unit_tracker as unit_tracker_service
 from api.services.logging import logger
+from opentrons.opentrons_api.client import OpentronsApiError
 from test_case.execution import test_execution_manager
 from test_case.execution.manager import (
     TestExecutionLimitError,
@@ -766,6 +779,186 @@ async def execute_robot_commands(request: RobotCommandRequest):
     return {"results": results}
 
 
+@router.get("/robots/ssh-commands")
+async def list_robot_ssh_commands():
+    return await run_in_threadpool(ssh_command_service.list_commands)
+
+
+@router.post("/robots/ssh-commands/execute")
+async def execute_robot_ssh_command(request: RobotSshCommandExecuteRequest):
+    try:
+        return await run_in_threadpool(
+            ssh_command_service.execute_command,
+            ip=request.ip,
+            command=request.command,
+            timeout=request.timeout,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail={"message": f"SSH 命令执行失败: {exc}"}) from exc
+
+
+@router.post("/robots/ssh-commands/batch-execute")
+async def execute_robot_ssh_commands_batch(request: RobotSshCommandBatchExecuteRequest):
+    try:
+        return await run_in_threadpool(
+            ssh_command_service.execute_commands_batch,
+            ips=request.ips,
+            command=request.command,
+            timeout=request.timeout,
+            concurrency=request.concurrency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"message": f"批量 SSH 命令执行失败: {exc}"}) from exc
+
+
+@router.post("/robots/ssh-commands")
+async def create_robot_ssh_command(request: RobotSshCommandCreateRequest):
+    try:
+        return await run_in_threadpool(
+            ssh_command_service.create_command,
+            name=request.name,
+            command=request.command,
+            description=request.description,
+            tag=request.tag,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"message": f"保存 SSH 自定义命令失败: {exc}"}) from exc
+
+
+@router.put("/robots/ssh-commands/{command_id}")
+async def update_robot_ssh_command(command_id: str, request: RobotSshCommandUpdateRequest):
+    try:
+        return await run_in_threadpool(
+            ssh_command_service.update_command,
+            command_id,
+            name=request.name,
+            command=request.command,
+            description=request.description,
+            tag=request.tag,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": str(exc)}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"message": f"更新 SSH 自定义命令失败: {exc}"}) from exc
+
+
+@router.delete("/robots/ssh-commands/{command_id}")
+async def delete_robot_ssh_command(command_id: str):
+    try:
+        return await run_in_threadpool(ssh_command_service.delete_command, command_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"message": f"删除 SSH 自定义命令失败: {exc}"}) from exc
+
+
+@router.get("/robots/log-downloads/folders")
+async def list_robot_log_download_folders():
+    return diagnostic_log_service.list_folder_options()
+
+
+@router.post("/robots/log-downloads/tasks")
+async def create_robot_log_download_task(request: RobotLogDownloadRequest):
+    try:
+        devices = [
+            device.model_dump() if hasattr(device, "model_dump") else device.dict()
+            for device in request.devices
+        ]
+        return await run_in_threadpool(
+            diagnostic_log_service.create_download_task,
+            devices=devices,
+            folder_keys=request.folder_keys,
+            concurrency=request.concurrency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.get("/robots/log-downloads/tasks/{task_id}")
+async def get_robot_log_download_task(task_id: str):
+    try:
+        return await run_in_threadpool(diagnostic_log_service.get_download_task, task_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": "Log 下载任务不存在"}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.get("/robots/log-downloads/records")
+async def list_robot_log_download_records(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    try:
+        return await run_in_threadpool(
+            diagnostic_log_service.list_download_records,
+            page=page,
+            page_size=page_size,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.get("/robots/log-downloads/records/{record_id}/file")
+async def download_robot_server_log(record_id: str):
+    try:
+        file_path, filename = await run_in_threadpool(
+            diagnostic_log_service.resolve_server_log_download,
+            record_id,
+        )
+        return FileResponse(
+            file_path,
+            media_type="application/gzip",
+            filename=filename,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": "Log 下载记录不存在"}) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail={"message": str(exc)}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+
+
+@router.post("/robots/log-downloads/records/{record_id}/cleanup")
+async def retry_robot_log_device_cleanup(record_id: str):
+    try:
+        return await run_in_threadpool(diagnostic_log_service.retry_record_cleanup, record_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": "Log 下载记录不存在"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.delete("/robots/log-downloads/records/{record_id}/file")
+async def delete_robot_server_log(record_id: str):
+    try:
+        return await run_in_threadpool(diagnostic_log_service.delete_server_log, record_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": "Log 下载记录不存在"}) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail={"message": str(exc)}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+
+
 @router.get("/robots/{ip}/control/summary", response_model=RobotControlSummaryResponse)
 async def get_robot_control_summary(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
     return await run_in_threadpool(opentrons_control_service.get_device_control_summary, ip, port)
@@ -799,13 +992,93 @@ async def move_robot(ip: str, request: RobotMoveRequest):
 
 @router.post("/robots/{ip}/control/reset", response_model=RobotActionResponse)
 async def reset_robot(ip: str, request: RobotResetRequest):
-    data = await run_in_threadpool(
-        opentrons_control_service.reset_robot,
-        ip,
-        options=request.options,
-        port=request.port,
-    )
-    return RobotActionResponse(success=True, message="Reset command sent", data=data)
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.reset_robot,
+            ip,
+            axes=request.axes,
+            port=request.port,
+        )
+    except OpentronsApiError as exc:
+        raise HTTPException(status_code=502, detail={"message": f"设备轴复位失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Axis home command completed", data=data)
+
+
+@router.post("/robots/{ip}/control/jog/runs", response_model=RobotActionResponse)
+async def create_jog_run(ip: str, request: RobotJogRunRequest):
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.create_jog_run,
+            ip,
+            port=request.port,
+        )
+    except OpentronsApiError as exc:
+        raise HTTPException(status_code=502, detail={"message": f"创建 Jog Run 失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Jog run created", data=data)
+
+
+@router.post("/robots/{ip}/control/jog/runs/{run_id}/move", response_model=RobotActionResponse)
+async def move_jog_robot(ip: str, run_id: str, request: RobotJogMoveRequest):
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.move_jog_robot,
+            ip,
+            run_id=run_id,
+            direction=request.direction,
+            step_mm=request.step_mm,
+            mount=request.mount,
+            port=request.port,
+        )
+    except (ValueError, OpentronsApiError) as exc:
+        status_code = 400 if isinstance(exc, ValueError) else 502
+        raise HTTPException(status_code=status_code, detail={"message": f"Jog 移动失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Jog movement completed", data=data)
+
+
+@router.post("/robots/{ip}/control/jog/runs/{run_id}/gripper", response_model=RobotActionResponse)
+async def control_jog_gripper(ip: str, run_id: str, request: RobotJogGripperRequest):
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.control_jog_gripper,
+            ip,
+            run_id=run_id,
+            action=request.action,
+            port=request.port,
+        )
+    except (ValueError, OpentronsApiError) as exc:
+        status_code = 400 if isinstance(exc, ValueError) else 502
+        raise HTTPException(status_code=status_code, detail={"message": f"Gripper 操作失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Gripper action completed", data=data)
+
+
+@router.post("/robots/{ip}/control/jog/runs/{run_id}/drop-tip", response_model=RobotActionResponse)
+async def drop_jog_tip(ip: str, run_id: str, request: RobotJogDropTipRequest):
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.drop_jog_tip,
+            ip,
+            run_id=run_id,
+            pipette_id=request.pipette_id,
+            home_after=request.home_after,
+            port=request.port,
+        )
+    except OpentronsApiError as exc:
+        raise HTTPException(status_code=502, detail={"message": f"Drop Tip 失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Drop tip completed", data=data)
+
+
+@router.delete("/robots/{ip}/control/jog/runs/{run_id}", response_model=RobotActionResponse)
+async def delete_jog_run(ip: str, run_id: str, port: int = setting.ROBOT_HEALTH_PORT):
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.delete_jog_run,
+            ip,
+            run_id=run_id,
+            port=port,
+        )
+    except OpentronsApiError as exc:
+        raise HTTPException(status_code=502, detail={"message": f"释放 Jog Run 失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Jog run released", data=data)
 
 
 @router.post("/robots/{ip}/control/reboot", response_model=RobotActionResponse)
@@ -882,6 +1155,51 @@ async def download_robot_file(ip: str, path: str):
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/robots/{ip}/testing-data", response_model=RobotFileListResponse)
+async def list_robot_testing_data(ip: str, path: str | None = None):
+    try:
+        return await run_in_threadpool(opentrons_control_service.list_robot_testing_data, ip, path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except OpentronsSshError as exc:
+        logger.warning("SSH testing data list failed for robot %s path %s: %s", ip, path, exc)
+        raise HTTPException(status_code=502, detail={"message": f"SSH 测试数据读取失败: {exc}"}) from exc
+
+
+@router.post("/robots/{ip}/testing-data/download")
+async def download_robot_testing_data(ip: str, request: RobotTestingDataSelectionRequest):
+    try:
+        filename, content, media_type = await run_in_threadpool(
+            opentrons_control_service.download_robot_testing_data,
+            ip,
+            request.paths,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except OpentronsSshError as exc:
+        raise HTTPException(status_code=502, detail={"message": f"SSH 测试数据下载失败: {exc}"}) from exc
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.delete("/robots/{ip}/testing-data", response_model=RobotActionResponse)
+async def delete_robot_testing_data(ip: str, request: RobotTestingDataSelectionRequest):
+    try:
+        data = await run_in_threadpool(
+            opentrons_control_service.delete_robot_testing_data,
+            ip,
+            request.paths,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except OpentronsSshError as exc:
+        raise HTTPException(status_code=502, detail={"message": f"SSH 测试数据删除失败: {exc}"}) from exc
+    return RobotActionResponse(success=True, message="Deleted", data=data)
 
 
 @router.get("/robots/{ip}/protocols", response_model=RobotProtocolListResponse)

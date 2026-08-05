@@ -6,6 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
 from api.services.robots import shutdown_robot_service, start_robot_scan_scheduler
+from api.services.diagnostic_logs import (
+    resume_pending_diagnostic_log_cleanups,
+    shutdown_diagnostic_log_service,
+)
 from api.services.upload import shutdown_upload_service
 from database.mongodb import mongodb
 from settings import get_logger
@@ -24,6 +28,7 @@ def should_refresh_proxy_on_startup() -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mongodb.connect()
+    resume_pending_diagnostic_log_cleanups()
     start_robot_scan_scheduler()
     if runtime_config.USE_PROXY and should_refresh_proxy_on_startup():
         try:
@@ -34,6 +39,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         shutdown_robot_service()
+        shutdown_diagnostic_log_service()
         shutdown_upload_service()
         GoogleDriveDriver.shutdown_shared_services()
         mongodb.close()

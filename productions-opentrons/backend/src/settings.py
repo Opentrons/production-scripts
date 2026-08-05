@@ -36,6 +36,10 @@ else:
     CONFIG_DIR = "/configs"
 
 FILE_RESOURCE_DIR = os.getenv("DATA_HANDLER_FILE_RESOURCE_DIR", FILE_RESOURCE_DIR)
+ROBOT_LOG_DOWNLOAD_DIR = os.getenv(
+    "DATA_HANDLER_ROBOT_LOG_DOWNLOAD_DIR",
+    os.path.join(DOWNLOAD_DIR, "robot_logs"),
+)
 
 if IS_DEV_ENV:
     GOOGLE_AUTH_DIR = os.path.join(PROJECT_ROOT, "auth")
@@ -48,6 +52,7 @@ else:
         ROBOT_KEY_PATH = os.path.expanduser("~/robot_key")
 
 ROBOT_KEY_PATH = os.getenv("DATA_HANDLER_ROBOT_KEY_PATH", ROBOT_KEY_PATH)
+ROBOT_TESTING_DATA_DIR = os.getenv("DATA_HANDLER_ROBOT_TESTING_DATA_DIR", "/data/testing_data")
 SLACK_CONFIG_PATH = os.getenv(
     "DATA_HANDLER_SLACK_CONFIG_PATH",
     os.path.join(GOOGLE_AUTH_DIR, "slack.yaml"),
@@ -86,6 +91,8 @@ ROBOT_SCAN_CACHE_COLLECTION = "robot_scan_cache"
 UPLOAD_FINISH_SETTINGS_COLLECTION = "upload_finish_settings"
 FILE_RESOURCE_PROJECTS_COLLECTION = "file_resource_projects"
 FILE_RESOURCE_VERSIONS_COLLECTION = "file_resource_versions"
+ROBOT_LOG_DOWNLOAD_COLLECTION = "robot_log_download_records"
+ROBOT_SSH_COMMAND_COLLECTION = "robot_ssh_commands"
 
 # Robot 设备配置
 ROBOT_HEALTH_PORT = 31950
@@ -103,6 +110,26 @@ ROBOT_SCAN_HTTP_TIMEOUT_SECONDS = float(
 ROBOT_SCAN_MAX_DURATION_SECONDS = int(
     os.getenv("DATA_HANDLER_ROBOT_SCAN_MAX_DURATION_SECONDS", "120")
 )
+ROBOT_LOG_DOWNLOAD_MAX_WORKERS = max(
+    1,
+    min(16, int(os.getenv("DATA_HANDLER_ROBOT_LOG_DOWNLOAD_MAX_WORKERS", "8"))),
+)
+ROBOT_LOG_COMMAND_TIMEOUT_SECONDS = max(
+    60,
+    int(os.getenv("DATA_HANDLER_ROBOT_LOG_COMMAND_TIMEOUT_SECONDS", "900")),
+)
+ROBOT_LOG_REMOTE_TEMP_ROOT = os.getenv(
+    "DATA_HANDLER_ROBOT_LOG_REMOTE_TEMP_ROOT",
+    "/data",
+).rstrip("/") or "/data"
+ROBOT_LOG_CLEANUP_RETRY_INTERVAL_SECONDS = max(
+    10,
+    int(os.getenv("DATA_HANDLER_ROBOT_LOG_CLEANUP_RETRY_INTERVAL_SECONDS", "30")),
+)
+ROBOT_LOG_CLEANUP_RETRY_ATTEMPTS = max(
+    1,
+    int(os.getenv("DATA_HANDLER_ROBOT_LOG_CLEANUP_RETRY_ATTEMPTS", "120")),
+)
 ROBOT_IP_RANGE_START = 100
 ROBOT_IP_RANGE_END = 120
 ROBOT_IP_PREFIX = "192.168.1."
@@ -118,6 +145,7 @@ def ensure_directories():
     """确保所有配置目录都存在"""
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     os.makedirs(FILE_RESOURCE_DIR, exist_ok=True)
+    os.makedirs(ROBOT_LOG_DOWNLOAD_DIR, exist_ok=True)
     os.makedirs(CONFIG_DIR, exist_ok=True)
     if IS_DEV_ENV:
         os.makedirs(GOOGLE_AUTH_DIR, exist_ok=True)

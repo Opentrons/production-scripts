@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -307,6 +307,30 @@ class RobotBatchCommandResponse(BaseModel):
     results: list[RobotCommandResult]
 
 
+class RobotSshCommandExecuteRequest(BaseModel):
+    ip: str
+    command: str = Field(min_length=1, max_length=20000)
+    timeout: int = Field(default=30, ge=1, le=300)
+
+
+class RobotSshCommandBatchExecuteRequest(BaseModel):
+    ips: list[str] = Field(min_length=1, max_length=100)
+    command: str = Field(min_length=1, max_length=20000)
+    timeout: int = Field(default=30, ge=1, le=300)
+    concurrency: int = Field(default=8, ge=1, le=20)
+
+
+class RobotSshCommandCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    command: str = Field(min_length=1, max_length=20000)
+    description: str = Field(default="", max_length=500)
+    tag: Literal["general", "risk"] = "general"
+
+
+class RobotSshCommandUpdateRequest(RobotSshCommandCreateRequest):
+    pass
+
+
 class RobotsScanResponse(BaseModel):
     total: int
     online_count: int
@@ -368,7 +392,50 @@ class RobotMoveRequest(BaseModel):
 
 
 class RobotResetRequest(BaseModel):
-    options: dict[str, bool] | None = None
+    axes: list[
+        Literal[
+            "x",
+            "y",
+            "leftZ",
+            "rightZ",
+            "leftPlunger",
+            "rightPlunger",
+            "extensionZ",
+            "extensionJaw",
+            "axis96ChannelCam",
+        ]
+    ] = Field(min_length=1, max_length=9)
+    port: int = 31950
+
+
+class RobotJogRunRequest(BaseModel):
+    port: int = 31950
+
+
+class RobotJogMoveRequest(BaseModel):
+    direction: Literal[
+        "up",
+        "down",
+        "left",
+        "right",
+        "z_up",
+        "z_down",
+        "plunger_up",
+        "plunger_down",
+    ]
+    step_mm: float = Field(default=10, gt=0, le=100)
+    mount: Literal["left", "right", "gripper"] = "left"
+    port: int = 31950
+
+
+class RobotJogGripperRequest(BaseModel):
+    action: Literal["grip", "ungrip"]
+    port: int = 31950
+
+
+class RobotJogDropTipRequest(BaseModel):
+    pipette_id: str = Field(min_length=1, max_length=100)
+    home_after: bool | None = None
     port: int = 31950
 
 
@@ -386,6 +453,10 @@ class RobotFileListResponse(BaseModel):
 class RobotFileContentResponse(BaseModel):
     path: str
     content: str
+
+
+class RobotTestingDataSelectionRequest(BaseModel):
+    paths: list[str] = Field(min_length=1, max_length=500)
 
 
 class RobotActionResponse(BaseModel):
@@ -415,3 +486,14 @@ class RobotRunCreateRequest(BaseModel):
 class RobotProtocolAnalyzeRequest(BaseModel):
     body: dict[str, Any] | None = None
     port: int = 31950
+
+
+class RobotLogDownloadDevice(BaseModel):
+    ip: str
+    name: str | None = None
+
+
+class RobotLogDownloadRequest(BaseModel):
+    devices: list[RobotLogDownloadDevice] = Field(min_length=1)
+    folder_keys: list[str] = Field(min_length=1)
+    concurrency: int = Field(default=4, ge=1, le=16)

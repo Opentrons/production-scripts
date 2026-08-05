@@ -47,6 +47,12 @@ class OpentronsFileService:
     def download_file(self, path: str) -> tuple[str, bytes, str]:
         return self.ssh.download_path(path)
 
+    def download_files_as_zip(self, paths: list[str], *, root_path: str) -> bytes:
+        return self.ssh.download_paths_as_zip(paths, root_dir=root_path)
+
+    def delete_paths(self, paths: list[str]) -> list[str]:
+        return self.ssh.delete_paths(paths)
+
     def find_protocol_source_dir(self, protocol_id: str) -> str:
         candidates = [
             f"{base.rstrip('/')}/{protocol_id}"

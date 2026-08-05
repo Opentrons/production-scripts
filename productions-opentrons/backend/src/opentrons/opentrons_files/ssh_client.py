@@ -78,9 +78,9 @@ class OpentronsSshClient:
         with self.connect():
             return True
 
-    def exec_command(self, command: str) -> tuple[int, str, str]:
+    def exec_command(self, command: str, *, timeout: int | float | None = None) -> tuple[int, str, str]:
         with self.connect() as (client, _sftp):
-            _stdin, stdout, stderr = client.exec_command(command, timeout=self.TIMEOUT)
+            _stdin, stdout, stderr = client.exec_command(command, timeout=timeout or self.TIMEOUT)
             exit_code = stdout.channel.recv_exit_status()
             return exit_code, stdout.read().decode("utf-8", errors="replace"), stderr.read().decode("utf-8", errors="replace")
 
@@ -186,6 +186,48 @@ class OpentronsSshClient:
             filename = remote_path.rsplit("/", 1)[-1] or "download.bin"
             return filename, content, "application/octet-stream"
 
+    def download_paths_as_zip(self, remote_paths: list[str], *, root_dir: str) -> bytes:
+        selected_paths = self._collapse_nested_paths(remote_paths)
+        if not selected_paths:
+            raise ValueError("At least one path is required")
+
+        buffer = io.BytesIO()
+        with self.connect() as (_client, sftp):
+            for remote_path in selected_paths:
+                try:
+                    attrs = sftp.lstat(remote_path)
+                except FileNotFoundError as exc:
+                    raise OpentronsSshError(f"Path not found: {remote_path}") from exc
+                if stat.S_ISLNK(attrs.st_mode):
+                    raise OpentronsSshError(f"Symbolic links cannot be downloaded: {remote_path}")
+
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for remote_path in selected_paths:
+                    self._add_selected_path_to_zip(sftp, remote_path, root_dir, zip_file)
+        return buffer.getvalue()
+
+    def _add_selected_path_to_zip(
+        self,
+        sftp: paramiko.SFTPClient,
+        remote_path: str,
+        root_dir: str,
+        zip_file: zipfile.ZipFile,
+    ) -> None:
+        attrs = sftp.lstat(remote_path)
+        if stat.S_ISLNK(attrs.st_mode):
+            raise OpentronsSshError(f"Symbolic links cannot be downloaded: {remote_path}")
+
+        archive_name = self._relative_archive_name(root_dir, remote_path)
+        if stat.S_ISDIR(attrs.st_mode):
+            zip_file.writestr(f"{archive_name.rstrip('/')}/", b"")
+            for child in sorted(sftp.listdir_attr(remote_path), key=lambda item: item.filename.lower()):
+                child_path = f"{remote_path.rstrip('/')}/{child.filename}"
+                self._add_selected_path_to_zip(sftp, child_path, root_dir, zip_file)
+            return
+
+        with sftp.open(remote_path, "rb") as remote_file:
+            zip_file.writestr(archive_name, remote_file.read())
+
     def _add_directory_to_zip(
         self,
         sftp: paramiko.SFTPClient,
@@ -211,6 +253,55 @@ class OpentronsSshClient:
         if full_path.startswith(prefix):
             return full_path[len(prefix):]
         return posixpath.basename(full_path)
+
+    @staticmethod
+    def _relative_archive_name(root_dir: str, full_path: str) -> str:
+        root = posixpath.normpath(root_dir)
+        normalized = posixpath.normpath(full_path)
+        relative = posixpath.relpath(normalized, root)
+        if relative == "." or relative == ".." or relative.startswith("../"):
+            raise OpentronsSshError(f"Path is outside archive root: {full_path}")
+        return relative
+
+    @staticmethod
+    def _collapse_nested_paths(remote_paths: list[str]) -> list[str]:
+        normalized_paths = sorted(
+            {posixpath.normpath(path) for path in remote_paths if path},
+            key=lambda path: (path.count("/"), path.lower()),
+        )
+        collapsed: list[str] = []
+        for path in normalized_paths:
+            if any(path == parent or path.startswith(f"{parent.rstrip('/')}/") for parent in collapsed):
+                continue
+            collapsed.append(path)
+        return collapsed
+
+    def delete_paths(self, remote_paths: list[str]) -> list[str]:
+        selected_paths = self._collapse_nested_paths(remote_paths)
+        if not selected_paths:
+            raise ValueError("At least one path is required")
+
+        self.remount_read_write(selected_paths[0])
+        with self.connect() as (_client, sftp):
+            for remote_path in selected_paths:
+                try:
+                    sftp.lstat(remote_path)
+                except FileNotFoundError as exc:
+                    raise OpentronsSshError(f"Path not found: {remote_path}") from exc
+
+            for remote_path in selected_paths:
+                self._delete_path_with_sftp(sftp, remote_path)
+        return selected_paths
+
+    def _delete_path_with_sftp(self, sftp: paramiko.SFTPClient, remote_path: str) -> None:
+        attrs = sftp.lstat(remote_path)
+        if stat.S_ISDIR(attrs.st_mode) and not stat.S_ISLNK(attrs.st_mode):
+            for child in sftp.listdir_attr(remote_path):
+                child_path = f"{remote_path.rstrip('/')}/{child.filename}"
+                self._delete_path_with_sftp(sftp, child_path)
+            sftp.rmdir(remote_path)
+            return
+        sftp.remove(remote_path)
 
     def delete_path(self, remote_path: str) -> None:
         self.remount_read_write(remote_path)
