@@ -208,8 +208,13 @@ def test_database_ignore_rule_marks_history_detail_and_future_report(tmp_path: P
 
     rule = service.save_ignored_part_rule(workflow.id, "438-00147", "测试阶段不参与核对")
     detail = service.get_run_detail(run.id).run
+    stored_workflow = service.get_workflow(workflow.id)
 
     assert detail.report is not None
+    assert stored_workflow.configuration["ignored_part_numbers"] == ["438-00147"]
+    assert stored_workflow.configuration["ignored_part_number_reasons"] == {
+        "438-00147": "测试阶段不参与核对"
+    }
     assert detail.report.differences[0].is_ignored is True
     assert detail.report.differences[0].active_ignore_reason == "测试阶段不参与核对"
     assert detail.report.differences[0].active_ignored_at == rule.ignored_at
@@ -233,6 +238,44 @@ def test_database_ignore_rule_marks_history_detail_and_future_report(tmp_path: P
     assert updated_report.total_ignored_count == 1
     assert updated_report.ignored_items[0].ignore_reason == "测试阶段不参与核对"
     assert updated_report.ignored_items[0].ignored_at == rule.ignored_at
+
+    assert service.delete_ignored_part_rule(workflow.id, "438-00147") is True
+    assert service.list_ignored_part_rules(workflow.id) == []
+    assert service.get_workflow(workflow.id).configuration["ignored_part_numbers"] == []
+
+
+def test_workflow_configuration_and_persisted_ignore_rules_stay_synchronized(tmp_path: Path) -> None:
+    repository = WorkflowRepository(tmp_path / "workflows.sqlite3")
+    workflow = repository.save_workflow(
+        Workflow(
+            name="同步忽略规则",
+            kind="duro_bom_check",
+            configuration={
+                "ignored_part_numbers": ["100-00001"],
+                "ignored_part_number_reasons": {"100-00001": "历史配置"},
+            },
+        )
+    )
+    service = WorkflowService(repository)
+
+    loaded = service.get_workflow(workflow.id)
+
+    assert loaded.configuration["ignored_part_numbers"] == ["100-00001"]
+    assert [(rule.part_number, rule.reason) for rule in service.list_ignored_part_rules(workflow.id)] == [
+        ("100-00001", "历史配置")
+    ]
+
+    updated_configuration = dict(loaded.configuration)
+    updated_configuration["ignored_part_numbers"] = ["100-00002"]
+    updated_configuration["ignored_part_number_reasons"] = {"100-00002": "编辑后配置"}
+    service.update_workflow(
+        workflow.id,
+        WorkflowUpdate(configuration=updated_configuration),
+    )
+
+    assert [(rule.part_number, rule.reason) for rule in service.list_ignored_part_rules(workflow.id)] == [
+        ("100-00002", "编辑后配置")
+    ]
 
 
 class FakeSopService:
@@ -357,6 +400,110 @@ def test_workflow_adds_quantity_explanation_when_semantic_details_are_missing(tm
     assert materials["100-00001"]["quantity_explanations"] == [
         "Robot / Assembly：大模型未返回该料号的完整语义累加明细，"
         "当前采用 SOP 正文规则统计数量 2"
+    ]
+    assert materials["100-00001"]["occurrence_count"] == 2
+
+
+def test_workflow_maps_every_sop_occurrence_to_a_delta_step(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    material = SimpleNamespace(
+        occurrence_details=[
+            SimpleNamespace(page_number=14, evidence="固定 1 个压块 415-01005 到 plunger"),
+            SimpleNamespace(page_number=15, evidence="检查压块 415-01005 是否固定"),
+        ],
+        source_lines=[],
+        pages=[14, 15],
+        quantity_decisions=[
+            SimpleNamespace(
+                page_numbers=[14],
+                evidence="固定 1 个压块 415-01005 到 plunger",
+                quantity_delta=1,
+                accumulate=True,
+                action="固定",
+                reason="新增一个压块",
+            )
+        ],
+    )
+
+    steps = service._build_sop_occurrence_steps("Gen3 96ch / Assembly", material)
+
+    assert [(step.page_number, step.quantity_delta) for step in steps] == [(14, 1), (15, 0)]
+    assert steps[0].evidence == "固定 1 个压块 415-01005 到 plunger"
+    assert steps[1].reason == "该正文出现未被判定为新增装配，计入 +0"
+
+
+def test_workflow_refines_only_preexisting_quantity_mismatches(tmp_path: Path) -> None:
+    class RefiningSopService:
+        def __init__(self) -> None:
+            self.calls: list[set[str]] = []
+
+        def refine_semantic_quantities_with_names(self, file_id, material_names, targets):
+            assert file_id == "sop-a"
+            self.calls.append(set(targets))
+            return [
+                SimpleNamespace(
+                    part_number="100-00001",
+                    name="扎带/zip-tie",
+                    quantity=5,
+                    occurrences=3,
+                    pages=[1, 2],
+                    source_lines=["1×100-00001", "Use four zip-tie"],
+                    occurrence_details=[
+                        SimpleNamespace(page_number=1, evidence="Install 1×100-00001"),
+                        SimpleNamespace(page_number=2, evidence="Use four zip-tie"),
+                    ],
+                    quantity_explanation="数量差异二次复核后为 5",
+                    quantity_decisions=[],
+                )
+            ]
+
+    sop_service = RefiningSopService()
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=sop_service,  # type: ignore[arg-type]
+    )
+    materials = {
+        "100-00001": {
+            "name": "扎带/zip-tie",
+            "quantity": 1.0,
+            "quantity_known": True,
+            "occurrence_count": 1,
+            "occurrence_steps": [],
+            "locations": ["Robot / Assembly：第 1 页"],
+            "quantity_explanations": ["Robot / Assembly：第一阶段数量为 1"],
+            "quantity_decisions": [],
+            "source_quantities": {"sop-a": 1.0},
+            "source_occurrence_counts": {"sop-a": 1},
+            "source_labels": {"sop-a": "Robot / Assembly"},
+        },
+        "100-00002": {
+            "name": "Matched part",
+            "quantity": 2.0,
+            "quantity_known": True,
+            "occurrence_count": 1,
+            "occurrence_steps": [],
+            "locations": ["Robot / Assembly：第 3 页"],
+            "quantity_explanations": ["Robot / Assembly：第一阶段数量为 2"],
+            "quantity_decisions": [],
+            "source_quantities": {"sop-a": 2.0},
+            "source_occurrence_counts": {"sop-a": 1},
+            "source_labels": {"sop-a": "Robot / Assembly"},
+        },
+    }
+
+    updated = service._refine_sop_quantity_mismatches(
+        [{"drive_file_id": "sop-a", "project": "Robot", "process": "Assembly"}],
+        materials,
+        {"100-00001"},
+    )
+
+    assert sop_service.calls == [{"100-00001"}]
+    assert updated == 1
+    assert materials["100-00001"]["quantity"] == 5
+    assert materials["100-00001"]["occurrence_count"] == 3
+    assert materials["100-00002"]["quantity"] == 2
+    assert materials["100-00002"]["quantity_explanations"] == [
+        "Robot / Assembly：第一阶段数量为 2"
     ]
 
 

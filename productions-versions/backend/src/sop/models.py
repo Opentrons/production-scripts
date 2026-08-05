@@ -76,6 +76,11 @@ class SopQuantityDecision(BaseModel):
     evidence: str = ""
 
 
+class SopPartOccurrence(BaseModel):
+    page_number: int
+    evidence: str = ""
+
+
 class SopPartReference(BaseModel):
     part_number: str
     name: str = ""
@@ -83,6 +88,7 @@ class SopPartReference(BaseModel):
     quantity: int = 0
     pages: list[int] = Field(default_factory=list)
     source_lines: list[str] = Field(default_factory=list)
+    occurrence_details: list[SopPartOccurrence] = Field(default_factory=list)
     quantity_explanation: str = ""
     quantity_decisions: list[SopQuantityDecision] = Field(default_factory=list)
 

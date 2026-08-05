@@ -104,6 +104,16 @@ class WorkflowSopQuantityDecision(BaseModel):
     evidence: str = ""
 
 
+class WorkflowSopOccurrenceStep(BaseModel):
+    source: str = ""
+    page_number: int = 0
+    evidence: str = ""
+    quantity_delta: float = 0
+    accumulate: bool = False
+    action: str = ""
+    reason: str = ""
+
+
 class WorkflowBomDifference(BaseModel):
     status: WorkflowBomDifferenceStatus
     part_number: str
@@ -111,6 +121,8 @@ class WorkflowBomDifference(BaseModel):
     sop_quantity: float | None = None
     duro_quantity: float | None = None
     quantity_delta: float | None = None
+    sop_occurrence_count: int = 0
+    sop_occurrence_steps: list[WorkflowSopOccurrenceStep] = Field(default_factory=list)
     sop_locations: list[str] = Field(default_factory=list)
     sop_quantity_explanations: list[str] = Field(default_factory=list)
     sop_quantity_decisions: list[WorkflowSopQuantityDecision] = Field(default_factory=list)

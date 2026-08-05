@@ -1,6 +1,7 @@
 from datetime import datetime
+from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from workflows.models import (
     Workflow,
@@ -16,6 +17,7 @@ from workflows.models import (
     WorkflowUpdate,
 )
 from workflows.runtime import workflow_service
+from workflows.exporter import build_workflow_run_workbook
 from workflows.service import WorkflowNotFoundError
 from duro.routes import router as duro_router
 from google_driver.proxy_manager import google_proxy_manager
@@ -162,3 +164,19 @@ def get_workflow_run_detail(
         return workflow_service.get_run_detail(run_id, difference_offset, difference_limit)
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/workflow-runs/{run_id}/export")
+def export_workflow_run(run_id: str) -> Response:
+    try:
+        run = workflow_service.get_run(run_id)
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if run.report is None:
+        raise HTTPException(status_code=409, detail="当前运行尚无差异报告")
+    content, filename = build_workflow_run_workbook(run)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )

@@ -395,6 +395,15 @@
                     <span>BOM PART FILTER</span>
                     <div class="ignore-rule-title">
                       <strong>忽略 BOM 料号</strong>
+                      <button
+                        type="button"
+                        aria-label="刷新真实忽略 BOM 料号"
+                        title="刷新真实忽略 BOM 料号"
+                        :disabled="Boolean(ignoredPartRulesLoading[selectedWorkflow.id])"
+                        @click="refreshWorkflowIgnoredPartRules(selectedWorkflow.id, true)"
+                      >
+                        <el-icon :class="{ 'is-loading': ignoredPartRulesLoading[selectedWorkflow.id] }"><Refresh /></el-icon>
+                      </button>
                       <button type="button" aria-label="添加忽略 BOM 料号" @click="openIgnoreRuleDialog('part')">
                         <el-icon><Plus /></el-icon>
                       </button>
@@ -578,6 +587,12 @@
                         >已忽略 <small>共 {{ run.report.total_ignored_count }} 项，显示 {{ filteredReportIgnoredItems(run).length }} 项</small></button>
                       </div>
                       <div class="bom-report-filters">
+                        <el-button
+                          class="report-export-button"
+                          :icon="Download"
+                          :loading="Boolean(runExporting[run.id])"
+                          @click="exportWorkflowRun(run)"
+                        >导出 Excel</el-button>
                         <el-input
                           :model-value="reportSearchText(run.id)"
                           class="report-search-input"
@@ -630,97 +645,125 @@
                       :data="filteredReportDifferences(run)"
                       :row-class-name="differenceRowClassName"
                       row-key="part_number"
-                      max-height="520"
+                      height="520"
                       border
                       empty-text="SOP BOM 与 Duro BOM 一致"
                       @row-click="handleDifferenceRowClick(run.id, $event)"
+                      @row-contextmenu="handleDifferenceRowContextMenu.bind(null, run)"
                     >
-                      <el-table-column width="48" align="center">
-                        <template #default="{ row }">
-                          <el-dropdown
-                            trigger="click"
-                            :disabled="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
-                            @command="handleDifferenceRowMenuCommand(run, row, $event)"
-                            @click.stop
-                          >
-                            <button
-                              class="difference-row-menu-button"
-                              type="button"
-                              aria-label="差异操作"
-                              title="差异操作"
-                              :disabled="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
-                              @click.stop
-                            >
-                              <el-icon><MoreFilled /></el-icon>
-                            </button>
-                            <template #dropdown>
-                              <el-dropdown-menu>
-                                <el-dropdown-item command="ignore" :disabled="row.is_ignored">
-                                  忽略料号
-                                </el-dropdown-item>
-                                <el-dropdown-item v-if="row.is_ignored" command="unignore">
-                                  取消忽略
-                                </el-dropdown-item>
-                                <el-dropdown-item command="expand" divided>
-                                  展开
-                                </el-dropdown-item>
-                              </el-dropdown-menu>
-                            </template>
-                          </el-dropdown>
-                        </template>
-                      </el-table-column>
                       <el-table-column
                         type="expand"
-                        width="1"
-                        class-name="difference-native-expand-column"
-                        label-class-name="difference-native-expand-column"
+                        width="48"
                       >
                         <template #default="{ row }">
                           <div class="semantic-audit-panel">
-                            <div class="semantic-audit-summary">
-                              <strong>差异汇总说明</strong>
-                              <p>{{ differenceSummary(row) }}</p>
-                            </div>
-                            <div v-if="row.sop_quantity_explanations?.length" class="semantic-audit-summary is-semantic-detail">
-                              <strong>语义数量说明</strong>
-                              <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
-                            </div>
-                            <div v-if="row.sop_quantity_decisions?.length" class="semantic-decision-list">
-                              <article
-                                v-for="(decision, decisionIndex) in row.sop_quantity_decisions"
-                                :key="`${decision.source}-${decision.event_id}-${decisionIndex}`"
-                                class="semantic-decision-item"
+                            <div class="semantic-audit-actions">
+                              <el-button
+                                class="difference-ignore-button"
+                                :class="`is-${row.status}`"
+                                type="warning"
+                                size="small"
+                                :loading="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
+                                :disabled="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
+                                @click.stop="ignoreWorkflowDifference(run, row)"
                               >
-                                <span class="semantic-decision-badge" :class="decision.accumulate ? 'is-added' : 'is-skipped'">
-                                  {{ decision.accumulate ? `累加 ${formatReportQuantity(decision.quantity_delta)}` : '不累加' }}
-                                </span>
-                                <div>
-                                  <strong>{{ decision.action || '语义判断' }}</strong>
-                                  <small>
-                                    {{ decision.source }}
-                                    <template v-if="decision.page_numbers?.length"> · 第 {{ decision.page_numbers.join('、') }} 页</template>
-                                    <template v-if="decision.target"> · 目标：{{ decision.target }}</template>
-                                    <template v-if="decision.location"> · 位置：{{ decision.location }}</template>
-                                  </small>
-                                  <p>{{ decision.reason || '—' }}</p>
-                                  <blockquote v-if="decision.evidence">{{ decision.evidence }}</blockquote>
-                                </div>
-                              </article>
+                                忽略差异
+                              </el-button>
                             </div>
+                            <section class="difference-analysis-card">
+                              <header class="difference-analysis-header">
+                                <div>
+                                  <small>DIFFERENCE ANALYSIS</small>
+                                  <strong>差异分析</strong>
+                                </div>
+                                <span class="difference-status" :class="`is-${row.status}`">
+                                  {{ differenceLabel(row.status) }}
+                                </span>
+                              </header>
+
+                              <div class="difference-analysis-overview">
+                                <strong>核对结论</strong>
+                                <p>{{ differenceSummary(row) }}</p>
+                              </div>
+
+                              <div class="difference-analysis-metrics">
+                                <article class="is-occurrence">
+                                  <span>SOP 正文出现</span>
+                                  <strong>{{ differenceSopOccurrenceCount(row) }} 次</strong>
+                                  <small>{{ row.sop_locations.join('；') || '正文未出现' }}</small>
+                                </article>
+                                <article class="is-total">
+                                  <span>最终统计数量</span>
+                                  <strong>{{ differenceFinalSopQuantity(row) }}</strong>
+                                  <small>由下方逐次累加过程汇总</small>
+                                </article>
+                                <article class="is-duro">
+                                  <span>Duro BOM</span>
+                                  <strong>{{ row.duro_quantity === null ? '未出现' : '已出现' }}</strong>
+                                  <small>{{ row.duro_quantity === null ? '当前扫描范围内未找到' : `BOM 数量 ${formatReportQuantity(row.duro_quantity)}` }}</small>
+                                </article>
+                              </div>
+
+                              <section class="difference-occurrence-flow">
+                                <header>
+                                  <div>
+                                    <strong>正文累加过程</strong>
+                                    <small>每一次料号正文命中均记录为 +N 或 +0</small>
+                                  </div>
+                                  <span>合计 {{ formatOccurrenceDelta(differenceOccurrenceTotal(row)) }}</span>
+                                </header>
+                                <div v-if="differenceOccurrenceSteps(row).length" class="difference-occurrence-list">
+                                  <article
+                                    v-for="(step, stepIndex) in differenceOccurrenceSteps(row)"
+                                    :key="`${step.source}-${step.page_number}-${stepIndex}`"
+                                    class="difference-occurrence-step"
+                                  >
+                                    <div class="difference-occurrence-rail">
+                                      <span>{{ stepIndex + 1 }}</span>
+                                    </div>
+                                    <div class="difference-occurrence-content">
+                                      <div class="difference-occurrence-meta">
+                                        <span>{{ step.source || 'SOP' }}<template v-if="step.page_number"> · 第 {{ step.page_number }} 页</template></span>
+                                        <strong :class="step.quantity_delta ? 'is-added' : 'is-zero'">
+                                          {{ formatOccurrenceDelta(step.quantity_delta) }}
+                                        </strong>
+                                      </div>
+                                      <blockquote>{{ step.evidence || '未保留正文片段' }}</blockquote>
+                                      <p v-if="step.action || step.reason">
+                                        <strong v-if="step.action">{{ step.action }}</strong>
+                                        <span>{{ step.reason }}</span>
+                                      </p>
+                                    </div>
+                                  </article>
+                                </div>
+                                <div v-else class="difference-occurrence-empty">
+                                  此历史记录未保存逐次正文证据；重新运行工作流后会显示每次出现的页码、原文和累加值。
+                                </div>
+                              </section>
+
+                              <section v-if="row.sop_quantity_explanations?.length" class="difference-semantic-notes">
+                                <strong>语义统计说明</strong>
+                                <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
+                              </section>
+                            </section>
                           </div>
                         </template>
                       </el-table-column>
                       <el-table-column label="差异类型" width="125">
                         <template #default="{ row }">
-                          <div class="difference-status-stack">
-                            <span class="difference-status" :class="`is-${row.status}`">
-                              {{ differenceLabel(row.status) }}
-                            </span>
+                          <span class="difference-status" :class="`is-${row.status}`">
+                            {{ differenceLabel(row.status) }}
+                          </span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="料号" width="170">
+                        <template #default="{ row }">
+                          <div class="difference-part-number">
+                            <span>{{ row.part_number }}</span>
                             <span v-if="row.is_ignored" class="difference-ignored-tag">已忽略</span>
                           </div>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="part_number" label="料号" width="130" />
                       <el-table-column prop="name" label="物料名称" min-width="260" show-overflow-tooltip />
                       <el-table-column label="Duro 子菜单" min-width="150" show-overflow-tooltip>
                         <template #default="{ row }">{{ row.duro_submenu_labels.join('、') || '—' }}</template>
@@ -743,7 +786,13 @@
                     </el-table>
                     </template>
                     <template v-else>
-                        <el-table :data="filteredReportIgnoredItems(run)" border max-height="520" empty-text="没有符合筛选条件的已忽略数据">
+                        <el-table
+                          :data="filteredReportIgnoredItems(run)"
+                          border
+                          height="520"
+                          empty-text="没有符合筛选条件的已忽略数据"
+                          @row-contextmenu="handleIgnoredRowContextMenu.bind(null, run)"
+                        >
                           <el-table-column type="expand" width="48">
                             <template #default="{ row }">
                               <div class="semantic-audit-panel">
@@ -902,11 +951,49 @@
       </template>
     </el-dialog>
 
+    <Teleport to="body">
+      <div
+        v-if="differenceContextMenu.visible && differenceContextMenu.run && differenceContextMenu.row"
+        class="difference-context-menu"
+        role="menu"
+        aria-label="差异操作"
+        :style="{ left: `${differenceContextMenu.x}px`, top: `${differenceContextMenu.y}px` }"
+        @click.stop
+        @contextmenu.prevent
+      >
+        <template v-if="differenceContextMenu.source === 'ignored'">
+          <button
+            type="button"
+            role="menuitem"
+            :title="ignoredDifferenceRestoreHint(differenceContextMenu.row)"
+            :disabled="!canRestoreIgnoredDifference(differenceContextMenu.row) || isDifferenceIgnoreUpdating(differenceContextMenu.run.workflow_id, differenceContextMenu.row.part_number)"
+            @click="handleDifferenceContextMenuCommand('restore')"
+          >
+            恢复原差异（{{ differenceLabel(differenceContextMenu.row.status) }}）
+          </button>
+        </template>
+        <template v-else>
+          <button
+            type="button"
+            role="menuitem"
+            :disabled="isDifferenceIgnoreUpdating(differenceContextMenu.run.workflow_id, differenceContextMenu.row.part_number)"
+            @click="handleDifferenceContextMenuCommand('ignore')"
+          >
+            忽略料号
+          </button>
+          <div class="difference-context-menu-divider" role="separator"></div>
+          <button type="button" role="menuitem" @click="handleDifferenceContextMenuCommand('expand')">
+            展开
+          </button>
+        </template>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus'
 import {
   Box,
@@ -916,6 +1003,7 @@ import {
   DataAnalysis,
   Delete,
   DocumentChecked,
+  Download,
   Files,
   FolderOpened,
   Loading,
@@ -932,7 +1020,10 @@ import { sopApi, type SopCatalogEntry } from '@/api/sop'
 import {
   workflowApi,
   type WorkflowBomDifference,
+  type WorkflowBomIgnoredItem,
   type WorkflowBomDifferenceStatus,
+  type WorkflowIgnoredPartRule,
+  type WorkflowSopOccurrenceStep,
   type Workflow,
   type WorkflowKind,
   type WorkflowPayload,
@@ -961,8 +1052,25 @@ const runDetailLoaded = reactive<Record<string, boolean>>({})
 const runDetailLoading = reactive<Record<string, boolean>>({})
 const runDetailErrors = reactive<Record<string, string>>({})
 const runDetailReloadPending = reactive<Record<string, boolean>>({})
+const runExporting = reactive<Record<string, boolean>>({})
+const ignoredPartRulesLoading = reactive<Record<string, boolean>>({})
 const differenceIgnoreUpdating = reactive<Record<string, boolean>>({})
 const differenceTableRefs = new Map<string, TableInstance>()
+const differenceContextMenu = reactive<{
+  visible: boolean
+  x: number
+  y: number
+  source: 'differences' | 'ignored'
+  run: WorkflowRun | null
+  row: WorkflowBomDifference | WorkflowBomIgnoredItem | null
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  source: 'differences',
+  run: null,
+  row: null
+})
 const historyLoading = ref(false)
 const historyPage = ref(1)
 const historyPageSize = ref(10)
@@ -1268,7 +1376,41 @@ function selectWorkflow(workflowId: string) {
   editForm.value = cloneWorkflowPayload(workflow)
   const productId = String(editForm.value.configuration.duro_product_id || '')
   if (workflow.kind === 'duro_bom_check' && productId) void loadDuroSubmenus(productId)
+  if (workflow.kind === 'duro_bom_check') void refreshWorkflowIgnoredPartRules(workflowId)
   void loadRuns(workflowId)
+}
+
+async function refreshWorkflowIgnoredPartRules(workflowId: string, notify = false) {
+  if (ignoredPartRulesLoading[workflowId]) return
+  ignoredPartRulesLoading[workflowId] = true
+  try {
+    const response = await workflowApi.ignoredParts(workflowId)
+    const rules = response.data as WorkflowIgnoredPartRule[]
+    const partNumbers = [...new Set(rules.map((rule) => rule.part_number.trim().toUpperCase()))]
+      .filter(Boolean)
+      .sort((left, right) => left.localeCompare(right))
+    const reasons = Object.fromEntries(
+      rules.map((rule) => [rule.part_number.trim().toUpperCase(), rule.reason])
+    )
+    const workflow = workflows.value.find((item) => item.id === workflowId)
+    if (workflow) {
+      workflow.configuration = {
+        ...workflow.configuration,
+        ignored_part_numbers: partNumbers,
+        ignored_part_number_reasons: reasons
+      }
+    }
+    if (selectedWorkflowId.value === workflowId && editForm.value) {
+      sourceConfiguration.value.ignored_part_numbers = partNumbers
+      sourceConfiguration.value.ignored_part_number_reasons = reasons
+    }
+    if (notify) ElMessage.success(`已刷新 ${partNumbers.length} 个真实忽略料号`)
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error(error?.response?.data?.detail || '真实忽略 BOM 料号刷新失败')
+  } finally {
+    ignoredPartRulesLoading[workflowId] = false
+  }
 }
 
 function openWorkflowEditor(workflowId: string) {
@@ -1701,6 +1843,40 @@ async function loadRunDetail(runId: string, force = false) {
   }
 }
 
+async function exportWorkflowRun(run: WorkflowRun) {
+  if (runExporting[run.id]) return
+  runExporting[run.id] = true
+  try {
+    const response = await workflowApi.exportRun(run.id)
+    const contentDisposition = String(response.headers['content-disposition'] || '')
+    const encodedFilename = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition)?.[1]
+    const quotedFilename = /filename="([^"]+)"/i.exec(contentDisposition)?.[1]
+    const fallbackName = `${run.workflow_name.replace(/[\\/:*?"<>|]+/g, '_') || '工作流'}_差异明细.xlsx`
+    let filename = quotedFilename || fallbackName
+    if (encodedFilename) {
+      try {
+        filename = decodeURIComponent(encodedFilename)
+      } catch {
+        filename = fallbackName
+      }
+    }
+    const url = URL.createObjectURL(response.data)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    ElMessage.success('差异明细已导出')
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error(error?.response?.data?.detail || '导出 Excel 失败')
+  } finally {
+    runExporting[run.id] = false
+  }
+}
+
 async function saveSelectedWorkflow() {
   if (!selectedWorkflowId.value || !editForm.value) return
   if (!editForm.value.name.trim()) {
@@ -1713,6 +1889,7 @@ async function saveSelectedWorkflow() {
     const index = workflows.value.findIndex((item) => item.id === response.data.id)
     if (index >= 0) workflows.value[index] = response.data
     editForm.value = cloneWorkflowPayload(response.data)
+    await refreshWorkflowIgnoredPartRules(response.data.id)
     ElMessage.success('工作流已保存')
   } catch (error) {
     console.error(error)
@@ -1930,20 +2107,54 @@ function differenceLabel(status: string) {
   return differenceStatusText[status as WorkflowBomDifferenceStatus] || status
 }
 
+function differenceOccurrenceSteps(row: WorkflowBomDifference): WorkflowSopOccurrenceStep[] {
+  if (row.sop_occurrence_steps?.length) return row.sop_occurrence_steps
+  return (row.sop_quantity_decisions || []).flatMap((decision) => {
+    const pages = decision.page_numbers?.length ? decision.page_numbers : [0]
+    return pages.map((pageNumber, pageIndex) => ({
+      source: decision.source,
+      page_number: pageNumber,
+      evidence: decision.evidence,
+      quantity_delta: pageIndex === 0 && decision.accumulate ? decision.quantity_delta : 0,
+      accumulate: pageIndex === 0 && decision.accumulate,
+      action: decision.action,
+      reason: pageIndex === 0 ? decision.reason : '同一语义事件的其它正文位置，计入 +0'
+    }))
+  })
+}
+
+function differenceSopOccurrenceCount(row: WorkflowBomDifference) {
+  if (row.sop_occurrence_count > 0) return row.sop_occurrence_count
+  return differenceOccurrenceSteps(row).length
+}
+
+function differenceFinalSopQuantity(row: WorkflowBomDifference) {
+  if (row.status === 'extra_in_duro' && row.sop_quantity === null) return '0'
+  return formatReportQuantity(row.sop_quantity)
+}
+
+function differenceOccurrenceTotal(row: WorkflowBomDifference) {
+  return differenceOccurrenceSteps(row).reduce((total, step) => total + Number(step.quantity_delta || 0), 0)
+}
+
+function formatOccurrenceDelta(value: number) {
+  const formatted = formatReportQuantity(value)
+  return value >= 0 ? `+${formatted}` : formatted
+}
+
 function differenceSummary(row: WorkflowBomDifference) {
   const material = row.name ? `${row.part_number}（${row.name}）` : row.part_number
+  const occurrenceCount = differenceSopOccurrenceCount(row)
   if (row.status === 'missing_in_duro') {
-    const locations = row.sop_locations.join('；') || '未记录 SOP 位置'
-    return `${material} 在 SOP 正文中出现，统计数量为 ${formatReportQuantity(row.sop_quantity)}，但在当前 Duro BOM 扫描范围内未找到。SOP 位置：${locations}。`
+    return `${material} 在 SOP 正文中出现 ${occurrenceCount} 次，最终统计数量为 ${formatReportQuantity(row.sop_quantity)}；当前 Duro BOM 扫描范围内未出现。`
   }
   if (row.status === 'extra_in_duro') {
-    const paths = row.duro_paths.join('；') || '未记录 Duro 路径'
-    return `${material} 存在于当前 Duro BOM，数量为 ${formatReportQuantity(row.duro_quantity)}，但在所选 SOP 正文中未识别到。Duro 路径：${paths}。`
+    return `${material} 在 SOP 正文中出现 0 次，最终统计数量为 0；Duro BOM 中已出现，数量为 ${formatReportQuantity(row.duro_quantity)}。`
   }
   if (row.status === 'quantity_mismatch') {
-    return `${material} 在 SOP 中统计为 ${formatReportQuantity(row.sop_quantity)}，Duro BOM 中为 ${formatReportQuantity(row.duro_quantity)}，差值为 ${formatReportQuantity(row.quantity_delta)}（Duro - SOP）。`
+    return `${material} 在 SOP 正文中出现 ${occurrenceCount} 次，最终统计数量为 ${formatReportQuantity(row.sop_quantity)}；Duro BOM 中已出现，数量为 ${formatReportQuantity(row.duro_quantity)}，差值为 ${formatReportQuantity(row.quantity_delta)}（Duro - SOP）。`
   }
-  return `${material} 已在 SOP 和 Duro BOM 中匹配，但 SOP 数量无法可靠确定；Duro 数量为 ${formatReportQuantity(row.duro_quantity)}。`
+  return `${material} 在 SOP 正文中出现 ${occurrenceCount} 次，但最终数量无法可靠确定；Duro BOM 中已出现，数量为 ${formatReportQuantity(row.duro_quantity)}。`
 }
 
 function differenceIgnoreKey(workflowId: string, partNumber: string) {
@@ -1960,7 +2171,72 @@ function setDifferenceTableRef(runId: string, instance: unknown) {
 }
 
 function handleDifferenceRowClick(runId: string, row: WorkflowBomDifference) {
+  closeDifferenceContextMenu()
   differenceTableRefs.get(runId)?.toggleRowExpansion(row)
+}
+
+function handleDifferenceRowContextMenu(
+  run: WorkflowRun,
+  row: WorkflowBomDifference,
+  _column: unknown,
+  event: MouseEvent
+) {
+  openDifferenceContextMenu(run, row, event, 'differences')
+}
+
+function handleIgnoredRowContextMenu(
+  run: WorkflowRun,
+  row: WorkflowBomIgnoredItem,
+  _column: unknown,
+  event: MouseEvent
+) {
+  openDifferenceContextMenu(run, row, event, 'ignored')
+}
+
+function openDifferenceContextMenu(
+  run: WorkflowRun,
+  row: WorkflowBomDifference | WorkflowBomIgnoredItem,
+  event: MouseEvent,
+  source: 'differences' | 'ignored'
+) {
+  event.preventDefault()
+  event.stopPropagation()
+
+  const menuWidth = 220
+  const menuHeight = source === 'ignored' ? 48 : 94
+  const viewportPadding = 8
+  differenceContextMenu.x = Math.max(
+    viewportPadding,
+    Math.min(event.clientX, window.innerWidth - menuWidth - viewportPadding)
+  )
+  differenceContextMenu.y = Math.max(
+    viewportPadding,
+    Math.min(event.clientY, window.innerHeight - menuHeight - viewportPadding)
+  )
+  differenceContextMenu.source = source
+  differenceContextMenu.run = run
+  differenceContextMenu.row = row
+  differenceContextMenu.visible = true
+}
+
+function closeDifferenceContextMenu() {
+  differenceContextMenu.visible = false
+}
+
+async function handleDifferenceContextMenuCommand(command: 'ignore' | 'expand' | 'restore') {
+  const run = differenceContextMenu.run
+  const row = differenceContextMenu.row
+  closeDifferenceContextMenu()
+  if (!run || !row) return
+  if (command === 'restore') {
+    if ('ignore_type' in row) await restoreIgnoredWorkflowDifference(run, row)
+    return
+  }
+  await handleDifferenceRowMenuCommand(run, row, command)
+}
+
+function handleDifferenceContextMenuKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeDifferenceContextMenu()
 }
 
 async function handleDifferenceRowMenuCommand(
@@ -2000,6 +2276,7 @@ async function ignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDiffer
   differenceIgnoreUpdating[key] = true
   try {
     await workflowApi.ignorePart(run.workflow_id, row.part_number, reason)
+    await refreshWorkflowIgnoredPartRules(run.workflow_id)
     await loadRunDetail(run.id, true)
     ElMessage.success(`已忽略料号 ${row.part_number}`)
   } catch (error: any) {
@@ -2029,11 +2306,57 @@ async function unignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDiff
   differenceIgnoreUpdating[key] = true
   try {
     await workflowApi.unignorePart(run.workflow_id, row.part_number)
+    await refreshWorkflowIgnoredPartRules(run.workflow_id)
     await loadRunDetail(run.id, true)
     ElMessage.success(`已取消忽略料号 ${row.part_number}`)
   } catch (error: any) {
     console.error(error)
     ElMessage.error(error?.response?.data?.detail || '取消忽略失败')
+  } finally {
+    differenceIgnoreUpdating[key] = false
+  }
+}
+
+function canRestoreIgnoredDifference(
+  row: WorkflowBomDifference | WorkflowBomIgnoredItem
+): row is WorkflowBomIgnoredItem {
+  return 'ignore_type' in row && row.ignore_type === 'part_number' && Boolean(row.ignored_at)
+}
+
+function ignoredDifferenceRestoreHint(row: WorkflowBomDifference | WorkflowBomIgnoredItem) {
+  if (!('ignore_type' in row)) return ''
+  if (row.ignore_type === 'sop_product_keyword') return '该项由 SOP 产品关键字规则忽略，请在工作流配置中移除对应规则'
+  if (row.ignore_type === 'part_number_cleanup') return '该项由默认料号清洗规则忽略，不能单独恢复'
+  if (!row.ignored_at) return '该项来自工作流固定忽略配置，请在工作流配置中移除对应料号'
+  return `恢复为${differenceLabel(row.status)}`
+}
+
+async function restoreIgnoredWorkflowDifference(run: WorkflowRun, row: WorkflowBomIgnoredItem) {
+  if (!canRestoreIgnoredDifference(row)) return
+  try {
+    await ElMessageBox.confirm(
+      `确认将料号 ${row.part_number} 恢复为“${differenceLabel(row.status)}”？后续运行将重新统计该差异。`,
+      '恢复原差异',
+      {
+        confirmButtonText: '确认恢复',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  const key = differenceIgnoreKey(run.workflow_id, row.part_number)
+  differenceIgnoreUpdating[key] = true
+  try {
+    await workflowApi.unignorePart(run.workflow_id, row.part_number)
+    await refreshWorkflowIgnoredPartRules(run.workflow_id)
+    await loadRunDetail(run.id, true)
+    ElMessage.success(`已恢复 ${differenceLabel(row.status)}：${row.part_number}`)
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error(error?.response?.data?.detail || '恢复原差异失败')
   } finally {
     differenceIgnoreUpdating[key] = false
   }
@@ -2149,8 +2472,19 @@ function differenceRowClassName({ row }: { row: WorkflowBomDifference }) {
 }
 
 onMounted(() => {
+  document.addEventListener('click', closeDifferenceContextMenu)
+  document.addEventListener('scroll', closeDifferenceContextMenu, true)
+  document.addEventListener('keydown', handleDifferenceContextMenuKeydown)
+  window.addEventListener('resize', closeDifferenceContextMenu)
   void loadWorkflows()
   void loadSopSources()
   void loadDuroProducts()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeDifferenceContextMenu)
+  document.removeEventListener('scroll', closeDifferenceContextMenu, true)
+  document.removeEventListener('keydown', handleDifferenceContextMenuKeydown)
+  window.removeEventListener('resize', closeDifferenceContextMenu)
 })
 </script>

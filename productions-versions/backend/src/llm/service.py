@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -20,6 +21,25 @@ MATERIAL_NAME_ACTION_PATTERN = re.compile(
     r"|\b(?:need|ensure|check|use|install|assemble|fasten|tighten|place|remove|replace)\b",
     re.IGNORECASE,
 )
+GENERIC_MATERIAL_NAME_ALIASES = {
+    "part",
+    "parts",
+    "material",
+    "materials",
+    "component",
+    "components",
+    "item",
+    "items",
+    "screw",
+    "screws",
+    "零件",
+    "物料",
+    "组件",
+    "部件",
+    "配件",
+    "螺丝",
+    "螺钉",
+}
 
 
 def normalize_material_name(value: Any) -> str:
@@ -66,6 +86,36 @@ def choose_material_name(current: Any, candidate: Any) -> str:
     ):
         return candidate_name
     return current_name
+
+
+def normalize_material_alias(value: Any) -> str:
+    text = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    return re.sub(r"[^0-9a-z\u3400-\u4dbf\u4e00-\u9fff]+", "", text)
+
+
+def build_unique_material_aliases(material_names: dict[str, str]) -> dict[str, list[str]]:
+    aliases_by_part: dict[str, set[str]] = {}
+    owners: dict[str, set[str]] = {}
+    for raw_part_number, raw_name in material_names.items():
+        part_number = str(raw_part_number).strip().upper()
+        name = normalize_material_name(raw_name)
+        if not part_number or not name:
+            continue
+        candidates = [name, *re.split(r"[/／|、,，;；()（）\[\]【】]+", name)]
+        for candidate in candidates:
+            alias = normalize_material_alias(MATERIAL_PART_NUMBER_PATTERN.sub(" ", candidate))
+            if not alias or alias in GENERIC_MATERIAL_NAME_ALIASES:
+                continue
+            cjk_length = len(re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", alias))
+            latin_length = len(re.findall(r"[a-z0-9]", alias))
+            if cjk_length < 2 and latin_length < 4:
+                continue
+            aliases_by_part.setdefault(part_number, set()).add(alias)
+            owners.setdefault(alias, set()).add(part_number)
+    return {
+        part_number: sorted(alias for alias in aliases if len(owners.get(alias, ())) == 1)
+        for part_number, aliases in aliases_by_part.items()
+    }
 
 
 class LLMConfigurationError(RuntimeError):
@@ -132,7 +182,12 @@ class LLMService:
                     existing.confidence = min(existing.confidence, item.confidence)
         return list(merged.values())
 
-    def extract_sop_semantic_references(self, pages: list[tuple[int, str]]) -> list[SopTextMaterial]:
+    def extract_sop_semantic_references(
+        self,
+        pages: list[tuple[int, str]],
+        material_names: dict[str, str] | None = None,
+        target_part_numbers: set[str] | None = None,
+    ) -> list[SopTextMaterial]:
         """Estimate final quantities using all instruction evidence for each part.
 
         Every part number is kept within one LLM request, so the model can judge
@@ -143,6 +198,8 @@ class LLMService:
         evidence_groups = self._build_part_evidence_groups(
             pages,
             max_chars=min(max(self.sop_chunk_chars, 8000), 12000),
+            material_names=material_names,
+            target_part_numbers=target_part_numbers,
         )
         expected_part_numbers = {
             part_number
@@ -159,6 +216,7 @@ class LLMService:
                     evidence,
                     index + 1,
                     part_numbers,
+                    bool(material_names),
                 ): part_numbers
                 for index, (evidence, part_numbers) in enumerate(evidence_groups)
             }
@@ -220,15 +278,22 @@ class LLMService:
         text: str,
         chunk_number: int,
         expected_part_numbers: list[str] | None = None,
+        include_material_names: bool = False,
     ) -> list[SopSemanticMaterial]:
         if not self.api_key:
             raise LLMConfigurationError("未配置 LLM_API_KEY（或 DEEPSEEK_API_KEY/OPENAI_API_KEY）")
         expected_part_numbers = expected_part_numbers or sorted(
             set(MATERIAL_PART_NUMBER_PATTERN.findall(text))
         )
+        evidence_scope = (
+            "输入按“目标料号”分段，每段包含该料号或其已确认物料名称在整份 SOP 中的全部出现证据及相邻上下文。"
+            "即使某页只出现物料名称而没有料号，也必须纳入跨页数量判断。"
+            if include_material_names
+            else "输入按“目标料号”分段，每段包含该料号在整份 SOP 中的全部出现证据及相邻上下文。"
+        )
         system = (
             "你是制造业 SOP 正文装配事件分析器。禁止使用或推测 BOM 表，只能依据提供的操作正文证据判断最终装入产品的物料数量。\n"
-            "输入按“目标料号”分段，每段包含该料号在整份 SOP 中的全部出现证据及相邻上下文。必须跨页综合判断同一实体的首次安装、后续锁紧、检查和重复引用。\n"
+            f"{evidence_scope}必须跨页综合判断同一实体的首次安装、后续锁紧、检查和重复引用。\n"
             "返回严格 JSON，不要 Markdown："
             '{"materials":[{"part_number":"料号","name":"最短物料名","added_quantity":新增装入数量,'
             '"reference_quantity":仅作为已有对象被引用的不同实体数量,"final_quantity":最终不同实体总数量,'
@@ -314,12 +379,39 @@ class LLMService:
         self,
         pages: list[tuple[int, str]],
         max_chars: int,
+        material_names: dict[str, str] | None = None,
+        target_part_numbers: set[str] | None = None,
     ) -> list[tuple[str, list[str]]]:
+        targets = {
+            str(part_number).strip().upper()
+            for part_number in (target_part_numbers or set())
+            if str(part_number).strip()
+        }
         evidence_by_part: dict[str, list[tuple[int, str]]] = {}
         for page_number, text in pages:
             part_numbers = list(dict.fromkeys(MATERIAL_PART_NUMBER_PATTERN.findall(text)))
             for part_number in part_numbers:
-                evidence_by_part.setdefault(part_number.upper(), []).append((page_number, text.strip()))
+                normalized_part_number = part_number.upper()
+                if targets and normalized_part_number not in targets:
+                    continue
+                evidence_by_part.setdefault(normalized_part_number, []).append((page_number, text.strip()))
+
+        normalized_pages = [
+            (page_number, text, normalize_material_alias(text))
+            for page_number, text in pages
+        ]
+        for part_number, aliases in build_unique_material_aliases(material_names or {}).items():
+            if targets and part_number not in targets:
+                continue
+            if not aliases:
+                continue
+            evidence_pages = evidence_by_part.setdefault(part_number, [])
+            included_pages = {page_number for page_number, _ in evidence_pages}
+            for page_number, text, normalized_text in normalized_pages:
+                if page_number in included_pages or not any(alias in normalized_text for alias in aliases):
+                    continue
+                evidence_pages.append((page_number, text.strip()))
+                included_pages.add(page_number)
 
         groups: list[tuple[str, list[str]]] = []
         current_blocks: list[str] = []
@@ -330,7 +422,11 @@ class LLMService:
                 f"\n----- 第 {page_number} 页完整正文 -----\n{page_text}"
                 for page_number, page_text in evidence_pages
             ]
-            block = f"\n===== 目标料号 {part_number} 的全部整页上下文 =====\n" + "".join(page_blocks)
+            confirmed_name = str((material_names or {}).get(part_number) or "").strip()
+            heading = f"目标料号 {part_number}"
+            if confirmed_name:
+                heading += f"（已确认物料名称：{confirmed_name}）"
+            block = f"\n===== {heading} 的全部整页上下文 =====\n" + "".join(page_blocks)
             if current_blocks and current_length + len(block) > max_chars:
                 groups.append(("".join(current_blocks), current_part_numbers))
                 current_blocks = []

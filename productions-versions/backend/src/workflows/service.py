@@ -21,6 +21,7 @@ from workflows.models import (
     WorkflowRunDetailResponse,
     WorkflowRunDeleteResponse,
     WorkflowRunPage,
+    WorkflowSopOccurrenceStep,
     WorkflowStep,
     WorkflowTriggerType,
     WorkflowUpdate,
@@ -104,6 +105,7 @@ class WorkflowService:
                 for workflow in workflows:
                     original = workflow.model_dump()
                     normalized = self._normalize_duro_workflow(workflow)
+                    normalized = self._merge_persisted_ignored_part_rules(normalized)
                     if normalized.model_dump() != original:
                         self.repository.save_workflow(normalized)
             for run in self.repository.list_runs(limit=500):
@@ -147,7 +149,9 @@ class WorkflowService:
         )
         workflow = self._normalize_duro_workflow(workflow)
         workflow.next_run_at = self._next_run_at(workflow, now)
-        return self.repository.save_workflow(workflow)
+        saved = self.repository.save_workflow(workflow)
+        self._sync_ignored_part_rules_from_configuration(saved)
+        return saved
 
     def update_workflow(self, workflow_id: str, payload: WorkflowUpdate) -> Workflow:
         current = self.get_workflow(workflow_id)
@@ -161,7 +165,9 @@ class WorkflowService:
         )
         workflow = self._normalize_duro_workflow(workflow)
         workflow.next_run_at = self._next_run_at(workflow, now)
-        return self.repository.save_workflow(workflow)
+        saved = self.repository.save_workflow(workflow)
+        self._sync_ignored_part_rules_from_configuration(saved)
+        return saved
 
     def delete_workflow(self, workflow_id: str) -> None:
         self.get_workflow(workflow_id)
@@ -177,27 +183,57 @@ class WorkflowService:
         part_number: str,
         reason: str,
     ) -> WorkflowIgnoredPartRule:
-        self.get_workflow(workflow_id)
+        workflow = self.get_workflow(workflow_id)
         normalized_part_number = self._clean_part_number(part_number)
         normalized_reason = reason.strip()
         if not normalized_part_number:
             raise ValueError("忽略料号不能为空")
         if not normalized_reason:
             raise ValueError("忽略原因不能为空")
-        return self.repository.save_ignored_part_rule(
+        rule = self.repository.save_ignored_part_rule(
             WorkflowIgnoredPartRule(
                 workflow_id=workflow_id,
                 part_number=normalized_part_number,
                 reason=normalized_reason,
             )
         )
+        configuration = dict(workflow.configuration)
+        configured_parts = list(configuration.get("ignored_part_numbers") or [])
+        configuration["ignored_part_numbers"] = list(
+            dict.fromkeys([*configured_parts, normalized_part_number])
+        )
+        reasons = dict(configuration.get("ignored_part_number_reasons") or {})
+        reasons[normalized_part_number] = normalized_reason
+        configuration["ignored_part_number_reasons"] = reasons
+        workflow.configuration = configuration
+        workflow.updated_at = utc_now()
+        self.repository.save_workflow(self._normalize_duro_workflow(workflow))
+        return rule
 
     def delete_ignored_part_rule(self, workflow_id: str, part_number: str) -> bool:
-        self.get_workflow(workflow_id)
-        return self.repository.delete_ignored_part_rule(
-            workflow_id,
-            self._clean_part_number(part_number),
-        )
+        workflow = self.get_workflow(workflow_id)
+        normalized_part_number = self._clean_part_number(part_number)
+        deleted = self.repository.delete_ignored_part_rule(workflow_id, normalized_part_number)
+        configuration = dict(workflow.configuration)
+        configured_parts = list(configuration.get("ignored_part_numbers") or [])
+        retained_parts = [
+            value
+            for value in configured_parts
+            if self._clean_part_number(str(value)) != normalized_part_number
+        ]
+        was_configured = len(retained_parts) != len(configured_parts)
+        configuration["ignored_part_numbers"] = retained_parts
+        reasons = dict(configuration.get("ignored_part_number_reasons") or {})
+        configuration["ignored_part_number_reasons"] = {
+            key: value
+            for key, value in reasons.items()
+            if self._clean_part_number(str(key)) != normalized_part_number
+        }
+        if was_configured:
+            workflow.configuration = configuration
+            workflow.updated_at = utc_now()
+            self.repository.save_workflow(self._normalize_duro_workflow(workflow))
+        return deleted or was_configured
 
     def list_runs(self, workflow_id: str | None = None, limit: int = 30) -> list[WorkflowRun]:
         self.initialize()
@@ -329,6 +365,13 @@ class WorkflowService:
             has_more=difference_offset + difference_limit < total,
         )
 
+    def get_run(self, run_id: str) -> WorkflowRun:
+        self.initialize()
+        run = self.repository.get_run(run_id)
+        if run is None:
+            raise WorkflowNotFoundError(f"运行记录不存在：{run_id}")
+        return run
+
     def delete_runs(self, run_ids: list[str]) -> WorkflowRunDeleteResponse:
         self.initialize()
         return WorkflowRunDeleteResponse(deleted_count=self.repository.delete_runs(run_ids))
@@ -420,6 +463,34 @@ class WorkflowService:
                 self.repository.save_run(run)
 
                 report = self._build_bom_report(sop_sources, sop_materials, duro_materials, duro_submenus)
+                mismatch_part_numbers = {
+                    item.part_number
+                    for item in report.differences
+                    if item.status == "quantity_mismatch"
+                }
+                if mismatch_part_numbers:
+                    try:
+                        refined_count = self._refine_sop_quantity_mismatches(
+                            sop_sources,
+                            sop_materials,
+                            mismatch_part_numbers,
+                        )
+                        run.logs.append(
+                            "数量差异物料名二次复核完成："
+                            f"检查 {len(mismatch_part_numbers)} 个料号，更新 {refined_count} 个结果。"
+                        )
+                        if refined_count:
+                            report = self._build_bom_report(
+                                sop_sources,
+                                sop_materials,
+                                duro_materials,
+                                duro_submenus,
+                            )
+                    except Exception as exc:
+                        run.logs.append(
+                            "数量差异物料名二次复核未完成，保留第一阶段料号统计结果："
+                            f"{str(exc)[:300]}"
+                        )
                 report = self._apply_ignored_differences(workflow, report)
                 warning_difference_count = (
                     report.missing_in_duro_count
@@ -454,6 +525,72 @@ class WorkflowService:
         finally:
             run.finished_at = utc_now()
             self.repository.save_run(run)
+
+    def _merge_persisted_ignored_part_rules(self, workflow: Workflow) -> Workflow:
+        if workflow.kind != "duro_bom_check":
+            return workflow
+        configuration = dict(workflow.configuration)
+        configured_parts = [
+            self._clean_part_number(str(value))
+            for value in configuration.get("ignored_part_numbers", [])
+            if str(value).strip()
+        ]
+        configured_reasons = dict(configuration.get("ignored_part_number_reasons") or {})
+        persisted_rules = self.repository.list_ignored_part_rules(workflow.id)
+        persisted_by_part = {rule.part_number: rule for rule in persisted_rules}
+        merged_parts = list(dict.fromkeys([*configured_parts, *persisted_by_part]))
+        merged_reasons = {
+            part_number: str(configured_reasons.get(part_number) or "历史配置未填写原因")
+            for part_number in merged_parts
+        }
+        for part_number, rule in persisted_by_part.items():
+            merged_reasons[part_number] = rule.reason
+        configuration["ignored_part_numbers"] = merged_parts
+        configuration["ignored_part_number_reasons"] = merged_reasons
+        workflow.configuration = configuration
+
+        for part_number in configured_parts:
+            if part_number in persisted_by_part:
+                continue
+            self.repository.save_ignored_part_rule(
+                WorkflowIgnoredPartRule(
+                    workflow_id=workflow.id,
+                    part_number=part_number,
+                    reason=merged_reasons[part_number],
+                    ignored_at=workflow.updated_at,
+                )
+            )
+        return workflow
+
+    def _sync_ignored_part_rules_from_configuration(self, workflow: Workflow) -> None:
+        if workflow.kind != "duro_bom_check":
+            return
+        desired_parts = [
+            self._clean_part_number(str(value))
+            for value in workflow.configuration.get("ignored_part_numbers", [])
+            if str(value).strip()
+        ]
+        desired_reasons = dict(workflow.configuration.get("ignored_part_number_reasons") or {})
+        existing = {
+            rule.part_number: rule
+            for rule in self.repository.list_ignored_part_rules(workflow.id)
+        }
+        for part_number in desired_parts:
+            reason = str(desired_reasons.get(part_number) or "历史配置未填写原因").strip()
+            current = existing.get(part_number)
+            if current is not None and current.reason == reason:
+                continue
+            self.repository.save_ignored_part_rule(
+                WorkflowIgnoredPartRule(
+                    workflow_id=workflow.id,
+                    part_number=part_number,
+                    reason=reason,
+                    ignored_at=current.ignored_at if current is not None else utc_now(),
+                )
+            )
+        desired_set = set(desired_parts)
+        for part_number in existing.keys() - desired_set:
+            self.repository.delete_ignored_part_rule(workflow.id, part_number)
 
     def _normalize_duro_workflow(self, workflow: Workflow) -> Workflow:
         if workflow.kind != "duro_bom_check":
@@ -520,15 +657,20 @@ class WorkflowService:
         ignored = raw_ignored if isinstance(raw_ignored, list) else []
         configuration["ignored_part_numbers"] = list(
             dict.fromkeys(
-                normalized
+                self._clean_part_number(normalized)
                 for value in ignored
                 if (normalized := str(value).strip().upper())
             )
         )
         raw_part_reasons = configuration.get("ignored_part_number_reasons")
         part_reasons = raw_part_reasons if isinstance(raw_part_reasons, dict) else {}
+        normalized_part_reasons = {
+            self._clean_part_number(str(part_number)): str(reason)
+            for part_number, reason in part_reasons.items()
+            if str(part_number).strip()
+        }
         configuration["ignored_part_number_reasons"] = {
-            part_number: str(part_reasons.get(part_number) or "历史配置未填写原因").strip()
+            part_number: str(normalized_part_reasons.get(part_number) or "历史配置未填写原因").strip()
             for part_number in configuration["ignored_part_numbers"]
         }
         configuration["ignore_quantity_mismatch_warning"] = bool(
@@ -844,6 +986,111 @@ class WorkflowService:
             if (normalized := str(value).strip())
         }
 
+    @staticmethod
+    def _occurrence_value(item: Any, key: str, default: Any = None) -> Any:
+        return item.get(key, default) if isinstance(item, dict) else getattr(item, key, default)
+
+    @staticmethod
+    def _normalized_occurrence_evidence(value: Any) -> str:
+        text = unicodedata.normalize("NFKC", str(value or "")).casefold()
+        return re.sub(r"[^0-9a-z\u3400-\u4dbf\u4e00-\u9fff]+", "", text)
+
+    def _build_sop_occurrence_steps(self, source: str, material: Any) -> list[WorkflowSopOccurrenceStep]:
+        raw_occurrences = list(getattr(material, "occurrence_details", []) or [])
+        if not raw_occurrences:
+            source_lines = list(getattr(material, "source_lines", []) or [])
+            pages = list(getattr(material, "pages", []) or [])
+            raw_occurrences = [
+                {
+                    "page_number": pages[0] if len(pages) == 1 else pages[min(index, len(pages) - 1)] if pages else 0,
+                    "evidence": evidence,
+                }
+                for index, evidence in enumerate(source_lines)
+            ]
+
+        steps: list[dict[str, Any]] = [
+            {
+                "source": source,
+                "page_number": int(self._occurrence_value(occurrence, "page_number", 0) or 0),
+                "evidence": str(self._occurrence_value(occurrence, "evidence", "") or "").strip(),
+                "quantity_delta": 0.0,
+                "accumulate": False,
+                "actions": [],
+                "reasons": [],
+                "decision_count": 0,
+            }
+            for occurrence in raw_occurrences
+        ]
+
+        for decision in list(getattr(material, "quantity_decisions", []) or []):
+            page_numbers = {
+                int(page)
+                for page in (self._occurrence_value(decision, "page_numbers", []) or [])
+                if str(page).isdigit()
+            }
+            decision_evidence = str(self._occurrence_value(decision, "evidence", "") or "").strip()
+            normalized_decision_evidence = self._normalized_occurrence_evidence(decision_evidence)
+            candidates = [
+                index
+                for index, step in enumerate(steps)
+                if not page_numbers or step["page_number"] in page_numbers
+            ]
+            evidence_matches = [
+                index
+                for index in candidates
+                if normalized_decision_evidence
+                and self._normalized_occurrence_evidence(steps[index]["evidence"])
+                and (
+                    normalized_decision_evidence in self._normalized_occurrence_evidence(steps[index]["evidence"])
+                    or self._normalized_occurrence_evidence(steps[index]["evidence"]) in normalized_decision_evidence
+                )
+            ]
+            preferred = evidence_matches or candidates or list(range(len(steps)))
+            target_index = next(
+                (index for index in preferred if steps[index]["decision_count"] == 0),
+                preferred[0] if preferred else -1,
+            )
+            if target_index < 0:
+                steps.append(
+                    {
+                        "source": source,
+                        "page_number": min(page_numbers) if page_numbers else 0,
+                        "evidence": decision_evidence,
+                        "quantity_delta": 0.0,
+                        "accumulate": False,
+                        "actions": [],
+                        "reasons": [],
+                        "decision_count": 0,
+                    }
+                )
+                target_index = len(steps) - 1
+
+            step = steps[target_index]
+            step["decision_count"] += 1
+            if bool(self._occurrence_value(decision, "accumulate", False)):
+                step["quantity_delta"] += float(self._occurrence_value(decision, "quantity_delta", 0) or 0)
+                step["accumulate"] = True
+            action = str(self._occurrence_value(decision, "action", "") or "").strip()
+            reason = str(self._occurrence_value(decision, "reason", "") or "").strip()
+            if action and action not in step["actions"]:
+                step["actions"].append(action)
+            if reason and reason not in step["reasons"]:
+                step["reasons"].append(reason)
+
+        return [
+            WorkflowSopOccurrenceStep(
+                source=str(step["source"]),
+                page_number=int(step["page_number"]),
+                evidence=str(step["evidence"]),
+                quantity_delta=self._rounded(step["quantity_delta"]),
+                accumulate=bool(step["accumulate"]),
+                action=" / ".join(step["actions"]),
+                reason="；".join(step["reasons"])
+                or ("该正文出现未被判定为新增装配，计入 +0" if step["decision_count"] == 0 else ""),
+            )
+            for step in steps
+        ]
+
     def _collect_sop_references(self, sources: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         assert self.sop_service is not None
         materials: dict[str, dict[str, Any]] = {}
@@ -868,12 +1115,24 @@ class WorkflowService:
                         "name": material.name,
                         "quantity": 0.0,
                         "quantity_known": True,
+                        "occurrence_count": 0,
+                        "occurrence_steps": [],
                         "locations": [],
                         "quantity_explanations": [],
                         "quantity_decisions": [],
+                        "source_quantities": {},
+                        "source_occurrence_counts": {},
+                        "source_labels": {},
                     },
                 )
-                current["quantity"] += float(getattr(material, "quantity", 0) or material.occurrences)
+                material_quantity = float(getattr(material, "quantity", 0) or material.occurrences)
+                material_occurrences = int(getattr(material, "occurrences", 0) or 0)
+                current["quantity"] += material_quantity
+                current["occurrence_count"] += material_occurrences
+                current["source_quantities"][file_id] = material_quantity
+                current["source_occurrence_counts"][file_id] = material_occurrences
+                current["source_labels"][file_id] = label
+                current["occurrence_steps"].extend(self._build_sop_occurrence_steps(label, material))
                 if len(material.name) > len(str(current["name"])):
                     current["name"] = material.name
                 location = f"{label}：第 {', '.join(str(page) for page in material.pages)} 页"
@@ -881,7 +1140,6 @@ class WorkflowService:
                     current["locations"].append(location)
                 quantity_explanation = str(getattr(material, "quantity_explanation", "") or "")
                 if not quantity_explanation:
-                    material_quantity = float(getattr(material, "quantity", 0) or material.occurrences)
                     quantity_explanation = (
                         "大模型未返回该料号的完整语义累加明细，"
                         f"当前采用 SOP 正文规则统计数量 {self._rounded(material_quantity):g}"
@@ -894,6 +1152,99 @@ class WorkflowService:
                     for decision in getattr(material, "quantity_decisions", [])
                 )
         return materials
+
+    def _refine_sop_quantity_mismatches(
+        self,
+        sources: list[dict[str, Any]],
+        materials: dict[str, dict[str, Any]],
+        target_part_numbers: set[str],
+    ) -> int:
+        assert self.sop_service is not None
+        refine = getattr(self.sop_service, "refine_semantic_quantities_with_names", None)
+        if not callable(refine):
+            return 0
+
+        targets = {
+            self._clean_part_number(str(part_number))
+            for part_number in target_part_numbers
+            if str(part_number).strip()
+        }
+        material_names = {
+            part_number: str(material.get("name") or "").strip()
+            for part_number, material in materials.items()
+            if str(material.get("name") or "").strip()
+        }
+        updated_parts: set[str] = set()
+        for source in sources:
+            file_id = str(source["drive_file_id"])
+            label = " / ".join(
+                value
+                for value in (
+                    str(source.get("project") or "").strip(),
+                    str(source.get("process") or "").strip(),
+                )
+                if value
+            ) or file_id
+            refined_references = refine(file_id, material_names, targets)
+            for reference in refined_references:
+                part_number = self._clean_part_number(reference.part_number)
+                current = materials.get(part_number)
+                if current is None or part_number not in targets:
+                    continue
+
+                new_quantity = float(getattr(reference, "quantity", 0) or 0)
+                old_quantity = float(current.setdefault("source_quantities", {}).get(file_id, 0) or 0)
+                current["quantity"] = float(current.get("quantity", 0)) + new_quantity - old_quantity
+                current["source_quantities"][file_id] = new_quantity
+
+                new_occurrences = int(getattr(reference, "occurrences", 0) or 0)
+                old_occurrences = int(
+                    current.setdefault("source_occurrence_counts", {}).get(file_id, 0) or 0
+                )
+                current["occurrence_count"] = (
+                    int(current.get("occurrence_count", 0)) + new_occurrences - old_occurrences
+                )
+                current["source_occurrence_counts"][file_id] = new_occurrences
+                current.setdefault("source_labels", {})[file_id] = label
+
+                refined_name = str(getattr(reference, "name", "") or "")
+                if len(refined_name) > len(str(current.get("name") or "")):
+                    current["name"] = refined_name
+
+                current["occurrence_steps"] = [
+                    step
+                    for step in current.get("occurrence_steps", [])
+                    if str(getattr(step, "source", "")) != label
+                ]
+                current["occurrence_steps"].extend(
+                    self._build_sop_occurrence_steps(label, reference)
+                )
+                current["locations"] = [
+                    location
+                    for location in current.get("locations", [])
+                    if not str(location).startswith(f"{label}：")
+                ]
+                location = f"{label}：第 {', '.join(str(page) for page in reference.pages)} 页"
+                current["locations"].append(location)
+                current["quantity_explanations"] = [
+                    explanation
+                    for explanation in current.get("quantity_explanations", [])
+                    if not str(explanation).startswith(f"{label}：")
+                ]
+                current["quantity_explanations"].append(
+                    f"{label}：{reference.quantity_explanation}"
+                )
+                current["quantity_decisions"] = [
+                    decision
+                    for decision in current.get("quantity_decisions", [])
+                    if str(decision.get("source") if isinstance(decision, dict) else "") != label
+                ]
+                current["quantity_decisions"].extend(
+                    {"source": label, **decision.model_dump()}
+                    for decision in getattr(reference, "quantity_decisions", [])
+                )
+                updated_parts.add(part_number)
+        return len(updated_parts)
 
     def _collect_duro_materials(
         self,
@@ -1017,6 +1368,8 @@ class WorkflowService:
                         part_number=part_number,
                         name=str(sop["name"]),
                         sop_quantity=self._rounded(sop["quantity"]) if sop["quantity_known"] else None,
+                        sop_occurrence_count=int(sop["occurrence_count"]),
+                        sop_occurrence_steps=list(sop["occurrence_steps"]),
                         sop_locations=list(sop["locations"]),
                         sop_quantity_explanations=list(sop["quantity_explanations"]),
                         sop_quantity_decisions=list(sop["quantity_decisions"]),
@@ -1033,6 +1386,8 @@ class WorkflowService:
                         name=str(sop["name"] or duro["name"]),
                         sop_quantity=None,
                         duro_quantity=duro_quantity,
+                        sop_occurrence_count=int(sop["occurrence_count"]),
+                        sop_occurrence_steps=list(sop["occurrence_steps"]),
                         sop_locations=list(sop["locations"]),
                         sop_quantity_explanations=list(sop["quantity_explanations"]),
                         sop_quantity_decisions=list(sop["quantity_decisions"]),
@@ -1050,6 +1405,8 @@ class WorkflowService:
                         sop_quantity=sop_quantity,
                         duro_quantity=duro_quantity,
                         quantity_delta=self._rounded(duro_quantity - sop_quantity),
+                        sop_occurrence_count=int(sop["occurrence_count"]),
+                        sop_occurrence_steps=list(sop["occurrence_steps"]),
                         sop_locations=list(sop["locations"]),
                         sop_quantity_explanations=list(sop["quantity_explanations"]),
                         sop_quantity_decisions=list(sop["quantity_decisions"]),
@@ -1186,7 +1543,7 @@ class WorkflowService:
                 if len(str(material.get("name") or "")) > len(str(existing.get("name") or "")):
                     existing["name"] = material.get("name") or ""
                 for field in (
-                    ("locations", "quantity_explanations", "quantity_decisions")
+                    ("occurrence_steps", "locations", "quantity_explanations", "quantity_decisions")
                     if source == "sop"
                     else ("paths", "submenu_ids", "submenu_labels")
                 ):
@@ -1194,6 +1551,18 @@ class WorkflowService:
                         if value not in existing.setdefault(field, []):
                             existing[field].append(value)
                 if source == "sop":
+                    existing["occurrence_count"] = int(existing.get("occurrence_count", 0)) + int(
+                        material.get("occurrence_count", 0)
+                    )
+                    for file_id, quantity in material.get("source_quantities", {}).items():
+                        source_quantities = existing.setdefault("source_quantities", {})
+                        source_quantities[file_id] = float(source_quantities.get(file_id, 0)) + float(quantity)
+                    for file_id, occurrence_count in material.get("source_occurrence_counts", {}).items():
+                        source_occurrence_counts = existing.setdefault("source_occurrence_counts", {})
+                        source_occurrence_counts[file_id] = int(
+                            source_occurrence_counts.get(file_id, 0)
+                        ) + int(occurrence_count)
+                    existing.setdefault("source_labels", {}).update(material.get("source_labels", {}))
                     existing["quantity_known"] = bool(existing.get("quantity_known", True)) and bool(
                         material.get("quantity_known", True)
                     )
@@ -1205,6 +1574,8 @@ class WorkflowService:
                     name=str(material.get("name") or ""),
                     sop_quantity=self._rounded(material.get("quantity", 0)) if source == "sop" else None,
                     duro_quantity=self._rounded(material.get("quantity", 0)) if source == "duro" else None,
+                    sop_occurrence_count=int(material.get("occurrence_count", 0)) if source == "sop" else 0,
+                    sop_occurrence_steps=list(material.get("occurrence_steps", [])) if source == "sop" else [],
                     sop_locations=list(material.get("locations", [])),
                     sop_quantity_explanations=list(material.get("quantity_explanations", [])),
                     sop_quantity_decisions=list(material.get("quantity_decisions", [])),

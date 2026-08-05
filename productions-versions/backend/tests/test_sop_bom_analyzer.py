@@ -83,11 +83,16 @@ def test_aggregates_part_references_and_uses_bom_material_name() -> None:
     assert brace.occurrences == 2
     assert brace.quantity == 2
     assert brace.pages == [1]
+    assert [(item.page_number, item.evidence) for item in brace.occurrence_details] == [
+        (1, "安装 415-00390，并确认 415-00390 已锁紧。"),
+        (1, "安装 415-00390，并确认 415-00390 已锁紧。"),
+    ]
 
     unknown = next(item for item in references if item.part_number == "999-12345")
     assert unknown.name == "备用零件"
     assert unknown.occurrences == 1
     assert unknown.pages == [3]
+    assert unknown.occurrence_details[0].evidence == "备用零件 Part No: 999-12345 TEST BRACKET"
 
 
 def test_part_number_pattern_does_not_match_inside_longer_numbers() -> None:

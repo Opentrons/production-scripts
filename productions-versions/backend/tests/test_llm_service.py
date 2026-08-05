@@ -133,6 +133,7 @@ def test_semantic_reference_prompt_classifies_added_and_reference_quantities(mon
     assert "reference_quantity 应为 96" in system_prompt
     assert "跨页综合判断" in system_prompt
     assert "所有 accumulate=true" in system_prompt
+    assert "即使某页只出现物料名称" not in system_prompt
     assert {item.part_number: item.quantity for item in materials} == {
         "415-00643": 1,
         "415-00845": 1,
@@ -160,6 +161,73 @@ def test_semantic_evidence_groups_keep_all_occurrences_of_a_part_together() -> N
     assert "第 20 页" in evidence
     assert "Preparation notes" in evidence
     assert "Torque 90N.cm" in evidence
+
+
+def test_semantic_evidence_groups_include_confirmed_material_name_pages() -> None:
+    service = LLMService()
+
+    groups = service._build_part_evidence_groups(
+        [
+            (14, "Install 1×242-00052 around the harness"),
+            (15, "Check the zip-tie position and trim the tail"),
+            (16, "Inspect unrelated cable routing"),
+        ],
+        max_chars=10000,
+        material_names={"242-00052": "扎带/zip-tie"},
+    )
+
+    evidence = next(text for text, parts in groups if "242-00052" in parts)
+    assert "已确认物料名称：扎带/zip-tie" in evidence
+    assert "第 14 页" in evidence
+    assert "第 15 页" in evidence
+    assert "第 16 页" not in evidence
+
+
+def test_semantic_evidence_groups_limit_name_expansion_to_target_parts() -> None:
+    service = LLMService()
+
+    groups = service._build_part_evidence_groups(
+        [
+            (14, "Install 1×242-00052 around the harness"),
+            (15, "Use one zip-tie to secure the harness"),
+            (20, "Install 1×242-00059 around the cable"),
+            (21, "Check the magnetic ring position"),
+        ],
+        max_chars=10000,
+        material_names={
+            "242-00052": "扎带/zip-tie",
+            "242-00059": "磁环/magnetic ring",
+        },
+        target_part_numbers={"242-00052"},
+    )
+
+    assert {part_number for _, parts in groups for part_number in parts} == {"242-00052"}
+    evidence = groups[0][0]
+    assert "第 15 页" in evidence
+    assert "第 20 页" not in evidence
+    assert "第 21 页" not in evidence
+
+
+def test_semantic_evidence_groups_ignore_shared_generic_material_names() -> None:
+    service = LLMService()
+
+    groups = service._build_part_evidence_groups(
+        [
+            (1, "Install 2×438-00147"),
+            (2, "Install 4×438-00213"),
+            (3, "Tighten all screws"),
+        ],
+        max_chars=10000,
+        material_names={"438-00147": "螺丝/screw", "438-00213": "螺丝/screw"},
+    )
+
+    evidence_by_part = {
+        part_number: evidence
+        for evidence, part_numbers in groups
+        for part_number in part_numbers
+    }
+    assert "第 3 页" not in evidence_by_part["438-00147"]
+    assert "第 3 页" not in evidence_by_part["438-00213"]
 
 
 def test_semantic_evidence_groups_include_cleanup_candidate_part_numbers() -> None:

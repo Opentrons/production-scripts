@@ -5,7 +5,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Literal
 
-from sop.models import SopBomMaterial, SopBomSection, SopPartReference
+from sop.models import SopBomMaterial, SopBomSection, SopPartOccurrence, SopPartReference
 
 
 SopPageCategory = Literal["instruction", "material_list", "tool_list"]
@@ -205,6 +205,9 @@ def analyze_part_references(
                 if page_number not in reference.pages:
                     reference.pages.append(page_number)
                 reference.source_lines.append(cleaned_line)
+                reference.occurrence_details.append(
+                    SopPartOccurrence(page_number=page_number, evidence=cleaned_line)
+                )
     return list(references.values())
 
 

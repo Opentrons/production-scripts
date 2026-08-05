@@ -29,13 +29,19 @@ from sop.models import (
     SopCatalogEntry,
     SopBomMaterial,
     SopMasterSheetResponse,
+    SopPartOccurrence,
     SopPartReference,
     SopPdfAnalysisResponse,
     SopPdfPage,
     SopQuantityDecision,
     utc_now,
 )
-from llm.service import choose_material_name, llm_service
+from llm.service import (
+    build_unique_material_aliases,
+    choose_material_name,
+    llm_service,
+    normalize_material_alias,
+)
 
 
 class SopAnalysisError(RuntimeError):
@@ -105,6 +111,48 @@ def _merge_semantic_part_references(
     return list(merged.values())
 
 
+def _enrich_reference_name_occurrences(
+    references: list[SopPartReference],
+    pages: list[tuple[int, str]],
+    known_material_names: dict[str, str] | None = None,
+) -> dict[str, str]:
+    reference_names = {
+        item.part_number.strip().upper(): item.name.strip()
+        for item in references
+        if item.name.strip()
+    }
+    material_names = {
+        str(part_number).strip().upper(): str(name).strip()
+        for part_number, name in (known_material_names or reference_names).items()
+        if str(part_number).strip() and str(name).strip()
+    }
+    aliases_by_part = build_unique_material_aliases(material_names)
+    for reference in references:
+        part_number = reference.part_number.strip().upper()
+        aliases = aliases_by_part.get(part_number, [])
+        if not aliases:
+            continue
+        for page_number, page_text in pages:
+            for raw_line in page_text.splitlines():
+                evidence = raw_line.strip()
+                if not evidence or part_number.casefold() in evidence.casefold():
+                    continue
+                normalized_evidence = normalize_material_alias(evidence)
+                if not normalized_evidence or not any(alias in normalized_evidence for alias in aliases):
+                    continue
+                reference.occurrences += 1
+                if page_number not in reference.pages:
+                    reference.pages.append(page_number)
+                reference.source_lines.append(evidence)
+                reference.occurrence_details.append(
+                    SopPartOccurrence(page_number=page_number, evidence=evidence)
+                )
+    return {
+        part_number: material_names.get(part_number, name)
+        for part_number, name in reference_names.items()
+    }
+
+
 class SopService:
     def __init__(
         self,
@@ -127,6 +175,7 @@ class SopService:
         self._master_refreshing = False
         self._master_refresh_version = 0
         self._pdf_cache: dict[str, SopPdfAnalysisResponse] = {}
+        self._instruction_pages_cache: dict[str, list[tuple[int, str]]] = {}
         if self.cache_path is not None:
             self._initialize_disk_cache()
 
@@ -346,9 +395,134 @@ class SopService:
             analyzed_at=utc_now(),
         )
         with self._cache_lock:
+            self._instruction_pages_cache[cache_key] = list(reference_text_pages)
             self._pdf_cache[cache_key] = response
             self._set_disk_cached(f"pdf:{cache_key}", response)
         return response
+
+    def refine_semantic_quantities_with_names(
+        self,
+        file_id_or_url: str,
+        material_names: dict[str, str],
+        target_part_numbers: set[str],
+    ) -> list[SopPartReference]:
+        """Re-evaluate only existing quantity mismatches with confirmed-name evidence.
+
+        The normal PDF analysis remains part-number-only. This second pass is
+        deliberately narrow: a result is returned only when at least one new
+        name-only occurrence exists and the semantic model returns a confident
+        record. Callers can therefore retain the first-pass quantity whenever
+        the refinement is incomplete.
+        """
+
+        if not llm_service.api_key:
+            return []
+        normalized_names = {
+            str(part_number).strip().upper(): str(name).strip()
+            for part_number, name in material_names.items()
+            if str(part_number).strip() and str(name).strip()
+        }
+        targets = {
+            str(part_number).strip().upper()
+            for part_number in target_part_numbers
+            if str(part_number).strip()
+        }
+        if not targets:
+            return []
+
+        pages = self._instruction_pages_for_refinement(file_id_or_url)
+        local_by_part = {
+            item.part_number.strip().upper(): item
+            for item in analyze_part_references(pages, [])
+            if item.part_number.strip().upper() in targets
+        }
+        references: list[SopPartReference] = []
+        original_occurrences: dict[str, int] = {}
+        for part_number in sorted(targets):
+            reference = local_by_part.get(part_number)
+            if reference is None:
+                reference = SopPartReference(part_number=part_number)
+            else:
+                reference = reference.model_copy(deep=True)
+            reference.name = normalized_names.get(part_number, reference.name)
+            original_occurrences[part_number] = reference.occurrences
+            references.append(reference)
+
+        confirmed_names = _enrich_reference_name_occurrences(
+            references,
+            pages,
+            known_material_names=normalized_names,
+        )
+        eligible_parts = {
+            reference.part_number.strip().upper()
+            for reference in references
+            if reference.occurrences > original_occurrences.get(reference.part_number.strip().upper(), 0)
+            and confirmed_names.get(reference.part_number.strip().upper())
+        }
+        if not eligible_parts:
+            return []
+
+        semantic_items = llm_service.extract_sop_semantic_references(
+            pages,
+            material_names=normalized_names,
+            target_part_numbers=eligible_parts,
+        )
+        semantic_by_part = {
+            item.part_number.strip().upper(): item
+            for item in semantic_items
+            if item.confidence >= 0.5
+        }
+        refined: list[SopPartReference] = []
+        for reference in references:
+            part_number = reference.part_number.strip().upper()
+            if part_number not in eligible_parts:
+                continue
+            semantic = semantic_by_part.get(part_number)
+            if semantic is None:
+                continue
+            reference.name = choose_material_name(reference.name, semantic.name)
+            reference.quantity = int(semantic.quantity or 0)
+            reference.quantity_explanation = (
+                "数量差异二次复核（料号 + 已确认物料名称）："
+                f"{semantic.quantity_explanation or '根据补充正文证据重新统计'}"
+            )
+            reference.quantity_decisions = [
+                SopQuantityDecision.model_validate(decision.model_dump())
+                for decision in semantic.quantity_decisions
+            ]
+            refined.append(reference)
+        return refined
+
+    def _instruction_pages_for_refinement(
+        self,
+        file_id_or_url: str,
+    ) -> list[tuple[int, str]]:
+        cache_key = self.google_driver.parse_drive_file_id(file_id_or_url) or file_id_or_url
+        with self._cache_lock:
+            cached = self._instruction_pages_cache.get(cache_key)
+            if cached is not None:
+                return list(cached)
+
+        metadata, content = self.google_driver.download_file_bytes(file_id_or_url)
+        self._validate_pdf(metadata, content)
+        try:
+            reader = PdfReader(io.BytesIO(content))
+            if reader.is_encrypted:
+                reader.decrypt("")
+            pages: list[tuple[int, str]] = []
+            previous_category: SopPageCategory = "instruction"
+            for page_number, page in enumerate(reader.pages, start=1):
+                page_text = page.extract_text() or ""
+                category = classify_sop_page(page_text, previous_category)
+                previous_category = category
+                if category == "instruction":
+                    pages.append((page_number, page_text))
+        except Exception as exc:
+            raise SopAnalysisError(f"PDF 无法解析: {exc}") from exc
+
+        with self._cache_lock:
+            self._instruction_pages_cache[cache_key] = list(pages)
+        return pages
 
     def _initialize_disk_cache(self) -> None:
         assert self.cache_path is not None

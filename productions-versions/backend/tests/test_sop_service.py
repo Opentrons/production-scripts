@@ -7,7 +7,8 @@ import time
 from pypdf import PdfWriter
 
 from google_driver import GoogleDriveFile, GoogleSheetCell, GoogleSheetData
-from sop.service import SopService
+from llm.models import SopSemanticDecision, SopTextMaterial
+from sop.service import SopService, llm_service
 
 
 class FakeGoogleDriver:
@@ -164,3 +165,78 @@ def test_pdf_analysis_cache_survives_service_restart(tmp_path) -> None:
 
     assert cached.cached is True
     assert cached.filename == "SOP.pdf"
+
+
+def test_quantity_refinement_uses_names_only_for_requested_mismatches(monkeypatch) -> None:
+    service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
+    service._instruction_pages_cache["pdf-file-id"] = [
+        (14, "Install 1×242-00052 around the harness"),
+        (15, "Use two zip-tie to secure the harness"),
+        (20, "Install 1×242-00059 around the cable"),
+    ]
+    captured: dict[str, object] = {}
+
+    def fake_extract(pages, material_names=None, target_part_numbers=None):
+        captured["pages"] = pages
+        captured["material_names"] = material_names
+        captured["target_part_numbers"] = target_part_numbers
+        return [
+            SopTextMaterial(
+                part_number="242-00052",
+                name="扎带/zip-tie",
+                quantity=3,
+                confidence=0.98,
+                quantity_explanation="料号页 1 个，名称页新增 2 个",
+                quantity_decisions=[
+                    SopSemanticDecision(
+                        event_id="E2",
+                        page_numbers=[15],
+                        action="固定",
+                        quantity_delta=2,
+                        accumulate=True,
+                        evidence="Use two zip-tie",
+                    )
+                ],
+            )
+        ]
+
+    monkeypatch.setattr(llm_service, "api_key", "test-key")
+    monkeypatch.setattr(llm_service, "extract_sop_semantic_references", fake_extract)
+
+    refined = service.refine_semantic_quantities_with_names(
+        "pdf-file-id",
+        {
+            "242-00052": "扎带/zip-tie",
+            "242-00059": "磁环/magnetic ring",
+        },
+        {"242-00052"},
+    )
+
+    assert captured["target_part_numbers"] == {"242-00052"}
+    assert len(refined) == 1
+    assert refined[0].quantity == 3
+    assert refined[0].occurrences == 2
+    assert refined[0].pages == [14, 15]
+    assert "二次复核" in refined[0].quantity_explanation
+
+
+def test_quantity_refinement_keeps_first_pass_when_no_name_only_evidence(monkeypatch) -> None:
+    service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
+    service._instruction_pages_cache["pdf-file-id"] = [
+        (14, "Install 1×242-00052 around the harness"),
+        (15, "Inspect unrelated cable routing"),
+    ]
+
+    def unexpected_extract(*args, **kwargs):
+        raise AssertionError("semantic refinement should not run without new name evidence")
+
+    monkeypatch.setattr(llm_service, "api_key", "test-key")
+    monkeypatch.setattr(llm_service, "extract_sop_semantic_references", unexpected_extract)
+
+    refined = service.refine_semantic_quantities_with_names(
+        "pdf-file-id",
+        {"242-00052": "扎带/zip-tie"},
+        {"242-00052"},
+    )
+
+    assert refined == []

@@ -1,5 +1,9 @@
 from sop.models import SopPartReference, SopQuantityDecision
-from sop.service import _merge_part_references, _merge_semantic_part_references
+from sop.service import (
+    _enrich_reference_name_occurrences,
+    _merge_part_references,
+    _merge_semantic_part_references,
+)
 
 
 def test_llm_references_enrich_local_results_without_dropping_local_part_numbers() -> None:
@@ -122,3 +126,55 @@ def test_llm_short_material_name_replaces_instruction_sentence() -> None:
     merged = _merge_part_references(local, ai)
 
     assert merged[0].name == "柱塞块"
+
+
+def test_confirmed_material_name_adds_name_only_occurrence_evidence() -> None:
+    references = [
+        SopPartReference(
+            part_number="242-00052",
+            name="扎带/zip-tie",
+            occurrences=1,
+            quantity=1,
+            pages=[14],
+            source_lines=["Install 1×242-00052 around the harness"],
+        )
+    ]
+
+    material_names = _enrich_reference_name_occurrences(
+        references,
+        [
+            (14, "Install 1×242-00052 around the harness"),
+            (15, "Check the zip-tie position and trim the tail"),
+        ],
+    )
+
+    assert material_names == {"242-00052": "扎带/zip-tie"}
+    assert references[0].occurrences == 2
+    assert references[0].pages == [14, 15]
+    assert references[0].occurrence_details[-1].page_number == 15
+    assert references[0].occurrence_details[-1].evidence == "Check the zip-tie position and trim the tail"
+
+
+def test_name_occurrence_is_not_added_when_alias_belongs_to_another_material() -> None:
+    references = [
+        SopPartReference(
+            part_number="435-00017",
+            name="O-ring",
+            occurrences=1,
+            quantity=1,
+            pages=[14],
+            source_lines=["Install 435-00017"],
+        )
+    ]
+
+    _enrich_reference_name_occurrences(
+        references,
+        [(15, "Install the O-ring into the plunger")],
+        known_material_names={
+            "435-00017": "O-ring",
+            "435-00025": "O-ring",
+        },
+    )
+
+    assert references[0].occurrences == 1
+    assert references[0].pages == [14]

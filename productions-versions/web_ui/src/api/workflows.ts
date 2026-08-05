@@ -67,6 +67,8 @@ export interface WorkflowBomDifference {
   sop_quantity: number | null
   duro_quantity: number | null
   quantity_delta: number | null
+  sop_occurrence_count: number
+  sop_occurrence_steps: WorkflowSopOccurrenceStep[]
   sop_locations: string[]
   sop_quantity_explanations: string[]
   sop_quantity_decisions: WorkflowSopQuantityDecision[]
@@ -97,6 +99,16 @@ export interface WorkflowSopQuantityDecision {
   duplicate_of: string | null
   reason: string
   evidence: string
+}
+
+export interface WorkflowSopOccurrenceStep {
+  source: string
+  page_number: number
+  evidence: string
+  quantity_delta: number
+  accumulate: boolean
+  action: string
+  reason: string
 }
 
 export interface WorkflowBomIgnoredItem extends WorkflowBomDifference {
@@ -194,6 +206,10 @@ export const workflowApi = {
   runDetail: (runId: string, differenceOffset = 0, differenceLimit = 5000) =>
     api.get<WorkflowRunDetailResponse>(`/workflow-runs/${encodeURIComponent(runId)}`, {
       params: { difference_offset: differenceOffset, difference_limit: differenceLimit }
+    }),
+  exportRun: (runId: string) =>
+    api.get<Blob>(`/workflow-runs/${encodeURIComponent(runId)}/export`, {
+      responseType: 'blob'
     }),
   deleteRuns: (runIds: string[]) =>
     api.delete<WorkflowRunDeleteResponse>('/workflow-runs', { data: { run_ids: runIds } })
