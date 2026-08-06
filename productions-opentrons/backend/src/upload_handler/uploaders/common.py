@@ -158,7 +158,11 @@ class UploadCommonMixin:
 
     @classmethod
     def prepare_csv_batch_updates(cls, csv_data: list, configured_range: list[str]) -> tuple[list, list]:
-        """Normalize row widths and split CSV rows into 1000-row batches with A1 ranges."""
+        """Fit rows to the configured width and split them into 1000-row batches.
+
+        Columns after the configured range are intentionally ignored because the
+        destination sheet schema is authoritative for uploads.
+        """
         columns = cls.normalize_csv_columns(configured_range)
         datalen = len(columns)
         if datalen == 0:
@@ -176,12 +180,6 @@ class UploadCommonMixin:
             if cell_count < datalen:
                 cells.extend([""] * (datalen - cell_count))
             elif cell_count > datalen:
-                extra_values = cells[datalen:]
-                if any(str(value).strip() for value in extra_values):
-                    raise ValueError(
-                        f"CSV row {i + 1} contains data beyond configured range "
-                        f"{columns[0]}-{columns[-1]}: {cell_count} columns"
-                    )
                 cells = cells[:datalen]
                 row[0] = cells
 
@@ -206,8 +204,14 @@ class UploadCommonMixin:
         filepath: str,
         ranglist: list,
     ) -> bool:
-        """Read a CSV file and write its contents to a spreadsheet in batches."""
-        csv_data = self.csv_driver.read_csv_rows(path=filepath)
+        """Read only configured CSV columns and write them to the spreadsheet."""
+        configured_columns = self.normalize_csv_columns(ranglist)
+        if not configured_columns:
+            raise ValueError("CSV upload range must include at least one column")
+        csv_data = self.csv_driver.read_csv_rows(
+            path=filepath,
+            max_columns=len(configured_columns),
+        )
         alldatalist, allrangelist = self.prepare_csv_batch_updates(csv_data, ranglist)
         return self.gdrive.update_excel_sheet_page_batch(
             spreadsheet_id=spreadsheet_id,

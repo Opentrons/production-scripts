@@ -354,7 +354,7 @@ robot_update_diagnostic:
 | `csv_target_sheet_name` | 是 | 原始 CSV 写入模板中的目标 tab |
 | `result_cell` | 是 | 从模板 summary tab 读取本次测试结果的位置 |
 | `total_result_cell` | 否 | 从模板 summary tab 读取总结果的位置 |
-| `Range` | 是 | CSV 写入列范围，用于决定写入宽度 |
+| `Range` | 是 | CSV 写入列范围，用于决定读取和写入宽度；范围外列会被忽略 |
 | `ifcopydata` | 是 | 从工作表复制 summary/result row |
 | `ifpaste` | 是 | 粘贴到 Unit Tracker 的目标配置 |
 | `unit_tracker_sheet` | 是 | 测试数据 Spreadsheet 移动到的月份文件夹 |

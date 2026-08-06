@@ -11,12 +11,15 @@ class CsvDriver:
                     rows.append([line.replace("\n", "").replace("\r", "")])
         return rows
 
-    def read_csv_rows(self, path: str):
+    def read_csv_rows(self, path: str, max_columns: int | None = None):
         rows = []
         with open(path, "rt", encoding="utf-8") as csv_file:
             for line in csv_file:
                 if line != "\n":
-                    rows.append([line.replace("\n", "").split(",")])
+                    cells = line.replace("\n", "").replace("\r", "").split(",")
+                    if max_columns is not None:
+                        cells = cells[:max_columns]
+                    rows.append([cells])
         return rows
 
     def find_files(self, path: str, keyword: str):
