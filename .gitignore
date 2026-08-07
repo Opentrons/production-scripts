@@ -43,6 +43,17 @@ testing_data/
 **/datas/temp/
 **/datas/testing_data/
 **/datas/file_resources/
+apps/backend/data/temp/
+apps/backend/data/testing_data/
+apps/backend/data/file_resources/
+apps/backend/data/logs/
+apps/backend/data/*.sqlite3
+*.sqlite3
+
+# Ghelper subscription node configurations
+apps/backend/ghelper-test/*.yml
+apps/backend/ghelper-test/*.yaml
+apps/backend/ghelper-test/skill_config.json
 
 # Generated reports / local exports
 *.backup*
@@ -56,8 +67,16 @@ testing_data/
 **/auth/sheettoken.json
 **/auth/slack.yaml
 **/auth/robot_key
+**/auth/duro-chrome-profile/
+**/auth/cookies*.txt
+**/auth/*token*.txt
 **/configs/robot_key
 **/configs/slack.yaml
 **/configs/slack.local.yaml
+**/rsa_install/id_rsa
+**/rsa_install/id_rsa.pub
+**/resources/robot_key
+apps/backend/data/*.json
 **/.env
 **/.env.*
+!**/.env.example

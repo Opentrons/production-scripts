@@ -1,165 +1,97 @@
 .DEFAULT_GOAL := help
 
 HOST ?= 0.0.0.0
-PORT ?= 8090
-PRODUCTIONS_INDEX_PORT ?= 5173
-PRODUCTIONS_INDEX_DEPLOY_PORT ?= 80
-PRODUCTIONS_INDEX_REMOTE_DIR ?= /opt/data-handler/productions-index
-PRODUCTIONS_OPENTRONS_WEB_PORT ?= 8091
-PRODUCTIONS_OPENTRONS_API_PORT ?= 8090
-PRODUCTIONS_OPENTRONS_WEB_BASE_PATH ?= /productions-opentrons/
-PRODUCTIONS_OPENTRONS_PROXY_PATH ?= /productions-opentrons
-PRODUCTIONS_OPENTRONS_LEGACY_PROXY_PATH ?= /opentrons-productions
-PRODUCTIONS_OPENTRONS_TYPO_PROXY_PATH ?= /opetrons-productions
-WEB_UI_BASE_PATH ?= /
-COMPONENT ?= all
-DEPLOY_HOST ?=
-PUSH_ARGS ?=
-WEB_PUSH_ARGS ?=
-PRODUCTIONS_INDEX_PUSH_ARGS ?=
+API_PORT ?= 8090
+WEB_PORT ?= 8091
+REMOTE_CHROME_PORT ?= 9222
 
-PRODUCTIONS_INDEX_DEPLOY_ARGS := $(PRODUCTIONS_INDEX_PUSH_ARGS)
-ifneq ($(DEPLOY_HOST),)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --host $(DEPLOY_HOST)
-endif
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --remote-dir $(PRODUCTIONS_INDEX_REMOTE_DIR)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --site-port $(PRODUCTIONS_INDEX_DEPLOY_PORT)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --opentrons-port $(PRODUCTIONS_OPENTRONS_WEB_PORT)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --opentrons-api-port $(PRODUCTIONS_OPENTRONS_API_PORT)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --opentrons-path $(PRODUCTIONS_OPENTRONS_PROXY_PATH)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --legacy-opentrons-path $(PRODUCTIONS_OPENTRONS_LEGACY_PROXY_PATH)
-PRODUCTIONS_INDEX_DEPLOY_ARGS += --legacy-typo-opentrons-path $(PRODUCTIONS_OPENTRONS_TYPO_PROXY_PATH)
+.PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build remote-chrome deploy-backend deploy-web
 
-.PHONY: help
 help:
-	@echo "Available targets:"
-	@echo "  make help                    Show this help message"
-	@echo "  make test-cli                Start interactive test-cli"
-	@echo "  make leveling                Start leveling CLI"
-	@echo "  make simulate                Run all leveling tests in simulation mode"
-	@echo "  make test-cli-build          Build test-cli executable"
-	@echo "  make build-exe               Alias of test-cli-build"
-	@echo "  make update-compensation     Update leveling_config.json from Templete.xlsx"
-	@echo "  make productions-opentrons-install       Install productions-opentrons backend dependencies"
-	@echo "  make productions-opentrons-backend       Start productions-opentrons backend with reload"
-	@echo "  make productions-opentrons-backend-prod  Start productions-opentrons backend without reload"
-	@echo "  make productions-opentrons-health        Check productions-opentrons backend health"
-	@echo "  make productions-opentrons-web-ui-build  Build productions-opentrons web UI"
-	@echo "  make productions-opentrons-update        Update productions-opentrons remote code"
-	@echo "  make deploy-productions-opentrons Deploy productions-opentrons for indexed routing"
-	@echo "  make productions-index-init  Install productions index dependencies"
-	@echo "  make productions-index-dev   Start the productions index page"
-	@echo "  make productions-index-build Build the productions index page"
-	@echo "  make deploy-productions-index Deploy productions index and nginx proxy"
-	@echo "  make deploy-productions      Deploy productions-opentrons and productions index"
-	@echo "  make high-voltage            Run high-voltage manual test workflow"
-	@echo ""
-	@echo "Variables:"
-	@echo "  HOST=0.0.0.0 PORT=8090 PRODUCTIONS_INDEX_PORT=5173 PRODUCTIONS_INDEX_DEPLOY_PORT=80"
-	@echo "  COMPONENT=all|backend|web DEPLOY_HOST=IP"
-	@echo "  PUSH_ARGS='...' WEB_PUSH_ARGS='...' PRODUCTIONS_INDEX_PUSH_ARGS='...'"
-	@echo "  PRODUCTIONS_OPENTRONS_WEB_BASE_PATH=/productions-opentrons/"
-	@echo "  PRODUCTIONS_OPENTRONS_PROXY_PATH=/productions-opentrons PRODUCTIONS_OPENTRONS_WEB_PORT=8091 PRODUCTIONS_OPENTRONS_API_PORT=8090"
-	@echo ""
-	@echo "Subproject help:"
-	@echo "  make -C productions-index help"
-	@echo "  make -C test_cli help"
-	@echo "  make -C productions-opentrons help"
-	@echo "  make -C tools/high_voltage_test help"
+	@echo "Production Scripts targets:"
+	@echo "  make sync             Install both Python applications"
+	@echo "  make dev              Restart occupied dev ports and start backend + web"
+	@echo "  make backend-dev      Start FastAPI with reload"
+	@echo "  make backend-prod     Start FastAPI"
+	@echo "  make backend-test     Run backend tests"
+	@echo "  make backend-health   Check the backend root endpoint"
+	@echo "  make web-install      Install web dependencies"
+	@echo "  make web-dev          Start the Vue application"
+	@echo "  make web-build        Build the Vue application"
+	@echo "  make hardware         Start the hardware application"
+	@echo "  make hardware-test    Run hardware tests"
+	@echo "  make hardware-build   Build the hardware executable"
+	@echo "  make high-voltage     Run the high-voltage tool"
+	@echo "  make test             Run backend and hardware tests"
+	@echo "  make build            Build web and hardware executable"
+	@echo "  make remote-chrome    Start the Duro Chrome CDP profile"
+	@echo "  make deploy-backend   Install/restart the backend service"
+	@echo "  make deploy-web       Build/configure the nginx site"
 
-.PHONY: test-cli
-test-cli:
-	$(MAKE) -C test_cli run
+sync:
+	uv sync --all-packages
 
-.PHONY: leveling
-leveling:
-	$(MAKE) -C test_cli leveling
+dev-stop-ports:
+	@command -v lsof >/dev/null 2>&1 || { echo "Error: lsof is required to free dev ports"; exit 1; }
+	@for port in $(API_PORT) $(WEB_PORT); do \
+		pids=$$(lsof -tiTCP:$$port -sTCP:LISTEN 2>/dev/null | sort -u); \
+		if [ -n "$$pids" ]; then \
+			echo "Stopping process(es) listening on port $$port: $$(echo $$pids | tr '\n' ' ')"; \
+			kill -TERM $$pids 2>/dev/null || true; \
+			sleep 1; \
+			remaining=$$(lsof -tiTCP:$$port -sTCP:LISTEN 2>/dev/null | sort -u); \
+			if [ -n "$$remaining" ]; then \
+				echo "Force stopping process(es) still listening on port $$port: $$(echo $$remaining | tr '\n' ' ')"; \
+				kill -KILL $$remaining 2>/dev/null || true; \
+			fi; \
+		fi; \
+	done
 
-.PHONY: simulate
-simulate:
-	$(MAKE) -C test_cli simulate
+dev: dev-stop-ports
+	$(MAKE) -j2 backend-dev web-dev
 
-.PHONY: test-cli-build build-exe
-test-cli-build build-exe:
-	$(MAKE) -C test_cli build
+backend-dev:
+	uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT) --reload --reload-dir apps/backend/src
 
-.PHONY: update-compensation
-update-compensation:
-	$(MAKE) -C test_cli update-compensation
+backend-prod:
+	uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT)
 
-.PHONY: productions-opentrons-install
-productions-opentrons-install:
-	$(MAKE) -C productions-opentrons install
+backend-test:
+	uv run --package production-backend pytest -q apps/backend/tests
 
-.PHONY: productions-opentrons-backend
-productions-opentrons-backend:
-	$(MAKE) -C productions-opentrons backend HOST=$(HOST) PORT=$(PORT)
+backend-health:
+	curl -fsS http://127.0.0.1:$(API_PORT)/
 
-.PHONY: productions-opentrons-backend-prod
-productions-opentrons-backend-prod:
-	$(MAKE) -C productions-opentrons backend-prod HOST=$(HOST) PORT=$(PORT)
+web-install:
+	cd apps/web-ui && npm ci
 
-.PHONY: productions-opentrons-health
-productions-opentrons-health:
-	$(MAKE) -C productions-opentrons health PORT=$(PORT)
+web-dev:
+	cd apps/web-ui && npm run dev -- --host $(HOST) --port $(WEB_PORT)
 
-.PHONY: productions-opentrons-web-ui-build
-productions-opentrons-web-ui-build:
-	$(MAKE) -C productions-opentrons web-ui-build WEB_UI_BASE_PATH=$(WEB_UI_BASE_PATH)
+web-build:
+	cd apps/web-ui && npm run build
 
-.PHONY: productions-opentrons-update
-productions-opentrons-update:
-	$(MAKE) -C productions-opentrons update \
-		COMPONENT=$(COMPONENT) \
-		DEPLOY_HOST=$(DEPLOY_HOST) \
-		PUSH_ARGS="$(PUSH_ARGS)" \
-		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
-		WEB_UI_BASE_PATH=$(PRODUCTIONS_OPENTRONS_WEB_BASE_PATH)
+hardware:
+	$(MAKE) -C apps/hardwares run
 
-.PHONY: deploy-productions-opentrons
-deploy-productions-opentrons:
-	$(MAKE) -C productions-opentrons update \
-		COMPONENT=$(COMPONENT) \
-		DEPLOY_HOST=$(DEPLOY_HOST) \
-		PUSH_ARGS="$(PUSH_ARGS)" \
-		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
-		WEB_UI_BASE_PATH=$(PRODUCTIONS_OPENTRONS_WEB_BASE_PATH)
+hardware-test:
+	$(MAKE) -C apps/hardwares test
 
-.PHONY: productions-index-init
-productions-index-init:
-	$(MAKE) -C productions-index init
+hardware-build:
+	$(MAKE) -C apps/hardwares build
 
-.PHONY: productions-index-dev
-productions-index-dev:
-	$(MAKE) -C productions-index dev HOST=$(HOST) PORT=$(PRODUCTIONS_INDEX_PORT)
-
-.PHONY: productions-index-build
-productions-index-build:
-	$(MAKE) -C productions-index build
-
-.PHONY: deploy-productions-index
-deploy-productions-index: productions-index-build
-	uv run python deploy-productions-index.py $(PRODUCTIONS_INDEX_DEPLOY_ARGS)
-
-.PHONY: deploy-productions
-deploy-productions:
-	$(MAKE) deploy-productions-opentrons \
-		COMPONENT=$(COMPONENT) \
-		DEPLOY_HOST=$(DEPLOY_HOST) \
-		PUSH_ARGS="$(PUSH_ARGS)" \
-		WEB_PUSH_ARGS="$(WEB_PUSH_ARGS)" \
-		PRODUCTIONS_OPENTRONS_WEB_BASE_PATH=$(PRODUCTIONS_OPENTRONS_WEB_BASE_PATH)
-	$(MAKE) deploy-productions-index \
-		DEPLOY_HOST=$(DEPLOY_HOST) \
-		PRODUCTIONS_INDEX_PUSH_ARGS="$(PRODUCTIONS_INDEX_PUSH_ARGS)" \
-		PRODUCTIONS_INDEX_REMOTE_DIR=$(PRODUCTIONS_INDEX_REMOTE_DIR) \
-		PRODUCTIONS_INDEX_DEPLOY_PORT=$(PRODUCTIONS_INDEX_DEPLOY_PORT) \
-		PRODUCTIONS_OPENTRONS_WEB_PORT=$(PRODUCTIONS_OPENTRONS_WEB_PORT) \
-		PRODUCTIONS_OPENTRONS_API_PORT=$(PRODUCTIONS_OPENTRONS_API_PORT) \
-		PRODUCTIONS_OPENTRONS_PROXY_PATH=$(PRODUCTIONS_OPENTRONS_PROXY_PATH) \
-		PRODUCTIONS_OPENTRONS_LEGACY_PROXY_PATH=$(PRODUCTIONS_OPENTRONS_LEGACY_PROXY_PATH) \
-		PRODUCTIONS_OPENTRONS_TYPO_PROXY_PATH=$(PRODUCTIONS_OPENTRONS_TYPO_PROXY_PATH)
-
-.PHONY: high-voltage
 high-voltage:
-	$(MAKE) -C tools/high_voltage_test run
+	uv run --package productions-hardwares python -m tools.high_voltage_test.main
+
+test: backend-test hardware-test
+
+build: web-build hardware-build
+
+remote-chrome:
+	cd apps/backend && DURO_REMOTE_CHROME_PORT=$(REMOTE_CHROME_PORT) ./scripts/start_duro_remote_chrome.sh
+
+deploy-backend:
+	sudo API_PORT=$(API_PORT) bash deploy/backend.sh
+
+deploy-web:
+	sudo API_PORT=$(API_PORT) WEB_PORT=$(WEB_PORT) bash deploy/web.sh

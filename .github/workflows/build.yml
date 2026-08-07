@@ -25,52 +25,52 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install uv
-          uv sync --group build
+          uv sync --package productions-hardwares --group build
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
         run: |
-          uv run pyinstaller --onefile \
-            --name test-cli \
-            --hidden-import "test_cli.__version__" \
-            --hidden-import "test_cli.leveling_test.config" \
-            --hidden-import "test_cli.leveling_test.type" \
-            --hidden-import "test_cli.leveling_test.model.base" \
-            --hidden-import "test_cli.leveling_test.report.report" \
-            --hidden-import "test_cli.core.hardware_control.hardware_control" \
-            --hidden-import "test_cli.core.protocol.protocol_context" \
-            --hidden-import "test_cli.core.maintenance_api.maintenance_run" \
-            --hidden-import "tools.inquirer" \
-            --hidden-import "tools.reading_laser" \
-            --add-data "test_cli/leveling_test/leveling_config.json:test_cli/leveling_test" \
-            test_cli/main.py
+          uv run --package productions-hardwares pyinstaller --onefile \
+            --name productions-hardwares \
+            --hidden-import "cli.__version__" \
+            --hidden-import "leveling_testing.config" \
+            --hidden-import "leveling_testing.type" \
+            --hidden-import "leveling_testing.model.base" \
+            --hidden-import "leveling_testing.report.report" \
+            --hidden-import "opentonrs_api.hardware_control.hardware_control" \
+            --hidden-import "opentonrs_api.protocol.protocol_context" \
+            --hidden-import "opentonrs_api.maintenance_api.maintenance_run" \
+            --hidden-import "cli.interface.operator_prompts" \
+            --hidden-import "leveling_testing.reading_laser" \
+            --add-data "apps/hardwares/src/leveling_testing/leveling_config.json:leveling_testing" \
+            apps/hardwares/src/cli/main.py
           ls -lh dist/
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
         run: |
-          uv run pyinstaller --onefile `
-            --name test-cli `
-            --hidden-import "test_cli.__version__" `
-            --hidden-import "test_cli.leveling_test.config" `
-            --hidden-import "test_cli.leveling_test.type" `
-            --hidden-import "test_cli.leveling_test.model.base" `
-            --hidden-import "test_cli.leveling_test.report.report" `
-            --hidden-import "test_cli.core.hardware_control.hardware_control" `
-            --hidden-import "test_cli.core.protocol.protocol_context" `
-            --hidden-import "test_cli.core.maintenance_api.maintenance_run" `
-            --hidden-import "tools.inquirer" `
-            --hidden-import "tools.reading_laser" `
-            --add-data "test_cli/leveling_test/leveling_config.json;test_cli/leveling_test" `
-            test_cli/main.py
+          uv run --package productions-hardwares pyinstaller --onefile `
+            --name productions-hardwares `
+            --hidden-import "cli.__version__" `
+            --hidden-import "leveling_testing.config" `
+            --hidden-import "leveling_testing.type" `
+            --hidden-import "leveling_testing.model.base" `
+            --hidden-import "leveling_testing.report.report" `
+            --hidden-import "opentonrs_api.hardware_control.hardware_control" `
+            --hidden-import "opentonrs_api.protocol.protocol_context" `
+            --hidden-import "opentonrs_api.maintenance_api.maintenance_run" `
+            --hidden-import "cli.interface.operator_prompts" `
+            --hidden-import "leveling_testing.reading_laser" `
+            --add-data "apps/hardwares/src/leveling_testing/leveling_config.json;leveling_testing" `
+            apps/hardwares/src/cli/main.py
           dir dist/
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: test-cli-${{ runner.os }}
+          name: productions-hardwares-${{ runner.os }}
           path: dist/
