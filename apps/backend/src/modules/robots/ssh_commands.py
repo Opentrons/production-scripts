@@ -113,6 +113,10 @@ def _inject_server_environment(command: str, environment: dict[str, str]) -> str
 
 def _get_collection():
     global _INDEX_READY
+    if setting.use_sqlite_persistence():
+        from core.sqlite_store import get_platform_store
+
+        return get_platform_store()[setting.ROBOT_SSH_COMMAND_COLLECTION]
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("MongoDB 连接失败，无法加载 SSH 自定义命令")
     collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.ROBOT_SSH_COMMAND_COLLECTION]

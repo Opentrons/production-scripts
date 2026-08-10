@@ -8,8 +8,13 @@ interface ModuleCopy {
 }
 
 interface DashboardMessages {
-  metaTitle: string
   languageLabel: string
+  simulatingLabel: string
+  simulatingOn: string
+  simulatingOff: string
+  simulatingEnabled: string
+  simulatingDisabled: string
+  simulatingUpdateFailed: string
   brandAria: string
   navigationAria: string
   nav: {
@@ -22,6 +27,7 @@ interface DashboardMessages {
     versionChecks: string
     sopDuroCheck: string
     ecnCheck: string
+    productionAgent: string
     downloads: string
   }
   status: {
@@ -39,6 +45,8 @@ interface DashboardMessages {
     modulesTitle: string
     operationsEyebrow: string
     operationsTitle: string
+    developerEyebrow: string
+    developerTitle: string
     openModule: (name: string) => string
     comingSoon: string
     modules: {
@@ -120,8 +128,13 @@ interface DashboardMessages {
 
 export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
   zh: {
-    metaTitle: '生产测试',
     languageLabel: '界面语言',
+    simulatingLabel: 'Simulating',
+    simulatingOn: '开',
+    simulatingOff: '关',
+    simulatingEnabled: '已启用 Simulating（SQLite）',
+    simulatingDisabled: '已关闭 Simulating（MongoDB）',
+    simulatingUpdateFailed: '更新 Simulating 失败',
     brandAria: '打开生产测试',
     navigationAria: '生产测试导航',
     nav: {
@@ -134,6 +147,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       versionChecks: '版本核对',
       sopDuroCheck: 'SOP&DURO核对',
       ecnCheck: 'ECN核对',
+      productionAgent: '生产助手',
       downloads: '资源下载',
     },
     status: {
@@ -151,6 +165,8 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       modulesTitle: '生产功能模块',
       operationsEyebrow: '应用入口',
       operationsTitle: '生产操作',
+      developerEyebrow: '开发工具',
+      developerTitle: '开发者选项',
       openModule: (name) => `打开${name}`,
       comingSoon: '即将推出',
       modules: {
@@ -242,8 +258,13 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
     },
   },
   en: {
-    metaTitle: 'Productions testing',
     languageLabel: 'Interface language',
+    simulatingLabel: 'Simulating',
+    simulatingOn: 'On',
+    simulatingOff: 'Off',
+    simulatingEnabled: 'Simulating enabled (SQLite)',
+    simulatingDisabled: 'Simulating disabled (MongoDB)',
+    simulatingUpdateFailed: 'Failed to update simulating mode',
     brandAria: 'Open Productions testing',
     navigationAria: 'Productions testing navigation',
     nav: {
@@ -256,6 +277,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       versionChecks: 'Version Checks',
       sopDuroCheck: 'SOP & DURO Check',
       ecnCheck: 'ECN Check',
+      productionAgent: 'Production Agent',
       downloads: 'Downloads',
     },
     status: {
@@ -273,6 +295,8 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       modulesTitle: 'Production Modules',
       operationsEyebrow: 'APPLICATION',
       operationsTitle: 'Production Operations',
+      developerEyebrow: 'DEVELOPMENT',
+      developerTitle: 'Developer Options',
       openModule: (name) => `Open ${name}`,
       comingSoon: 'Coming soon',
       modules: {

@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from api.router import router as api_router
 from core.lifecycle import lifespan
+from api.router import router as api_router
 
 
 app = FastAPI(

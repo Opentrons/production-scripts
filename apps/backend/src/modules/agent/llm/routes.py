@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from modules.sop.llm.models import SopTextChunkRequest, SopTextChunkResponse
-from modules.sop.llm.service import LLMConfigurationError, llm_service
+from modules.agent.llm.models import SopTextChunkRequest, SopTextChunkResponse
+from modules.agent.llm.service import LLMConfigurationError, llm_service
 
 router = APIRouter(prefix="/sop/ai", tags=["sop-ai"])
 

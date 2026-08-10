@@ -34,9 +34,40 @@ def _load_local_env() -> None:
 _load_local_env()
 
 DATA_DIR = Path(os.getenv("PRODUCTION_PLATFORM_DATA_DIR", API_ROOT / "data"))
+DB_ROOT = Path(os.getenv("PRODUCTION_PLATFORM_DB_DIR", API_ROOT / "db"))
+DB_BUSINESS_DIR = Path(os.getenv("PRODUCTION_PLATFORM_DB_BUSINESS_DIR", DB_ROOT / "business"))
+DB_SIMULATING_DIR = Path(
+    os.getenv("PRODUCTION_PLATFORM_DB_SIMULATING_DIR", DB_ROOT / "simulating")
+)
 
 IS_WINDOWS = platform.system().lower() == 'windows'
 IS_MAC = platform.system().lower() == 'darwin'
+
+
+def get_active_db_dir() -> Path:
+    """Return the sqlite profile directory for the current simulating mode."""
+    from core.runtime_mode import is_simulating
+
+    active = DB_SIMULATING_DIR if is_simulating() else DB_BUSINESS_DIR
+    active.mkdir(parents=True, exist_ok=True)
+    return active
+
+
+def resolve_sqlite_path(filename: str, *, env_var: str | None = None) -> Path:
+    """Resolve a named sqlite file under the active db profile."""
+    if env_var:
+        configured = os.getenv(env_var, "").strip()
+        if configured:
+            return Path(configured)
+    return get_active_db_dir() / filename
+
+
+def use_sqlite_persistence() -> bool:
+    """Whether Mongo-backed features should use local sqlite instead."""
+    from core.runtime_mode import is_simulating
+
+    return is_simulating()
+
 
 RUN_ENV = os.getenv("PRODUCTION_PLATFORM_RUN_ENV", "dev" if IS_WINDOWS or IS_MAC else "server").lower()
 IS_DEV_ENV = RUN_ENV in ("dev", "local", "development")
@@ -119,8 +150,12 @@ ROBOT_LOG_DOWNLOAD_COLLECTION = "robot_log_download_records"
 ROBOT_SSH_COMMAND_COLLECTION = "robot_ssh_commands"
 
 # Version management, Duro, SOP, and workflow persistence.
+# Defaults live under db/business; simulating mode can switch via resolve_sqlite_path().
 WORKFLOW_STORE_PATH = Path(
-    os.getenv("PRODUCTION_PLATFORM_WORKFLOW_DB_PATH", DATA_DIR / "workflows.sqlite3")
+    os.getenv(
+        "PRODUCTION_PLATFORM_WORKFLOW_DB_PATH",
+        DB_BUSINESS_DIR / "workflows.sqlite3",
+    )
 )
 SCHEDULER_POLL_SECONDS = float(os.getenv("PRODUCTION_PLATFORM_SCHEDULER_POLL_SECONDS", "5"))
 
@@ -151,7 +186,9 @@ SOP_MASTER_SPREADSHEET_ID = os.getenv(
 )
 SOP_MASTER_SHEET_GID = int(os.getenv("PRODUCTION_PLATFORM_SOP_SHEET_GID", "991624078"))
 SOP_MASTER_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_SOP_CACHE_SECONDS", "300"))
-SOP_CACHE_PATH = Path(os.getenv("PRODUCTION_PLATFORM_SOP_CACHE_PATH", DATA_DIR / "sop_cache.sqlite3"))
+SOP_CACHE_PATH = Path(
+    os.getenv("PRODUCTION_PLATFORM_SOP_CACHE_PATH", DB_BUSINESS_DIR / "sop_cache.sqlite3")
+)
 SOP_PDF_MAX_BYTES = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_MAX_BYTES", str(30 * 1024 * 1024)))
 SOP_PDF_MAX_TEXT_CHARS = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_MAX_TEXT_CHARS", "500000"))
 SOP_PDF_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_CACHE_SECONDS", "1800"))
@@ -184,7 +221,9 @@ DURO_TOKEN_AUTO_REFRESH_SECONDS = int(
 )
 DURO_REQUEST_TIMEOUT_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_DURO_TIMEOUT_SECONDS", "60"))
 DURO_PRODUCT_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_DURO_PRODUCT_CACHE_SECONDS", "300"))
-DURO_CACHE_PATH = Path(os.getenv("PRODUCTION_PLATFORM_DURO_CACHE_PATH", DATA_DIR / "duro_cache.sqlite3"))
+DURO_CACHE_PATH = Path(
+    os.getenv("PRODUCTION_PLATFORM_DURO_CACHE_PATH", DB_BUSINESS_DIR / "duro_cache.sqlite3")
+)
 
 # Robot 设备配置
 ROBOT_HEALTH_PORT = 31950

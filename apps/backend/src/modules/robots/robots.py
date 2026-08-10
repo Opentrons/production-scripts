@@ -64,6 +64,10 @@ def build_robot_scan_cache_key(port: int, network: str | None = None) -> str:
 
 
 def get_robot_scan_cache_collection():
+    if setting.use_sqlite_persistence():
+        from core.sqlite_store import get_platform_store
+
+        return get_platform_store()[setting.ROBOT_SCAN_CACHE_COLLECTION]
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("MongoDB connection is not available")
     collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.ROBOT_SCAN_CACHE_COLLECTION]
@@ -105,6 +109,11 @@ def _result_from_cache_document(doc: dict, port: int, network: str | None = None
 
 
 def load_robot_scan_cache(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None) -> dict:
+    if setting.use_sqlite_persistence():
+        from modules.system import simulating_seed
+
+        simulating_seed.ensure_simulating_seed()
+
     cache_key = build_robot_scan_cache_key(port, network)
     try:
         collection = get_robot_scan_cache_collection()
@@ -122,6 +131,11 @@ def load_robot_scan_cache(port: int = setting.ROBOT_HEALTH_PORT, network: str | 
     cached_result = _robot_scan_memory_cache.get(cache_key)
     if cached_result is not None:
         return deepcopy(cached_result)
+
+    if setting.use_sqlite_persistence():
+        from modules.system import simulating_seed
+
+        return simulating_seed.build_fake_scan_result(port)
     return _empty_scan_result(port, network)
 
 
@@ -326,6 +340,10 @@ def stop_robot_scan_scheduler() -> None:
 
 
 def get_scan_gateway_collection():
+    if setting.use_sqlite_persistence():
+        from core.sqlite_store import get_platform_store
+
+        return get_platform_store()[setting.ROBOT_SCAN_GATEWAY_COLLECTION]
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("MongoDB connection is not available")
     collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.ROBOT_SCAN_GATEWAY_COLLECTION]
@@ -821,6 +839,17 @@ async def execute_robot_commands_batch(
 
 
 async def scan_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None) -> dict:
+    if setting.use_sqlite_persistence():
+        from modules.system import simulating_seed
+
+        simulating_seed.ensure_simulating_seed()
+        result = simulating_seed.build_fake_scan_result(port)
+        logger.info(
+            "Simulating robot scan returning %s fake online devices",
+            result.get("online_count", 0),
+        )
+        return result
+
     try:
         ip_list, scan_network, server_ip, scan_gateways = resolve_scan_targets(network)
     except ValueError as exc:
@@ -873,4 +902,10 @@ async def scan_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None
 
 
 def get_robot_detail(ip: str, port: int = setting.ROBOT_HEALTH_PORT) -> dict:
+    if setting.use_sqlite_persistence():
+        from modules.system import simulating_seed
+
+        fake = simulating_seed.find_fake_robot(ip, port)
+        if fake is not None:
+            return fake
     return check_robot_health_sync(ip, port)

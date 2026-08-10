@@ -8,10 +8,12 @@ from core.config import DURO_TOKEN_AUTO_REFRESH_SECONDS
 from core.database import mongodb
 from core.google.proxy_manager import google_proxy_manager
 from core.logging import get_logger
+from core.runtime_mode import ensure_db_layout, is_simulating
 from modules.duro.runtime import (
     duro_browser_token_provider,
     ensure_duro_remote_chrome_running,
 )
+from modules.system.simulating_seed import ensure_simulating_seed
 from modules.robots.diagnostic_logs import (
     resume_pending_diagnostic_log_cleanups,
     shutdown_diagnostic_log_service,
@@ -39,6 +41,9 @@ def should_refresh_proxy_on_startup() -> bool:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    ensure_db_layout()
+    if is_simulating():
+        ensure_simulating_seed()
     mongodb.connect()
     resume_pending_diagnostic_log_cleanups()
     start_robot_scan_scheduler()

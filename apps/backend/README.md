@@ -9,4 +9,11 @@ make backend-dev
 make backend-test
 ```
 
-Runtime files, including the preserved SQLite databases, live in `apps/backend/data/`.
+Runtime files live in `apps/backend/data/`.
+
+SQLite databases live under `apps/backend/db/`:
+
+- `db/business/` — production/business sqlite (workflows, duro/sop cache, and simulating-off platform docs)
+- `db/simulating/` — isolated sqlite used when Dashboard **Simulating** is enabled
+
+When simulating is on, Mongo-backed features (robot scan gateways/cache, SSH custom commands, upload finish settings) use `db/simulating/platform.sqlite3` instead of MongoDB.

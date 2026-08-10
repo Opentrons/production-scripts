@@ -1,3 +1,5 @@
+"""Domain models consumed by the LLM integration."""
+
 from pydantic import BaseModel, Field
 
 

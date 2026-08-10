@@ -7,7 +7,7 @@ import time
 from pypdf import PdfWriter
 
 from core.google import GoogleDriveFile, GoogleSheetCell, GoogleSheetData
-from modules.sop.llm.models import SopSemanticDecision, SopTextMaterial
+from modules.agent.llm.models import SopSemanticDecision, SopTextMaterial
 from modules.sop.service import SopService, llm_service
 
 

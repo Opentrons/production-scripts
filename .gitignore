@@ -48,6 +48,8 @@ apps/backend/data/testing_data/
 apps/backend/data/file_resources/
 apps/backend/data/logs/
 apps/backend/data/*.sqlite3
+apps/backend/db/**/*.sqlite3
+apps/backend/db/mode.json
 *.sqlite3
 
 # Ghelper subscription node configurations

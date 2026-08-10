@@ -36,7 +36,7 @@ from modules.sop.models import (
     SopQuantityDecision,
     utc_now,
 )
-from modules.sop.llm.service import (
+from modules.agent.llm.service import (
     build_unique_material_aliases,
     choose_material_name,
     llm_service,

@@ -629,7 +629,21 @@ export const settingsApi = {
   getUploadFinishSettings: () =>
     api.get<UploadFinishSettingsResponse>('/settings/upload/finish'),
   updateUploadFinishSetting: (payload: UploadFinishSettingPayload) =>
-    api.put<UploadFinishSettingItem>('/settings/upload/finish', payload)
+    api.put<UploadFinishSettingItem>('/settings/upload/finish', payload),
+  getSimulatingStatus: () =>
+    api.get<SimulatingStatusResponse>('/system/simulating'),
+  updateSimulatingStatus: (simulating: boolean) =>
+    api.put<SimulatingStatusResponse>('/system/simulating', { simulating })
+}
+
+export interface SimulatingStatusResponse {
+  simulating: boolean
+  persistence: string
+  db_root: string
+  active_db_dir: string
+  business_db_dir: string
+  simulating_db_dir: string
+  platform_db_path: string
 }
 
 export default api

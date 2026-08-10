@@ -5,11 +5,12 @@ import os
 import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 
-from modules.sop.llm.models import SopSemanticDecision, SopSemanticMaterial, SopTextChunkRequest, SopTextMaterial
+from modules.agent.llm.models import SopSemanticDecision, SopSemanticMaterial, SopTextChunkRequest, SopTextMaterial
 
 
 MATERIAL_PART_NUMBER_PATTERN = re.compile(
@@ -132,6 +133,51 @@ class LLMService:
         self.timeout = float(os.getenv("PRODUCTION_PLATFORM_LLM_TIMEOUT_SECONDS", "90"))
         self.sop_chunk_chars = max(4000, int(os.getenv("PRODUCTION_PLATFORM_LLM_SOP_CHUNK_CHARS", "30000")))
         self.semantic_max_workers = max(1, min(4, int(os.getenv("PRODUCTION_PLATFORM_LLM_SEMANTIC_MAX_WORKERS", "3"))))
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.api_key)
+
+    async def stream_chat(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        system_prompt: str,
+    ) -> AsyncIterator[str]:
+        """Stream text chunks from an OpenAI-compatible chat endpoint."""
+        if not self.api_key:
+            raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
+
+        payload = {
+            "model": self.model,
+            "temperature": 0.2,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                *messages,
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        raw_data = line[5:].strip()
+                        if not raw_data or raw_data == "[DONE]":
+                            continue
+                        data = json.loads(raw_data)
+                        content = data["choices"][0].get("delta", {}).get("content")
+                        if content:
+                            yield str(content)
+        except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"LLM 对话失败：{exc}") from exc
 
     def extract_sop_materials(self, request: SopTextChunkRequest) -> list[SopTextMaterial]:
         if not self.api_key:

@@ -52,6 +52,10 @@
                 </a>
               </div>
             </div>
+            <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
+              <Bot class="top-menu-icon" :size="16" aria-hidden="true" />
+              <span>{{ copy.nav.productionAgent }}</span>
+            </a>
             <a class="top-link is-active" href="/downloads">
               <Download class="top-menu-icon" :size="16" aria-hidden="true" />
               <span>{{ copy.nav.downloads }}</span>
@@ -310,6 +314,10 @@
                   </a>
                 </div>
               </div>
+              <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
+                <Bot class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.productionAgent }}</span>
+              </a>
               <a class="top-link" href="/downloads">
                 <Download class="top-menu-icon" :size="16" aria-hidden="true" />
                 <span>{{ copy.nav.downloads }}</span>
@@ -410,6 +418,41 @@
           </a>
         </div>
       </section>
+
+      <section class="developer-section" aria-labelledby="developer-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">{{ copy.dashboard.developerEyebrow }}</p>
+            <h2 id="developer-title">{{ copy.dashboard.developerTitle }}</h2>
+          </div>
+        </div>
+
+        <div class="developer-option">
+          <div class="developer-option-name">
+            <span class="developer-option-icon" aria-hidden="true">
+              <Wrench :size="19" />
+            </span>
+            <div>
+              <h3>{{ copy.simulatingLabel }}</h3>
+              <p v-if="simulatingHint" role="status">{{ simulatingHint }}</p>
+            </div>
+          </div>
+          <button
+            class="simulating-toggle"
+            :class="{ 'is-on': simulatingEnabled }"
+            type="button"
+            role="switch"
+            :aria-checked="simulatingEnabled"
+            :aria-label="copy.simulatingLabel"
+            :title="simulatingHint || copy.simulatingLabel"
+            :disabled="simulatingSaving"
+            @click="toggleSimulating"
+          >
+            <span class="simulating-toggle-track" aria-hidden="true"><i></i></span>
+            <span>{{ simulatingEnabled ? copy.simulatingOn : copy.simulatingOff }}</span>
+          </button>
+        </div>
+      </section>
     </template>
   </main>
 </template>
@@ -449,6 +492,7 @@ import {
 } from '@lucide/vue'
 import flexImage from '@/assets/dashboard/flex.png'
 import productionsLogo from '@/assets/dashboard/productions-logo.svg'
+import { settingsApi } from '@/scripts/api'
 import {
   DASHBOARD_LANGUAGE_STORAGE_KEY,
   dashboardMessages,
@@ -475,7 +519,6 @@ const copy = computed(() => dashboardMessages[locale.value])
 function applyLocale(nextLocale: DashboardLocale): void {
   if (typeof document === 'undefined') return
   document.documentElement.lang = nextLocale === 'zh' ? 'zh-CN' : 'en'
-  document.title = dashboardMessages[nextLocale].metaTitle
 }
 
 function setLocale(nextLocale: DashboardLocale): void {
@@ -486,6 +529,35 @@ function setLocale(nextLocale: DashboardLocale): void {
     // Language switching should still work when browser storage is unavailable.
   }
   applyLocale(nextLocale)
+}
+
+const simulatingEnabled = ref(false)
+const simulatingSaving = ref(false)
+const simulatingHint = ref('')
+
+async function loadSimulatingStatus(): Promise<void> {
+  try {
+    const { data } = await settingsApi.getSimulatingStatus()
+    simulatingEnabled.value = data.simulating
+    simulatingHint.value = data.simulating ? copy.value.simulatingEnabled : copy.value.simulatingDisabled
+  } catch {
+    // Keep the default off state when the API is unavailable.
+  }
+}
+
+async function toggleSimulating(): Promise<void> {
+  if (simulatingSaving.value) return
+  const nextValue = !simulatingEnabled.value
+  simulatingSaving.value = true
+  try {
+    const { data } = await settingsApi.updateSimulatingStatus(nextValue)
+    simulatingEnabled.value = data.simulating
+    simulatingHint.value = data.simulating ? copy.value.simulatingEnabled : copy.value.simulatingDisabled
+  } catch (error) {
+    simulatingHint.value = error instanceof Error ? error.message : copy.value.simulatingUpdateFailed
+  } finally {
+    simulatingSaving.value = false
+  }
 }
 
 interface ResourceVersion {
@@ -516,7 +588,7 @@ const operationsBaseUrl = withTrailingSlash(
 )
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 const productionAgentUrl = import.meta.env.VITE_PRODUCTION_AGENT_URL || ''
-const productionAgentBaseUrl = productionAgentUrl ? withTrailingSlash(productionAgentUrl) : ''
+const productionAgentBaseUrl = productionAgentUrl ? withTrailingSlash(productionAgentUrl) : '/agent'
 
 const projects = ref<ResourceProject[]>([])
 const expandedProjectIds = ref(new Set<string>())
@@ -800,6 +872,7 @@ onMounted(() => {
   applyLocale(locale.value)
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('keydown', handleKeydown)
+  void loadSimulatingStatus()
   if (isDownloadsView.value) void loadProjects()
 })
 
@@ -835,10 +908,10 @@ const modules = computed(() => [
   },
   {
     ...copy.value.dashboard.modules.agent,
-    status: productionAgentBaseUrl ? copy.value.status.ready : copy.value.status.planned,
-    statusClass: productionAgentBaseUrl ? 'status-active' : 'status-planned',
-    href: productionAgentBaseUrl || undefined,
-    openInNewTab: false,
+    status: copy.value.status.ready,
+    statusClass: 'status-active',
+    href: productionAgentBaseUrl,
+    openInNewTab: true,
     icon: Bot,
   },
 ])

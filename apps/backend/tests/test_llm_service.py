@@ -1,11 +1,72 @@
-from modules.sop.llm.models import SopTextChunkRequest
-from modules.sop.llm.service import LLMService, choose_material_name
+import asyncio
+
+from modules.agent.llm.models import SopTextChunkRequest
+from modules.agent.llm.service import LLMService, choose_material_name
 
 
 def test_parse_json_accepts_markdown_and_provider_prose() -> None:
     parsed = LLMService._parse_json('模型结果如下：\n```json\n{"materials": []}\n```')
 
     assert parsed == {"materials": []}
+
+
+def test_stream_chat_parses_openai_compatible_sse(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        async def aiter_lines(self):
+            yield 'data: {"choices":[{"delta":{"content":"生产"}}]}'
+            yield 'data: {"choices":[{"delta":{"content":"助手"}}]}'
+            yield "data: [DONE]"
+
+    class FakeClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, method, url, **kwargs):
+            captured.update(method=method, url=url, **kwargs)
+            return FakeResponse()
+
+    monkeypatch.setattr("modules.agent.llm.service.httpx.AsyncClient", FakeClient)
+    service = LLMService()
+    service.api_key = "test-key"
+
+    async def collect() -> list[str]:
+        return [
+            chunk
+            async for chunk in service.stream_chat(
+                [{"role": "user", "content": "测试"}],
+                system_prompt="系统提示",
+            )
+        ]
+
+    assert asyncio.run(collect()) == ["生产", "助手"]
+    assert captured["method"] == "POST"
+    assert captured["url"] == f"{service.base_url}/chat/completions"
+    assert captured["json"] == {
+        "model": service.model,
+        "temperature": 0.2,
+        "stream": True,
+        "messages": [
+            {"role": "system", "content": "系统提示"},
+            {"role": "user", "content": "测试"},
+        ],
+    }
 
 
 def test_parse_json_repairs_trailing_commas_and_empty_values() -> None:
@@ -70,7 +131,7 @@ def test_extract_material_prompt_requires_nearest_entity_name(monkeypatch) -> No
         return FakeResponse()
 
     monkeypatch.setattr(
-        "modules.sop.llm.service.httpx.post",
+        "modules.agent.llm.service.httpx.post",
         fake_post,
     )
     service = LLMService()
@@ -122,7 +183,7 @@ def test_semantic_reference_prompt_classifies_added_and_reference_quantities(mon
         return FakeResponse()
 
     monkeypatch.setattr(
-        "modules.sop.llm.service.httpx.post",
+        "modules.agent.llm.service.httpx.post",
         fake_post,
     )
     service = LLMService()

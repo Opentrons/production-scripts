@@ -381,11 +381,17 @@ h1 {
 }
 
 .module-section,
-.routes-section {
+.routes-section,
+.developer-section {
   width: 100%;
   max-width: 1276px;
   margin: 0 auto;
   padding: 42px 48px;
+}
+
+.developer-section {
+  padding-top: 10px;
+  padding-bottom: 72px;
 }
 
 .section-heading {
@@ -534,6 +540,113 @@ h3 {
   border-color: #176b5f;
   color: #176b5f;
   outline: none;
+}
+
+.developer-option {
+  display: flex;
+  min-height: 82px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 0;
+  border-top: 1px solid #dce4dd;
+  border-bottom: 1px solid #dce4dd;
+}
+
+.developer-option-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.developer-option-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 8px;
+  color: #31534c;
+  background: #e3ebe7;
+}
+
+.developer-option h3 {
+  font-size: 15px;
+}
+
+.developer-option p {
+  margin-top: 4px;
+  color: #687571;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.simulating-toggle {
+  display: inline-flex;
+  min-width: 82px;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  color: #687571;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.simulating-toggle-track {
+  position: relative;
+  display: block;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 38px;
+  border-radius: 999px;
+  background: #cfd8d3;
+  transition: background-color 160ms ease;
+}
+
+.simulating-toggle-track i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(32, 48, 43, 0.24);
+  transition: transform 160ms ease;
+}
+
+.simulating-toggle.is-on {
+  color: #176b5f;
+}
+
+.simulating-toggle.is-on .simulating-toggle-track {
+  background: #176b5f;
+}
+
+.simulating-toggle.is-on .simulating-toggle-track i {
+  transform: translateX(16px);
+}
+
+.simulating-toggle:hover .simulating-toggle-track,
+.simulating-toggle:focus-visible .simulating-toggle-track {
+  box-shadow: 0 0 0 3px rgba(23, 107, 95, 0.12);
+}
+
+.simulating-toggle:focus-visible {
+  outline: none;
+}
+
+.simulating-toggle:disabled {
+  opacity: 0.58;
+  cursor: wait;
 }
 
 .downloads-page {
@@ -1557,7 +1670,8 @@ h3 {
   }
 
   .module-section,
-  .routes-section {
+  .routes-section,
+  .developer-section {
     padding-right: 24px;
     padding-left: 24px;
   }
@@ -1625,7 +1739,8 @@ h3 {
   }
 
   .module-section,
-  .routes-section {
+  .routes-section,
+  .developer-section {
     padding: 34px 18px;
   }
 

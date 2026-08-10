@@ -4,6 +4,7 @@ from bson import ObjectId
 
 import core.config as setting
 from core.database import mongodb
+from core.sqlite_store import get_platform_store
 
 from modules.data_analysis.data import serialize_mongo_doc
 from core.logging import get_logger
@@ -11,9 +12,20 @@ from core.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _get_message_collection():
+    if setting.use_sqlite_persistence():
+        from modules.system import simulating_seed
+
+        simulating_seed.ensure_simulating_seed()
+        return get_platform_store()[setting.DATA_UPLOAD_STATUS_COLLECTION]
+    if mongodb.client is None and not mongodb.connect():
+        raise RuntimeError("MongoDB connection is not available")
+    return mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.DATA_UPLOAD_STATUS_COLLECTION]
+
+
 def get_messages() -> dict:
     try:
-        collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.DATA_UPLOAD_STATUS_COLLECTION]
+        collection = _get_message_collection()
         cursor = collection.find().sort("created_at", -1).limit(50)
         messages = [serialize_mongo_doc(doc) for doc in cursor]
         return {
@@ -33,11 +45,14 @@ def get_messages() -> dict:
 
 def mark_message_read(message_id: str) -> dict:
     try:
-        collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.DATA_UPLOAD_STATUS_COLLECTION]
-        result = collection.update_one(
-            {"_id": ObjectId(message_id)},
-            {"$set": {"new": False}},
-        )
+        collection = _get_message_collection()
+        query = {"_id": message_id}
+        if not setting.use_sqlite_persistence():
+            try:
+                query = {"_id": ObjectId(message_id)}
+            except Exception:
+                query = {"_id": message_id}
+        result = collection.update_one(query, {"$set": {"new": False}})
         if result.modified_count > 0:
             return {"success": True, "message": "Message marked as read"}
         return {"success": False, "message": "Message not found or already read"}
@@ -48,7 +63,7 @@ def mark_message_read(message_id: str) -> dict:
 
 def mark_all_messages_read() -> dict:
     try:
-        collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.DATA_UPLOAD_STATUS_COLLECTION]
+        collection = _get_message_collection()
         result = collection.update_many(
             {"new": True},
             {"$set": {"new": False}},

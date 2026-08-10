@@ -37,6 +37,10 @@ def normalize_test_type(test_type: str | None) -> str:
 
 
 def get_finish_settings_collection():
+    if setting.use_sqlite_persistence():
+        from core.sqlite_store import get_platform_store
+
+        return get_platform_store()[setting.UPLOAD_FINISH_SETTINGS_COLLECTION]
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("Upload finish settings database connection failed")
     collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.UPLOAD_FINISH_SETTINGS_COLLECTION]

@@ -22,7 +22,7 @@ from modules.workflows.service import WorkflowNotFoundError
 from modules.duro.routes import router as duro_router
 from core.google.proxy_manager import google_proxy_manager
 from modules.sop.routes import router as sop_router
-from modules.sop.llm.routes import router as sop_ai_router
+from modules.agent.llm.routes import router as sop_ai_router
 
 
 router = APIRouter()

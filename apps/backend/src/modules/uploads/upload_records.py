@@ -31,9 +31,76 @@ def to_mongo_safe(value: Any) -> Any:
 
 
 def get_upload_record_collection():
+    if setting.use_sqlite_persistence():
+        from core.sqlite_store import get_platform_store
+        from modules.system import simulating_seed
+
+        simulating_seed.ensure_simulating_seed()
+        return get_platform_store()[setting.DATA_UPLOAD_RECORD_COLLECTION]
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("Upload record database connection failed")
     return mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.DATA_UPLOAD_RECORD_COLLECTION]
+
+
+def _nested_get(document: dict[str, Any], path: str) -> Any:
+    current: Any = document
+    for part in path.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
+def _sqlite_record_matches(
+    document: dict[str, Any],
+    *,
+    record_id: str | None = None,
+    status: str | None = None,
+    model: str | None = None,
+    barcode: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> bool:
+    if record_id and str(document.get("_id")) != str(record_id):
+        return False
+    if status and document.get("status") != status:
+        return False
+    if model:
+        models = {
+            _nested_get(document, "file_desc.model"),
+            _nested_get(document, "result.model"),
+            _nested_get(document, "upload_result.model"),
+        }
+        if model not in models:
+            return False
+    if barcode:
+        needle = str(barcode).strip().lower()
+        haystacks = [
+            str(_nested_get(document, "file_desc.sn") or ""),
+            str(_nested_get(document, "result.sn") or ""),
+            str(_nested_get(document, "upload_result.sn") or ""),
+            str(_nested_get(document, "csv_file.name") or ""),
+        ]
+        if not any(needle in value.lower() for value in haystacks):
+            return False
+
+    start_time = parse_date_bound(start_date)
+    end_time = parse_date_bound(end_date, end_of_day=True)
+    if start_time or end_time:
+        raw_started = document.get("request_started_at")
+        if not raw_started:
+            return False
+        try:
+            started = datetime.fromisoformat(str(raw_started).replace("Z", "+00:00"))
+            if getattr(started, "tzinfo", None) is not None:
+                started = started.replace(tzinfo=None)
+        except ValueError:
+            return False
+        if start_time and started < start_time:
+            return False
+        if end_time and started > end_time:
+            return False
+    return True
 
 
 def parse_date_bound(value: str | None, *, end_of_day: bool = False) -> datetime | None:
@@ -383,6 +450,30 @@ def get_upload_records(
         page = max(page, 1)
         page_size = min(max(page_size, 1), 2000)
         skip = (page - 1) * page_size
+        collection = get_upload_record_collection()
+
+        if setting.use_sqlite_persistence():
+            matched = [
+                serialize_mongo_doc(doc)
+                for doc in collection.find({})
+                if _sqlite_record_matches(
+                    doc,
+                    record_id=record_id,
+                    status=status,
+                    model=model,
+                    barcode=barcode,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            ]
+            matched.sort(key=lambda item: str(item.get("request_started_at") or ""), reverse=True)
+            return {
+                "records": matched[skip : skip + page_size],
+                "total": len(matched),
+                "page": page,
+                "page_size": page_size,
+            }
+
         query = build_upload_record_query(
             record_id=record_id,
             status=status,
@@ -391,8 +482,6 @@ def get_upload_records(
             start_date=start_date,
             end_date=end_date,
         )
-
-        collection = get_upload_record_collection()
         total = collection.count_documents(query)
         cursor = collection.find(query).sort("request_started_at", -1).skip(skip).limit(page_size)
         records = [serialize_mongo_doc(doc) for doc in cursor]
@@ -422,15 +511,31 @@ def get_upload_record_stats(
     end_date: str | None = None,
 ) -> dict:
     try:
-        query = build_upload_record_query(
-            record_id=record_id,
-            status=status,
-            model=model,
-            barcode=barcode,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        records = list(get_upload_record_collection().find(query))
+        collection = get_upload_record_collection()
+        if setting.use_sqlite_persistence():
+            records = [
+                doc
+                for doc in collection.find({})
+                if _sqlite_record_matches(
+                    doc,
+                    record_id=record_id,
+                    status=status,
+                    model=model,
+                    barcode=barcode,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            ]
+        else:
+            query = build_upload_record_query(
+                record_id=record_id,
+                status=status,
+                model=model,
+                barcode=barcode,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            records = list(collection.find(query))
         total = len(records)
         running = sum(1 for record in records if record.get("status") == "running")
         success = sum(1 for record in records if record.get("status") == "success")
@@ -477,6 +582,20 @@ def get_upload_record_stats(
 def get_upload_record_filter_options() -> dict:
     try:
         collection = get_upload_record_collection()
+        if setting.use_sqlite_persistence():
+            documents = list(collection.find({}))
+            model_values = {
+                value
+                for value in [
+                    *(_nested_get(doc, "file_desc.model") for doc in documents),
+                    *(_nested_get(doc, "result.model") for doc in documents),
+                    *(_nested_get(doc, "upload_result.model") for doc in documents),
+                ]
+                if value
+            }
+            statuses = sorted({str(doc.get("status")) for doc in documents if doc.get("status")})
+            return {"models": sorted(str(value) for value in model_values), "statuses": statuses}
+
         model_values = {
             value
             for value in [
