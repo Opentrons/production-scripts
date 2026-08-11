@@ -1,4 +1,4 @@
-from opentonrs_api.protocol.protocol_context import ProtocolContext
+from opentonrs_api.protocol_api.protocol_context import ProtocolContext
 from opentonrs_api.hardware_control.hardware_control import HardwareControl
 from typing import Union, List
 from devices.laser_stj_10_m0 import LaserSensor

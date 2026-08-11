@@ -3,8 +3,10 @@ from leveling_testing.type import SlotName, Mount, Point, TestNameLeveling, Dire
 from typing import Union, Dict, List
 from dataclasses import dataclass, field
 import json
+from math import isfinite
 import os
 import sys
+from pathlib import Path
 
 
 @dataclass(kw_only=True)
@@ -16,19 +18,128 @@ class SlotConfig:
     channel: Dict[str, int] = field(default_factory=dict)
 
 
-def _load_json_config():
+GANTRY_POINT_NAMES = ("A1", "A3", "D1", "D3")
+
+
+@dataclass(kw_only=True)
+class GantryLevelingConfig:
+    mount: Mount
+    safe_z: float
+    points: Dict[str, Point]
+    heights: Dict[str, float | None]
+
+
+def _leveling_config_path() -> Path:
     if hasattr(sys, '_MEIPASS'):
-        config_path = os.path.join(
+        external_path = Path(sys.executable).resolve().with_name("leveling_config.json")
+        if external_path.exists():
+            return external_path
+        return Path(
             sys._MEIPASS,
             "leveling_testing",
             "leveling_config.json",
         )
-    else:
-        config_path = os.path.join(os.path.dirname(__file__), "leveling_config.json")
-    abs_config_path = os.path.abspath(config_path)
+    return Path(__file__).with_name("leveling_config.json")
+
+
+def _leveling_config_write_path() -> Path:
+    if hasattr(sys, '_MEIPASS'):
+        return Path(sys.executable).resolve().with_name("leveling_config.json")
+    return _leveling_config_path()
+
+
+def _load_json_config(config_path: str | Path | None = None):
+    resolved_path = Path(config_path) if config_path is not None else _leveling_config_path()
+    abs_config_path = os.path.abspath(resolved_path)
     print(f"Loading leveling_config.json from: {abs_config_path}")
-    with open(config_path, "r") as f:
+    with resolved_path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_gantry_leveling_config(
+    config_path: str | Path | None = None,
+) -> GantryLevelingConfig:
+    section = _load_json_config(config_path)["gantry_leveling_config"]
+    points = {
+        name: _convert_to_point(section["points"][name])
+        for name in GANTRY_POINT_NAMES
+    }
+    if not all(isinstance(point, Point) for point in points.values()):
+        raise ValueError("Gantry leveling points must contain X, Y, and Z")
+    raw_heights = section.get("heights", {})
+    heights = {
+        name: _convert_gantry_height(raw_heights.get(name))
+        for name in GANTRY_POINT_NAMES
+    }
+    return GantryLevelingConfig(
+        mount=_convert_mount_key(section.get("mount", "left")),
+        safe_z=float(section.get("safe_z", 505.0)),
+        points=points,
+        heights=heights,
+    )
+
+
+def save_gantry_leveling_point(
+    name: str,
+    point: Point,
+    config_path: str | Path | None = None,
+) -> None:
+    if name not in GANTRY_POINT_NAMES:
+        raise ValueError(f"Unknown gantry leveling point: {name}")
+    source_path = Path(config_path) if config_path is not None else _leveling_config_path()
+    resolved_path = Path(config_path) if config_path is not None else _leveling_config_write_path()
+    json_config = _load_json_config(source_path)
+    json_config["gantry_leveling_config"]["points"][name] = list(point)
+    temporary_path = resolved_path.with_name(f".{resolved_path.name}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8") as config_file:
+            json.dump(json_config, config_file, indent=4, ensure_ascii=True)
+            config_file.write("\n")
+        os.replace(temporary_path, resolved_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
+def save_gantry_leveling_height(
+    name: str,
+    height: float,
+    config_path: str | Path | None = None,
+) -> None:
+    if name not in GANTRY_POINT_NAMES:
+        raise ValueError(f"Unknown gantry leveling point: {name}")
+    if not isfinite(height):
+        raise ValueError("Gantry leveling height must be finite")
+    source_path = Path(config_path) if config_path is not None else _leveling_config_path()
+    resolved_path = Path(config_path) if config_path is not None else _leveling_config_write_path()
+    json_config = _load_json_config(source_path)
+    section = json_config["gantry_leveling_config"]
+    section.setdefault("heights", {})[name] = height
+    temporary_path = resolved_path.with_name(f".{resolved_path.name}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8") as config_file:
+            json.dump(json_config, config_file, indent=4, ensure_ascii=True)
+            config_file.write("\n")
+        os.replace(temporary_path, resolved_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
+def _convert_gantry_height(value) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, str) and value.strip().casefold() in {"", "unknown", "n/a"}:
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid gantry leveling height: {value}")
+    try:
+        height = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid gantry leveling height: {value}") from exc
+    if not isfinite(height):
+        raise ValueError(f"Invalid gantry leveling height: {value}")
+    return height
 
 
 def _convert_to_point(data):

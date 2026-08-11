@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from modules.agent.routes import router as agent_router
+from modules.protocol_monitor.routes import router as protocol_monitor_router
 
 from api.routers import (
     data,
@@ -22,6 +23,7 @@ from api.routers import (
 router = APIRouter()
 
 router.include_router(agent_router)
+router.include_router(protocol_monitor_router)
 router.include_router(resources.router)
 router.include_router(test_management.router)
 router.include_router(system.router)

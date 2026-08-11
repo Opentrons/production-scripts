@@ -22,8 +22,10 @@ PYINSTALLER_ARGS := \
 	--hidden-import leveling_testing.type \
 	--hidden-import leveling_testing.model.base \
 	--hidden-import leveling_testing.report.report \
+	--hidden-import leveling_testing.leveing_gantry \
 	--hidden-import opentonrs_api.hardware_control.hardware_control \
-	--hidden-import opentonrs_api.protocol.protocol_context \
+	--hidden-import opentonrs_api.protocol_api.protocol_context \
+	--hidden-import opentonrs_api.maintenance_api.jog \
 	--hidden-import opentonrs_api.maintenance_api.maintenance_run \
 	--add-data "$(CONFIG_JSON)$(ADD_DATA_SEP)$(CONFIG_DEST)" \
 	$(ENTRYPOINT)

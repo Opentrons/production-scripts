@@ -2,6 +2,7 @@ from leveling_testing.leveling_z_stage import Z_Leveling
 from leveling_testing.leveling_8ch_pipette import CH8_Leveling
 from leveling_testing.leveling_96ch_pipette import CH96_Leveling
 from leveling_testing.leveling_gripper import Gripper_Leveling
+from leveling_testing.leveing_gantry import GantryLeveling
 from leveling_testing.type import TestNameLeveling
 from cli.interface.operator_prompts import prompt_leveling, input_with_default
 from leveling_testing.reading_laser import ReadLaser
@@ -10,9 +11,10 @@ import asyncio
 
 
 __test_config = {
+    TestNameLeveling.Gantry_Leveling: GantryLeveling,
     TestNameLeveling.Z_Leveling: Z_Leveling,
-    TestNameLeveling.CH96_Leveling: CH96_Leveling,
     TestNameLeveling.CH8_Leveling: CH8_Leveling,
+    TestNameLeveling.CH96_Leveling: CH96_Leveling,
     TestNameLeveling.Gripper_Leveling: Gripper_Leveling
 }
 
@@ -20,6 +22,7 @@ __test_aliases = {
     "z": TestNameLeveling.Z_Leveling,
     "ch8": TestNameLeveling.CH8_Leveling,
     "ch96": TestNameLeveling.CH96_Leveling,
+    "gantry": TestNameLeveling.Gantry_Leveling,
     "gripper": TestNameLeveling.Gripper_Leveling,
 }
 
@@ -79,7 +82,8 @@ async def run(
                 ui.warning(ui.bilingual("No test selected", "未选择任何测试项目"))
                 continue
             
-            for test_name in [TestNameLeveling.Z_Leveling,
+            for test_name in [TestNameLeveling.Gantry_Leveling,
+                              TestNameLeveling.Z_Leveling,
                               TestNameLeveling.CH8_Leveling,
                               TestNameLeveling.CH96_Leveling,
                               TestNameLeveling.Gripper_Leveling]:

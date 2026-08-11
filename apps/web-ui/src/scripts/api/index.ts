@@ -231,6 +231,49 @@ export interface RobotScanGatewaysResponse {
   gateways: RobotScanGateway[]
 }
 
+export type ProtocolMonitorStatus = 'idle' | 'offline' | 'running'
+
+export interface ProtocolMonitorDevice {
+  id: string
+  name: string
+  description: string
+  ip: string
+  port: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ProtocolMonitorRoom {
+  id: string
+  name: string
+  devices: ProtocolMonitorDevice[]
+  created_at: string
+  updated_at: string
+}
+
+export interface ProtocolMonitorDeviceStatus {
+  device_id: string
+  status: ProtocolMonitorStatus
+  app_version?: string | null
+  run_status?: string | null
+  run_id?: string | null
+  protocol_id?: string | null
+  protocol_name?: string | null
+  checked_at: string
+  error?: string | null
+}
+
+export interface ProtocolMonitorRoomsResponse {
+  rooms: ProtocolMonitorRoom[]
+  storage: 'mongodb' | 'sqlite'
+}
+
+export interface ProtocolMonitorStatusResponse {
+  room_id: string
+  statuses: ProtocolMonitorDeviceStatus[]
+  checked_at: string
+}
+
 export interface RobotControlSummary {
   ip: string
   port: number
@@ -375,6 +418,39 @@ export interface RobotLogDownloadRecordsResponse {
 
 export const healthApi = {
   getHealth: () => api.get<HealthCheckResponse>('/health')
+}
+
+export const protocolMonitorApi = {
+  listRooms: () => api.get<ProtocolMonitorRoomsResponse>('/protocol-monitor/rooms'),
+  createRoom: (name: string) =>
+    api.post<ProtocolMonitorRoom>('/protocol-monitor/rooms', { name }),
+  updateRoom: (roomId: string, name: string) =>
+    api.put<ProtocolMonitorRoom>(`/protocol-monitor/rooms/${encodeURIComponent(roomId)}`, { name }),
+  deleteRoom: (roomId: string) =>
+    api.delete(`/protocol-monitor/rooms/${encodeURIComponent(roomId)}`),
+  addDevice: (roomId: string, payload: { name: string; description: string; ip: string; port: number }) =>
+    api.post<ProtocolMonitorRoom>(
+      `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices`,
+      payload
+    ),
+  updateDevice: (
+    roomId: string,
+    deviceId: string,
+    payload: { name: string; description: string; ip: string; port: number }
+  ) => api.put<ProtocolMonitorRoom>(
+    `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}`,
+    payload
+  ),
+  deleteDevice: (roomId: string, deviceId: string) =>
+    api.delete<ProtocolMonitorRoom>(
+      `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}`
+    ),
+  refreshRoomStatus: (roomId: string) =>
+    api.post<ProtocolMonitorStatusResponse>(
+      `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/status`,
+      undefined,
+      { timeout: 30000 }
+    ),
 }
 
 export const robotApi = {

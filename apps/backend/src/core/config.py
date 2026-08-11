@@ -149,6 +149,7 @@ FILE_RESOURCE_VERSIONS_COLLECTION = "file_resource_versions"
 ROBOT_LOG_DOWNLOAD_COLLECTION = "robot_log_download_records"
 ROBOT_SSH_COMMAND_COLLECTION = "robot_ssh_commands"
 ROBOT_VERSION_RECORD_COLLECTION = "robot_version_records"
+PROTOCOL_MONITOR_ROOM_COLLECTION = "protocol_monitor_rooms"
 
 # Version management, Duro, SOP, and workflow persistence.
 # Defaults live under db/business; simulating mode can switch via resolve_sqlite_path().

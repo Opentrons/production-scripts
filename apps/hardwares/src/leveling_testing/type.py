@@ -62,6 +62,7 @@ class TestNameLeveling(Enum):
     Z_Leveling = "z_leveling_test"
     CH8_Leveling = "ch8_leveling_test"
     CH96_Leveling = "ch96_leveling_test"
+    Gantry_Leveling = "gantry_leveling_test"
     Gripper_Leveling = "gripper_leveling_test"
 
 

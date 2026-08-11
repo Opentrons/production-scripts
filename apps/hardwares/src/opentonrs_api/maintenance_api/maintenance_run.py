@@ -11,6 +11,12 @@ class MaintenanceApi(HttpClient):
     def __del__(self):
         pass
 
+    @staticmethod
+    def _unexpected_response(action: str, status_code: int, data) -> RuntimeError:
+        return RuntimeError(
+            f"{action} failed: HTTP {status_code}, response={data}"
+        )
+
     async def delete_run(self):
         """
         release run id
@@ -18,24 +24,25 @@ class MaintenanceApi(HttpClient):
         """
         assert self.run_id is not None, "run_id must be set"
         url = f"/maintenance_runs/{self.run_id}"
-        _data = {
-            "data": {
-
-            }
-        }
+        _data = {"data": {}}
         status_code, data = self.delete(url, _data)
-        print("Released the API")
         if status_code != 200:
-            raise Exception("Failed to move to coordinate")
+            raise self._unexpected_response("Delete maintenance run", status_code, data)
+        self.run_id = None
+        print("Released the API")
 
 
     async def create_run(self):
         status_code, data = self.post('/maintenance_runs')
-        if status_code == 201:
-            if self.run_id is None:
+        if status_code != 201:
+            raise self._unexpected_response("Create maintenance run", status_code, data)
+        if self.run_id is None:
+            try:
                 self.run_id = data['data']['id']
-        else:
-            raise Exception("Failed to create run")
+            except (KeyError, TypeError) as exc:
+                raise RuntimeError(
+                    f"Create maintenance run returned an invalid response: {data}"
+                ) from exc
 
     async def move_to(self, coordinate: dict[str, float], mount:Mount, speed=567.8):
         """
@@ -49,14 +56,13 @@ class MaintenanceApi(HttpClient):
             _key = 'rightZ'
         else:
             raise Exception("Unknown mount type")
-        key_value = coordinate['z']
-        del coordinate['z']
-        coordinate[_key] = key_value
+        axis_map = {key: value for key, value in coordinate.items() if key != 'z'}
+        axis_map[_key] = coordinate['z']
         _data = {
             "data": {
                 "commandType": "robot/moveAxesTo",
                 "params": {
-                    "axis_map": coordinate,
+                    "axis_map": axis_map,
 
                     "speed": speed,
                 }
@@ -65,14 +71,14 @@ class MaintenanceApi(HttpClient):
         }
         status_code, data = self.post(url, _data)
         if status_code != 201:
-            raise Exception("Failed to move to coordinate")
+            raise self._unexpected_response("Move to coordinate", status_code, data)
 
     async def home(self):
         assert self.run_id is not None, "run_id must be set"
         url = f"/maintenance_runs/{self.run_id}/commands?waitUntilComplete=true"
         _data = {
             "data": {
-                "commandType": "robot/home",
+                "commandType": "home",
                 "params": {
 
                 }
@@ -81,7 +87,7 @@ class MaintenanceApi(HttpClient):
         }
         status_code, data = self.post(url, _data)
         if status_code != 201:
-            raise Exception("Failed to move to coordinate")
+            raise self._unexpected_response("Home robot", status_code, data)
 
     async def home_z(self, mount:Mount, current_position: Point):
         assert self.run_id is not None, "run_id must be set"

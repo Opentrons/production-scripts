@@ -184,10 +184,12 @@ import { robotApi, type RobotControlSummary } from '@/scripts/api'
 const props = withDefaults(
   defineProps<{
     ip: string | null
+    port?: number
     inDrawer?: boolean
     showHeader?: boolean
   }>(),
   {
+    port: 31950,
     inDrawer: false,
     showHeader: true
   }
@@ -416,7 +418,7 @@ async function loadSummary() {
   }
   loading.value = true
   try {
-    const response = await robotApi.getControlSummary(props.ip)
+    const response = await robotApi.getControlSummary(props.ip, props.port)
     summary.value = response.data
   } catch (error: any) {
     ElMessage.error('加载设备信息失败: ' + (error.message || '未知错误'))
@@ -426,7 +428,7 @@ async function loadSummary() {
 }
 
 watch(
-  () => props.ip,
+  () => [props.ip, props.port] as const,
   () => {
     void loadSummary()
   },

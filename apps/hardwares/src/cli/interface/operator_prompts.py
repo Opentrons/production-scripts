@@ -2,11 +2,11 @@ from typing import Any
 
 from cli.interface.prompts import select, text
 
-test_choices = ['1.leveling-8ch', '2.leveling-96ch', '3.leveling-gantry', '4.leveling-z-stage', '5.leveling-gripper',
+test_choices = ['1.leveling-gantry', '2.leveling-z-stage', '3.leveling-8ch', '4.leveling-96ch', '5.leveling-gripper',
                 '6.leveling-reading-sensor', '7.heat-96ch', '8.grav-openweb', '9.start-server', '10.high-voltage-test',
                 '11.thermocycle-diagnostic-test','12.getlifetime']
 
-leveling_choices = ['1.ch8_leveling_test', '2.ch96_leveling_test', '3.gantry_leveling_test', '4.z_leveling_test',
+leveling_choices = ['1.gantry_leveling_test', '2.z_leveling_test', '3.ch8_leveling_test', '4.ch96_leveling_test',
                     '5.gripper_leveling_test', "6.read-sensor", "7.exit."]
 
 question_flex = {

@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     leveling.add_argument("--simulate", action="store_true", help="run without robot or sensor hardware")
     leveling.add_argument(
         "--test",
-        choices=["menu", "z", "ch8", "ch96", "gripper", "all"],
+        choices=["menu", "z", "ch8", "ch96", "gantry", "gripper", "all"],
         default="menu",
         help="leveling test to run without opening the interactive menu",
     )
