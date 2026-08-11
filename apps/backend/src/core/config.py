@@ -34,7 +34,7 @@ def _load_local_env() -> None:
 _load_local_env()
 
 DATA_DIR = Path(os.getenv("PRODUCTION_PLATFORM_DATA_DIR", API_ROOT / "data"))
-DB_ROOT = Path(os.getenv("PRODUCTION_PLATFORM_DB_DIR", API_ROOT / "db"))
+DB_ROOT = Path(os.getenv("PRODUCTION_PLATFORM_DB_DIR", API_ROOT / "db-storage"))
 DB_BUSINESS_DIR = Path(os.getenv("PRODUCTION_PLATFORM_DB_BUSINESS_DIR", DB_ROOT / "business"))
 DB_SIMULATING_DIR = Path(
     os.getenv("PRODUCTION_PLATFORM_DB_SIMULATING_DIR", DB_ROOT / "simulating")
@@ -152,7 +152,7 @@ ROBOT_VERSION_RECORD_COLLECTION = "robot_version_records"
 PROTOCOL_MONITOR_ROOM_COLLECTION = "protocol_monitor_rooms"
 
 # Version management, Duro, SOP, and workflow persistence.
-# Defaults live under db/business; simulating mode can switch via resolve_sqlite_path().
+# Defaults live under db-storage/business; simulating mode can switch via resolve_sqlite_path().
 WORKFLOW_STORE_PATH = Path(
     os.getenv(
         "PRODUCTION_PLATFORM_WORKFLOW_DB_PATH",

@@ -6,7 +6,6 @@ from threading import RLock
 from typing import Any
 
 import core.config as setting
-from core.database import mongodb
 from modules.robots.api_client.client import OpentronsHttpClient
 from modules.robots.files.ssh_client import OpentronsSshClient
 from modules.robots.identity import resolve_robot_serial
@@ -88,8 +87,6 @@ PRODUCTS: tuple[dict[str, Any], ...] = (
 
 _PRODUCT_BY_KEY = {str(product["key"]): product for product in PRODUCTS}
 _PERSIST_LOCK = RLock()
-_INDEX_LOCK = RLock()
-_INDEX_READY = False
 
 
 def _utc_now() -> str:
@@ -346,24 +343,18 @@ def _collect_versions(
 
 
 def _get_collection():
-    global _INDEX_READY
-    if setting.use_sqlite_persistence():
-        from core.sqlite_store import get_platform_store
+    """Version history always persists to platform.sqlite3 under the active profile.
 
-        return get_platform_store()[setting.ROBOT_VERSION_RECORD_COLLECTION]
-    if mongodb.client is None and not mongodb.connect():
-        raise RuntimeError("MongoDB 连接失败，无法访问版本记录")
-    collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[
-        setting.ROBOT_VERSION_RECORD_COLLECTION
-    ]
-    if not _INDEX_READY:
-        with _INDEX_LOCK:
-            if not _INDEX_READY:
-                collection.create_index("barcode", unique=True)
-                collection.create_index([("updated_at", -1)])
-                _INDEX_READY = True
-    return collection
+    Non-simulating → db-storage/business/platform.sqlite3
+    Simulating → db-storage/simulating/platform.sqlite3
+    """
+    from core.sqlite_store import get_platform_store
 
+    return get_platform_store()[setting.ROBOT_VERSION_RECORD_COLLECTION]
+
+
+def _storage_label() -> str:
+    return "sqlite"
 
 def _serialize_document(document: dict[str, Any]) -> dict[str, Any]:
     serialized = dict(document)
@@ -463,7 +454,7 @@ def capture_version(
     return {
         "success": True,
         "created": existing is None,
-        "storage": "sqlite" if setting.use_sqlite_persistence() else "mongodb",
+        "storage": _storage_label(),
         "test_key": _test_key(normalized_test_name),
         "test": test_entry,
         "record": _serialize_document(stored),
@@ -486,5 +477,5 @@ def list_history(*, page: int = 1, page_size: int = 100) -> dict[str, Any]:
         "total": total,
         "page": normalized_page,
         "page_size": normalized_page_size,
-        "storage": "sqlite" if setting.use_sqlite_persistence() else "mongodb",
+        "storage": _storage_label(),
     }

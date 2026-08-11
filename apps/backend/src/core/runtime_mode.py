@@ -77,7 +77,7 @@ def ensure_db_layout() -> None:
 
 
 def migrate_legacy_sqlite_files() -> None:
-    """Move historical data/*.sqlite3 files into db/business/ once."""
+    """Move historical data/*.sqlite3 files into db-storage/business/ once."""
     mapping = {
         "workflows.sqlite3": setting.DB_BUSINESS_DIR / "workflows.sqlite3",
         "sop_cache.sqlite3": setting.DB_BUSINESS_DIR / "sop_cache.sqlite3",
