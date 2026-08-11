@@ -256,9 +256,179 @@ textarea {
   color: #fff;
 }
 
+.workflow-attention-board {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #dde5ea;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(18, 33, 47, 0.04);
+}
+
+.workflow-attention-board.is-collapsed {
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+.attention-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.attention-board-toggle {
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.attention-board-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-width: 0;
+}
+
+.attention-board-title span {
+  margin: 0;
+  color: #3b9f8a;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.18em;
+}
+
+.attention-board-title strong {
+  display: block;
+  margin-top: 4px;
+  color: #202c36;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.attention-board-summary {
+  color: #6a7a86;
+  font-size: 12px;
+}
+
+.attention-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 180px));
+  gap: 10px;
+}
+
+.attention-stat-row article {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f4f7f8;
+}
+
+.attention-stat-row span {
+  color: #6a7a86;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.attention-stat-row strong {
+  color: #20303b;
+  font-size: 22px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.attention-stat-row article.is-alert {
+  background: #fff1f0;
+}
+
+.attention-stat-row article.is-pending {
+  background: #fff4e8;
+}
+
+.attention-stat-row article.is-alert strong {
+  color: #c23b2e;
+}
+
+.attention-stat-row article.is-pending strong {
+  color: #b45309;
+}
+
+.attention-empty {
+  color: #6a7a86;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.attention-empty.is-clear {
+  color: #1f7a5c;
+  font-weight: 600;
+}
+
+.attention-shortcuts {
+  display: grid;
+  gap: 8px;
+}
+
+.attention-shortcuts-label {
+  color: #6a7a86;
+  font-size: 12px;
+}
+
+.attention-shortcut-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attention-shortcut-list.is-compact {
+  gap: 6px;
+}
+
+.attention-shortcut-button {
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid #d7e2e7;
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: #24343f;
+  cursor: pointer;
+  text-align: left;
+}
+
+.attention-shortcut-button.is-compact {
+  min-width: 0;
+  padding: 6px 10px;
+}
+
+.attention-shortcut-button:hover {
+  border-color: #9fd0c4;
+  background: #eefaf6;
+}
+
+.attention-shortcut-name {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.attention-shortcut-button.is-compact .attention-shortcut-name {
+  font-size: 12px;
+}
+
+.attention-shortcut-button small {
+  color: #6a7a86;
+  font-size: 11px;
+}
+
 .workspace {
-  margin-top: 24px;
-  min-height: clamp(480px, calc(100vh - 185px), 900px);
+  margin-top: 16px;
+  min-height: clamp(480px, calc(100vh - 260px), 900px);
   display: grid;
   grid-template-columns: 292px minmax(0, 1fr);
   overflow: hidden;
@@ -391,8 +561,56 @@ textarea {
 }
 
 .workflow-list-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #24313b;
   font-size: 12px;
+}
+
+.workflow-runtime-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.workflow-runtime-status.is-idle {
+  background: #e8eef1;
+  color: #6f7e89;
+}
+
+.workflow-runtime-status.is-running {
+  background: #dff6ea;
+  color: #1b8a5a;
+}
+
+.workflow-runtime-status.is-running::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0 rgba(27, 138, 90, 0.45);
+  animation: workflow-runtime-pulse 1.4s ease-out infinite;
+}
+
+@keyframes workflow-runtime-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(27, 138, 90, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(27, 138, 90, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(27, 138, 90, 0);
+  }
 }
 
 .workflow-list-copy small {
@@ -416,7 +634,7 @@ textarea {
 
 .workflow-status {
   display: inline-flex;
-  margin-left: 5px;
+  margin-left: 0;
   padding: 3px 6px;
   border-radius: 9px;
   background: #e9edf0;

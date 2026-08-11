@@ -62,6 +62,94 @@
       </header>
 
       <section
+        class="workflow-attention-board"
+        :class="{ 'is-collapsed': !attentionBoardExpanded }"
+        aria-label="工作流待处理概览"
+      >
+        <div class="attention-board-header">
+          <div class="attention-board-title panel-heading-copy">
+            <div>
+              <span>ALERTS</span>
+              <strong>告警看板</strong>
+            </div>
+            <small v-if="!attentionBoardExpanded" class="attention-board-summary">
+              工作流 {{ workflows.length }}
+              · 告警 {{ totalWarningCount }}
+              · 待处理 {{ pendingWorkflowSummaries.length }}
+              <template v-if="!pendingWorkflowSummaries.length"> · 不用处理</template>
+            </small>
+          </div>
+          <el-button
+            text
+            type="primary"
+            class="attention-board-toggle"
+            :icon="attentionBoardExpanded ? ArrowUp : ArrowDown"
+            :aria-label="attentionBoardExpanded ? '收起看板' : '展开看板'"
+            :title="attentionBoardExpanded ? '收起看板' : '展开看板'"
+            @click="toggleAttentionBoard"
+          />
+        </div>
+
+        <template v-if="attentionBoardExpanded">
+          <div class="attention-stat-row">
+            <article>
+              <span>工作流</span>
+              <strong>{{ workflows.length }}</strong>
+            </article>
+            <article :class="{ 'is-alert': totalWarningCount > 0 }">
+              <span>告警</span>
+              <strong>{{ totalWarningCount }}</strong>
+            </article>
+            <article :class="{ 'is-pending': pendingWorkflowSummaries.length > 0 }">
+              <span>待处理</span>
+              <strong>{{ pendingWorkflowSummaries.length }}</strong>
+            </article>
+          </div>
+
+          <div v-if="attentionSummaryLoading" class="attention-empty">正在统计告警…</div>
+          <div v-else-if="!pendingWorkflowSummaries.length" class="attention-empty is-clear">
+            不用处理
+          </div>
+          <div v-else class="attention-shortcuts">
+            <span class="attention-shortcuts-label">待处理工作流</span>
+            <div class="attention-shortcut-list">
+              <button
+                v-for="item in pendingWorkflowSummaries"
+                :key="item.id"
+                type="button"
+                class="attention-shortcut-button"
+                @click="openWorkflowHistory(item.id)"
+              >
+                <span class="attention-shortcut-name">{{ item.name }}</span>
+                <small>
+                  执行历史 {{ item.runHistoryCount }}
+                  .
+                  当前告警 {{ item.warningCount }}
+                  <template v-if="item.failedCount"> · 最近失败</template>
+                </small>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <div
+          v-else-if="pendingWorkflowSummaries.length"
+          class="attention-shortcut-list is-compact"
+        >
+          <button
+            v-for="item in pendingWorkflowSummaries"
+            :key="item.id"
+            type="button"
+            class="attention-shortcut-button is-compact"
+            @click="openWorkflowHistory(item.id)"
+          >
+            <span class="attention-shortcut-name">{{ item.name }}</span>
+            <small>执行历史 {{ item.runHistoryCount }} . 当前告警 {{ item.warningCount }}</small>
+          </button>
+        </div>
+      </section>
+
+      <section
         class="workspace"
         :class="{ 'is-list-only': !editorVisible, 'is-list-hidden': editorVisible && !workflowListVisible }"
       >
@@ -94,12 +182,20 @@
                 <el-icon><Files v-if="workflow.kind === 'duro_bom_check'" /><Connection v-else /></el-icon>
               </span>
               <span class="workflow-list-copy">
-                <strong>{{ workflow.name }}</strong>
+                <strong>
+                  {{ workflow.name }}
+                  <span
+                    class="workflow-runtime-status"
+                    :class="isWorkflowRunning(workflow.id) ? 'is-running' : 'is-idle'"
+                  >
+                    {{ isWorkflowRunning(workflow.id) ? '运行' : '空闲' }}
+                  </span>
+                </strong>
                 <small class="workflow-list-meta">
                   <span class="workflow-list-meta-left">
-                    {{ workflow.steps.length }} 步 · 历史 {{ workflow.run_count || 0 }} 次 ·
-                    上一次运行 {{ formatLastRunDate(workflow.last_run_at) }}
                     <span class="workflow-status" :class="`is-${workflow.status}`">{{ statusText[workflow.status] }}</span>
+                    · 历史 {{ workflow.run_count || 0 }} 次 ·
+                    上一次运行 {{ formatLastRunDate(workflow.last_run_at) }}
                   </span>
                 </small>
               </span>
@@ -997,6 +1093,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus'
 import {
+  ArrowDown,
+  ArrowUp,
   Box,
   Check,
   Close,
@@ -1059,8 +1157,29 @@ const editorVisible = ref(false)
 const workflowListVisible = ref(true)
 const runningWorkflowIds = ref<Set<string>>(new Set())
 const pollingRunIds = ref<Set<string>>(new Set())
+const workflowPollingRunIds = ref<Record<string, string>>({})
 const copyingWorkflowIds = ref<Set<string>>(new Set())
 const workflows = ref<Workflow[]>([])
+const ATTENTION_BOARD_STORAGE_KEY = 'versions.workflowAttentionBoardExpanded'
+
+function readAttentionBoardExpanded(): boolean {
+  try {
+    const saved = sessionStorage.getItem(ATTENTION_BOARD_STORAGE_KEY)
+    if (saved === '0') return false
+    if (saved === '1') return true
+  } catch {
+    // ignore storage failures
+  }
+  return true
+}
+
+const attentionBoardExpanded = ref(readAttentionBoardExpanded())
+const attentionSummaryLoading = ref(false)
+const workflowAttentionMap = ref<Record<string, {
+  warningCount: number
+  failedCount: number
+  runHistoryCount: number
+}>>({})
 const workflowRuns = ref<WorkflowRun[]>([])
 const activeRunIds = ref<string[]>([])
 const runDetailLoaded = reactive<Record<string, boolean>>({})
@@ -1207,6 +1326,32 @@ const selectedRunCount = computed(() => selectedRunIds.value.size)
 const activeWorkflowCount = computed(() => workflows.value.filter((item) => item.status === 'active').length)
 const scheduledWorkflowCount = computed(() => workflows.value.filter((item) => item.schedule.enabled).length)
 const duroWorkflowCount = computed(() => workflows.value.filter((item) => item.kind === 'duro_bom_check').length)
+
+const pendingWorkflowSummaries = computed(() => (
+  workflows.value
+    .map((workflow) => {
+      const summary = workflowAttentionMap.value[workflow.id]
+      const warningCount = summary?.warningCount ?? 0
+      const failedCount = summary?.failedCount ?? 0
+      const runHistoryCount = summary?.runHistoryCount ?? workflow.run_count ?? 0
+      return {
+        id: workflow.id,
+        name: workflow.name,
+        warningCount,
+        failedCount,
+        runHistoryCount,
+        alertCount: warningCount + failedCount
+      }
+    })
+    .filter((item) => item.alertCount > 0)
+    .sort((left, right) => right.alertCount - left.alertCount || left.name.localeCompare(right.name, 'zh-CN'))
+))
+
+const totalWarningCount = computed(() => (
+  workflows.value.reduce((total, workflow) => {
+    return total + (workflowAttentionMap.value[workflow.id]?.warningCount ?? 0)
+  }, 0)
+))
 const sourceConfiguration = computed(
   () => editForm.value?.configuration as WorkflowSourceConfiguration
 )
@@ -1371,12 +1516,75 @@ async function loadWorkflows() {
       editorVisible.value = false
       workflowListVisible.value = true
     }
+    void loadWorkflowAttentionSummary(response.data)
   } catch (error) {
     console.error(error)
+    workflowAttentionMap.value = {}
     ElMessage.error('工作流加载失败，请确认后端已启动')
   } finally {
     loading.value = false
   }
+}
+
+async function loadWorkflowAttentionSummary(items: Workflow[] = workflows.value) {
+  if (!items.length) {
+    workflowAttentionMap.value = {}
+    attentionSummaryLoading.value = false
+    return
+  }
+
+  attentionSummaryLoading.value = true
+  try {
+    const results = await Promise.all(
+      items.map(async (workflow) => {
+        try {
+          // 取最近一次运行的告警条目数（warning_difference_count），
+          // 不要用 page.warning_count（那是「有告警的运行次数」）。
+          const response = await workflowApi.runs(workflow.id, 1, 1)
+          const latest = response.data.items?.[0]
+          const warningCount = latestRunWarningCount(latest)
+          const failedCount = latest?.status === 'failed' ? 1 : 0
+          const runHistoryCount = Number(response.data.total || workflow.run_count || 0)
+          if (latest && ['queued', 'running'].includes(latest.status)) {
+            setWorkflowRunning(workflow.id, true)
+            startPollingWorkflowRun(workflow.id, latest.id)
+          } else if (!workflowPollingRunIds.value[workflow.id]) {
+            setWorkflowRunning(workflow.id, false)
+          }
+          return [
+            workflow.id,
+            {
+              warningCount,
+              failedCount,
+              runHistoryCount
+            }
+          ] as const
+        } catch (error) {
+          console.error(error)
+          return [
+            workflow.id,
+            {
+              warningCount: 0,
+              failedCount: 0,
+              runHistoryCount: workflow.run_count || 0
+            }
+          ] as const
+        }
+      })
+    )
+    workflowAttentionMap.value = Object.fromEntries(results)
+  } finally {
+    attentionSummaryLoading.value = false
+  }
+}
+
+function latestRunWarningCount(run: WorkflowRun | undefined): number {
+  if (!run || run.status !== 'succeeded' || !run.report) return 0
+  const warningItems = run.report.warning_difference_count
+  if (typeof warningItems === 'number') return Math.max(0, warningItems)
+  const totalItems = run.report.total_difference_count
+  if (typeof totalItems === 'number') return Math.max(0, totalItems)
+  return Math.max(0, run.report.differences?.length || 0)
 }
 
 function selectWorkflow(workflowId: string) {
@@ -1428,11 +1636,25 @@ async function refreshWorkflowIgnoredPartRules(workflowId: string, notify = fals
   }
 }
 
+function setAttentionBoardExpanded(expanded: boolean) {
+  attentionBoardExpanded.value = expanded
+  try {
+    sessionStorage.setItem(ATTENTION_BOARD_STORAGE_KEY, expanded ? '1' : '0')
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function toggleAttentionBoard() {
+  setAttentionBoardExpanded(!attentionBoardExpanded.value)
+}
+
 function openWorkflowEditor(workflowId: string) {
   selectWorkflow(workflowId)
   builderTab.value = 'editor'
   editorVisible.value = true
   workflowListVisible.value = false
+  setAttentionBoardExpanded(false)
 }
 
 function openWorkflowHistory(workflowId: string) {
@@ -1440,6 +1662,7 @@ function openWorkflowHistory(workflowId: string) {
   builderTab.value = 'history'
   editorVisible.value = true
   workflowListVisible.value = false
+  setAttentionBoardExpanded(false)
 }
 
 function closeWorkflowEditor() {
@@ -1981,6 +2204,9 @@ async function deleteWorkflow(workflow: Workflow) {
   try {
     await workflowApi.remove(workflow.id)
     workflows.value = workflows.value.filter((item) => item.id !== workflow.id)
+    const nextAttention = { ...workflowAttentionMap.value }
+    delete nextAttention[workflow.id]
+    workflowAttentionMap.value = nextAttention
     if (selectedWorkflowId.value === workflow.id) {
       selectedWorkflowId.value = null
       editForm.value = null
@@ -2023,13 +2249,21 @@ async function triggerWorkflow(workflow: Workflow) {
 function startPollingWorkflowRun(workflowId: string, runId: string) {
   if (pollingRunIds.value.has(runId)) return
   pollingRunIds.value = new Set(pollingRunIds.value).add(runId)
+  workflowPollingRunIds.value = {
+    ...workflowPollingRunIds.value,
+    [workflowId]: runId
+  }
   void pollWorkflowRun(workflowId, runId)
 }
 
-function stopPollingWorkflowRun(runId: string) {
+function stopPollingWorkflowRun(workflowId: string, runId: string) {
   const next = new Set(pollingRunIds.value)
   next.delete(runId)
   pollingRunIds.value = next
+  if (workflowPollingRunIds.value[workflowId] === runId) {
+    const { [workflowId]: _removed, ...rest } = workflowPollingRunIds.value
+    workflowPollingRunIds.value = rest
+  }
 }
 
 async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
@@ -2037,15 +2271,16 @@ async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
     const response = await workflowApi.runDetail(runId, 0, 1)
     const run = response.data.run
     if (!run || !['queued', 'running'].includes(run.status) || attempt >= 1800) {
-      stopPollingWorkflowRun(runId)
+      stopPollingWorkflowRun(workflowId, runId)
       setWorkflowRunning(workflowId, false)
       if (selectedWorkflowId.value === workflowId) await loadRuns(workflowId)
+      void loadWorkflowAttentionSummary()
       return
     }
   } catch (error) {
     console.error(error)
     if (attempt >= 1800) {
-      stopPollingWorkflowRun(runId)
+      stopPollingWorkflowRun(workflowId, runId)
       setWorkflowRunning(workflowId, false)
       return
     }
