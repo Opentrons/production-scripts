@@ -16,6 +16,7 @@ import requests
 import core.config as setting
 
 from core.logging import get_logger
+from modules.robots.identity import resolve_robot_serial
 
 logger = get_logger(__name__)
 from core.database import mongodb
@@ -666,17 +667,28 @@ def _pick_field(data: dict, *keys: str):
     return None
 
 
+def _format_api_level(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (list, tuple)):
+        return ".".join(str(part) for part in value)
+    return str(value)
+
+
 def _merge_robot_health_fields(robot_info: dict, data: dict) -> None:
     if not isinstance(data, dict):
         return
     robot_info["name"] = _pick_field(data, "name", "robot_name") or robot_info.get("name")
-    robot_info["serial_number"] = (
-        _pick_field(data, "serialNumber", "serial_number", "robot_serial")
-        or robot_info.get("serial_number")
+    robot_info["serial_number"] = resolve_robot_serial(data) or robot_info.get(
+        "serial_number"
     )
     robot_info["robot_type"] = (
         _pick_field(data, "robotType", "robot_type")
         or robot_info.get("robot_type")
+    )
+    robot_info["robot_model"] = (
+        _pick_field(data, "robot_model", "robotModel")
+        or robot_info.get("robot_model")
     )
     robot_info["version"] = (
         _pick_field(data, "server_version", "version", "robot_server_version")
@@ -685,6 +697,14 @@ def _merge_robot_health_fields(robot_info: dict, data: dict) -> None:
     robot_info["api_version"] = (
         _pick_field(data, "api_version", "opentrons_api_version")
         or robot_info.get("api_version")
+    )
+    robot_info["min_api_version"] = (
+        _format_api_level(_pick_field(data, "min_api_version", "minimum_protocol_api_version"))
+        or robot_info.get("min_api_version")
+    )
+    robot_info["max_api_version"] = (
+        _format_api_level(_pick_field(data, "max_api_version", "maximum_protocol_api_version"))
+        or robot_info.get("max_api_version")
     )
     robot_info["fw_version"] = (
         _pick_field(data, "fw_version", "firmware_version")
@@ -714,9 +734,12 @@ def check_robot_health_sync(ip: str, port: int = 31950) -> dict:
         "version": None,
         "name": None,
         "robot_type": None,
+        "robot_model": None,
         "serial_number": None,
         "error": None,
         "api_version": None,
+        "min_api_version": None,
+        "max_api_version": None,
         "fw_version": None,
         "health_fetch_failed": False,
     }
@@ -749,19 +772,17 @@ def check_robot_health_sync(ip: str, port: int = 31950) -> dict:
         except Exception as exc:
             health_detail_error = f"解析 /health 响应失败: {exc}"
 
-        health_url = f"http://{ip}:{port}/robot/health"
+        update_health_url = f"http://{ip}:{port}/server/update/health"
         try:
-            health_response = requests.get(
-                health_url,
+            update_health_response = requests.get(
+                update_health_url,
                 headers=ROBOT_HEADERS,
                 timeout=setting.ROBOT_SCAN_HTTP_TIMEOUT_SECONDS,
             )
-            if health_response.status_code == 200:
-                _merge_robot_health_fields(robot_info, health_response.json())
-            else:
-                health_detail_error = f"/robot/health HTTP {health_response.status_code}"
+            if update_health_response.status_code == 200:
+                _merge_robot_health_fields(robot_info, update_health_response.json())
         except Exception as exc:
-            health_detail_error = f"/robot/health 请求失败: {exc}"
+            logger.debug("Robot %s update-server health unavailable: %s", ip, exc)
 
         if health_detail_error:
             robot_info["health_fetch_failed"] = True

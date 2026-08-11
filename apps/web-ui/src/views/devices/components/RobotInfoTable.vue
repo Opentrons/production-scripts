@@ -38,6 +38,10 @@ function formatField(value: string | undefined | null): string {
   return String(value)
 }
 
+function formatApiLevel(minVersion: string | undefined, maxVersion: string | undefined): string {
+  return `${formatField(minVersion)} - ${formatField(maxVersion)}`
+}
+
 const showServiceWarning = computed(() => {
   return !props.robot.online || props.robot.service_status !== 'normal'
 })
@@ -53,8 +57,8 @@ const tableRows = computed(() => {
     { label: '端口', value: formatField(String(robot.port)) },
     { label: '设备名称', value: formatField(robot.name) },
     { label: '序列号', value: formatField(robot.serial_number) },
-    { label: '设备类型', value: formatField(robot.robot_type) },
-    { label: 'Server版本', value: formatField(robot.version) },
+    { label: '设备类型', value: formatField(robot.robot_model ?? robot.robot_type) },
+    { label: 'API Level', value: formatApiLevel(robot.min_api_version, robot.max_api_version) },
     { label: 'API版本', value: formatField(robot.api_version) },
     { label: 'FW版本', value: formatField(robot.fw_version) },
     {

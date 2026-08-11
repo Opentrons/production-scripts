@@ -17,6 +17,15 @@
 
       <template v-else>
         <div class="device-identity">
+          <el-tooltip content="返回设备管理" placement="bottom">
+            <el-button
+              class="device-back-button"
+              :icon="ArrowLeft"
+              circle
+              aria-label="返回设备管理"
+              @click="returnToDeviceList"
+            />
+          </el-tooltip>
           <div class="device-copy">
             <span class="device-name">{{ currentDeviceName }}</span>
             <span class="device-address">
@@ -60,6 +69,10 @@
           <DeviceControlPanel :ip="selectedIp" />
         </el-tab-pane>
 
+        <el-tab-pane label="烧录条码" name="barcode" lazy>
+          <DeviceBarcodeProvisionPanel :ip="selectedIp" />
+        </el-tab-pane>
+
         <el-tab-pane label="Protocol" name="protocol">
           <DeviceProtocolsPanel :ip="selectedIp" standalone />
         </el-tab-pane>
@@ -82,6 +95,23 @@
 
                 <template v-else>
                   <div class="command-form-grid">
+                    <label class="command-field http-command-preset-field">
+                      <span>预设命令</span>
+                      <el-select
+                        v-model="singleHttpCommandPresetId"
+                        clearable
+                        filterable
+                        placeholder="选择后自动填入 Path"
+                        @change="applySingleHttpCommandPreset"
+                      >
+                        <el-option
+                          v-for="preset in HTTP_COMMAND_PRESETS"
+                          :key="preset.id"
+                          :label="preset.name"
+                          :value="preset.id"
+                        />
+                      </el-select>
+                    </label>
                     <label class="command-field">
                       <span>方法</span>
                       <el-select v-model="singleCommandMethod">
@@ -174,46 +204,30 @@
                           <el-option
                             v-for="item in builtinSshCommands"
                             :key="item.id"
-                            :label="`[${item.tag}] ${item.name} · ${item.command}`"
+                            :label="item.name"
                             :value="item.id"
                           >
-                            <el-tooltip
-                              :content="item.command"
-                              placement="right"
-                              popper-class="ssh-command-full-tooltip"
-                              :show-after="400"
-                            >
-                              <div class="ssh-command-option">
-                                <span class="ssh-command-option-name">{{ item.name }}</span>
-                                <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
-                                  {{ item.tag }}
-                                </el-tag>
-                                <span class="ssh-command-option-value">{{ item.command }}</span>
-                              </div>
-                            </el-tooltip>
+                            <div class="ssh-command-option">
+                              <span class="ssh-command-option-name">{{ item.name }}</span>
+                              <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
+                                {{ item.tag }}
+                              </el-tag>
+                            </div>
                           </el-option>
                         </el-option-group>
                         <el-option-group v-if="customSshCommands.length" label="自定义命令">
                           <el-option
                             v-for="item in customSshCommands"
                             :key="item.id"
-                            :label="`[${item.tag}] ${item.name} · ${item.command}`"
+                            :label="item.name"
                             :value="item.id"
                           >
-                            <el-tooltip
-                              :content="item.command"
-                              placement="right"
-                              popper-class="ssh-command-full-tooltip"
-                              :show-after="400"
-                            >
-                              <div class="ssh-command-option">
-                                <span class="ssh-command-option-name">{{ item.name }}</span>
-                                <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
-                                  {{ item.tag }}
-                                </el-tag>
-                                <span class="ssh-command-option-value">{{ item.command }}</span>
-                              </div>
-                            </el-tooltip>
+                            <div class="ssh-command-option">
+                              <span class="ssh-command-option-name">{{ item.name }}</span>
+                              <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
+                                {{ item.tag }}
+                              </el-tag>
+                            </div>
                           </el-option>
                         </el-option-group>
                       </el-select>
@@ -363,6 +377,138 @@
                     </el-table>
                   </section>
                 </template>
+              </section>
+            </el-tab-pane>
+          </el-tabs>
+        </el-tab-pane>
+
+        <el-tab-pane label="查询版本" name="versions">
+          <el-tabs
+            v-model="versionQueryTab"
+            class="version-query-tabs"
+            @tab-change="handleVersionQueryTabChange"
+          >
+            <el-tab-pane label="子系统版本" name="subsystems">
+              <section class="subsystem-version-workspace">
+            <div v-if="!selectedIp" class="panel-empty">
+              <el-empty description="请先选择一台设备" />
+            </div>
+
+            <template v-else>
+              <div class="subsystem-version-toolbar">
+                <div class="subsystem-version-heading">
+                  <span>测试版本</span>
+                  <span class="subsystem-version-separator" aria-hidden="true">.</span>
+                  <el-tooltip
+                    :content="subsystemTestVersion"
+                    :disabled="subsystemTestVersionLabel === subsystemTestVersion"
+                    placement="top"
+                  >
+                    <code class="subsystem-test-version">{{ subsystemTestVersionLabel }}</code>
+                  </el-tooltip>
+                </div>
+                <div class="subsystem-version-actions">
+                  <el-button
+                    type="primary"
+                    :icon="Plus"
+                    @click="openVersionCaptureDialog"
+                  >新增版本</el-button>
+                  <el-button
+                    type="primary"
+                    plain
+                    :icon="Refresh"
+                    :loading="subsystemVersionsLoading"
+                    @click="loadSubsystemVersions"
+                  >刷新</el-button>
+                </div>
+              </div>
+
+              <el-alert
+                v-if="subsystemVersionsError"
+                type="error"
+                :closable="false"
+                :title="subsystemVersionsError"
+                class="subsystem-version-alert"
+              />
+
+              <el-table
+                v-loading="subsystemVersionsLoading"
+                :data="subsystemVersionRows"
+                border
+                stripe
+                empty-text="暂无子系统版本数据"
+              >
+                <el-table-column prop="name" label="子系统" min-width="150" />
+                <el-table-column prop="currentVersion" label="当前版本" min-width="120" />
+                <el-table-column prop="nextVersion" label="目标版本" min-width="120" />
+                <el-table-column prop="revision" label="Revision" min-width="110" />
+                <el-table-column label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag size="small" :type="subsystemStatusType(scope.row.ok)">
+                      {{ subsystemStatusLabel(scope.row.ok) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="固件升级" width="120">
+                  <template #default="scope">
+                    <el-tag size="small" :type="subsystemUpdateType(scope.row.updateNeeded)">
+                      {{ subsystemUpdateLabel(scope.row.updateNeeded) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="查询时间" min-width="180">
+                  <template #default="scope">
+                    {{ formatLogDate(scope.row.queriedAt) }}
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+              </section>
+            </el-tab-pane>
+
+            <el-tab-pane label="查询历史" name="history">
+              <section class="version-history-workspace">
+            <div class="subsystem-version-toolbar">
+              <div class="subsystem-version-heading">
+                <h2>版本查询历史</h2>
+                <span>{{ versionHistoryTotal }} 个产品</span>
+              </div>
+              <el-button
+                type="primary"
+                plain
+                :icon="Refresh"
+                :loading="versionHistoryLoading"
+                @click="loadVersionHistory"
+              >刷新</el-button>
+            </div>
+
+            <el-alert
+              v-if="versionHistoryError"
+              type="error"
+              :closable="false"
+              :title="versionHistoryError"
+              class="subsystem-version-alert"
+            />
+
+            <el-table
+              v-loading="versionHistoryLoading"
+              :data="versionHistoryRows"
+              border
+              stripe
+              empty-text="暂无版本查询历史"
+            >
+              <el-table-column prop="productName" label="产品" min-width="210" show-overflow-tooltip />
+              <el-table-column prop="barcode" label="条码" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="testName" label="测试过程" min-width="280" show-overflow-tooltip />
+              <el-table-column prop="testVersion" label="测试版本" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="versionSummary" label="版本信息" min-width="320" show-overflow-tooltip />
+              <el-table-column prop="robotIp" label="设备 IP" width="140" />
+              <el-table-column label="查询时间" width="180">
+                <template #default="scope">
+                  {{ formatLogDate(scope.row.queriedAt) }}
+                </template>
+              </el-table-column>
+            </el-table>
               </section>
             </el-tab-pane>
           </el-tabs>
@@ -816,6 +962,23 @@
                   >
                     <el-tab-pane label="HTTP API" name="http">
                       <div class="batch-form-grid">
+                        <label class="batch-field http-command-preset-field">
+                          <span>预设命令</span>
+                          <el-select
+                            v-model="batchHttpCommandPresetId"
+                            clearable
+                            filterable
+                            placeholder="选择后自动填入 Path"
+                            @change="applyBatchHttpCommandPreset"
+                          >
+                            <el-option
+                              v-for="preset in HTTP_COMMAND_PRESETS"
+                              :key="preset.id"
+                              :label="preset.name"
+                              :value="preset.id"
+                            />
+                          </el-select>
+                        </label>
                         <label class="batch-field">
                           <span>方法</span>
                           <el-select v-model="batchCommandMethod">
@@ -877,46 +1040,30 @@
                               <el-option
                                 v-for="item in builtinSshCommands"
                                 :key="item.id"
-                                :label="`[${item.tag}] ${item.name} · ${item.command}`"
+                                :label="item.name"
                                 :value="item.id"
                               >
-                                <el-tooltip
-                                  :content="item.command"
-                                  placement="right"
-                                  popper-class="ssh-command-full-tooltip"
-                                  :show-after="400"
-                                >
-                                  <div class="ssh-command-option">
-                                    <span class="ssh-command-option-name">{{ item.name }}</span>
-                                    <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
-                                      {{ item.tag }}
-                                    </el-tag>
-                                    <span class="ssh-command-option-value">{{ item.command }}</span>
-                                  </div>
-                                </el-tooltip>
+                                <div class="ssh-command-option">
+                                  <span class="ssh-command-option-name">{{ item.name }}</span>
+                                  <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
+                                    {{ item.tag }}
+                                  </el-tag>
+                                </div>
                               </el-option>
                             </el-option-group>
                             <el-option-group v-if="customSshCommands.length" label="自定义命令">
                               <el-option
                                 v-for="item in customSshCommands"
                                 :key="item.id"
-                                :label="`[${item.tag}] ${item.name} · ${item.command}`"
+                                :label="item.name"
                                 :value="item.id"
                               >
-                                <el-tooltip
-                                  :content="item.command"
-                                  placement="right"
-                                  popper-class="ssh-command-full-tooltip"
-                                  :show-after="400"
-                                >
-                                  <div class="ssh-command-option">
-                                    <span class="ssh-command-option-name">{{ item.name }}</span>
-                                    <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
-                                      {{ item.tag }}
-                                    </el-tag>
-                                    <span class="ssh-command-option-value">{{ item.command }}</span>
-                                  </div>
-                                </el-tooltip>
+                                <div class="ssh-command-option">
+                                  <span class="ssh-command-option-name">{{ item.name }}</span>
+                                  <el-tag size="small" :type="item.tag === 'risk' ? 'danger' : 'info'">
+                                    {{ item.tag }}
+                                  </el-tag>
+                                </div>
                               </el-option>
                             </el-option-group>
                           </el-select>
@@ -1073,6 +1220,97 @@
       </template>
     </el-dialog>
 
+    <el-dialog
+      v-model="versionCaptureDialogVisible"
+      title="新增版本"
+      width="min(760px, calc(100vw - 32px))"
+      destroy-on-close
+    >
+      <div v-loading="versionProductsLoading" class="version-capture-form">
+        <label class="command-field">
+          <span>当前设备</span>
+          <el-input :model-value="selectedIp || ''" readonly />
+        </label>
+        <label class="command-field">
+          <span>产品</span>
+          <el-select v-model="versionCaptureProductType" placeholder="选择产品">
+            <el-option
+              v-for="product in versionProducts"
+              :key="product.key"
+              :label="product.label"
+              :value="product.key"
+            />
+          </el-select>
+        </label>
+        <label class="command-field version-capture-test-field">
+          <span>测试过程</span>
+          <el-select
+            v-model="versionCaptureTestName"
+            filterable
+            placeholder="选择测试过程"
+          >
+            <el-option
+              v-for="testName in versionCaptureTestOptions"
+              :key="testName"
+              :label="testName"
+              :value="testName"
+            />
+          </el-select>
+        </label>
+      </div>
+
+      <el-alert
+        v-if="versionCaptureError"
+        type="error"
+        :closable="false"
+        :title="versionCaptureError"
+        class="version-capture-alert"
+      />
+
+      <template v-if="versionCaptureResult">
+        <el-divider />
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="条码">{{ versionCaptureResult.test.sn }}</el-descriptions-item>
+          <el-descriptions-item label="测试版本">{{ versionCaptureResult.test.test_version }}</el-descriptions-item>
+          <el-descriptions-item label="存储位置">
+            {{ versionCaptureResult.storage === 'sqlite' ? 'SQLite' : 'MongoDB' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="查询时间">
+            {{ formatLogDate(versionCaptureResult.test.queried_at) }}
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-table
+          :data="versionCapturePreviewRows"
+          border
+          size="small"
+          class="version-capture-preview"
+        >
+          <el-table-column prop="name" label="名称" min-width="150" />
+          <el-table-column prop="firmwareVersion" label="固件版本" min-width="120" />
+          <el-table-column prop="nextVersion" label="目标版本" min-width="120" />
+          <el-table-column prop="revision" label="Revision" min-width="110" />
+          <el-table-column label="状态" width="90">
+            <template #default="scope">
+              <el-tag size="small" :type="subsystemStatusType(scope.row.ok)">
+                {{ subsystemStatusLabel(scope.row.ok) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+
+      <template #footer>
+        <el-button @click="versionCaptureDialogVisible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="versionCaptureLoading"
+          :disabled="!canCaptureVersion"
+          @click="captureVersion"
+        >读取版本</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer
       v-model="infoDrawerVisible"
       :title="infoDrawerTitle"
@@ -1102,7 +1340,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Loading, Refresh, Tickets } from '@element-plus/icons-vue'
+import { ArrowLeft, Loading, Plus, Refresh, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   robotApi,
@@ -1113,10 +1351,16 @@ import {
   type RobotLogDownloadTask,
   type RobotLogFolderOption,
   type RobotSshCommand,
-  type RobotSshCommandExecuteResult
+  type RobotSshCommandExecuteResult,
+  type RobotVersionCaptureResponse,
+  type RobotVersionHistoryRecord,
+  type RobotVersionProduct,
+  type RobotVersionProductType,
+  type RobotVersionTestEntry
 } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import DeviceControlPanel from '@/views/devices/components/DeviceControlPanel.vue'
+import DeviceBarcodeProvisionPanel from '@/views/devices/components/DeviceBarcodeProvisionPanel.vue'
 import DeviceProtocolsPanel from '@/views/devices/components/DeviceProtocolsPanel.vue'
 import DeviceFilesPanel from '@/views/devices/components/DeviceFilesPanel.vue'
 import DeviceTestingDataPanel from '@/views/devices/components/DeviceTestingDataPanel.vue'
@@ -1127,6 +1371,7 @@ const router = useRouter()
 const robotScanStore = useRobotScanStore()
 
 const activeTab = ref('control')
+const versionQueryTab = ref('subsystems')
 const manualIpInput = ref('')
 const selectedIp = ref<string | null>(null)
 const selectedIps = ref<string[]>([])
@@ -1145,6 +1390,7 @@ const batchRunning = ref(false)
 const batchUploadPath = ref('')
 const batchUploadFile = ref<File | null>(null)
 const batchDownloadPath = ref('')
+const batchHttpCommandPresetId = ref('')
 const batchCommandMethod = ref('GET')
 const batchCommandPath = ref('/health')
 const batchCommandBody = ref('')
@@ -1173,12 +1419,33 @@ const logRecordTotal = ref(0)
 const deletingLogRecordId = ref('')
 let logPollTimer: ReturnType<typeof setTimeout> | null = null
 let logRecordPollTimer: ReturnType<typeof setTimeout> | null = null
+const singleHttpCommandPresetId = ref('')
 const singleCommandMethod = ref('GET')
 const singleCommandPath = ref('/health')
 const singleCommandBody = ref('')
 const singleCommandRunning = ref(false)
 const singleCommandResult = ref<SingleCommandResult | null>(null)
 const singleCommandMode = ref('http')
+const subsystemVersionRows = ref<SubsystemVersionRow[]>([])
+const subsystemVersionsLoading = ref(false)
+const subsystemVersionsError = ref('')
+const subsystemTestVersion = ref('N/A')
+const subsystemTestVersionLabel = computed(() => {
+  const normalized = subsystemTestVersion.value.trim()
+  return normalized.match(/(?:^|-)([0-9a-f]{7,40})(?=-|$)/i)?.[1] ?? normalized
+})
+const versionCaptureDialogVisible = ref(false)
+const versionCaptureProductType = ref<RobotVersionProductType>('robot')
+const versionCaptureTestName = ref('')
+const versionCaptureLoading = ref(false)
+const versionCaptureError = ref('')
+const versionCaptureResult = ref<RobotVersionCaptureResponse | null>(null)
+const versionProducts = ref<RobotVersionProduct[]>([])
+const versionProductsLoading = ref(false)
+const versionHistoryRecords = ref<RobotVersionHistoryRecord[]>([])
+const versionHistoryLoading = ref(false)
+const versionHistoryError = ref('')
+const versionHistoryTotal = ref(0)
 const builtinSshCommands = ref<RobotSshCommand[]>([])
 const customSshCommands = ref<RobotSshCommand[]>([])
 const sshCommandsLoading = ref(false)
@@ -1201,6 +1468,14 @@ const sshCommandForm = ref({
 
 const RISK_COMMAND_WARNING = '该命令存在风险，请确保执行设备为测试工装！'
 
+const HTTP_COMMAND_PRESETS = [
+  { id: 'subsystems', name: '全部子系统状态', path: '/subsystems/status' },
+  { id: 'gantry-x', name: 'X 轴状态', path: '/subsystems/status/gantry_x' },
+  { id: 'gantry-y', name: 'Y 轴状态', path: '/subsystems/status/gantry_y' },
+  { id: 'head', name: 'Head 状态', path: '/subsystems/status/head' },
+  { id: 'rear-panel', name: '后面板状态', path: '/subsystems/status/rear_panel' }
+] as const
+
 interface BatchOperationResult {
   ip: string
   action: string
@@ -1218,6 +1493,35 @@ interface SingleCommandResult {
   statusCode?: number
   response?: unknown
   error?: string
+}
+
+interface SubsystemVersionRow {
+  name: string
+  currentVersion: string
+  nextVersion: string
+  revision: string
+  ok: boolean | null
+  updateNeeded: boolean | null
+  queriedAt: string
+}
+
+interface VersionPreviewRow {
+  name: string
+  firmwareVersion: string
+  nextVersion: string
+  revision: string
+  ok: boolean | null
+}
+
+interface VersionHistoryRow {
+  id: string
+  productName: string
+  barcode: string
+  testName: string
+  testVersion: string
+  versionSummary: string
+  robotIp: string
+  queriedAt: string
 }
 
 const isBatchMode = computed(() => activeTab.value === 'batch')
@@ -1258,6 +1562,58 @@ const selectedRobots = computed(() => {
     service_status: 'unknown' as const
   })
 })
+
+const selectedVersionProduct = computed(() => (
+  versionProducts.value.find(product => product.key === versionCaptureProductType.value) ?? null
+))
+
+const versionCaptureTestOptions = computed(() => selectedVersionProduct.value?.test_names ?? [])
+
+const canCaptureVersion = computed(() => Boolean(
+  selectedIp.value
+  && versionCaptureProductType.value
+  && versionCaptureTestName.value
+  && !versionCaptureLoading.value
+))
+
+const versionCapturePreviewRows = computed<VersionPreviewRow[]>(() => {
+  const test = versionCaptureResult.value?.test
+  if (!test) return []
+  if (test.subsystems?.length) {
+    return test.subsystems.map(subsystem => ({
+      name: subsystem.name,
+      firmwareVersion: subsystem.firmware_version,
+      nextVersion: subsystem.next_firmware_version,
+      revision: subsystem.revision,
+      ok: subsystem.ok
+    }))
+  }
+  if (test.instrument) {
+    return [{
+      name: test.instrument.name || test.instrument.model,
+      firmwareVersion: test.instrument.firmware_version,
+      nextVersion: 'N/A',
+      revision: 'N/A',
+      ok: test.instrument.ok
+    }]
+  }
+  return []
+})
+
+const versionHistoryRows = computed<VersionHistoryRow[]>(() => (
+  versionHistoryRecords.value.flatMap(record => (
+    Object.entries(record.tests || {}).map(([testKey, test]) => ({
+      id: `${record._id}-${testKey}`,
+      productName: record.product_name,
+      barcode: record.barcode,
+      testName: test.test_name,
+      testVersion: test.test_version || 'N/A',
+      versionSummary: summarizeVersionTest(test),
+      robotIp: test.robot_ip || record.robot_ip,
+      queriedAt: test.queried_at
+    }))
+  ))
+))
 
 const canReadBatchFile = computed(() => Boolean(batchReferenceIp.value && batchEditPath.value.trim()))
 const canWriteBatchFile = computed(() => selectedIps.value.length > 0 && Boolean(batchEditPath.value.trim()))
@@ -1800,6 +2156,165 @@ function parseCommandBody(text: string): Record<string, unknown> | undefined {
   return parsed as Record<string, unknown>
 }
 
+function findHttpCommandPreset(presetId: string) {
+  return HTTP_COMMAND_PRESETS.find(preset => preset.id === presetId)
+}
+
+function applySingleHttpCommandPreset(presetId: string) {
+  const preset = findHttpCommandPreset(presetId)
+  if (!preset) return
+  singleCommandMethod.value = 'GET'
+  singleCommandPath.value = preset.path
+}
+
+function applyBatchHttpCommandPreset(presetId: string) {
+  const preset = findHttpCommandPreset(presetId)
+  if (!preset) return
+  batchCommandMethod.value = 'GET'
+  batchCommandPath.value = preset.path
+}
+
+function subsystemStatusLabel(ok: boolean | null): string {
+  if (ok === true) return '正常'
+  if (ok === false) return '异常'
+  return '未知'
+}
+
+function subsystemStatusType(ok: boolean | null) {
+  if (ok === true) return 'success'
+  if (ok === false) return 'danger'
+  return 'info'
+}
+
+function subsystemUpdateLabel(updateNeeded: boolean | null): string {
+  if (updateNeeded === true) return '需要升级'
+  if (updateNeeded === false) return '已是最新'
+  return '未知'
+}
+
+function subsystemUpdateType(updateNeeded: boolean | null) {
+  if (updateNeeded === true) return 'warning'
+  if (updateNeeded === false) return 'success'
+  return 'info'
+}
+
+function summarizeVersionTest(test: RobotVersionTestEntry): string {
+  if (test.subsystems?.length) {
+    return test.subsystems
+      .map(subsystem => `${subsystem.name}: FW ${subsystem.firmware_version}, Rev ${subsystem.revision}`)
+      .join('；')
+  }
+  if (test.instrument) {
+    const name = test.instrument.name || test.instrument.model
+    return `${name}: FW ${test.instrument.firmware_version}`
+  }
+  return 'N/A'
+}
+
+async function loadVersionProducts() {
+  if (versionProducts.value.length || versionProductsLoading.value) return
+  versionProductsLoading.value = true
+  versionCaptureError.value = ''
+  try {
+    const response = await robotApi.getVersionProducts()
+    versionProducts.value = response.data.products
+    if (!versionProducts.value.some(product => product.key === versionCaptureProductType.value)) {
+      versionCaptureProductType.value = 'robot'
+    }
+    versionCaptureTestName.value = selectedVersionProduct.value?.test_names[0] || ''
+  } catch (error: any) {
+    versionCaptureError.value = '加载产品与测试过程失败：' + normalizeError(error)
+  } finally {
+    versionProductsLoading.value = false
+  }
+}
+
+async function openVersionCaptureDialog() {
+  if (!selectedIp.value) return
+  versionCaptureProductType.value = 'robot'
+  versionCaptureTestName.value = ''
+  versionCaptureResult.value = null
+  versionCaptureError.value = ''
+  versionCaptureDialogVisible.value = true
+  await loadVersionProducts()
+  versionCaptureTestName.value = selectedVersionProduct.value?.test_names[0] || ''
+}
+
+async function captureVersion() {
+  if (!canCaptureVersion.value || !selectedIp.value) return
+  versionCaptureLoading.value = true
+  versionCaptureError.value = ''
+  versionCaptureResult.value = null
+  try {
+    const response = await robotApi.captureVersion({
+      ip: selectedIp.value,
+      port: currentDevice.value?.port ?? 31950,
+      product_type: versionCaptureProductType.value,
+      test_name: versionCaptureTestName.value
+    })
+    versionCaptureResult.value = response.data
+    subsystemTestVersion.value = response.data.test.test_version || 'N/A'
+    await loadVersionHistory()
+    ElMessage.success('版本已读取并保存')
+  } catch (error: any) {
+    versionCaptureError.value = '读取版本失败：' + normalizeError(error)
+  } finally {
+    versionCaptureLoading.value = false
+  }
+}
+
+async function loadVersionHistory() {
+  if (versionHistoryLoading.value) return
+  versionHistoryLoading.value = true
+  versionHistoryError.value = ''
+  try {
+    const response = await robotApi.getVersionHistory({ page: 1, page_size: 200 })
+    versionHistoryRecords.value = response.data.records
+    versionHistoryTotal.value = response.data.total
+  } catch (error: any) {
+    versionHistoryRecords.value = []
+    versionHistoryTotal.value = 0
+    versionHistoryError.value = '加载版本查询历史失败：' + normalizeError(error)
+  } finally {
+    versionHistoryLoading.value = false
+  }
+}
+
+async function loadSubsystemVersions() {
+  if (!selectedIp.value || subsystemVersionsLoading.value) return
+  const requestIp = selectedIp.value
+  subsystemVersionsLoading.value = true
+  subsystemVersionsError.value = ''
+  try {
+    const response = await robotApi.getCurrentVersions(requestIp, currentDevice.value?.port ?? 31950)
+    const queriedAt = response.data.queried_at
+    const rows = response.data.subsystems.map(subsystem => ({
+      name: subsystem.name,
+      currentVersion: subsystem.firmware_version,
+      nextVersion: subsystem.next_firmware_version,
+      revision: subsystem.revision,
+      ok: subsystem.ok,
+      updateNeeded: subsystem.fw_update_needed,
+      queriedAt
+    }))
+    if (!rows.length) {
+      throw new Error('接口未返回子系统版本数据')
+    }
+    if (selectedIp.value === requestIp) {
+      subsystemVersionRows.value = rows
+      subsystemTestVersion.value = response.data.test_version || 'N/A'
+    }
+  } catch (error: any) {
+    if (selectedIp.value === requestIp) {
+      subsystemVersionRows.value = []
+      subsystemTestVersion.value = 'N/A'
+      subsystemVersionsError.value = '查询子系统版本失败：' + normalizeError(error)
+    }
+  } finally {
+    subsystemVersionsLoading.value = false
+  }
+}
+
 async function runSingleCommand() {
   if (!selectedIp.value) return
   let body: Record<string, unknown> | undefined
@@ -2100,6 +2615,10 @@ async function refreshRobots() {
   }
 }
 
+function returnToDeviceList() {
+  router.push({ name: 'Devices' })
+}
+
 function openInfoDrawer() {
   if (!selectedIp.value) return
   infoDrawerVisible.value = true
@@ -2115,7 +2634,7 @@ async function refreshDeviceInfo() {
   }
 }
 
-function handleTabChange(tabName: string | number) {
+async function handleTabChange(tabName: string | number) {
   if (tabName === 'batch') {
     if (selectedIp.value && !selectedIps.value.includes(selectedIp.value)) {
       selectedIps.value = [selectedIp.value]
@@ -2128,6 +2647,24 @@ function handleTabChange(tabName: string | number) {
 
   if (!selectedIp.value) {
     selectedIp.value = selectedIps.value[0] ?? availableRobots.value[0]?.ip ?? null
+  }
+
+  if (tabName === 'versions') {
+    if (versionQueryTab.value === 'history') {
+      await loadVersionHistory()
+    } else {
+      await loadSubsystemVersions()
+    }
+  }
+}
+
+async function handleVersionQueryTabChange(tabName: string | number) {
+  if (tabName === 'history') {
+    await loadVersionHistory()
+    return
+  }
+  if (tabName === 'subsystems') {
+    await loadSubsystemVersions()
   }
 }
 
@@ -2154,6 +2691,12 @@ watch(selectedIps, (ips) => {
   if (!ips.includes(batchReferenceIp.value)) {
     batchReferenceIp.value = ips[0] ?? ''
   }
+})
+
+watch(versionCaptureProductType, () => {
+  versionCaptureTestName.value = selectedVersionProduct.value?.test_names[0] || ''
+  versionCaptureResult.value = null
+  versionCaptureError.value = ''
 })
 
 watch(batchActionTab, async (tabName) => {
@@ -2252,6 +2795,12 @@ onMounted(async () => {
 
 .device-identity {
   gap: 12px;
+}
+
+.device-back-button {
+  flex: none;
+  width: 32px;
+  height: 32px;
 }
 
 .device-copy {
@@ -2372,6 +2921,85 @@ onMounted(async () => {
   justify-content: center;
 }
 
+.subsystem-version-workspace,
+.version-history-workspace {
+  min-width: 0;
+}
+
+.version-query-tabs :deep(> .el-tabs__header) {
+  margin-bottom: 16px;
+}
+
+.subsystem-version-toolbar {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.subsystem-version-heading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.subsystem-version-heading h2 {
+  margin: 0;
+  color: var(--console-text);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.subsystem-version-heading span {
+  overflow: hidden;
+  color: var(--console-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subsystem-version-heading .subsystem-version-separator {
+  color: #9ca3af;
+}
+
+.subsystem-version-heading .subsystem-test-version {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 7px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: #1f2937;
+  cursor: help;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subsystem-version-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subsystem-version-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.subsystem-version-alert {
+  margin-bottom: 14px;
+}
+
 .command-console {
   max-width: 860px;
 }
@@ -2389,6 +3017,10 @@ onMounted(async () => {
   grid-template-columns: 180px minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.http-command-preset-field {
+  grid-column: 1 / -1;
 }
 
 .command-field {
@@ -2519,23 +3151,17 @@ onMounted(async () => {
 }
 
 .ssh-command-option-name {
-  flex: none;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
   color: #1f2a37;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ssh-command-option :deep(.el-tag) {
   flex: none;
-}
-
-.ssh-command-option-value {
-  min-width: 0;
-  overflow: hidden;
-  color: #6b7280;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 :global(.ssh-command-full-tooltip) {
@@ -2641,6 +3267,21 @@ onMounted(async () => {
 .ssh-command-dialog-form {
   display: grid;
   gap: 16px;
+}
+
+.version-capture-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.version-capture-test-field {
+  grid-column: 1 / -1;
+}
+
+.version-capture-alert,
+.version-capture-preview {
+  margin-top: 16px;
 }
 
 .batch-workspace {
@@ -3280,6 +3921,24 @@ onMounted(async () => {
 
   .device-meta {
     justify-content: flex-start;
+  }
+
+  .subsystem-version-toolbar,
+  .subsystem-version-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .subsystem-version-actions {
+    width: 100%;
+  }
+
+  .subsystem-version-actions :deep(.el-button) {
+    flex: 1;
+  }
+
+  .version-capture-form {
+    grid-template-columns: 1fr;
   }
 
   .batch-workspace {

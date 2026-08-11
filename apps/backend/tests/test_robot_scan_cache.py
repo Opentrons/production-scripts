@@ -110,6 +110,64 @@ def test_offline_robot_skips_slow_http_health_request(monkeypatch: pytest.Monkey
     assert result["error"] == "connection timeout"
 
 
+def test_merge_robot_health_fields_normalizes_model_and_api_level() -> None:
+    robot_info: dict = {}
+
+    robots._merge_robot_health_fields(
+        robot_info,
+        {
+            "robot_model": "OT-3 Standard",
+            "minimum_protocol_api_version": [2, 15],
+            "maximum_protocol_api_version": [2, 29],
+        },
+    )
+
+    assert robot_info["robot_model"] == "OT-3 Standard"
+    assert robot_info["min_api_version"] == "2.15"
+    assert robot_info["max_api_version"] == "2.29"
+
+
+def test_robot_scan_uses_update_server_serial_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def __init__(self, payload: dict) -> None:
+            self.status_code = 200
+            self._payload = payload
+
+        def json(self) -> dict:
+            return self._payload
+
+    responses = iter(
+        (
+            FakeResponse({"name": "GRAV1", "robot_model": "OT-3 Standard"}),
+            FakeResponse({"serialNumber": "FLXA1020230817003"}),
+        )
+    )
+    monkeypatch.setattr(robots, "_is_port_open", lambda ip, port: True)
+    monkeypatch.setattr(robots.requests, "get", lambda *args, **kwargs: next(responses))
+
+    result = robots.check_robot_health_sync("192.168.6.123")
+
+    assert result["serial_number"] == "FLXA1020230817003"
+    assert result["service_status"] == "normal"
+    assert result["health_fetch_failed"] is False
+
+
+def test_robot_scan_uses_serial_formatted_name_but_rejects_alias() -> None:
+    serial_named: dict = {}
+    aliased: dict = {}
+
+    robots._merge_robot_health_fields(serial_named, {"name": "FLXA3020260808003"})
+    robots._merge_robot_health_fields(
+        aliased,
+        {"name": "GRAV1", "serialNumber": "unknown"},
+    )
+
+    assert serial_named["serial_number"] == "FLXA3020260808003"
+    assert aliased["serial_number"] is None
+
+
 def test_triggered_refresh_updates_cache_without_blocking_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -279,9 +279,12 @@ class RobotInfo(BaseModel):
     version: str | None = None
     name: str | None = None
     robot_type: str | None = None
+    robot_model: str | None = None
     serial_number: str | None = None
     error: str | None = None
     api_version: str | None = None
+    min_api_version: str | None = None
+    max_api_version: str | None = None
     fw_version: str | None = None
     health_fetch_failed: bool = False
 
@@ -329,6 +332,20 @@ class RobotSshCommandCreateRequest(BaseModel):
 
 class RobotSshCommandUpdateRequest(RobotSshCommandCreateRequest):
     pass
+
+
+class RobotVersionCaptureRequest(BaseModel):
+    ip: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=31950, ge=1, le=65535)
+    product_type: Literal[
+        "robot",
+        "pipette_single_channel",
+        "pipette_8_channels",
+        "pipette_96_channels_200ul",
+        "pipette_96_channels_1000ul",
+        "gripper",
+    ]
+    test_name: str = Field(min_length=1, max_length=200)
 
 
 class RobotsScanResponse(BaseModel):
@@ -437,6 +454,24 @@ class RobotJogDropTipRequest(BaseModel):
     pipette_id: str = Field(min_length=1, max_length=100)
     home_after: bool | None = None
     port: int = 31950
+
+
+class RobotBarcodeProvisionRequest(BaseModel):
+    kind: Literal["robot", "pipette", "gripper", "hepauv"]
+    serial: str = Field(min_length=1, max_length=64)
+    mount: Literal["left", "right"] | None = None
+    target_id: str | None = None
+    port: int = 31950
+
+
+class RobotBarcodeTargetsResponse(BaseModel):
+    ip: str
+    port: int
+    http_connected: bool = False
+    ssh_connected: bool = False
+    simulating: bool = False
+    targets: list[dict[str, Any]] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
 
 
 class RobotFileWriteRequest(BaseModel):

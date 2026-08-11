@@ -16,10 +16,12 @@ from api.models import (
     RobotSshCommandCreateRequest,
     RobotSshCommandExecuteRequest,
     RobotSshCommandUpdateRequest,
+    RobotVersionCaptureRequest,
     RobotsScanResponse,
 )
 from modules.robots import robots as robot_service
 from modules.robots import ssh_commands as ssh_command_service
+from modules.robots import version_records as version_record_service
 
 
 router = APIRouter()
@@ -95,6 +97,60 @@ async def get_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None 
 @router.get("/robot/{ip}", response_model=RobotInfo)
 async def get_robot_detail(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
     return await run_in_threadpool(robot_service.get_robot_detail, ip, port)
+
+
+@router.get("/robots/version-products")
+async def list_robot_version_products():
+    return version_record_service.list_products()
+
+
+@router.get("/robots/{ip}/versions/current")
+async def get_current_robot_versions(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
+    try:
+        return await run_in_threadpool(
+            version_record_service.get_current_robot_versions,
+            ip,
+            port,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": f"读取设备版本失败: {exc}"},
+        ) from exc
+
+
+@router.post("/robots/version-records")
+async def capture_robot_version(request: RobotVersionCaptureRequest):
+    try:
+        return await run_in_threadpool(
+            version_record_service.capture_version,
+            ip=request.ip,
+            port=request.port,
+            product_type=request.product_type,
+            test_name=request.test_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        status_code = 503 if "MongoDB" in str(exc) else 502
+        raise HTTPException(status_code=status_code, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": f"读取或保存版本失败: {exc}"},
+        ) from exc
+
+
+@router.get("/robots/version-history")
+async def list_robot_version_history(page: int = 1, page_size: int = 100):
+    try:
+        return await run_in_threadpool(
+            version_record_service.list_history,
+            page=page,
+            page_size=page_size,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
 
 
 @router.post("/robots/commands", response_model=RobotBatchCommandResponse)

@@ -21,6 +21,7 @@ from modules.robots.api_client.spec import (
     PATH_SETTINGS_RESET,
     PATH_SETTINGS_RESET_OPTIONS,
     PATH_SETTINGS_ROBOT,
+    PATH_UPDATE_SERVER_HEALTH,
 )
 
 
@@ -137,6 +138,9 @@ class OpentronsHttpClient:
 
     def get_health(self) -> dict[str, Any]:
         return self.request("GET", PATH_HEALTH)
+
+    def get_update_server_health(self) -> dict[str, Any]:
+        return self.request("GET", PATH_UPDATE_SERVER_HEALTH)
 
     def get_instruments(self) -> dict[str, Any]:
         return self.request("GET", PATH_INSTRUMENTS)

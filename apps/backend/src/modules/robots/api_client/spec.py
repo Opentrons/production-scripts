@@ -12,6 +12,7 @@ DEFAULT_PORT = 31950
 
 # Common paths referenced by the control UI.
 PATH_HEALTH = "/health"
+PATH_UPDATE_SERVER_HEALTH = "/server/update/health"
 PATH_INSTRUMENTS = "/instruments"
 PATH_MODULES = "/modules"
 PATH_COMMANDS = "/commands"

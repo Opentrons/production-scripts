@@ -4,6 +4,8 @@ from fastapi.concurrency import run_in_threadpool
 import core.config as setting
 from api.models import (
     RobotActionResponse,
+    RobotBarcodeProvisionRequest,
+    RobotBarcodeTargetsResponse,
     RobotControlSummaryResponse,
     RobotHomeRequest,
     RobotJogDropTipRequest,
@@ -13,6 +15,7 @@ from api.models import (
     RobotMoveRequest,
     RobotResetRequest,
 )
+from modules.robots import barcode_provision as barcode_provision_service
 from modules.robots import opentrons_control as opentrons_control_service
 from modules.robots.api_client.client import OpentronsApiError
 
@@ -145,3 +148,33 @@ async def delete_jog_run(ip: str, run_id: str, port: int = setting.ROBOT_HEALTH_
 async def reboot_robot(ip: str):
     result = await run_in_threadpool(opentrons_control_service.reboot_robot, ip)
     return RobotActionResponse(success=True, message=result.get("message"))
+
+
+@router.get("/robots/{ip}/barcode/targets", response_model=RobotBarcodeTargetsResponse)
+async def get_barcode_targets(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
+    data = await run_in_threadpool(barcode_provision_service.list_provision_targets, ip, port)
+    return RobotBarcodeTargetsResponse(**data)
+
+
+@router.post("/robots/{ip}/barcode/provision", response_model=RobotActionResponse)
+async def provision_barcode(ip: str, request: RobotBarcodeProvisionRequest):
+    try:
+        data = await run_in_threadpool(
+            barcode_provision_service.provision_barcode,
+            ip,
+            kind=request.kind,
+            serial=request.serial,
+            mount=request.mount,
+            target_id=request.target_id,
+            port=request.port,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail={"message": str(exc)}) from exc
+
+    return RobotActionResponse(
+        success=bool(data.get("success")),
+        message=data.get("message"),
+        data=data,
+    )

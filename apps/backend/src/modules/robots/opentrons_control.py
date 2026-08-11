@@ -7,6 +7,7 @@ import core.config as setting
 from modules.robots.api_client.client import OpentronsApiError, OpentronsHttpClient
 from modules.robots.files.file_service import OpentronsFileService
 from modules.robots.files.ssh_client import OpentronsSshClient, OpentronsSshError
+from modules.robots.identity import resolve_robot_serial
 
 from core.logging import get_logger
 
@@ -33,7 +34,15 @@ def get_device_control_summary(ip: str, port: int | None = None) -> dict[str, An
     }
 
     try:
-        summary["health"] = client.get_health()
+        health = client.get_health()
+        try:
+            update_health = client.get_update_server_health()
+        except OpentronsApiError:
+            update_health = {}
+        serial_number = resolve_robot_serial(health, update_health)
+        if serial_number:
+            health = {**health, "robot_serial": serial_number}
+        summary["health"] = health
         summary["http_connected"] = True
     except OpentronsApiError as exc:
         summary["errors"].append(f"HTTP health: {exc}")

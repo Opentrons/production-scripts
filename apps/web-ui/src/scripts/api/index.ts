@@ -41,9 +41,12 @@ export interface RobotInfo {
   version?: string
   name?: string
   robot_type?: string
+  robot_model?: string
   serial_number?: string
   error?: string
   api_version?: string
+  min_api_version?: string
+  max_api_version?: string
   fw_version?: string
   health_fetch_failed?: boolean
 }
@@ -67,6 +70,89 @@ export interface RobotCommandResult {
 
 export interface RobotBatchCommandResponse {
   results: RobotCommandResult[]
+}
+
+export type RobotVersionProductType =
+  | 'robot'
+  | 'pipette_single_channel'
+  | 'pipette_8_channels'
+  | 'pipette_96_channels_200ul'
+  | 'pipette_96_channels_1000ul'
+  | 'gripper'
+
+export interface RobotVersionProduct {
+  key: RobotVersionProductType
+  label: string
+  test_names: string[]
+}
+
+export interface RobotSubsystemVersion {
+  name: string
+  firmware_version: string
+  next_firmware_version: string
+  revision: string
+  ok: boolean | null
+  fw_update_needed: boolean | null
+}
+
+export interface RobotInstrumentVersion {
+  name: string
+  model: string
+  type: string
+  mount: string
+  subsystem: string
+  firmware_version: string
+  ok: boolean | null
+}
+
+export interface RobotVersionTestEntry {
+  test_name: string
+  sn: string
+  robot_ip: string
+  test_version: string
+  queried_at: string
+  robot?: Record<string, unknown>
+  subsystems?: RobotSubsystemVersion[]
+  instrument?: RobotInstrumentVersion
+}
+
+export interface RobotVersionHistoryRecord {
+  _id: string
+  barcode: string
+  sn: string
+  product_type: RobotVersionProductType
+  product_name: string
+  robot_ip: string
+  tests: Record<string, RobotVersionTestEntry>
+  created_at: string
+  updated_at: string
+}
+
+export interface RobotCurrentVersionsResponse {
+  ip: string
+  port: number
+  barcode: string
+  test_version: string
+  queried_at: string
+  robot: Record<string, unknown>
+  subsystems: RobotSubsystemVersion[]
+}
+
+export interface RobotVersionCaptureResponse {
+  success: boolean
+  created: boolean
+  storage: 'mongodb' | 'sqlite'
+  test_key: string
+  test: RobotVersionTestEntry
+  record: RobotVersionHistoryRecord
+}
+
+export interface RobotVersionHistoryResponse {
+  records: RobotVersionHistoryRecord[]
+  total: number
+  page: number
+  page_size: number
+  storage: 'mongodb' | 'sqlite'
 }
 
 export interface RobotSshCommand {
@@ -176,6 +262,30 @@ export interface RobotActionResponse {
   data?: Record<string, unknown>
 }
 
+export interface RobotBarcodeTarget {
+  id: string
+  kind: 'robot' | 'pipette' | 'gripper' | 'hepauv' | 'module' | string
+  label: string
+  mount?: string | null
+  slot?: string | null
+  product?: string | null
+  current_serial?: string | null
+  provisionable: boolean
+  script?: string | null
+  hint?: string | null
+  reason?: string | null
+}
+
+export interface RobotBarcodeTargetsResponse {
+  ip: string
+  port: number
+  http_connected: boolean
+  ssh_connected: boolean
+  simulating?: boolean
+  targets: RobotBarcodeTarget[]
+  errors: string[]
+}
+
 export interface RobotLogFolderOption {
   key: string
   label: string
@@ -278,6 +388,18 @@ export const robotApi = {
   deleteScanGateway: (gateway: string) =>
     api.delete<RobotActionResponse>(`/robots/scan-gateways/${encodeURIComponent(gateway)}`),
   getRobotDetail: (ip: string, port?: number) => api.get<RobotInfo>(`/robot/${ip}`, { params: { port } }),
+  getVersionProducts: () =>
+    api.get<{ products: RobotVersionProduct[] }>('/robots/version-products'),
+  getCurrentVersions: (ip: string, port?: number) =>
+    api.get<RobotCurrentVersionsResponse>(`/robots/${encodeURIComponent(ip)}/versions/current`, { params: { port } }),
+  captureVersion: (payload: {
+    ip: string
+    port?: number
+    product_type: RobotVersionProductType
+    test_name: string
+  }) => api.post<RobotVersionCaptureResponse>('/robots/version-records', payload, { timeout: 0 }),
+  getVersionHistory: (params?: { page?: number; page_size?: number }) =>
+    api.get<RobotVersionHistoryResponse>('/robots/version-history', { params }),
   executeCommands: (payload: RobotCommandRequest) =>
     api.post<RobotBatchCommandResponse>('/robots/commands', payload, { timeout: 0 }),
   getSshCommands: () =>
@@ -374,6 +496,24 @@ export const robotApi = {
       timeout: 0
     }),
   rebootRobot: (ip: string) => api.post<RobotActionResponse>(`/robots/${ip}/control/reboot`),
+  getBarcodeTargets: (ip: string, port?: number) =>
+    api.get<RobotBarcodeTargetsResponse>(`/robots/${ip}/barcode/targets`, {
+      params: { port: port ?? 31950 },
+      timeout: 30000
+    }),
+  provisionBarcode: (
+    ip: string,
+    payload: {
+      kind: 'robot' | 'pipette' | 'gripper' | 'hepauv'
+      serial: string
+      mount?: 'left' | 'right'
+      target_id?: string
+      port?: number
+    }
+  ) =>
+    api.post<RobotActionResponse>(`/robots/${ip}/barcode/provision`, payload, {
+      timeout: 0
+    }),
   listFiles: (ip: string, path = '/') =>
     api.get<RobotFileListResponse>(`/robots/${ip}/files`, { params: { path }, timeout: 30000 }),
   readFile: (ip: string, path: string) =>

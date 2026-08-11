@@ -41,7 +41,7 @@
         <div class="info-row"><span>IP</span><span>{{ ip }}</span></div>
         <div class="info-row"><span>名称</span><span>{{ healthName }}</span></div>
         <div class="info-row"><span>型号</span><span>{{ healthModel }}</span></div>
-        <div class="info-row"><span>序列号</span><span>{{ healthSerial }}</span></div>
+        <div class="info-row"><span>条码 SN</span><span>{{ healthSerial }}</span></div>
         <div class="info-row"><span>API 版本</span><span>{{ healthApiVersion }}</span></div>
         <div class="info-row"><span>FW 版本</span><span>{{ healthFwVersion }}</span></div>
         <div class="info-row"><span>系统版本</span><span>{{ healthSystemVersion }}</span></div>
@@ -221,8 +221,7 @@ interface ResourceItem {
 type UnknownRecord = Record<string, unknown>
 
 function stringField(value: unknown): string {
-  if (value === null || value === undefined || String(value).trim() === '') return 'N/A'
-  return String(value)
+  return scalarText(value) || 'N/A'
 }
 
 function formatJson(value: unknown): string {
@@ -235,10 +234,17 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value as UnknownRecord
 }
 
+function scalarText(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+  return ''
+}
+
 function firstString(...values: unknown[]): string {
   for (const value of values) {
-    if (value === null || value === undefined) continue
-    const text = String(value).trim()
+    const text = scalarText(value)
     if (text && text !== 'null' && text !== 'undefined' && text !== 'None') return text
   }
   return ''
@@ -339,7 +345,16 @@ function resolveSerial(record: UnknownRecord): string {
 }
 
 function resolveStatus(record: UnknownRecord): string {
-  const status = firstNestedString(record, ['status', 'state', 'ok', 'connected', 'hasInstrument', 'attached'])
+  const status = firstNestedString(record, [
+    'status',
+    'state.status',
+    'state.name',
+    'state',
+    'ok',
+    'connected',
+    'hasInstrument',
+    'attached'
+  ])
   if (!status) return ''
   if (status === 'true') return 'connected'
   if (status === 'false') return 'disconnected'

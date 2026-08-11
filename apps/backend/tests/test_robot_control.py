@@ -14,6 +14,37 @@ from modules.robots import opentrons_control
 from modules.robots.api_client.client import OpentronsApiError, OpentronsHttpClient
 
 
+def test_control_summary_uses_update_server_serial_fallback(monkeypatch):
+    class FakeClient:
+        def get_health(self):
+            return {"name": "GRAV1", "robot_model": "OT-3 Standard"}
+
+        def get_update_server_health(self):
+            return {"serialNumber": "FLXA1020230817003"}
+
+        def get_instruments(self):
+            return {"data": []}
+
+        def get_modules(self):
+            return {"data": []}
+
+        def get_robot_positions(self):
+            return {"data": []}
+
+    class FakeSshClient:
+        def test_connection(self):
+            return None
+
+    monkeypatch.setattr(opentrons_control, "_http_client", lambda ip, port: FakeClient())
+    monkeypatch.setattr(opentrons_control, "OpentronsSshClient", lambda ip: FakeSshClient())
+
+    result = opentrons_control.get_device_control_summary("192.168.6.123", 31950)
+
+    assert result["health"]["robot_serial"] == "FLXA1020230817003"
+    assert result["http_connected"] is True
+    assert result["errors"] == []
+
+
 def test_home_robot_targets_all_axes(monkeypatch):
     client = OpentronsHttpClient("192.168.6.123")
     captured: dict[str, object] = {}
