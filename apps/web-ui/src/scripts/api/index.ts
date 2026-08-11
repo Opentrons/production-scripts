@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createApiClient } from '@/scripts/api/http'
 import type {
   HealthCheckResponse,
   TestDataResponse,
@@ -28,10 +28,7 @@ import type {
   UploadRecordsResponse
 } from '@/scripts/types'
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 15000
-})
+const api = createApiClient(15000)
 
 export interface RobotInfo {
   ip: string

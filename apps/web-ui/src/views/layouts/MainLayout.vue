@@ -50,6 +50,7 @@
             />
           </el-badge>
         </div>
+        <AuthUserMenu variant="dark" />
       </div>
     </header>
     
@@ -115,6 +116,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useHealthStore } from '@/scripts/stores/health'
 import { useMessageStore } from '@/scripts/stores/message'
 import { Refresh, DataAnalysis, Setting, Monitor, ArrowLeft, ArrowRight, UploadFilled, Bell, Link as LinkIcon, DocumentChecked, Histogram, Tickets, Memo } from '@element-plus/icons-vue'
+import AuthUserMenu from '@/components/AuthUserMenu.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -353,6 +355,7 @@ onUnmounted(() => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 14px;
 }
 
 .health-status {

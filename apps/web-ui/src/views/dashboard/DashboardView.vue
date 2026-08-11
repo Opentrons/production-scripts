@@ -65,6 +65,7 @@
             <button type="button" :class="{ 'is-active': locale === 'zh' }" :aria-pressed="locale === 'zh'" @click="setLocale('zh')">中文</button>
             <button type="button" :class="{ 'is-active': locale === 'en' }" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>
           </div>
+          <AuthUserMenu />
         </div>
       </header>
 
@@ -327,6 +328,7 @@
               <button type="button" :class="{ 'is-active': locale === 'zh' }" :aria-pressed="locale === 'zh'" @click="setLocale('zh')">中文</button>
               <button type="button" :class="{ 'is-active': locale === 'en' }" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>
             </div>
+            <AuthUserMenu />
           </div>
         </header>
 
@@ -492,7 +494,14 @@ import {
 } from '@lucide/vue'
 import flexImage from '@/assets/dashboard/flex.png'
 import productionsLogo from '@/assets/dashboard/productions-logo.svg'
+import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import { settingsApi } from '@/scripts/api'
+import {
+  authenticatedFetch,
+  csrfToken,
+  redirectToLogin,
+  refreshSession,
+} from '@/scripts/api/http'
 import {
   DASHBOARD_LANGUAGE_STORAGE_KEY,
   dashboardMessages,
@@ -679,7 +688,7 @@ async function loadProjects(): Promise<void> {
   isLoading.value = true
   loadError.value = ''
   try {
-    const response = await fetch(`${apiBaseUrl}/file-resources/projects`, { cache: 'no-store' })
+    const response = await authenticatedFetch(`${apiBaseUrl}/file-resources/projects`, { cache: 'no-store' })
     if (!response.ok) throw new Error(await parseError(response))
     const payload = (await response.json()) as { projects: ResourceProject[] }
     projects.value = Array.isArray(payload.projects) ? payload.projects : []
@@ -806,10 +815,13 @@ async function createVersion(): Promise<void> {
   }
 }
 
-function uploadFormData(url: string, body: FormData): Promise<{ version?: ResourceVersion }> {
+function uploadFormData(url: string, body: FormData, allowRetry = true): Promise<{ version?: ResourceVersion }> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
     request.open('POST', url)
+    request.withCredentials = true
+    const token = csrfToken()
+    if (token) request.setRequestHeader('X-CSRF-Token', token)
     request.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) uploadProgress.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
     })
@@ -820,7 +832,15 @@ function uploadFormData(url: string, body: FormData): Promise<{ version?: Resour
       } catch {
         payload = {}
       }
-      if (request.status >= 200 && request.status < 300) {
+      if (request.status === 401 && allowRetry) {
+        void refreshSession()
+          .then(() => uploadFormData(url, body, false))
+          .then(resolve)
+          .catch((error) => {
+            redirectToLogin()
+            reject(error)
+          })
+      } else if (request.status >= 200 && request.status < 300) {
         uploadProgress.value = 100
         resolve(payload)
       } else reject(new Error(payload.detail || copy.value.downloads.uploadRequestFailed(request.status)))
@@ -833,7 +853,7 @@ function uploadFormData(url: string, body: FormData): Promise<{ version?: Resour
 async function updateVersion(): Promise<void> {
   isSubmitting.value = true
   try {
-    const response = await fetch(`${apiBaseUrl}/file-resources/versions/${encodeURIComponent(editingVersionId.value)}`, {
+    const response = await authenticatedFetch(`${apiBaseUrl}/file-resources/versions/${encodeURIComponent(editingVersionId.value)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ version: form.version.trim(), version_notes: form.versionNotes.trim() }),
@@ -855,7 +875,7 @@ async function deleteVersion(resourceVersion: ResourceVersion): Promise<void> {
   closeVersionMenu()
   if (!window.confirm(copy.value.downloads.deleteConfirmation(resourceVersion.version))) return
   try {
-    const response = await fetch(`${apiBaseUrl}/file-resources/versions/${encodeURIComponent(resourceVersion.id)}`, {
+    const response = await authenticatedFetch(`${apiBaseUrl}/file-resources/versions/${encodeURIComponent(resourceVersion.id)}`, {
       method: 'DELETE',
     })
     if (!response.ok) throw new Error(await parseError(response))

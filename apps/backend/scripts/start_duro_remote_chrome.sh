@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PORT="${DURO_REMOTE_CHROME_PORT:-9222}"
 ADDRESS="${DURO_REMOTE_CHROME_ADDRESS:-127.0.0.1}"
-PROFILE_DIR="${DURO_REMOTE_CHROME_PROFILE_DIR:-${BACKEND_DIR}/auth/duro-chrome-profile}"
+PROFILE_DIR="${DURO_REMOTE_CHROME_PROFILE_DIR:-${BACKEND_DIR}/auth-files/duro-chrome-profile}"
 START_URL="${DURO_REMOTE_CHROME_START_URL:-https://mfg.duro.app/dashboard}"
 
 if [[ -n "${DURO_CHROME_BIN:-}" ]]; then

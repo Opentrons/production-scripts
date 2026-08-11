@@ -22,7 +22,7 @@ For browser-bound Duro sessions, start a dedicated Chrome with CDP and log in on
 make remote-chrome
 ```
 
-The default CDP endpoint is `http://127.0.0.1:9222` and its persistent profile is stored under the git-ignored `apps/api/auth/duro-chrome-profile`. Configure the API with:
+The default CDP endpoint is `http://127.0.0.1:9222` and its persistent profile is stored under the git-ignored `apps/backend/auth-files/duro-chrome-profile`. Configure the API with:
 
 ```dotenv
 PRODUCTIONS_VERSIONS_DURO_REMOTE_CHROME_URL=http://127.0.0.1:9222

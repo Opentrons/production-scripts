@@ -46,6 +46,9 @@
         </div>
         <span class="sidebar-note-detail" :title="dataSourceErrorDetail">{{ dataSourceStatusDetail }}</span>
       </div>
+      <div class="versions-auth-menu">
+        <AuthUserMenu variant="dark" />
+      </div>
     </aside>
 
     <main v-if="activeModule === 'workflows'" class="main-content">
@@ -1114,6 +1117,7 @@ import {
 } from '@element-plus/icons-vue'
 import DuroProductsPanel from '@/views/version_modules/DuroProductsPanel.vue'
 import SopOverviewPanel from '@/views/version_modules/SopOverviewPanel.vue'
+import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import '@/styles/version_modules/version_modules.css'
 import { duroApi, type DuroBomNode, type DuroProduct } from '@/scripts/modules/version_modules/api/duro'
 import { sopApi, type SopCatalogEntry } from '@/scripts/modules/version_modules/api/sop'

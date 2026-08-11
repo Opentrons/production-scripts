@@ -160,6 +160,15 @@ textarea {
   font-size: 10px;
 }
 
+.versions-auth-menu {
+  margin-top: 10px;
+}
+
+.versions-auth-menu .auth-user-menu,
+.versions-auth-menu .auth-user-trigger {
+  width: 100%;
+}
+
 .main-content {
   width: 100%;
   min-width: 0;

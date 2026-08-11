@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createApiClient } from '@/scripts/api/http'
 
 
 export type WorkflowKind = 'duro_bom_check' | 'custom'
@@ -164,10 +164,7 @@ export type WorkflowPayload = Pick<
   'name' | 'description' | 'kind' | 'status' | 'schedule' | 'steps' | 'configuration'
 >
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 15000
-})
+const api = createApiClient(15000)
 
 export const workflowApi = {
   list: () => api.get<Workflow[]>('/workflows'),

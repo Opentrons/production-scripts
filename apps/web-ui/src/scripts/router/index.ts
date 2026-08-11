@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { pinia } from '@/scripts/stores'
+import { useAuthStore } from '@/scripts/stores/auth'
 
 const DEFAULT_FAVICON = '/favicon.png'
 const VERSION_FAVICON = '/versions-favicon.svg'
@@ -9,6 +11,12 @@ const productionTestingMeta = {
 }
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/auth/LoginView.vue'),
+    meta: { standalone: true, public: true, title: '登录 | Productions', favicon: DEFAULT_FAVICON },
+  },
   {
     path: '/',
     name: 'Platform',
@@ -130,6 +138,22 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+})
+
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore(pinia)
+  await authStore.restore()
+  if (to.meta.public) {
+    if (to.name === 'Login' && authStore.authenticated) {
+      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/'
+      return redirect.startsWith('/') && !redirect.startsWith('//') && redirect !== '/login' ? redirect : '/'
+    }
+    return true
+  }
+  if (!authStore.authenticated) {
+    return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+  return true
 })
 
 router.afterEach((to) => {

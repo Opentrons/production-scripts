@@ -39,6 +39,9 @@ DB_BUSINESS_DIR = Path(os.getenv("PRODUCTION_PLATFORM_DB_BUSINESS_DIR", DB_ROOT 
 DB_SIMULATING_DIR = Path(
     os.getenv("PRODUCTION_PLATFORM_DB_SIMULATING_DIR", DB_ROOT / "simulating")
 )
+AUTH_DB_PATH = Path(
+    os.getenv("PRODUCTION_PLATFORM_AUTH_DB_PATH", DB_ROOT / "auth" / "auth.sqlite3")
+)
 
 IS_WINDOWS = platform.system().lower() == 'windows'
 IS_MAC = platform.system().lower() == 'darwin'
@@ -72,6 +75,25 @@ def use_sqlite_persistence() -> bool:
 RUN_ENV = os.getenv("PRODUCTION_PLATFORM_RUN_ENV", "dev" if IS_WINDOWS or IS_MAC else "server").lower()
 IS_DEV_ENV = RUN_ENV in ("dev", "local", "development")
 
+AUTH_JWT_SECRET = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_SECRET", "").strip()
+AUTH_JWT_ISSUER = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_ISSUER", "production-platform")
+AUTH_JWT_AUDIENCE = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_AUDIENCE", "production-web")
+AUTH_ACCESS_TOKEN_MINUTES = max(
+    1, int(os.getenv("PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES", "20"))
+)
+AUTH_REFRESH_TOKEN_HOURS = max(
+    1, int(os.getenv("PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS", "8"))
+)
+AUTH_COOKIE_SECURE = os.getenv(
+    "PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE",
+    "false" if IS_DEV_ENV else "true",
+).lower() in {"1", "true", "yes", "on"}
+AUTH_ALLOWED_ORIGINS = tuple(
+    origin.strip()
+    for origin in os.getenv("PRODUCTION_PLATFORM_AUTH_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+)
+
 LOCAL_SERVER_HOST = os.getenv("PRODUCTION_PLATFORM_LOCAL_SERVER_HOST", "192.168.6.55")
 SERVER_ENV_HOST = os.getenv("PRODUCTION_PLATFORM_SERVER_ENV_HOST", "localhost")
 API_HOST = os.getenv(
@@ -97,7 +119,7 @@ ROBOT_LOG_DOWNLOAD_DIR = os.getenv(
 )
 
 if IS_DEV_ENV:
-    GOOGLE_AUTH_DIR = API_ROOT / "auth"
+    GOOGLE_AUTH_DIR = API_ROOT / "auth-files"
     ROBOT_KEY_PATH = os.path.join(GOOGLE_AUTH_DIR, "robot_key")
 else:
     GOOGLE_AUTH_DIR = "/configs"

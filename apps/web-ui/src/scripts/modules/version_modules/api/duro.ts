@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createApiClient } from '@/scripts/api/http'
 
 
 export interface DuroProductImage {
@@ -104,10 +104,7 @@ export interface DuroComponentChildrenResponse {
   fetched_at: string
 }
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 120000
-})
+const api = createApiClient(120000)
 
 export const duroApi = {
   status: () => api.get<DuroConnectionStatus>('/duro/status'),

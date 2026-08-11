@@ -13,6 +13,7 @@ from modules.duro.runtime import (
     duro_browser_token_provider,
     ensure_duro_remote_chrome_running,
 )
+from modules.auth.dependencies import get_auth_service
 from modules.system.simulating_seed import ensure_simulating_seed
 from modules.robots.diagnostic_logs import (
     resume_pending_diagnostic_log_cleanups,
@@ -42,6 +43,7 @@ def should_refresh_proxy_on_startup() -> bool:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_db_layout()
+    get_auth_service().initialize()
     if is_simulating():
         ensure_simulating_seed()
     mongodb.connect()

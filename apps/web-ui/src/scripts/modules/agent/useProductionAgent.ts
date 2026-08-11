@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { authenticatedFetch } from '@/scripts/api/http'
 
 export type AgentChatRole = 'user' | 'assistant'
 
@@ -39,7 +40,7 @@ export function useProductionAgent() {
   const abortController = ref<AbortController | null>(null)
 
   async function getStatus(): Promise<AgentStatus> {
-    const response = await fetch(`${AGENT_API_BASE}/status`, { cache: 'no-store' })
+    const response = await authenticatedFetch(`${AGENT_API_BASE}/status`, { cache: 'no-store' })
     if (!response.ok) throw new Error(await responseError(response))
     return await response.json() as AgentStatus
   }
@@ -56,7 +57,7 @@ export function useProductionAgent() {
     streaming.value = true
 
     try {
-      const response = await fetch(`${AGENT_API_BASE}/chat/stream`, {
+      const response = await authenticatedFetch(`${AGENT_API_BASE}/chat/stream`, {
         method: 'POST',
         headers: {
           Accept: 'text/event-stream',

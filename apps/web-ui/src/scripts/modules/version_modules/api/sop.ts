@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createApiClient } from '@/scripts/api/http'
 
 
 export interface SopCatalogEntry {
@@ -105,10 +105,7 @@ export interface SopPdfAnalysis {
   analyzed_at: string
 }
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 240000
-})
+const api = createApiClient(240000)
 
 export const sopApi = {
   masterSheet: (refresh = false) =>

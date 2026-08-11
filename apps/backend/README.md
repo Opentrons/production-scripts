@@ -17,3 +17,5 @@ SQLite databases live under `apps/backend/db-storage/`:
 - `db-storage/simulating/` — isolated sqlite used when Dashboard **Simulating** is enabled
 
 When simulating is on, Mongo-backed features (robot scan gateways/cache, SSH custom commands, upload finish settings) use `db-storage/simulating/platform.sqlite3` instead of MongoDB.
+
+Platform login accounts and sessions use `db-storage/auth/auth.sqlite3`, independently of simulating mode. See [Platform authentication](docs/platform-authentication.md) for first-user and HTTPS deployment instructions.

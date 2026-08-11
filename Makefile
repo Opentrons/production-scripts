@@ -3,6 +3,11 @@
 HOST ?= 0.0.0.0
 API_PORT ?= 8090
 WEB_PORT ?= 8091
+WEB_HTTP_PORT ?= 80
+WEB_HTTPS_PORT ?= 443
+SERVER_NAME ?= _
+SSL_CERTIFICATE ?=
+SSL_CERTIFICATE_KEY ?=
 REMOTE_CHROME_PORT ?= 9222
 
 .PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build remote-chrome deploy-backend deploy-web
@@ -94,4 +99,4 @@ deploy-backend:
 	sudo API_PORT=$(API_PORT) bash deploy/backend.sh
 
 deploy-web:
-	sudo API_PORT=$(API_PORT) WEB_PORT=$(WEB_PORT) bash deploy/web.sh
+	sudo API_PORT=$(API_PORT) WEB_HTTP_PORT=$(WEB_HTTP_PORT) WEB_HTTPS_PORT=$(WEB_HTTPS_PORT) SERVER_NAME=$(SERVER_NAME) SSL_CERTIFICATE=$(SSL_CERTIFICATE) SSL_CERTIFICATE_KEY=$(SSL_CERTIFICATE_KEY) bash deploy/web.sh

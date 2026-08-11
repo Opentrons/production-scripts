@@ -94,7 +94,7 @@ Upload behavior is configuration driven. Product/test mappings and workflow sele
 Credentials are not stored in this package. Local development credentials normally live in:
 
 ```text
-apps/backend/auth/
+apps/backend/auth-files/
 ```
 
 Server deployments use `/configs` by default. See [../../../README.md](../../../README.md) for the environment variables and credential file names.

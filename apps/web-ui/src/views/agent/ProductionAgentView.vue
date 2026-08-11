@@ -23,6 +23,7 @@
         >
           <Trash2 :size="18" aria-hidden="true" />
         </button>
+        <AuthUserMenu />
       </div>
     </header>
 
@@ -160,6 +161,7 @@ import {
   type AgentChatMessage,
   type AgentChatRole,
 } from '@/scripts/modules/agent/useProductionAgent'
+import AuthUserMenu from '@/components/AuthUserMenu.vue'
 
 interface ConversationMessage {
   id: string
