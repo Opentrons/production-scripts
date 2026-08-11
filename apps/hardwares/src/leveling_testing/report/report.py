@@ -29,11 +29,13 @@ def _date_from_start_time(start_time: str) -> str:
 
 class LevelingCSV:
     REQUIRED_TESTS = (
+        TestNameLeveling.Gantry_Leveling,
         TestNameLeveling.Z_Leveling,
         TestNameLeveling.CH8_Leveling,
         TestNameLeveling.CH96_Leveling,
+        TestNameLeveling.Gripper_Leveling,
     )
-    OPTIONAL_TESTS = (TestNameLeveling.Gripper_Leveling,)
+    OPTIONAL_TESTS: tuple[TestNameLeveling, ...] = ()
     REPORT_VERSION = LEVELING_REPORT_VERSION
 
     def __init__(
@@ -289,9 +291,29 @@ class LevelingCSV:
         initial the report title
         :return:
         """
+        title_list = [TITLE_START, "ROBOT_SN"]
+        if self.test_name == TestNameLeveling.Gantry_Leveling:
+            title_list.extend([
+                "GANTRY_A1_HEIGHT",
+                "GANTRY_A3_HEIGHT",
+                "GANTRY_D1_HEIGHT",
+                "GANTRY_D3_HEIGHT",
+                "GANTRY_PARALLELISM_DIFF",
+                "DECK_SLOT",
+            ])
+            self.__title = title_list
+            self.__result_values = []
+            self.__slot_pass_results = []
+            self.__final_status = "RUNNING"
+            rows = self._ensure_base_report()
+            rows = self._remove_test_section(rows, self.test_name)
+            self._set_test_status(rows, self.test_name, "RUNNING")
+            self._refresh_overall_result(rows)
+            self.write_rows(rows)
+            return
+
         setting = LevelingSetting[self.test_name]
         # append title
-        title_list = [TITLE_START, "ROBOT_SN"]
         dir_y_list = {}
         dir_x_list = {}
         dir_z_list = {}

@@ -160,11 +160,14 @@ export interface UnitTrackerColumn {
   group_key?: string
 }
 
+export type UnitTrackerSource = 'mongodb' | 'google_drive'
+
 export interface UnitTrackerRow {
   _id?: string
   record_id: string
   product: string
   test_type: string
+  source?: UnitTrackerSource
   sn: string
   csv_link?: string
   file_path?: string
@@ -178,6 +181,19 @@ export interface UnitTrackerRowsResponse {
   total: number
   page: number
   page_size: number
+  source: UnitTrackerSource
+  error?: string
+}
+
+export interface UnitTrackerOption {
+  product: string
+  test_type: string
+  test_display_name?: string
+  sources: UnitTrackerSource[]
+}
+
+export interface UnitTrackerOptionsResponse {
+  options: UnitTrackerOption[]
   error?: string
 }
 

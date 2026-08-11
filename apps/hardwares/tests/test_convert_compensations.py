@@ -63,7 +63,7 @@ def test_generated_config_keeps_points_and_uses_runtime_channel_names() -> None:
     ]
     assert config["pipette_leveling_config"]["SlotLocationCH96"]["C3-Y"]["compensation"] == {
         "right_rear": -0.14,
-        "right_front": 0.0,
+        "right_front": 0.0,\
     }
     assert config["zstage_leveling_config"]["ZStagePoint"]["left"]["Z-C2"]["channel_definition"] == [
         "below_rear",

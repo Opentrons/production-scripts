@@ -37,18 +37,19 @@
             </template>
             <template v-else>
               <el-button
+                v-if="unitTrackerSource === 'mongodb'"
                 type="primary"
                 size="small"
                 plain
                 :icon="Refresh"
                 @click="syncUnitTrackerRows"
                 :loading="unitTrackerSyncing"
-              >更新所有产品标准行</el-button>
+              >解析上传 CSV</el-button>
               <el-button
                 type="primary"
                 size="small"
                 :icon="Refresh"
-                @click="fetchUnitTrackerRows"
+                @click="fetchUnitTrackerRows(true)"
                 :loading="unitTrackerLoading"
               >刷新</el-button>
             </template>
@@ -262,21 +263,28 @@
 
       <template v-else>
         <div class="filter-bar unit-tracker-filter">
+          <el-segmented
+            v-model="unitTrackerSource"
+            :options="unitTrackerSourceOptions"
+            size="small"
+            class="unit-tracker-source-switch"
+            @change="handleUnitTrackerSourceChange"
+          />
           <el-input
             v-model="unitTrackerFilters.barcode"
             placeholder="SN / 条码"
             clearable
             size="small"
             class="barcode-filter"
-            @keyup.enter="fetchUnitTrackerRows"
-            @clear="fetchUnitTrackerRows"
+            @keyup.enter="fetchUnitTrackerRows()"
+            @clear="fetchUnitTrackerRows()"
           />
           <el-select
             v-model="unitTrackerFilters.product"
             placeholder="产品"
             size="small"
             class="filter-control"
-            @change="fetchUnitTrackerRows"
+            @change="handleUnitTrackerProductChange"
           >
             <el-option
               v-for="product in unitTrackerProductOptions"
@@ -291,7 +299,7 @@
             filterable
             size="small"
             class="filter-control"
-            @change="fetchUnitTrackerRows"
+            @change="handleUnitTrackerTestChange"
           >
             <el-option
               v-for="testType in unitTrackerTestOptions"
@@ -318,17 +326,17 @@
               :value="group.key"
             />
           </el-select>
-          <el-button size="small" type="primary" plain @click="fetchUnitTrackerRows" :loading="unitTrackerLoading">
+          <el-button size="small" type="primary" plain @click="fetchUnitTrackerRows()" :loading="unitTrackerLoading">
             查询
           </el-button>
           <el-button size="small" @click="resetUnitTrackerFilters" :disabled="!hasUnitTrackerFilters">
             重置
           </el-button>
-          <span class="unit-tracker-meta">标准行 {{ unitTrackerTotal }} 条</span>
+          <span class="unit-tracker-meta">{{ unitTrackerSourceLabel }} {{ unitTrackerTotal }} 条</span>
         </div>
 
         <el-alert
-          v-if="unitTrackerSyncResult"
+          v-if="unitTrackerSource === 'mongodb' && unitTrackerSyncResult"
           class="unit-tracker-alert"
           type="success"
           :closable="true"
@@ -349,8 +357,8 @@
         >
           <template #title>
             <div class="load-error-content">
-              <span>Unit Tracker 数据加载或扫描失败：{{ unitTrackerError }}</span>
-              <el-button size="small" type="danger" plain :loading="unitTrackerLoading || unitTrackerSyncing" @click="fetchUnitTrackerRows">
+              <span>Unit Tracker 数据加载失败：{{ unitTrackerError }}</span>
+              <el-button size="small" type="danger" plain :loading="unitTrackerLoading || unitTrackerSyncing" @click="fetchUnitTrackerRows(true)">
                 重试
               </el-button>
             </div>
@@ -362,7 +370,7 @@
           class="records-loading-state"
         >
           <el-icon class="is-loading records-loading-icon"><Loading /></el-icon>
-          <span>{{ unitTrackerSyncing ? '正在更新 Unit Tracker 标准行...' : '正在加载 Unit Tracker 测试数据...' }}</span>
+          <span>{{ unitTrackerSyncing ? '正在解析上传 CSV...' : unitTrackerLoadingLabel }}</span>
         </div>
 
         <el-table
@@ -414,7 +422,7 @@
           </el-table-column>
         </el-table>
 
-        <el-empty v-else-if="!unitTrackerLoading && !unitTrackerError" description="暂无 Unit Tracker 标准行" />
+        <el-empty v-else-if="!unitTrackerLoading && !unitTrackerError" :description="unitTrackerEmptyLabel" />
 
         <div class="pagination-container" v-if="unitTrackerTotal > 0">
           <el-pagination
@@ -437,7 +445,7 @@ import { collectionApi, uploadRecordApi } from '@/scripts/api'
 import { Loading, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { sameTestType } from '@/scripts/utils/testNames'
-import type { UnitTrackerColumn, UnitTrackerRow, UnitTrackerSyncResponse } from '@/scripts/types'
+import type { UnitTrackerColumn, UnitTrackerOption, UnitTrackerRow, UnitTrackerSource, UnitTrackerSyncResponse } from '@/scripts/types'
 
 interface TableColumn {
   key: string
@@ -494,6 +502,8 @@ const unitTrackerLoading = ref(false)
 const unitTrackerSyncing = ref(false)
 const unitTrackerError = ref('')
 const unitTrackerSyncResult = ref<UnitTrackerSyncResponse | null>(null)
+const unitTrackerOptions = ref<UnitTrackerOption[]>([])
+const unitTrackerSource = ref<UnitTrackerSource>('mongodb')
 const unitTrackerSelectedGroups = ref<string[]>([])
 const unitTrackerFilters = ref({
   product: DEFAULT_UNIT_TRACKER_PRODUCT,
@@ -505,8 +515,38 @@ const panelOptions = [
   { label: '测试数据', value: 'records' },
   { label: 'Unit Tracker', value: 'unit_tracker' }
 ]
-const unitTrackerProductOptions = [DEFAULT_UNIT_TRACKER_PRODUCT]
-const unitTrackerTestOptions = [DEFAULT_UNIT_TRACKER_TEST]
+const unitTrackerSourceOptions = [
+  { label: 'MongoDB CSV', value: 'mongodb' },
+  { label: 'Google Drive 总表', value: 'google_drive' }
+]
+const unitTrackerProductOptions = computed(() => (
+  [...new Set(
+    unitTrackerOptions.value
+      .filter((option) => option.sources?.includes(unitTrackerSource.value))
+      .map((option) => option.product)
+  )]
+))
+const unitTrackerTestOptions = computed(() => (
+  unitTrackerOptions.value
+    .filter((option) => (
+      option.product === unitTrackerFilters.value.product
+      && option.sources?.includes(unitTrackerSource.value)
+    ))
+    .map((option) => option.test_type)
+))
+const unitTrackerSourceLabel = computed(() => (
+  unitTrackerSource.value === 'google_drive' ? 'Google 总表' : 'MongoDB 标准行'
+))
+const unitTrackerLoadingLabel = computed(() => (
+  unitTrackerSource.value === 'google_drive'
+    ? '正在读取 Google Drive 总表...'
+    : '正在读取 MongoDB 标准行...'
+))
+const unitTrackerEmptyLabel = computed(() => (
+  unitTrackerSource.value === 'google_drive'
+    ? 'Google Drive 总表暂无数据'
+    : 'MongoDB 暂无已解析的 CSV 标准行'
+))
 
 const tableColumns = computed(() => {
   if (selectedCollection.value === ALL_COLLECTION) {
@@ -592,9 +632,10 @@ const hasUnitTrackerFilters = computed(() => Boolean(
   unitTrackerFilters.value.barcode
 ))
 
-watch(activePanel, (panel) => {
+watch(activePanel, async (panel) => {
   if (panel === 'unit_tracker' && !unitTrackerRows.value.length) {
-    fetchUnitTrackerRows()
+    await fetchUnitTrackerOptions()
+    await fetchUnitTrackerRows()
   }
 })
 
@@ -832,7 +873,31 @@ const handleRefresh = () => {
   fetchCollectionData()
 }
 
-const fetchUnitTrackerRows = async () => {
+const fetchUnitTrackerOptions = async () => {
+  try {
+    const response = await uploadRecordApi.getUnitTrackerOptions()
+    unitTrackerOptions.value = response.data.options || []
+    if (response.data.error) {
+      unitTrackerError.value = response.data.error
+      return
+    }
+
+    const selectedProductExists = unitTrackerOptions.value.some(
+      (option) => option.product === unitTrackerFilters.value.product
+    )
+    if (!selectedProductExists) {
+      unitTrackerFilters.value.product = unitTrackerProductOptions.value[0] || ''
+    }
+    if (!unitTrackerTestOptions.value.includes(unitTrackerFilters.value.testType)) {
+      unitTrackerFilters.value.testType = unitTrackerTestOptions.value[0] || ''
+    }
+  } catch (error: any) {
+    unitTrackerOptions.value = []
+    unitTrackerError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || '未知错误'
+  }
+}
+
+const fetchUnitTrackerRows = async (refresh = false) => {
   unitTrackerLoading.value = true
   unitTrackerError.value = ''
   try {
@@ -841,7 +906,9 @@ const fetchUnitTrackerRows = async () => {
       pageSize: unitTrackerPageSize,
       product: unitTrackerFilters.value.product.trim() || undefined,
       testType: unitTrackerFilters.value.testType || undefined,
-      barcode: unitTrackerFilters.value.barcode.trim() || undefined
+      barcode: unitTrackerFilters.value.barcode.trim() || undefined,
+      source: unitTrackerSource.value,
+      refresh: unitTrackerSource.value === 'google_drive' && refresh
     })
     unitTrackerColumns.value = response.data.columns || []
     unitTrackerRows.value = response.data.rows || []
@@ -856,12 +923,43 @@ const fetchUnitTrackerRows = async () => {
   }
 }
 
+const handleUnitTrackerSourceChange = async () => {
+  unitTrackerRows.value = []
+  unitTrackerColumns.value = []
+  unitTrackerTotal.value = 0
+  unitTrackerError.value = ''
+  unitTrackerSyncResult.value = null
+  unitTrackerSelectedGroups.value = []
+  unitTrackerPage.value = 1
+
+  if (!unitTrackerProductOptions.value.includes(unitTrackerFilters.value.product)) {
+    unitTrackerFilters.value.product = unitTrackerProductOptions.value[0] || ''
+  }
+  if (!unitTrackerTestOptions.value.includes(unitTrackerFilters.value.testType)) {
+    unitTrackerFilters.value.testType = unitTrackerTestOptions.value[0] || ''
+  }
+  await fetchUnitTrackerRows()
+}
+
+const handleUnitTrackerProductChange = () => {
+  unitTrackerFilters.value.testType = unitTrackerTestOptions.value[0] || ''
+  unitTrackerSelectedGroups.value = []
+  unitTrackerPage.value = 1
+  fetchUnitTrackerRows()
+}
+
+const handleUnitTrackerTestChange = () => {
+  unitTrackerSelectedGroups.value = []
+  unitTrackerPage.value = 1
+  fetchUnitTrackerRows()
+}
+
 const syncUnitTrackerRows = async () => {
   unitTrackerSyncing.value = true
   try {
     const response = await uploadRecordApi.syncUnitTrackerRows()
     unitTrackerSyncResult.value = response.data
-    ElMessage.success(`标准行更新完成：更新 ${response.data.updated}，跳过 ${response.data.skipped}`)
+    ElMessage.success(`CSV 标准行解析完成：更新 ${response.data.updated}，跳过 ${response.data.skipped}`)
     unitTrackerPage.value = 1
     await fetchUnitTrackerRows()
   } catch (error: any) {
@@ -1027,6 +1125,17 @@ onMounted(() => {
 
 .unit-tracker-filter {
   margin-top: 0;
+}
+
+.unit-tracker-source-switch {
+  flex: 0 0 auto;
+  min-height: 32px;
+  --el-border-radius-base: 8px;
+}
+
+.unit-tracker-source-switch :deep(.el-segmented__item) {
+  min-width: 138px;
+  white-space: nowrap;
 }
 
 .unit-tracker-meta {

@@ -65,6 +65,12 @@ class UnitTrackerRowsResponse(BaseModel):
     total: int = 0
     page: int = 1
     page_size: int = 100
+    source: str = "mongodb"
+    error: str | None = None
+
+
+class UnitTrackerOptionsResponse(BaseModel):
+    options: list[dict[str, Any]] = Field(default_factory=list)
     error: str | None = None
 
 

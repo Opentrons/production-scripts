@@ -302,6 +302,191 @@ class UploadCommonMixin:
             )
         return ok
 
+    @staticmethod
+    def normalize_tracker_row(row: list) -> list[str]:
+        normalized = [str(value).strip() for value in row]
+        while normalized and normalized[-1] == "":
+            normalized.pop()
+        return normalized
+
+    @staticmethod
+    def quote_sheet_name(sheet_name: str) -> str:
+        return "'" + sheet_name.replace("'", "''") + "'"
+
+    def get_last_tracker_row_number(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        anchor_column: str,
+    ) -> int | None:
+        """Find the last tracker row using one column instead of loading the sheet."""
+        column = anchor_column.strip().upper()
+        self._column_to_number(column)
+        quoted_sheet = self.quote_sheet_name(sheet_name)
+        values = self.gdrive.get_excel_sheet(
+            spreadsheetId=spreadsheet_id,
+            range=f"{quoted_sheet}!{column}:{column}",
+        )
+        if not values:
+            return None
+        return len(values)
+
+    def ensure_tracker_row_capacity(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        required_row: int,
+    ) -> bool:
+        """Append grid rows when the tracker is full before writing a new record."""
+        sheet_info = self.gdrive.get_sheet_info(spreadsheet_id) or []
+        target_sheet = next(
+            (sheet for sheet in sheet_info if sheet.get("title") == sheet_name),
+            None,
+        )
+        if target_sheet is None:
+            logger.error(
+                "Cannot expand tracker because the sheet was not found: "
+                "spreadsheet=%s sheet=%s",
+                spreadsheet_id,
+                sheet_name,
+            )
+            return False
+
+        row_count = int(target_sheet.get("grid_properties", {}).get("rowCount") or 0)
+        if required_row <= row_count:
+            return True
+
+        try:
+            self.gdrive.sheet_service_client.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={
+                    "requests": [
+                        {
+                            "appendDimension": {
+                                "sheetId": target_sheet["sheet_id"],
+                                "dimension": "ROWS",
+                                "length": required_row - row_count,
+                            }
+                        }
+                    ]
+                },
+            ).execute()
+        except Exception as exc:
+            logger.error(
+                "Expand tracker rows failed: spreadsheet=%s sheet=%s "
+                "required_row=%s error=%s",
+                spreadsheet_id,
+                sheet_name,
+                required_row,
+                exc,
+            )
+            return False
+
+        logger.info(
+            "Expanded tracker rows: spreadsheet=%s sheet=%s old_rows=%s new_rows=%s",
+            spreadsheet_id,
+            sheet_name,
+            row_count,
+            required_row,
+        )
+        return True
+
+    def get_last_tracker_row(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        start_column: str,
+        end_column: str,
+    ) -> tuple[int | None, list]:
+        row_number = self.get_last_tracker_row_number(
+            spreadsheet_id,
+            sheet_name,
+            start_column,
+        )
+        if row_number is None:
+            return None, []
+
+        start = start_column.strip().upper()
+        end = end_column.strip().upper()
+        self._column_to_number(end)
+        quoted_sheet = self.quote_sheet_name(sheet_name)
+        values = self.gdrive.get_excel_sheet(
+            spreadsheetId=spreadsheet_id,
+            range=f"{quoted_sheet}!{start}{row_number}:{end}{row_number}",
+        )
+        if not values:
+            return None, []
+        return row_number, values[0]
+
+    def delete_last_tracker_row_if_matches(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        expected_row: list,
+        start_column: str,
+        end_column: str,
+    ) -> bool:
+        """Delete the current last tracker row only when it exactly matches expected data."""
+        row_number, actual_row = self.get_last_tracker_row(
+            spreadsheet_id,
+            sheet_name,
+            start_column,
+            end_column,
+        )
+        if row_number is None or self.normalize_tracker_row(actual_row) != self.normalize_tracker_row(expected_row):
+            logger.warning(
+                "Skip tracker cleanup because the last row does not match: spreadsheet=%s sheet=%s",
+                spreadsheet_id,
+                sheet_name,
+            )
+            return False
+
+        gid_map = self.gdrive.get_sheet_gid_map(spreadsheet_id) or {}
+        sheet_id = gid_map.get(sheet_name)
+        if sheet_id is None:
+            logger.warning(
+                "Skip tracker cleanup because the sheet gid was not found: spreadsheet=%s sheet=%s",
+                spreadsheet_id,
+                sheet_name,
+            )
+            return False
+
+        try:
+            self.gdrive.sheet_service_client.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={
+                    "requests": [
+                        {
+                            "deleteDimension": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "dimension": "ROWS",
+                                    "startIndex": row_number - 1,
+                                    "endIndex": row_number,
+                                }
+                            }
+                        }
+                    ]
+                },
+            ).execute()
+        except Exception as exc:
+            logger.error(
+                "Delete tracker test row failed: spreadsheet=%s sheet=%s row=%s error=%s",
+                spreadsheet_id,
+                sheet_name,
+                row_number,
+                exc,
+            )
+            return False
+
+        logger.info(
+            "Deleted matching tracker test row: spreadsheet=%s sheet=%s row=%s",
+            spreadsheet_id,
+            sheet_name,
+            row_number,
+        )
+        return True
+
     def resolve_paste_line_range(self, pase: dict, last_row_index: int, is_ultima: bool = False) -> tuple[str, str, str]:
         """Return (paste_range, star_col, end_col) for a configured paste target."""
         line_range = self.pick_config_value(

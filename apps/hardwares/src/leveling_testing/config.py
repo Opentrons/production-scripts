@@ -27,6 +27,7 @@ class GantryLevelingConfig:
     safe_z: float
     points: Dict[str, Point]
     heights: Dict[str, float | None]
+    deck_slot: str | None
 
 
 def _leveling_config_path() -> Path:
@@ -76,6 +77,7 @@ def load_gantry_leveling_config(
         safe_z=float(section.get("safe_z", 505.0)),
         points=points,
         heights=heights,
+        deck_slot=_convert_gantry_deck_slot(section.get("deck_slot")),
     )
 
 
@@ -126,6 +128,30 @@ def save_gantry_leveling_height(
             temporary_path.unlink()
 
 
+def save_gantry_leveling_deck_slot(
+    deck_slot: str,
+    config_path: str | Path | None = None,
+) -> None:
+    if not isinstance(deck_slot, str):
+        raise TypeError("Gantry leveling deck slot must be a string")
+    normalized_deck_slot = deck_slot.strip()
+    if not normalized_deck_slot:
+        raise ValueError("Gantry leveling deck slot cannot be empty")
+    source_path = Path(config_path) if config_path is not None else _leveling_config_path()
+    resolved_path = Path(config_path) if config_path is not None else _leveling_config_write_path()
+    json_config = _load_json_config(source_path)
+    json_config["gantry_leveling_config"]["deck_slot"] = normalized_deck_slot
+    temporary_path = resolved_path.with_name(f".{resolved_path.name}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8") as config_file:
+            json.dump(json_config, config_file, indent=4, ensure_ascii=True)
+            config_file.write("\n")
+        os.replace(temporary_path, resolved_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
 def _convert_gantry_height(value) -> float | None:
     if value is None:
         return None
@@ -140,6 +166,21 @@ def _convert_gantry_height(value) -> float | None:
     if not isfinite(height):
         raise ValueError(f"Invalid gantry leveling height: {value}")
     return height
+
+
+def _convert_gantry_deck_slot(value) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid gantry leveling deck slot: {value}")
+    if isinstance(value, (int, float)):
+        if not isfinite(value):
+            raise ValueError(f"Invalid gantry leveling deck slot: {value}")
+        return str(value)
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid gantry leveling deck slot: {value}")
+    normalized = value.strip()
+    return normalized or None
 
 
 def _convert_to_point(data):

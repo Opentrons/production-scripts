@@ -81,13 +81,14 @@ async def run(
             if not answer:
                 ui.warning(ui.bilingual("No test selected", "未选择任何测试项目"))
                 continue
+            answer_items = [answer] if isinstance(answer, str) else answer
             
             for test_name in [TestNameLeveling.Gantry_Leveling,
                               TestNameLeveling.Z_Leveling,
                               TestNameLeveling.CH8_Leveling,
                               TestNameLeveling.CH96_Leveling,
                               TestNameLeveling.Gripper_Leveling]:
-                if test_name.value in answer:
+                if any(test_name.value in item for item in answer_items):
                     try:
                         ui.test_banner(test_name.value, simulate=simulate)
                         test_obj = __test_config[test_name](robot_ip, script_dir=script_dir, simulate=simulate)
@@ -97,8 +98,8 @@ async def run(
                         ui.success(ui.bilingual(f"{test_name.value} finished", f"{test_name.value} 完成"))
                     except Exception as e:
                         ui.exception_report(e, debug=debug)
-            
-            if "read-sensor" in answer:
+
+            if any("read-sensor" in item for item in answer_items):
                 if simulate:
                     ui.warning(ui.bilingual("Sensor reading is skipped in simulation mode", "模拟模式跳过传感器读取"))
                     continue
@@ -109,7 +110,7 @@ async def run(
                 except Exception as e:
                     ui.exception_report(e, debug=debug)
             
-            if "exit" in answer:
+            if any("exit" in item for item in answer_items):
                 break
             if selected_answer is not None:
                 break

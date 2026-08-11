@@ -11,6 +11,7 @@ from api.models import (
     ProductManagementSyncResponse,
     ProductStatusUpdateRequest,
     ProductStatusUpdateResponse,
+    UnitTrackerOptionsResponse,
     UnitTrackerRowsResponse,
     UnitTrackerSyncResponse,
 )
@@ -20,6 +21,12 @@ from modules.data_analysis import unit_tracker as unit_tracker_service
 
 router = APIRouter()
 
+
+@router.get("/unit-tracker/options", response_model=UnitTrackerOptionsResponse)
+async def get_unit_tracker_options():
+    return await run_in_threadpool(unit_tracker_service.list_tracker_options)
+
+
 @router.get("/unit-tracker/rows", response_model=UnitTrackerRowsResponse)
 async def get_unit_tracker_rows(
     page: int = 1,
@@ -27,6 +34,8 @@ async def get_unit_tracker_rows(
     product: str | None = None,
     test_type: str | None = None,
     barcode: str | None = None,
+    source: str = Query(default="mongodb", pattern="^(mongodb|google_drive)$"),
+    refresh: bool = False,
 ):
     return await run_in_threadpool(
         unit_tracker_service.list_rows,
@@ -35,6 +44,8 @@ async def get_unit_tracker_rows(
         product=product,
         test_type=test_type,
         barcode=barcode,
+        source=source,
+        refresh=refresh,
     )
 
 

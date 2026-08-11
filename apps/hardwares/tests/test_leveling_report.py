@@ -62,6 +62,7 @@ def test_same_barcode_same_day_leveling_tests_share_one_csv(tmp_path, monkeypatc
     rows = _read_rows(gantry_report.file_name)
     assert _result_status(rows, LevelingTestName.Z_Leveling) == "PASS"
     assert _result_status(rows, LevelingTestName.CH8_Leveling) == "PASS"
+    assert _result_status(rows, LevelingTestName.Gantry_Leveling) == "NOT_RUN"
     assert _result_status(rows, LevelingTestName.CH96_Leveling) == "NOT_RUN"
     assert _result_status(rows, LevelingTestName.Gripper_Leveling) == "NOT_RUN"
     assert _section_count(rows, LevelingTestName.Z_Leveling) == 1
@@ -101,3 +102,40 @@ def test_repeated_same_test_replaces_existing_section(tmp_path, monkeypatch):
     assert _section_count(rows, LevelingTestName.Z_Leveling) == 1
     assert any(row[:2] == ["2026-07-02-14-30-00", robot_sn] for row in rows)
     assert not any(row[:2] == ["2026-07-02-08-00-00", robot_sn] for row in rows)
+
+
+def test_final_report_tracks_all_five_leveling_parallelism_tests(tmp_path, monkeypatch):
+    robot_sn = "FLXA3020250805002"
+    tests = (
+        LevelingTestName.Gantry_Leveling,
+        LevelingTestName.Z_Leveling,
+        LevelingTestName.CH8_Leveling,
+        LevelingTestName.CH96_Leveling,
+        LevelingTestName.Gripper_Leveling,
+    )
+
+    for index, test_name in enumerate(tests):
+        _set_start_time(monkeypatch, f"2026-07-02-{index + 8:02d}-00-00")
+        report = LevelingCSV("Leveling_Test.csv", str(tmp_path), test_name, robot_sn, "Andy")
+        report.create_csv_path()
+        report.init_title()
+        if test_name is LevelingTestName.Gantry_Leveling:
+            report.write_new_results(
+                {
+                    "A1": 5.5,
+                    "A3": 5.4,
+                    "D1": 5.3,
+                    "D3": 5.6,
+                    "diff": 0.3,
+                    "deck_slot": "D1 reference",
+                },
+                passed=True,
+            )
+        report.finish_test(passed=True)
+
+    rows = _read_rows(report.file_name)
+    assert all(_result_status(rows, test_name) == "PASS" for test_name in tests)
+    assert any(row[:3] == ["0", "overall-result", "PASS"] for row in rows)
+    gantry_header = next(row for row in rows if "GANTRY_PARALLELISM_DIFF" in row)
+    gantry_data = rows[rows.index(gantry_header) + 1]
+    assert gantry_data[2:8] == ["5.5", "5.4", "5.3", "5.6", "0.3", "D1 reference"]

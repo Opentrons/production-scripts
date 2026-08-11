@@ -1,10 +1,27 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
 
 from modules.uploads.handler.drivers.csv_driver import CsvDriver
 from modules.uploads.handler.uploaders.common import UploadCommonMixin
+
+
+class _ExecutableRequest:
+    def __init__(self, callback) -> None:
+        self.callback = callback
+
+    def execute(self):
+        return self.callback()
+
+
+class _FakeSpreadsheets:
+    def __init__(self) -> None:
+        self.batch_updates: list[dict] = []
+
+    def batchUpdate(self, **kwargs):
+        return _ExecutableRequest(lambda: self.batch_updates.append(kwargs) or {})
 
 
 UPLOAD_CONFIG_DIR = (
@@ -61,6 +78,105 @@ def test_csv_driver_reads_only_configured_column_count(tmp_path: Path) -> None:
     assert rows == [
         [["a", "b", "c", "d"]],
         [["1", "2", "3", "4"]],
+    ]
+
+
+def test_tracker_cleanup_deletes_only_an_exact_matching_last_row() -> None:
+    spreadsheets = _FakeSpreadsheets()
+    requested_ranges = []
+
+    def get_excel_sheet(**kwargs):
+        requested_ranges.append(kwargs["range"])
+        if kwargs["range"] == "'Opentrons Robot'!A:A":
+            return [["header"], ["fake-sn"]]
+        if kwargs["range"] == "'Opentrons Robot'!A2:B2":
+            return [["fake-sn", "PASS", ""]]
+        return []
+
+    uploader = UploadCommonMixin()
+    uploader.gdrive = SimpleNamespace(
+        get_excel_sheet=get_excel_sheet,
+        get_sheet_gid_map=lambda _spreadsheet_id: {"Opentrons Robot": 42},
+        sheet_service_client=SimpleNamespace(spreadsheets=lambda: spreadsheets),
+    )
+
+    assert uploader.delete_last_tracker_row_if_matches(
+        "tracker-id",
+        "Opentrons Robot",
+        ["other-sn", "PASS"],
+        "A",
+        "B",
+    ) is False
+    assert spreadsheets.batch_updates == []
+
+    assert uploader.delete_last_tracker_row_if_matches(
+        "tracker-id",
+        "Opentrons Robot",
+        ["fake-sn", "PASS"],
+        "A",
+        "B",
+    ) is True
+    assert requested_ranges == [
+        "'Opentrons Robot'!A:A",
+        "'Opentrons Robot'!A2:B2",
+        "'Opentrons Robot'!A:A",
+        "'Opentrons Robot'!A2:B2",
+    ]
+    assert spreadsheets.batch_updates == [
+        {
+            "spreadsheetId": "tracker-id",
+            "body": {
+                "requests": [
+                    {
+                        "deleteDimension": {
+                            "range": {
+                                "sheetId": 42,
+                                "dimension": "ROWS",
+                                "startIndex": 1,
+                                "endIndex": 2,
+                            }
+                        }
+                    }
+                ]
+            },
+        }
+    ]
+
+
+def test_tracker_capacity_expands_a_full_sheet() -> None:
+    spreadsheets = _FakeSpreadsheets()
+    uploader = UploadCommonMixin()
+    uploader.gdrive = SimpleNamespace(
+        get_sheet_info=lambda _spreadsheet_id: [
+            {
+                "sheet_id": 42,
+                "title": "Opentrons OT3",
+                "grid_properties": {"rowCount": 11521},
+            }
+        ],
+        sheet_service_client=SimpleNamespace(spreadsheets=lambda: spreadsheets),
+    )
+
+    assert uploader.ensure_tracker_row_capacity(
+        "tracker-id",
+        "Opentrons OT3",
+        11522,
+    ) is True
+    assert spreadsheets.batch_updates == [
+        {
+            "spreadsheetId": "tracker-id",
+            "body": {
+                "requests": [
+                    {
+                        "appendDimension": {
+                            "sheetId": 42,
+                            "dimension": "ROWS",
+                            "length": 1,
+                        }
+                    }
+                ]
+            },
+        }
     ]
 
 

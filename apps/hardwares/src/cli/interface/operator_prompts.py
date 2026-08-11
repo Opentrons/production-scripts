@@ -3,8 +3,8 @@ from typing import Any
 from cli.interface.prompts import select, text
 
 test_choices = ['1.leveling-gantry', '2.leveling-z-stage', '3.leveling-8ch', '4.leveling-96ch', '5.leveling-gripper',
-                '6.leveling-reading-sensor', '7.heat-96ch', '8.grav-openweb', '9.start-server', '10.high-voltage-test',
-                '11.thermocycle-diagnostic-test','12.getlifetime']
+                '6.Jog OT3', '7.leveling-reading-sensor', '8.heat-96ch', '9.grav-openweb', '10.start-server',
+                '11.high-voltage-test', '12.thermocycle-diagnostic-test', '13.getlifetime']
 
 leveling_choices = ['1.gantry_leveling_test', '2.z_leveling_test', '3.ch8_leveling_test', '4.ch96_leveling_test',
                     '5.gripper_leveling_test', "6.read-sensor", "7.exit."]

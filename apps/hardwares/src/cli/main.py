@@ -13,6 +13,14 @@ from cli.interface.prompts import confirm, select, text
 from cli.interface import ui
 
 
+ENTRY_TEST_CHOICES = (
+    ("leveling", "Leveling Test"),
+    ("jog", "Jog OT3"),
+    ("coming-soon-pipette", "Pipette Test (coming soon)"),
+    ("coming-soon-module", "Module Test (coming soon)"),
+)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="productions-hardwares",
@@ -38,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="base directory for generated testing_data reports",
     )
 
+    jog = subparsers.add_parser("jog", help="jog an OT3/Flex robot")
+    jog.add_argument("--robot-ip", default=None, help="robot IP address")
+    jog.add_argument("--mount", choices=["left", "right"], default=None, help="gantry mount to move")
+    jog.add_argument("--simulate", action="store_true", help="run without robot hardware")
+
     return parser
 
 
@@ -50,27 +63,27 @@ def _entry_prompt(args: argparse.Namespace) -> argparse.Namespace:
     args.entry_header_printed = True
     test_name = select(
         "Select test name",
-        [
-            Choice("leveling", name="Leveling Test"),
-            Choice("coming-soon-pipette", name="Pipette Test (coming soon)"),
-            Choice("coming-soon-module", name="Module Test (coming soon)"),
-        ],
+        [Choice(value, name=name) for value, name in ENTRY_TEST_CHOICES],
         default="leveling",
     )
-    operator_name = text("Operator name", default="").strip()
-    if not operator_name:
-        raise ValueError("Operator name cannot be empty")
     simulate = confirm("Simulating mode?", default=False)
-    if test_name != "leveling":
+    if test_name not in {"leveling", "jog"}:
         raise ValueError("This test entry is not implemented yet.")
 
-    args.command = "leveling"
-    args.operator_name = operator_name
+    args.command = test_name
     args.robot_ip = None
-    args.robot_sn = None
     args.simulate = simulate
-    args.test = "menu"
-    args.script_dir = "."
+    if test_name == "leveling":
+        operator_name = text("Operator name", default="").strip()
+        if not operator_name:
+            raise ValueError("Operator name cannot be empty")
+        args.operator_name = operator_name
+        args.robot_sn = None
+        args.test = "menu"
+        args.script_dir = "."
+    else:
+        args.operator_name = ""
+        args.mount = None
     return args
 
 
@@ -99,6 +112,36 @@ async def dispatch(args: argparse.Namespace) -> None:
             simulate=getattr(args, "simulate", False),
             selected_test=getattr(args, "test", "menu"),
             debug=getattr(args, "debug", False),
+        )
+        return
+
+    if command == "jog":
+        from leveling_testing.type import Mount
+        from opentonrs_api.maintenance_api.jog import jog_ot3
+
+        simulate = getattr(args, "simulate", False)
+        robot_ip = getattr(args, "robot_ip", None)
+        if robot_ip is None:
+            default_ip = "simulator" if simulate else "192.168.6.1"
+            robot_ip = (
+                await asyncio.to_thread(text, "Robot IP address", default_ip)
+            ).strip()
+        if not robot_ip:
+            raise ValueError("Robot IP address cannot be empty")
+
+        mount_value = getattr(args, "mount", None)
+        if mount_value is None:
+            mount_value = await asyncio.to_thread(
+                select,
+                ui.bilingual("Select mount", "选择 Mount"),
+                [Mount.LEFT.value, Mount.RIGHT.value],
+                Mount.LEFT.value,
+            )
+        ui.test_banner("Jog OT3", simulate=simulate)
+        await jog_ot3(
+            robot_ip,
+            mount=Mount(mount_value),
+            simulate=simulate,
         )
         return
 

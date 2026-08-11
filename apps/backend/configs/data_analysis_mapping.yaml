@@ -1,227 +1,853 @@
+unit_tracker_definitions:
+  robot_source: &robot_source
+    header_row: 2
+    data_start_row: 3
+    range_end: AK
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  robot_line: &robot_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: index, label: Index, source_column: A}
+      - {key: sn, label: Flex SN, source_column: C}
+      - {key: z_stage_sn, label: Z-Stage SN, source_column: D}
+      - {key: result, label: Test Result, source_column: E}
+      - {key: link, label: Link, source_column: J}
+      - {key: cosmetic_panel, label: Cosmetic Panel, source_column: O}
+      - {key: test_version_1, label: Test Version 1, source_column: Q}
+      - {key: test_version_2, label: Test Version 2, source_column: R}
+      - {key: test_version_3, label: Test Version 3, source_column: S}
+    - key: checks
+      label: Checks
+      columns:
+      - {key: factory_reset, label: Factory Reset, source_column: F}
+      - {key: calibration_file, label: Calibration File, source_column: G}
+      - {key: instrument_qc, label: 1/8ch/Gripper QC, source_column: H}
+      - {key: pipette_96_qc, label: 96ch QC, source_column: I}
+      - {key: z_stage_result, label: Z-Stage Result, source_column: K}
+    - key: subsystems
+      label: Subsystems
+      columns:
+      - {key: gantrys, label: Gantrys, source_column: T}
+      - {key: signals, label: Signals, source_column: U}
+      - {key: instruments, label: Instruments, source_column: V}
+      - {key: connectivity, label: Connectivity, source_column: W}
+      - {key: peripherals, label: Peripherals, source_column: X}
+    - key: network
+      label: Network
+      columns:
+      - {key: ethernet, label: Ethernet, source_column: Y}
+      - {key: wifi, label: Wi-Fi, source_column: Z}
+    - key: motion
+      label: Motion
+      columns:
+      - {key: slot_distances, label: Slot Distances, source_column: AA}
+      - {key: gantry_cycle, label: Gantry Cycle, source_column: AB}
+      - {key: xy_motion, label: XY Motion, source_column: AC}
+      - {key: z_motion, label: Z Motion, source_column: AD}
+    - key: leveling
+      label: Leveling
+      columns:
+      - {key: leveling_link, label: Leveling Link, source_column: AE}
+      - {key: gantry_leveling, label: Gantry Leveling, source_column: AF}
+      - {key: z_stage_parallelism, label: Z-Stage Parallelism, source_column: AG}
+      - {key: pipette_parallelism, label: Pipette Parallelism, source_column: AH}
+      - {key: gripper_parallelism, label: Gripper Parallelism, source_column: AI}
+    - key: status
+      label: Status
+      columns:
+      - {key: packaged, label: Packaged, source_column: B}
+      - {key: stocked, label: Stocked, source_column: AK}
+
+  single_gravimetric_source: &single_gravimetric_source
+    header_row: 10
+    data_start_row: 11
+    range_end: AW
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  single_gravimetric_line: &single_gravimetric_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: index, label: Index, source_column: A}
+      - {key: sn, label: SN, source_column: F}
+      - {key: model, label: Model, source_column: G}
+      - {key: result, label: Result, source_column: H}
+      - {key: link, label: Link, source_column: E}
+      - {key: test_version, label: Test Version, source_column: M}
+      - {key: operator_name, label: Operator, source_column: AO}
+      - {key: test_time, label: Test Time UTC, source_column: AM}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: packaged, label: Packaged, source_column: B}
+      - {key: retest, label: Retest, source_column: C}
+      - {key: reasons, label: Reasons, source_column: I}
+      - {key: warnings, label: Warnings, source_column: J}
+      - {key: notes, label: Notes, source_column: D}
+      - {key: stocked, label: Stocked, source_columns: [AW, AV]}
+    - key: equipment
+      label: Equipment
+      columns:
+      - {key: scale, label: Scale, source_column: K}
+      - {key: robot, label: Robot, source_column: L}
+      - {key: pipette_mount, label: Mount, source_column: AN}
+    - key: minimum_volume
+      label: Minimum Volume
+      columns:
+      - {key: min_cv, label: CV, source_column: N}
+      - {key: min_deviation, label: '%D', source_column: O}
+      - {key: min_water_remaining, label: Water Remaining, source_column: P}
+      - {key: min_tips, label: Tips, source_column: Q}
+      - {key: min_asp_range, label: Aspirate Range, source_column: R}
+      - {key: min_disp_range, label: Dispense Range, source_column: S}
+    - key: maximum_volume
+      label: Maximum Volume
+      columns:
+      - {key: max_cv, label: CV, source_column: T}
+      - {key: max_deviation, label: '%D', source_column: U}
+      - {key: max_water_remaining, label: Water Remaining, source_column: V}
+      - {key: max_tips, label: Tips, source_column: W}
+      - {key: max_asp_range, label: Aspirate Range, source_column: X}
+      - {key: max_disp_range, label: Dispense Range, source_column: Y}
+    - key: environment
+      label: Environment
+      columns:
+      - {key: stem_temperature, label: Stem Temp, source_column: Z}
+      - {key: stem_humidity, label: Stem Humidity, source_column: AA}
+      - {key: air_temperature, label: Air Temp, source_column: AB}
+      - {key: air_humidity, label: Air Humidity, source_column: AC}
+    - key: middle_volume
+      label: Middle Volume
+      columns:
+      - {key: mid1_cv, label: Mid1 CV, source_column: AD}
+      - {key: mid1_deviation, label: Mid1 %D, source_column: AE}
+      - {key: mid1_water_remaining, label: Mid1 Water Remaining, source_column: AF}
+      - {key: mid1_tips, label: Mid1 Tips, source_column: AG}
+      - {key: mid2_cv, label: Mid2 CV, source_column: AH}
+      - {key: mid2_deviation, label: Mid2 %D, source_column: AI}
+      - {key: mid2_water_remaining, label: Mid2 Water Remaining, source_column: AJ}
+      - {key: mid2_tips, label: Mid2 Tips, source_column: AK}
+    - key: tip_batch
+      label: Tip Batch
+      columns:
+      - {key: starting_weight, label: Starting Weight, source_column: AL}
+      - {key: tip_batch, label: Tip Batch, source_column: AS}
+      - {key: tip_cavity, label: Tip Cavity, source_column: AT}
+
+  multi_gravimetric_source: &multi_gravimetric_source
+    header_row: 8
+    data_start_row: 9
+    range_end: AW
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  multi_gravimetric_line: &multi_gravimetric_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: index, label: Index, source_column: A}
+      - {key: sn, label: SN, source_column: G}
+      - {key: model, label: Model, source_column: H}
+      - {key: result, label: Result, source_column: I}
+      - {key: link, label: Link, source_column: F}
+      - {key: test_version, label: Test Version, source_column: N}
+      - {key: operator_name, label: Operator, source_column: AO}
+      - {key: test_time, label: Test Time UTC, source_column: AM}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: packaged, label: Packaged, source_column: B}
+      - {key: ignore, label: Ignore, source_column: C}
+      - {key: retest, label: Retest, source_column: D}
+      - {key: reasons, label: Reasons, source_column: J}
+      - {key: warnings, label: Warnings, source_column: K}
+      - {key: notes, label: Notes, source_column: E}
+      - {key: stocked, label: Stocked, source_column: AW}
+    - key: equipment
+      label: Equipment
+      columns:
+      - {key: scale, label: Scale, source_column: L}
+      - {key: robot, label: Robot, source_column: M}
+      - {key: pipette_mount, label: Mount, source_column: AN}
+    - key: minimum_volume
+      label: Minimum Volume
+      columns:
+      - {key: min_cv, label: CV, source_column: O}
+      - {key: min_deviation, label: '%D', source_column: P}
+      - {key: min_water_remaining, label: Water Remaining, source_column: Q}
+      - {key: min_tips, label: Tips, source_column: R}
+      - {key: min_plate_cv, label: Plate CV, source_column: S}
+      - {key: min_plate_deviation, label: Plate %D, source_column: T}
+    - key: maximum_volume
+      label: Maximum Volume
+      columns:
+      - {key: max_cv, label: CV, source_column: U}
+      - {key: max_deviation, label: '%D', source_column: V}
+      - {key: max_water_remaining, label: Water Remaining, source_column: W}
+      - {key: max_tips, label: Tips, source_column: X}
+      - {key: max_plate_cv, label: Plate CV, source_column: Y}
+      - {key: max_plate_deviation, label: Plate %D, source_column: Z}
+    - key: environment
+      label: Environment
+      columns:
+      - {key: stem_temperature, label: Stem Temp, source_column: AA}
+      - {key: stem_humidity, label: Stem Humidity, source_column: AB}
+      - {key: air_temperature, label: Air Temp, source_column: AC}
+      - {key: air_humidity, label: Air Humidity, source_column: AD}
+    - key: middle_volume
+      label: Middle Volume
+      columns:
+      - {key: mid1_cv, label: Mid1 CV, source_column: AE}
+      - {key: mid1_deviation, label: Mid1 %D, source_column: AF}
+      - {key: mid1_water_remaining, label: Mid1 Water Remaining, source_column: AG}
+      - {key: mid1_tips, label: Mid1 Tips, source_column: AH}
+      - {key: mid2_cv, label: Mid2 CV, source_column: AI}
+      - {key: mid2_deviation, label: Mid2 %D, source_column: AJ}
+      - {key: mid2_water_remaining, label: Mid2 Water Remaining, source_column: AK}
+      - {key: mid2_tips, label: Mid2 Tips, source_column: AL}
+    - key: tip_batch
+      label: Tip Batch
+      columns:
+      - {key: tip_batch, label: Tip Batch, source_column: AS}
+      - {key: tip_cavity, label: Tip Cavity, source_column: AT}
+
+  single_qc_source: &single_qc_source
+    header_row: 7
+    data_start_row: 8
+    range_end: AV
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  single_qc_line: &single_qc_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: sn, label: SN, source_column: E}
+      - {key: model, label: Model, source_column: F}
+      - {key: assembly_result, label: Assembly Result, source_column: G}
+      - {key: diagnostic_result, label: Diagnostic Result, source_column: H}
+      - {key: link, label: Link, source_column: D}
+      - {key: commit_hash, label: Commit Hash, source_column: AE}
+      - {key: firmware, label: Firmware, source_column: AF}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: ignore, label: Ignore, source_column: A}
+      - {key: retest, label: Retest, source_column: B}
+      - {key: description, label: Description, source_column: C}
+      - {key: failures, label: Failures, source_column: I}
+      - {key: stocked, label: Stocked, source_columns: [AV, AP]}
+    - key: environment
+      label: Environment
+      columns:
+      - {key: temperature, label: Temperature, source_column: J}
+      - {key: temperature_offset, label: Temp Offset, source_column: K}
+      - {key: humidity, label: Humidity, source_column: L}
+      - {key: humidity_offset, label: Humidity Offset, source_column: M}
+    - key: sensors
+      label: Sensors
+      columns:
+      - {key: open_air_pressure, label: Open Air Pressure, source_column: N}
+      - {key: aspiration_pressure, label: Aspiration Pressure, source_column: O}
+      - {key: open_air_capacitance, label: Open Air Capacitance, source_column: T}
+      - {key: probe_capacitance, label: Probe Capacitance, source_column: U}
+      - {key: deck_capacitance, label: Deck Capacitance, source_column: V}
+      - {key: leak_rate, label: Leak Rate, source_column: AG}
+    - key: encoder
+      label: Encoder
+      columns:
+      - {key: blowout_position, label: Blowout Position, source_column: P}
+      - {key: cumulative_drift, label: Cumulative Drift, source_column: Q}
+      - {key: average_drift, label: Average Drift, source_column: R}
+      - {key: encoder_clean, label: Encoder Clean, source_column: S}
+    - key: tip_measurement
+      label: Tip Measurement
+      columns:
+      - {key: tip_50_precision, label: 50uL Precision, source_column: W}
+      - {key: tip_50_accuracy, label: 50uL Accuracy, source_column: X}
+      - {key: tip_200_precision, label: 200uL Precision, source_column: Y}
+      - {key: tip_200_accuracy, label: 200uL Accuracy, source_column: Z}
+      - {key: tip_1000_precision, label: 1000uL Precision, source_column: AA}
+      - {key: tip_1000_accuracy, label: 1000uL Accuracy, source_column: AB}
+      - {key: ejector_distance, label: Ejector Distance, source_column: AC}
+      - {key: pickup_distance, label: Pickup Distance, source_column: AD}
+
+  single_speed_line: &single_speed_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: sn, label: SN, source_column: E}
+      - {key: model, label: Model, source_column: F}
+      - {key: result, label: Result, source_column: AI}
+      - {key: link, label: Link, source_columns: [AN, AH, D]}
+      - {key: commit_hash, label: Commit Hash, source_column: AE}
+      - {key: firmware, label: Firmware, source_column: AF}
+    - key: current_speed
+      label: Current Speed
+      columns:
+      - {key: speed_50, label: 50 mm/s, source_column: AJ}
+      - {key: speed_70, label: 70 mm/s, source_column: AK}
+      - {key: speed_80, label: 80 mm/s, source_column: AL}
+      - {key: speed_90, label: 90 mm/s, source_column: AM}
+      - {key: error_log, label: Error Log, source_column: AO}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: ignore, label: Ignore, source_column: A}
+      - {key: retest, label: Retest, source_column: B}
+      - {key: stocked, label: Stocked, source_columns: [AV, AP]}
+
+  multi_qc_source: &multi_qc_source
+    header_row: 7
+    data_start_row: 8
+    range_end: BM
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  multi_qc_line: &multi_qc_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: sn, label: SN, source_column: E}
+      - {key: model, label: Model, source_column: F}
+      - {key: assembly_result, label: Assembly Result, source_column: G}
+      - {key: diagnostic_result, label: Diagnostic Result, source_column: H}
+      - {key: link, label: Link, source_column: D}
+      - {key: commit_hash, label: Commit Hash, source_column: AV}
+      - {key: firmware, label: Firmware, source_column: BE}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: ignore, label: Ignore, source_column: A}
+      - {key: retest, label: Retest, source_column: B}
+      - {key: description, label: Description, source_column: C}
+      - {key: qc_failures, label: QC Failures, source_column: I}
+      - {key: leak_failures, label: Leak Failures, source_column: J}
+      - {key: stocked, label: Stocked, source_column: BM}
+    - key: environment
+      label: Environment
+      columns:
+      - {key: temperature, label: Temperature, source_column: K}
+      - {key: temperature_offset, label: Temp Offset, source_column: L}
+      - {key: humidity, label: Humidity, source_column: M}
+      - {key: humidity_offset, label: Humidity Offset, source_column: N}
+    - key: pressure
+      label: Pressure
+      columns:
+      - {key: s0_open_pressure, label: S0 Open, source_column: O}
+      - {key: s1_open_pressure, label: S1 Open, source_column: P}
+      - {key: s0_sealed_pressure, label: S0 Sealed, source_column: Q}
+      - {key: s1_sealed_pressure, label: S1 Sealed, source_column: R}
+      - {key: s0_aspiration_pressure, label: S0 Aspirate, source_column: S}
+      - {key: s1_aspiration_pressure, label: S1 Aspirate, source_column: T}
+      - {key: max_leak_rate, label: Max Leak Rate, source_column: BF}
+    - key: capacitance
+      label: Capacitance
+      columns:
+      - {key: s0_air_capacitance, label: S0 Air, source_column: V}
+      - {key: s1_air_capacitance, label: S1 Air, source_column: W}
+      - {key: s0_probe_capacitance, label: S0 Probe, source_column: X}
+      - {key: s1_probe_capacitance, label: S1 Probe, source_column: Y}
+      - {key: s0_deck_capacitance, label: S0 Deck, source_column: AC}
+      - {key: s1_deck_capacitance, label: S1 Deck, source_column: AG}
+    - key: probe_offset
+      label: Probe Offset
+      columns:
+      - {key: s0_x_offset, label: S0 X, source_column: Z}
+      - {key: s0_y_offset, label: S0 Y, source_column: AA}
+      - {key: s0_z_offset, label: S0 Z, source_column: AB}
+      - {key: s1_x_offset, label: S1 X, source_column: AD}
+      - {key: s1_y_offset, label: S1 Y, source_column: AE}
+      - {key: s1_z_offset, label: S1 Z, source_column: AF}
+    - key: tip_measurement
+      label: Tip Measurement
+      columns:
+      - {key: tip_50_primary_precision, label: 50uL P Precision, source_column: AH}
+      - {key: tip_50_primary_accuracy, label: 50uL P Accuracy, source_column: AI}
+      - {key: tip_50_secondary_precision, label: 50uL S Precision, source_column: AJ}
+      - {key: tip_50_secondary_accuracy, label: 50uL S Accuracy, source_column: AK}
+      - {key: tip_200_primary_precision, label: 200uL P Precision, source_column: AL}
+      - {key: tip_200_primary_accuracy, label: 200uL P Accuracy, source_column: AM}
+      - {key: tip_200_secondary_precision, label: 200uL S Precision, source_column: AN}
+      - {key: tip_200_secondary_accuracy, label: 200uL S Accuracy, source_column: AO}
+      - {key: tip_1000_primary_precision, label: 1000uL P Precision, source_column: AP}
+      - {key: tip_1000_primary_accuracy, label: 1000uL P Accuracy, source_column: AQ}
+      - {key: tip_1000_secondary_precision, label: 1000uL S Precision, source_column: AR}
+      - {key: tip_1000_secondary_accuracy, label: 1000uL S Accuracy, source_column: AS}
+      - {key: ejector_distance, label: Ejector Distance, source_column: AT}
+      - {key: pickup_distance, label: Pickup Distance, source_column: AU}
+    - key: channels
+      label: Channel Pressure
+      columns:
+      - {key: channel_1_pressure, label: CH1, source_column: AW}
+      - {key: channel_2_pressure, label: CH2, source_column: AX}
+      - {key: channel_3_pressure, label: CH3, source_column: AY}
+      - {key: channel_4_pressure, label: CH4, source_column: AZ}
+      - {key: channel_5_pressure, label: CH5, source_column: BA}
+      - {key: channel_6_pressure, label: CH6, source_column: BB}
+      - {key: channel_7_pressure, label: CH7, source_column: BC}
+      - {key: channel_8_pressure, label: CH8, source_column: BD}
+
+  multi_speed_line: &multi_speed_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: sn, label: SN, source_column: E}
+      - {key: model, label: Model, source_column: F}
+      - {key: result, label: Result, source_column: BG}
+      - {key: link, label: Link, source_column: D}
+      - {key: commit_hash, label: Commit Hash, source_column: AV}
+      - {key: firmware, label: Firmware, source_column: BE}
+    - key: current_speed
+      label: Current Speed
+      columns:
+      - {key: speed_50, label: 50 mm/s, source_column: BH}
+      - {key: speed_70, label: 70 mm/s, source_column: BI}
+      - {key: speed_80, label: 80 mm/s, source_column: BJ}
+      - {key: speed_90, label: 90 mm/s, source_column: BK}
+      - {key: error_log, label: Error Log, source_column: BL}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: ignore, label: Ignore, source_column: A}
+      - {key: retest, label: Retest, source_column: B}
+      - {key: stocked, label: Stocked, source_column: BM}
+
+  burn_in_source: &burn_in_source
+    header_row: 2
+    data_start_row: 3
+    range_end: P
+    tracker_label: Ultima P1000M Burn in
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, test_time]
+  burn_in_line: &burn_in_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: sn, label: SN, source_column: F}
+      - {key: result, label: Result, source_column: I}
+      - {key: link, label: Link, source_column: E}
+      - {key: firmware, label: Firmware, source_column: G}
+      - {key: software_tag, label: Software Tag, source_column: H}
+      - {key: test_time, label: Test Time, source_column: N}
+      - {key: operator_name, label: Operator, source_column: O}
+    - key: checks
+      label: Checks
+      columns:
+      - {key: current_speed_result, label: Current Speed, source_column: J}
+      - {key: stall_result, label: Stall, source_column: K}
+      - {key: current_speed_failure, label: Current Speed Failure, source_column: L}
+      - {key: stall_failure, label: Stall Failure, source_column: M}
+    - key: disposition
+      label: Disposition
+      columns:
+      - {key: packaged, label: Packaged, source_column: A}
+      - {key: rework, label: Rework, source_column: B}
+      - {key: retest, label: Retest, source_column: C}
+      - {key: comments, label: Comments, source_column: D}
+      - {key: stocked, label: Stocked, source_column: P}
+
+  p2hh_source: &p2hh_source
+    header_row: 2
+    data_start_row: 3
+    range_end: BM
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  p2hh_line: &p2hh_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: location, label: Location, source_column: I}
+      - {key: firmware, label: FW, source_column: J}
+      - {key: sn, label: SN, source_column: K}
+      - {key: link, label: Link, source_column: L}
+      - {key: operator_name, label: OperatorName, source_column: M}
+    - key: sections
+      label: Sections
+      columns:
+      - {key: current_plunger, label: CurrentPlunger, source_column: N}
+      - {key: current_jaws, label: CurrentJaws, source_column: O}
+      - {key: capacitance, label: CAPACITANCE, source_column: P}
+      - {key: pressure, label: PRESSURE, source_column: Q}
+      - {key: environment_sensor, label: ENVIRONMENT-SENSOR, source_column: R}
+      - {key: tip_sensor, label: TIP-SENSOR, source_column: S}
+      - {key: droplets, label: DROPLETS, source_column: T}
+    - key: plunger_current_speed
+      label: Plunger Current Speed
+      columns:
+      - {key: plunger_current_0_6_speed_5, label: 0.6-5, source_column: U}
+      - {key: plunger_current_0_6_speed_15, label: 0.6-15, source_column: V}
+      - {key: plunger_current_0_6_speed_22, label: 0.6-22, source_column: W}
+      - {key: plunger_current_0_7_speed_5, label: 0.7-5, source_column: X}
+      - {key: plunger_current_0_7_speed_15, label: 0.7-15, source_column: Y}
+      - {key: plunger_current_0_7_speed_22, label: 0.7-22, source_column: Z}
+      - {key: plunger_current_0_8_speed_5, label: 0.8-5, source_column: AA}
+      - {key: plunger_current_0_8_speed_15, label: 0.8-15, source_column: AB}
+      - {key: plunger_current_0_8_speed_22, label: 0.8-22, source_column: AC}
+    - key: jaws_current_speed
+      label: Jaws Current Speed
+      columns:
+      - {key: jaws_current_0_7_speed_8, label: 0.7-8, source_column: AD}
+      - {key: jaws_current_0_7_speed_12, label: 0.7-12, source_column: AE}
+      - {key: jaws_current_1_5_speed_8, label: 1.5-8, source_column: AF}
+      - {key: jaws_current_1_5_speed_12, label: 1.5-12, source_column: AG}
+    - key: capacitance_primary
+      label: Capacitance Primary
+      columns:
+      - {key: capacitance_primary_air, label: Air, source_column: AH}
+      - {key: capacitance_primary_attached, label: Attached, source_column: AI}
+      - {key: capacitance_primary_deck, label: Deck, source_column: AJ}
+    - key: capacitance_secondary
+      label: Capacitance Secondary
+      columns:
+      - {key: capacitance_secondary_air, label: Air, source_column: AK}
+      - {key: capacitance_secondary_attached, label: Attached, source_column: AL}
+      - {key: capacitance_secondary_deck, label: Deck, source_column: AM}
+    - key: pressure_primary
+      label: Pressure Primary
+      columns:
+      - {key: pressure_primary_open, label: Open, source_column: AN}
+      - {key: pressure_primary_sealed, label: Sealed, source_column: AO}
+      - {key: pressure_primary_aspirate, label: Aspirate, source_column: AP}
+      - {key: pressure_primary_dispense, label: Dispense, source_column: AQ}
+    - key: pressure_secondary
+      label: Pressure Secondary
+      columns:
+      - {key: pressure_secondary_open, label: Open, source_column: AR}
+      - {key: pressure_secondary_sealed, label: Sealed, source_column: AS}
+      - {key: pressure_secondary_aspirate, label: Aspirate, source_column: AT}
+      - {key: pressure_secondary_dispense, label: Dispense, source_column: AU}
+    - key: environment_s0
+      label: Environment S0
+      columns:
+      - {key: environment_s0_celsius, label: Celsius, source_column: AV}
+      - {key: environment_s0_humidity, label: Humidity, source_column: AW}
+    - key: environment_s1
+      label: Environment S1
+      columns:
+      - {key: environment_s1_celsius, label: Celsius, source_column: AX}
+      - {key: environment_s1_humidity, label: Humidity, source_column: AY}
+    - key: tip_sensor
+      label: Tip Sensor
+      columns:
+      - {key: tip_empty, label: Empty, source_column: AZ}
+      - {key: tip_with_tip, label: With Tip, source_column: BA}
+    - key: droplets
+      label: Droplets
+      columns:
+      - {key: droplets_96_tips, label: 96 Tips, source_column: BB}
+    - key: others
+      label: Others
+      columns:
+      - {key: file_path, label: File Path}
+
+  p1kh_source: &p1kh_source
+    header_row: 2
+    data_start_row: 3
+    range_end: BM
+    sn_key: sn
+    link_key: link
+    identity_keys: [sn, link]
+  p1kh_line: &p1kh_line
+    groups:
+    - key: info
+      label: Info
+      columns:
+      - {key: location, label: Location, source_column: H}
+      - {key: firmware, label: FW, source_column: I}
+      - {key: sn, label: SN, source_column: J}
+      - {key: link, label: Link, source_column: K}
+      - {key: operator_name, label: OperatorName, source_column: L}
+    - key: sections
+      label: Sections
+      columns:
+      - {key: current_plunger, label: CurrentPlunger, source_column: M}
+      - {key: current_jaws, label: CurrentJaws, source_column: N}
+      - {key: capacitance, label: CAPACITANCE, source_column: O}
+      - {key: pressure, label: PRESSURE, source_column: P}
+      - {key: environment_sensor, label: ENVIRONMENT-SENSOR, source_column: Q}
+      - {key: tip_sensor, label: TIP-SENSOR, source_column: R}
+      - {key: droplets, label: DROPLETS, source_column: S}
+    - key: plunger_current_speed
+      label: Plunger Current Speed
+      columns:
+      - {key: plunger_current_0_6_speed_5, label: 0.6-5, source_column: T}
+      - {key: plunger_current_0_6_speed_15, label: 0.6-15, source_column: U}
+      - {key: plunger_current_0_6_speed_22, label: 0.6-22, source_column: V}
+      - {key: plunger_current_0_7_speed_5, label: 0.7-5, source_column: W}
+      - {key: plunger_current_0_7_speed_15, label: 0.7-15, source_column: X}
+      - {key: plunger_current_0_7_speed_22, label: 0.7-22, source_column: Y}
+      - {key: plunger_current_0_8_speed_5, label: 0.8-5, source_column: Z}
+      - {key: plunger_current_0_8_speed_15, label: 0.8-15, source_column: AA}
+      - {key: plunger_current_0_8_speed_22, label: 0.8-22, source_column: AB}
+    - key: jaws_current_speed
+      label: Jaws Current Speed
+      columns:
+      - {key: jaws_current_0_7_speed_8, label: 0.7-8, source_column: AC}
+      - {key: jaws_current_0_7_speed_12, label: 0.7-12, source_column: AD}
+      - {key: jaws_current_1_5_speed_8, label: 1.5-8, source_column: AE}
+      - {key: jaws_current_1_5_speed_12, label: 1.5-12, source_column: AF}
+    - key: capacitance_primary
+      label: Capacitance Primary
+      columns:
+      - {key: capacitance_primary_air, label: Air, source_column: AG}
+      - {key: capacitance_primary_attached, label: Attached, source_column: AH}
+      - {key: capacitance_primary_deck, label: Deck, source_column: AI}
+    - key: capacitance_secondary
+      label: Capacitance Secondary
+      columns:
+      - {key: capacitance_secondary_air, label: Air, source_column: AJ}
+      - {key: capacitance_secondary_attached, label: Attached, source_column: AK}
+      - {key: capacitance_secondary_deck, label: Deck, source_column: AL}
+    - key: pressure_primary
+      label: Pressure Primary
+      columns:
+      - {key: pressure_primary_open, label: Open, source_column: AM}
+      - {key: pressure_primary_sealed, label: Sealed, source_column: AN}
+      - {key: pressure_primary_aspirate, label: Aspirate, source_column: AO}
+      - {key: pressure_primary_dispense, label: Dispense, source_column: AP}
+    - key: pressure_secondary
+      label: Pressure Secondary
+      columns:
+      - {key: pressure_secondary_open, label: Open, source_column: AQ}
+      - {key: pressure_secondary_sealed, label: Sealed, source_column: AR}
+      - {key: pressure_secondary_aspirate, label: Aspirate, source_column: AS}
+      - {key: pressure_secondary_dispense, label: Dispense, source_column: AT}
+    - key: environment_s0
+      label: Environment S0
+      columns:
+      - {key: environment_s0_celsius, label: Celsius, source_column: AU}
+      - {key: environment_s0_humidity, label: Humidity, source_column: AV}
+    - key: environment_s1
+      label: Environment S1
+      columns:
+      - {key: environment_s1_celsius, label: Celsius, source_column: AW}
+      - {key: environment_s1_humidity, label: Humidity, source_column: AX}
+    - key: tip_sensor
+      label: Tip Sensor
+      columns:
+      - {key: tip_empty, label: Empty, source_column: AY}
+      - {key: tip_with_tip, label: With Tip, source_column: AZ}
+    - key: droplets
+      label: Droplets
+      columns:
+      - {key: droplets_96_tips, label: 96 Tips, source_column: BA}
+    - key: others
+      label: Others
+      columns:
+      - {key: file_path, label: File Path}
+
 products:
+  Robot:
+    tests:
+      Diagnostic:
+        unit_tracker:
+          <<: *robot_source
+          required_any_keys: [result, instrument_qc, pipette_96_qc, gantrys, signals, instruments, connectivity, peripherals]
+        standard_line: *robot_line
+      XY Belt Calibration:
+        unit_tracker:
+          <<: *robot_source
+          required_any_keys: [xy_motion]
+        standard_line: *robot_line
+      Gantry Stress:
+        unit_tracker:
+          <<: *robot_source
+          required_any_keys: [gantry_cycle]
+        standard_line: *robot_line
+      Leveling:
+        unit_tracker:
+          <<: *robot_source
+          required_any_keys: [leveling_link, gantry_leveling, z_stage_parallelism, pipette_parallelism, gripper_parallelism]
+        standard_line: *robot_line
+      Z Stage:
+        unit_tracker:
+          <<: *robot_source
+          required_any_keys: [z_stage_result, z_motion, z_stage_parallelism]
+        standard_line: *robot_line
   P1KS:
     tests:
       Gravimetric:
         sheet_name: Gravimetric Raw Data
-        cols:
-        - A
-        - B
-        - C
-        - D
+        cols: [A, B, C, D]
         analyzer: gravimetric
   P50S:
     tests:
       Gravimetric:
         sheet_name: Gravimetric Raw Data
-        cols:
-        - A
-        - B
-        - C
-        - D
+        cols: [A, B, C, D]
         analyzer: gravimetric
+        unit_tracker: *single_gravimetric_source
+        standard_line: *single_gravimetric_line
+      Assembly QC:
+        sheet_name: RawData
+        cols: [A, B, C, D, E, F]
+        analyzer: pipette_assembly_qc
+        unit_tracker:
+          <<: *single_qc_source
+          required_any_keys: [assembly_result, diagnostic_result]
+        standard_line: *single_qc_line
+      Speed Current:
+        unit_tracker:
+          <<: *single_qc_source
+          required_any_keys: [result, speed_50, speed_70, speed_80, speed_90]
+        standard_line: *single_speed_line
+  P1000S:
+    tests:
+      Gravimetric:
+        sheet_name: Gravimetric Raw Data
+        cols: [A, B, C, D]
+        analyzer: gravimetric
+        unit_tracker: *single_gravimetric_source
+        standard_line: *single_gravimetric_line
+      Assembly QC:
+        sheet_name: RawData
+        cols: [A, B, C, D, E, F]
+        analyzer: pipette_assembly_qc
+        unit_tracker:
+          <<: *single_qc_source
+          required_any_keys: [assembly_result, diagnostic_result]
+        standard_line: *single_qc_line
+      Speed Current:
+        unit_tracker:
+          <<: *single_qc_source
+          required_any_keys: [result, speed_50, speed_70, speed_80, speed_90]
+        standard_line: *single_speed_line
+  P50M:
+    tests:
+      Gravimetric:
+        sheet_name: Gravimetric Raw Data
+        cols: [A, B, C, D]
+        analyzer: gravimetric
+        unit_tracker: *multi_gravimetric_source
+        standard_line: *multi_gravimetric_line
+      Assembly QC:
+        sheet_name: RawData
+        cols: [A, B, C, D, E, F]
+        analyzer: pipette_assembly_qc
+        unit_tracker:
+          <<: *multi_qc_source
+          required_any_keys: [assembly_result, diagnostic_result]
+        standard_line: *multi_qc_line
+      Speed Current:
+        unit_tracker:
+          <<: *multi_qc_source
+          required_any_keys: [result, speed_50, speed_70, speed_80, speed_90]
+        standard_line: *multi_speed_line
+      Burn In Result:
+        unit_tracker:
+          <<: *burn_in_source
+          required_any_keys: [result, current_speed_result, stall_result]
+        standard_line: *burn_in_line
+      Burn In Records:
+        unit_tracker:
+          <<: *burn_in_source
+          required_any_keys: [result, current_speed_result, stall_result]
+        standard_line: *burn_in_line
+  P1000M:
+    tests:
+      Gravimetric:
+        sheet_name: Gravimetric Raw Data
+        cols: [A, B, C, D]
+        analyzer: gravimetric
+        unit_tracker: *multi_gravimetric_source
+        standard_line: *multi_gravimetric_line
+      Assembly QC:
+        sheet_name: RawData
+        cols: [A, B, C, D, E, F]
+        analyzer: pipette_assembly_qc
+        unit_tracker:
+          <<: *multi_qc_source
+          required_any_keys: [assembly_result, diagnostic_result]
+        standard_line: *multi_qc_line
+      Speed Current:
+        unit_tracker:
+          <<: *multi_qc_source
+          required_any_keys: [result, speed_50, speed_70, speed_80, speed_90]
+        standard_line: *multi_speed_line
+      Burn In Result:
+        unit_tracker:
+          <<: *burn_in_source
+          required_any_keys: [result, current_speed_result, stall_result]
+        standard_line: *burn_in_line
+      Burn In Records:
+        unit_tracker:
+          <<: *burn_in_source
+          required_any_keys: [result, current_speed_result, stall_result]
+        standard_line: *burn_in_line
   P2HH:
     tests:
       Assembly QC:
         sheet_name: RawData
-        cols:
-        - A
-        - B
-        - C
-        - D
-        - E
-        - F
+        cols: [A, B, C, D, E, F]
         analyzer: pipette_assembly_qc
-        standard_line:
-          groups:
-          - key: info
-            label: Info
-            columns:
-            - key: location
-              label: Location
-            - key: firmware
-              label: FW
-            - key: sn
-              label: SN
-            - key: link
-              label: Link
-            - key: operator_name
-              label: OperatorName
-          - key: sections
-            label: Sections
-            columns:
-            - key: current_plunger
-              label: CurrentPlunger
-            - key: current_jaws
-              label: CurrentJaws
-            - key: capacitance
-              label: CAPACITANCE
-            - key: pressure
-              label: PRESSURE
-            - key: environment_sensor
-              label: ENVIRONMENT-SENSOR
-            - key: tip_sensor
-              label: TIP-SENSOR
-            - key: droplets
-              label: DROPLETS
-          - key: plunger_current_speed
-            label: Plunger Current Speed
-            columns:
-            - key: plunger_current_0_6_speed_5
-              label: 0.6-5
-            - key: plunger_current_0_6_speed_15
-              label: 0.6-15
-            - key: plunger_current_0_6_speed_22
-              label: 0.6-22
-            - key: plunger_current_0_7_speed_5
-              label: 0.7-5
-            - key: plunger_current_0_7_speed_15
-              label: 0.7-15
-            - key: plunger_current_0_7_speed_22
-              label: 0.7-22
-            - key: plunger_current_0_8_speed_5
-              label: 0.8-5
-            - key: plunger_current_0_8_speed_15
-              label: 0.8-15
-            - key: plunger_current_0_8_speed_22
-              label: 0.8-22
-          - key: jaws_current_speed
-            label: Jaws Current Speed
-            columns:
-            - key: jaws_current_0_7_speed_8
-              label: 0.7-8
-            - key: jaws_current_0_7_speed_12
-              label: 0.7-12
-            - key: jaws_current_1_5_speed_8
-              label: 1.5-8
-            - key: jaws_current_1_5_speed_12
-              label: 1.5-12
-          - key: capacitance_primary
-            label: Capacitance Primary
-            columns:
-            - key: capacitance_primary_air
-              label: Air
-            - key: capacitance_primary_attached
-              label: Attached
-            - key: capacitance_primary_deck
-              label: Deck
-          - key: capacitance_secondary
-            label: Capacitance Secondary
-            columns:
-            - key: capacitance_secondary_air
-              label: Air
-            - key: capacitance_secondary_attached
-              label: Attached
-            - key: capacitance_secondary_deck
-              label: Deck
-          - key: pressure_primary
-            label: Pressure Primary
-            columns:
-            - key: pressure_primary_open
-              label: Open
-            - key: pressure_primary_sealed
-              label: Sealed
-            - key: pressure_primary_aspirate
-              label: Aspirate
-            - key: pressure_primary_dispense
-              label: Dispense
-          - key: pressure_secondary
-            label: Pressure Secondary
-            columns:
-            - key: pressure_secondary_open
-              label: Open
-            - key: pressure_secondary_sealed
-              label: Sealed
-            - key: pressure_secondary_aspirate
-              label: Aspirate
-            - key: pressure_secondary_dispense
-              label: Dispense
-          - key: environment_s0
-            label: Environment S0
-            columns:
-            - key: environment_s0_celsius
-              label: Celsius
-            - key: environment_s0_humidity
-              label: Humidity
-          - key: environment_s1
-            label: Environment S1
-            columns:
-            - key: environment_s1_celsius
-              label: Celsius
-            - key: environment_s1_humidity
-              label: Humidity
-          - key: tip_sensor
-            label: Tip Sensor
-            columns:
-            - key: tip_empty
-              label: Empty
-            - key: tip_with_tip
-              label: With Tip
-          - key: droplets
-            label: Droplets
-            columns:
-            - key: droplets_96_tips
-              label: 96 Tips
-          - key: others
-            label: Others
-            columns:
-            - key: file_path
-              label: File Path
+        unit_tracker: *p2hh_source
+        standard_line: *p2hh_line
       Gravimetric:
-        sheet_name: "%D"
+        sheet_name: '%D'
         cols: []
         analyzer: gravimetric
       Photometric:
         sheet_name: Photometric
         cols: []
         analyzer: photometric
+  P1KH:
+    tests:
+      Assembly QC:
+        sheet_name: RawData
+        cols: [A, B, C, D, E, F]
+        analyzer: pipette_assembly_qc
+        unit_tracker: *p1kh_source
+        standard_line: *p1kh_line
+      Gravimetric:
+        sheet_name: '%D'
+        cols: []
+        analyzer: gravimetric
   P200-96:
     tests:
       Assembly QC:
         sheet_name: RawData
-        cols:
-        - A
-        - B
-        - C
-        - D
-        - E
-        - F
+        cols: [A, B, C, D, E, F]
         analyzer: pipette_assembly_qc
       Gravimetric:
-        sheet_name: "%D"
+        sheet_name: '%D'
         cols: []
         analyzer: gravimetric
   P200-CH96:
     tests:
       Assembly QC:
         sheet_name: RawData
-        cols:
-        - A
-        - B
-        - C
-        - D
-        - E
-        - F
+        cols: [A, B, C, D, E, F]
         analyzer: pipette_assembly_qc
       Gravimetric:
-        sheet_name: "%D"
-        cols: []
-        analyzer: gravimetric
-  P1KH:
-    tests:
-      Gravimetric:
-        sheet_name: "%D"
+        sheet_name: '%D'
         cols: []
         analyzer: gravimetric
   P1000-96:
     tests:
       Gravimetric:
-        sheet_name: "%D"
+        sheet_name: '%D'
         cols: []
         analyzer: gravimetric
   P1000-CH96:
     tests:
       Gravimetric:
-        sheet_name: "%D"
+        sheet_name: '%D'
         cols: []
         analyzer: gravimetric
   default:

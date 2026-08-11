@@ -190,30 +190,35 @@ UPLOAD_HANDLER_CONFIGS = {
         upload_method="upload",
         test_display_name="Z Stage",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
+        tracker_sheet_name_template="{oem} OT3",
     ),
     "robot_update_diagnostic": UploadHandlerConfig(
         uploader_key="spreadsheet",
         upload_method="upload",
         test_display_name="Diagnostic",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
+        tracker_sheet_name_template="{oem} OT3",
     ),
     "robot_update_xy_belt_calibration": UploadHandlerConfig(
         uploader_key="spreadsheet",
         upload_method="upload",
         test_display_name="XY Belt Calibration",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
+        tracker_sheet_name_template="{oem} OT3",
     ),
     "robot_update_gantry_stress": UploadHandlerConfig(
         uploader_key="spreadsheet",
         upload_method="upload",
         test_display_name="Gantry Stress",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
+        tracker_sheet_name_template="{oem} OT3",
     ),
     "robot_update_leveling": UploadHandlerConfig(
         uploader_key="spreadsheet",
         upload_method="upload",
         test_display_name="Leveling",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
+        tracker_sheet_name_template="{oem} OT3",
     ),
 }
 

@@ -202,16 +202,29 @@ class SpreadsheetUploadWorkflow:
                 paste_file_id,
                 tracker_sheet_name,
             )
-            values = self.uploader.gdrive.get_excel_sheet(
-                spreadsheetId=paste_file_id,
-                range=tracker_sheet_name,
+            _, start_column, _ = self.uploader.resolve_paste_line_range(
+                paste_cfg,
+                1,
+                plan.is_ultima,
             )
-            if not values:
+            last_row_number = self.uploader.get_last_tracker_row_number(
+                paste_file_id,
+                tracker_sheet_name,
+                start_column,
+            )
+            if last_row_number is None:
                 logger.warning(f"Cannot read tracker sheet: {tracker_sheet_name}")
                 plan.result.set_unit_tracker("N/A")
                 continue
 
-            last_row_index = self.uploader.find_last_row_by_length(values)
+            last_row_index = last_row_number + 1
+            if not self.uploader.ensure_tracker_row_capacity(
+                paste_file_id,
+                tracker_sheet_name,
+                last_row_index,
+            ):
+                plan.result.set_unit_tracker("N/A")
+                continue
             paste_range, _, _ = self.uploader.resolve_paste_line_range(
                 paste_cfg,
                 last_row_index,

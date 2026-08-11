@@ -1262,7 +1262,10 @@ class GoogleDriveDriver:
         获取在线excel文件内的所有工作表名称及其ID
         """
         try:
-            spreadsheet = self.sheet_service_client.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            spreadsheet = self.sheet_service_client.spreadsheets().get(
+                spreadsheetId=spreadsheet_id,
+                fields="sheets.properties(sheetId,title,index,sheetType,gridProperties)",
+            ).execute()
             sheets = spreadsheet.get('sheets', [])
             sheets_info = []
             for sheet in sheets:
@@ -1277,8 +1280,8 @@ class GoogleDriveDriver:
                 sheets_info.append(sheet_info)
 
             return sheets_info
-        except HttpError as error:
-            logger.info(f"获取工作表信息时出错: {error}")
+        except Exception as error:
+            logger.info("获取工作表信息时出错: %s", error)
             return None
 
     def get_sheet_gid_map(self, spreadsheet_id):
@@ -1293,7 +1296,10 @@ class GoogleDriveDriver:
         """
         try:
             # service = build('sheets', 'v4', credentials=creds)
-            spreadsheet = self.sheet_service_client.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            spreadsheet = self.sheet_service_client.spreadsheets().get(
+                spreadsheetId=spreadsheet_id,
+                fields="sheets.properties(sheetId,title)",
+            ).execute()
             sheets = spreadsheet.get("sheets", [])
 
             sheet_gid_map = {}
@@ -1305,7 +1311,7 @@ class GoogleDriveDriver:
             return sheet_gid_map
 
         except Exception as e:
-            logger.error("获取 sheet gid 失败：", e)
+            logger.error("获取 sheet gid 失败：%s", e)
             return None
 
 

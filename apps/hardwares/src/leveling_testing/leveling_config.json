@@ -29,7 +29,8 @@
             "A3": 5.4,
             "D1": 5.3,
             "D3": 5.6
-        }
+        },
+        "deck_slot": null
     },
     "pipette_leveling_config": {
         "SlotLocationCH96": {

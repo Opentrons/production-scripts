@@ -91,7 +91,7 @@
 
       <el-table
         v-else-if="!loadError && !dataLinks?.error && filteredLinks.length > 0"
-        :data="filteredLinks"
+        :data="pagedLinks"
         v-loading="loading"
         stripe
         style="width: 100%"
@@ -225,6 +225,18 @@
         </el-table-column>
       </el-table>
 
+      <div
+        v-if="!loading && !loadError && !dataLinks?.error && filteredLinks.length > 0"
+        class="pagination-container"
+      >
+        <el-pagination
+          v-model:current-page="currentPage"
+          :page-size="pageSize"
+          :total="filteredLinks.length"
+          layout="total, prev, pager, next"
+        />
+      </div>
+
       <el-empty
         v-else-if="!loading && !loadError && !dataLinks?.error && filteredLinks.length === 0"
         description="暂无数据链接"
@@ -234,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
 import { dataLinksApi } from '@/scripts/api'
 import type { DataLinkEntry, DataLinkItem, DataLinksResponse } from '@/scripts/types'
 import { Document, FolderOpened, Link as LinkIcon, Loading, MoreFilled, Refresh } from '@element-plus/icons-vue'
@@ -263,6 +275,8 @@ const UnavailableCell = defineComponent({
 const dataLinks = ref<DataLinksResponse | null>(null)
 const loading = ref(true)
 const loadError = ref('')
+const currentPage = ref(1)
+const pageSize = 10
 const filters = ref({
   product: '',
   testType: ''
@@ -276,6 +290,11 @@ const filteredLinks = computed(() => {
     if (filters.value.testType && !sameTestType(item.test_type, filters.value.testType)) return false
     return true
   })
+})
+
+const pagedLinks = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredLinks.value.slice(start, start + pageSize)
 })
 
 const productOptions = computed(() => {
@@ -328,6 +347,7 @@ const resetFilters = () => {
 }
 
 const fetchDataLinks = async () => {
+  currentPage.value = 1
   loading.value = true
   loadError.value = ''
   try {
@@ -342,6 +362,20 @@ const fetchDataLinks = async () => {
 
 onMounted(() => {
   fetchDataLinks()
+})
+
+watch(
+  () => [filters.value.product, filters.value.testType],
+  () => {
+    currentPage.value = 1
+  }
+)
+
+watch(filteredLinks, () => {
+  const maxPage = Math.max(1, Math.ceil(filteredLinks.value.length / pageSize))
+  if (currentPage.value > maxPage) {
+    currentPage.value = maxPage
+  }
 })
 </script>
 
@@ -451,6 +485,13 @@ onMounted(() => {
 
 .data-links-table :deep(.el-table__cell) {
   padding: 8px 0;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  overflow-x: auto;
 }
 
 .test-type-text {

@@ -17,7 +17,9 @@ import type {
   ProductManagementManualAddResponse,
   ProductManagementSyncResponse,
   ProductStatusUpdateResponse,
+  UnitTrackerOptionsResponse,
   UnitTrackerRowsResponse,
+  UnitTrackerSource,
   UnitTrackerSyncResponse,
   UploadDataResponse,
   UploadFinishSettingPayload,
@@ -800,12 +802,16 @@ export const uploadRecordApi = {
     }),
   getUploadRecordFilterOptions: () =>
     api.get<UploadRecordFilterOptionsResponse>('/upload-record-filter-options'),
+  getUnitTrackerOptions: () =>
+    api.get<UnitTrackerOptionsResponse>('/unit-tracker/options'),
   getUnitTrackerRows: (params?: {
     page?: number
     pageSize?: number
     product?: string
     testType?: string
     barcode?: string
+    source?: UnitTrackerSource
+    refresh?: boolean
   }) =>
     api.get<UnitTrackerRowsResponse>('/unit-tracker/rows', {
       params: {
@@ -813,7 +819,9 @@ export const uploadRecordApi = {
         page_size: params?.pageSize,
         product: params?.product,
         test_type: params?.testType,
-        barcode: params?.barcode
+        barcode: params?.barcode,
+        source: params?.source,
+        refresh: params?.refresh
       }
     }),
   syncUnitTrackerRows: (limit?: number) =>

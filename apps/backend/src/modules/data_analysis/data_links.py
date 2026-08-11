@@ -19,6 +19,7 @@ SPREADSHEET_URL_TEMPLATE = "https://docs.google.com/spreadsheets/d/{file_id}/edi
 DRIVE_FOLDER_URL_TEMPLATE = "https://drive.google.com/drive/folders/{file_id}"
 
 PRODUCTS_WITH_UPLOAD_LINKS = (
+    Productions.ROBOT,
     Productions.P50S,
     Productions.P1000S,
     Productions.P50M,
@@ -28,6 +29,11 @@ PRODUCTS_WITH_UPLOAD_LINKS = (
 )
 
 TEST_TYPES_WITH_UPLOAD_LINKS = (
+    TestTypes.Diagnostic,
+    TestTypes.XY_Calibration,
+    TestTypes.Gantry_Stress,
+    TestTypes.Leveling_Test,
+    TestTypes.ZStage_Test,
     TestTypes.Gravimetric,
     TestTypes.Assembly_QC,
     TestTypes.Speed_Current_Test,
@@ -113,6 +119,7 @@ def build_data_link_entry(
         "trackers": build_tracker_links(
             yaml_cfg.get("ifpaste"),
             product=product,
+            tracker_sheet_name_template=handler_config.tracker_sheet_name_template,
         ),
         "raw_data_folder": build_raw_data_folder_link(
             yaml_cfg.get("ifupdaterawdata"),
@@ -150,7 +157,12 @@ def build_template_links(template_cfg: Any) -> list[dict[str, Any]]:
     ]
 
 
-def build_tracker_links(paste_cfg_list: Any, *, product: str) -> list[dict[str, Any]]:
+def build_tracker_links(
+    paste_cfg_list: Any,
+    *,
+    product: str,
+    tracker_sheet_name_template: str,
+) -> list[dict[str, Any]]:
     if not isinstance(paste_cfg_list, list):
         return []
 
@@ -167,6 +179,7 @@ def build_tracker_links(paste_cfg_list: Any, *, product: str) -> list[dict[str, 
                         paste_cfg,
                         product=product,
                         oem_name="Opentrons",
+                        tracker_sheet_name_template=tracker_sheet_name_template,
                     ),
                     file_id=default_id,
                     link_type="spreadsheet",
@@ -181,6 +194,7 @@ def build_tracker_links(paste_cfg_list: Any, *, product: str) -> list[dict[str, 
                         paste_cfg,
                         product=product,
                         oem_name="Ultima",
+                        tracker_sheet_name_template=tracker_sheet_name_template,
                     ),
                     file_id=ultima_id,
                     link_type="spreadsheet",
@@ -243,11 +257,15 @@ def resolve_tracker_tab_label(
     *,
     product: str,
     oem_name: str,
+    tracker_sheet_name_template: str,
 ) -> str:
     tab_name = str(paste_cfg.get("unit_tracker_tab") or "").strip()
     if tab_name:
         return tab_name
-    return f"{oem_name} {product}"
+    return tracker_sheet_name_template.format(
+        oem=oem_name,
+        model=product,
+    ).strip()
 
 
 def build_link(

@@ -6,8 +6,16 @@ from pathlib import Path
 
 from modules.data_analysis.engine.service import analyze_file_paths
 from modules.data_analysis.engine.spec_store import get_gravimetric_spec, save_gravimetric_spec
+from modules.data_analysis.data_analysis import resolve_analysis_mapping
 from modules.uploads.upload_records import summarize_product_stats
-from modules.data_analysis.unit_tracker import build_assembly_qc_standard_row, resolve_standard_columns
+from modules.data_analysis.unit_tracker import (
+    build_assembly_qc_standard_row,
+    build_tracker_standard_row,
+    convert_tracker_source_rows,
+    list_google_drive_rows,
+    list_tracker_options,
+    resolve_standard_columns,
+)
 
 
 SAMPLE_PATH = Path(__file__).resolve().parents[3] / "csv-samples" / "opentrons" / "P200-CH96" / "P2HHV3220250331A02-qc - %D.csv"
@@ -237,6 +245,142 @@ def test_p2hh_assembly_qc_unit_tracker_standard_columns_from_mapping():
         "group_key": "others",
     }
     assert len(columns) == 47
+
+
+def test_unit_tracker_options_cover_all_data_link_products_and_tests():
+    result = list_tracker_options()
+
+    assert result["error"] is None
+    assert len(result["options"]) == 23
+    assert {option["product"] for option in result["options"]} == {
+        "Robot",
+        "P50S",
+        "P1000S",
+        "P50M",
+        "P1000M",
+        "P2HH",
+        "P1KH",
+    }
+    assert {option["test_type"] for option in result["options"] if option["product"] == "P50M"} == {
+        "Gravimetric",
+        "Assembly QC",
+        "Speed Current",
+        "Burn In Result",
+        "Burn In Records",
+    }
+    robot_option = next(option for option in result["options"] if option["product"] == "Robot")
+    p2hh_assembly = next(
+        option
+        for option in result["options"]
+        if option["product"] == "P2HH" and option["test_type"] == "Assembly QC"
+    )
+    assert robot_option["sources"] == ["google_drive"]
+    assert p2hh_assembly["sources"] == ["mongodb", "google_drive"]
+
+
+def test_single_channel_tracker_row_uses_configured_source_columns():
+    mapping = resolve_analysis_mapping("P50S", "Assembly QC")
+    source_row = [""] * 48
+    source_row[3] = "https://docs.google.com/spreadsheets/d/qc"
+    source_row[4] = "P50SV3220260101A01"
+    source_row[5] = "P50S"
+    source_row[6] = "PASS"
+    source_row[9] = "23.5"
+    source_row[30] = "abc123"
+    source_row[31] = "v60"
+    source_row[41] = "Y"
+
+    row = build_tracker_standard_row(source_row, mapping)
+
+    assert row["sn"] == "P50SV3220260101A01"
+    assert row["link"] == "https://docs.google.com/spreadsheets/d/qc"
+    assert row["assembly_result"] == "PASS"
+    assert row["temperature"] == 23.5
+    assert row["commit_hash"] == "abc123"
+    assert row["firmware"] == "v60"
+    assert row["stocked"] == "Y"
+
+
+def test_speed_tracker_link_falls_back_to_qc_link():
+    mapping = resolve_analysis_mapping("P50S", "Speed Current")
+    source_row = [""] * 48
+    source_row[3] = "https://docs.google.com/spreadsheets/d/qc"
+    source_row[4] = "P50SV3220260101A01"
+    source_row[34] = "PASS"
+
+    row = build_tracker_standard_row(source_row, mapping)
+
+    assert row["result"] == "PASS"
+    assert row["link"] == "https://docs.google.com/spreadsheets/d/qc"
+
+
+def test_google_tracker_conversion_filters_shared_sheet_rows_by_product():
+    mapping = resolve_analysis_mapping("P50M", "Gravimetric")
+    source = {
+        "product": "P50M",
+        "test_type": "Gravimetric",
+        "spreadsheet_id": "tracker-id",
+        "sheet_name": "P50M",
+        "tracker_url": "https://docs.google.com/spreadsheets/d/tracker-id",
+        "mapping": mapping,
+        "tracker_config": mapping["unit_tracker"],
+    }
+    header_rows = [[""] * 49 for _ in range(8)]
+    p50m_row = [""] * 49
+    p50m_row[5] = "https://docs.google.com/spreadsheets/d/p50m"
+    p50m_row[6] = "P50MV3520251231A01"
+    p50m_row[8] = "PASS"
+    p1000m_row = [""] * 49
+    p1000m_row[5] = "https://docs.google.com/spreadsheets/d/p1000m"
+    p1000m_row[6] = "P1KMV3520260112A01"
+
+    rows = convert_tracker_source_rows(
+        source=source,
+        rows=[*header_rows, p50m_row, p1000m_row],
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["source"] == "google_drive"
+    assert rows[0]["sn"] == "P50MV3520251231A01"
+    assert rows[0]["row"]["result"] == "PASS"
+
+
+def test_google_tracker_rows_do_not_access_mongodb(monkeypatch):
+    mapping = resolve_analysis_mapping("P50M", "Gravimetric")
+    source = {
+        "product": "P50M",
+        "test_type": "Gravimetric",
+        "spreadsheet_id": "tracker-id",
+        "sheet_name": "P50M",
+        "tracker_url": "https://docs.google.com/spreadsheets/d/tracker-id",
+        "mapping": mapping,
+        "tracker_config": mapping["unit_tracker"],
+    }
+    header_rows = [[""] * 49 for _ in range(8)]
+    data_row = [""] * 49
+    data_row[5] = "https://docs.google.com/spreadsheets/d/p50m"
+    data_row[6] = "P50MV3520251231A01"
+    data_row[8] = "PASS"
+
+    monkeypatch.setattr("modules.data_analysis.unit_tracker.resolve_tracker_source", lambda *_args: source)
+    monkeypatch.setattr(
+        "modules.data_analysis.unit_tracker.read_tracker_source_rows",
+        lambda *_args, **_kwargs: [*header_rows, data_row],
+    )
+    monkeypatch.setattr(
+        "modules.data_analysis.unit_tracker.get_unit_tracker_collection",
+        lambda: (_ for _ in ()).throw(AssertionError("Google Drive mode accessed MongoDB")),
+    )
+
+    result = list_google_drive_rows(
+        product="P50M",
+        test_type="Gravimetric",
+        barcode="20251231",
+    )
+
+    assert result["source"] == "google_drive"
+    assert result["total"] == 1
+    assert result["rows"][0]["sn"] == "P50MV3520251231A01"
 
 
 def test_robot_assembly_qc_analysis_sample():

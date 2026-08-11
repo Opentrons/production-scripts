@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from math import isfinite
 from pathlib import Path
 from typing import Any
@@ -15,16 +16,15 @@ from leveling_testing.config import (
     GANTRY_POINT_NAMES,
     GantryLevelingConfig,
     load_gantry_leveling_config,
+    save_gantry_leveling_deck_slot,
     save_gantry_leveling_height,
 )
+from leveling_testing.report.report import LevelingCSV
 from leveling_testing.retry import retry_hardware_action
 from leveling_testing.simulation import SimulatedMaintenanceApi
-from leveling_testing.type import Point, TestNameLeveling
-from opentonrs_api.maintenance_api.jog import MaintenanceJog
+from leveling_testing.type import Mount, Point, TestNameLeveling
+from opentonrs_api.maintenance_api.jog import MaintenanceJog, read_jog_key, run_jog_interface
 from opentonrs_api.maintenance_api.maintenance_run import MaintenanceApi
-
-
-JOG_STEPS = (0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0)
 
 
 class GantryLeveling:
@@ -47,6 +47,9 @@ class GantryLeveling:
         self.operator_name = ""
         self.current_point: Point | None = None
         self.selected_point_name: str | None = None
+        self.report: LevelingCSV | None = None
+        self.jog_key_reader = read_jog_key
+        self.render_jog = True
 
         self.config: GantryLevelingConfig = load_gantry_leveling_config(self.config_path)
         api_type = SimulatedMaintenanceApi if simulate else MaintenanceApi
@@ -85,6 +88,10 @@ class GantryLeveling:
             "Unknown" if height_diff is None else f"{height_diff:.3f}",
             style="bold yellow",
         )
+        table.add_row(
+            "Deck Slot",
+            "Unknown" if self.config.deck_slot is None else self.config.deck_slot,
+        )
         ui.console.print(table)
 
     async def _move_absolute(self, point: Point, action: str) -> None:
@@ -115,47 +122,23 @@ class GantryLeveling:
         if self.current_point is None:
             raise ValueError("Select a gantry point before jogging")
 
-        jog = MaintenanceJog(self.api, self.config.mount, self.current_point)
-        step_index = JOG_STEPS.index(0.5)
-        actions = [
-            Choice(("x", -1), name="X-"),
-            Choice(("x", 1), name="X+"),
-            Choice(("y", -1), name="Y-"),
-            Choice(("y", 1), name="Y+"),
-            Choice(("z", -1), name="Z-"),
-            Choice(("z", 1), name="Z+"),
-            Choice("step-down", name=ui.bilingual("Smaller step", "减小步长")),
-            Choice("step-up", name=ui.bilingual("Larger step", "增大步长")),
-            Choice("back", name=ui.bilingual("Back", "返回")),
-        ]
-
-        while True:
-            point = jog.current_point
-            ui.run_summary(
-                [
-                    ("Point", f"X={point.x:.3f}, Y={point.y:.3f}, Z={point.z:.3f}"),
-                    ("Step", f"{JOG_STEPS[step_index]:.3f} mm"),
-                ]
+        async def move_with_retry(coordinate: dict[str, float], mount: Mount) -> object:
+            return await self._hardware(
+                "jog gantry",
+                lambda: self.api.move_to(coordinate, mount=mount),
             )
-            action = await self._select(ui.bilingual("Jog gantry", "Jog 龙门"), actions)
-            if action == "back":
-                self.current_point = jog.current_point
-                return
-            if action == "step-down":
-                step_index = max(0, step_index - 1)
-                continue
-            if action == "step-up":
-                step_index = min(len(JOG_STEPS) - 1, step_index + 1)
-                continue
 
-            axis, sign = action
-            try:
-                self.current_point = await self._hardware(
-                    f"jog gantry {axis}{'+' if sign > 0 else '-'}",
-                    lambda: jog.move(axis, sign * JOG_STEPS[step_index]),
-                )
-            except ValueError as exc:
-                ui.warning(ui.bilingual(str(exc), f"Jog 目标超出安全范围: {exc}"))
+        jog = MaintenanceJog(
+            self.api,
+            self.config.mount,
+            self.current_point,
+            move_executor=move_with_retry,
+        )
+        self.current_point = await run_jog_interface(
+            jog,
+            key_reader=self.jog_key_reader,
+            render=self.render_jog,
+        )
 
     async def _update_height(self) -> None:
         if self.selected_point_name is None:
@@ -195,6 +178,61 @@ class GantryLeveling:
                 f"已更新 {name} 高度计读数: {height:.3f}",
             )
         )
+
+    async def _update_deck_slot(self) -> None:
+        default = self.config.deck_slot or ""
+        while True:
+            deck_slot = (
+                await self._text(
+                    ui.bilingual(
+                        "Enter deck slot value",
+                        "请输入 Deck Slot 内容",
+                    ),
+                    default,
+                )
+            ).strip()
+            if not deck_slot:
+                ui.warning(ui.bilingual("Deck slot cannot be empty", "Deck Slot 不能为空"))
+                continue
+            break
+
+        save_gantry_leveling_deck_slot(deck_slot, self.config_path)
+        self.config.deck_slot = deck_slot
+        ui.success(
+            ui.bilingual(
+                f"Updated deck slot: {deck_slot}",
+                f"已更新 Deck Slot: {deck_slot}",
+            )
+        )
+
+    def _build_report(self) -> None:
+        self.report = LevelingCSV(
+            "Gantry_Leveling_Test.csv",
+            os.path.join(self.script_dir, "testing_data"),
+            self.test_name,
+            self.robot_sn,
+            self.operator_name,
+        )
+        self.report.update_create_time()
+        self.report.create_csv_path()
+        self.report.init_title()
+
+    def _finish_report(self) -> None:
+        if self.report is None:
+            raise RuntimeError("Gantry leveling report is not initialized")
+        complete = self.height_diff is not None
+        self.report.write_new_results(
+            {
+                "A1": self.config.heights["A1"] if self.config.heights["A1"] is not None else "UNKNOWN",
+                "A3": self.config.heights["A3"] if self.config.heights["A3"] is not None else "UNKNOWN",
+                "D1": self.config.heights["D1"] if self.config.heights["D1"] is not None else "UNKNOWN",
+                "D3": self.config.heights["D3"] if self.config.heights["D3"] is not None else "UNKNOWN",
+                "diff": self.height_diff if self.height_diff is not None else "UNKNOWN",
+                "deck_slot": self.config.deck_slot if self.config.deck_slot is not None else "UNKNOWN",
+            },
+            passed=complete,
+        )
+        self.report.finish_test(passed=complete)
 
     async def _edit_point(self, name: str) -> None:
         await self.move_to_point(name)
@@ -243,11 +281,13 @@ class GantryLeveling:
                 )
 
     async def run(self) -> None:
+        self._build_report()
         await self._hardware("create maintenance run", self.api.create_run)
         try:
             await self._hardware("home robot", self.api.home)
             point_choices = [
                 *[Choice(name, name=ui.bilingual(f"Edit {name}", f"编辑 {name}")) for name in GANTRY_POINT_NAMES],
+                Choice("deck-slot", name=ui.bilingual("Update deck slot", "更新 Deck Slot")),
                 Choice("exit", name=ui.bilingual("Exit", "退出")),
             ]
             while True:
@@ -257,7 +297,11 @@ class GantryLeveling:
                     point_choices,
                 )
                 if name == "exit":
+                    self._finish_report()
                     return
+                if name == "deck-slot":
+                    await self._update_deck_slot()
+                    continue
                 await self._edit_point(name)
         finally:
             await self.cleanup()
