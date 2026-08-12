@@ -5,7 +5,7 @@
         <el-input
           v-model="filters.barcode"
           class="barcode-input"
-          placeholder="条码 / SN / 文件名"
+          :placeholder="t('products.searchPlaceholder')"
           clearable
           :prefix-icon="Search"
           @keyup.enter="fetchProducts"
@@ -14,7 +14,7 @@
         <el-select
           v-model="filters.model"
           class="filter-select"
-          placeholder="产品类型"
+          :placeholder="t('products.productType')"
           clearable
           filterable
           @change="fetchProducts"
@@ -24,7 +24,7 @@
         <el-select
           v-model="filters.testType"
           class="filter-select"
-          placeholder="测试产品"
+          :placeholder="t('products.testProduct')"
           clearable
           filterable
           @change="handleTestTypeFilterChange"
@@ -34,7 +34,7 @@
         <el-select
           v-model="filters.status"
           class="filter-select"
-          placeholder="状态"
+          :placeholder="t('products.status')"
           clearable
           filterable
           @change="fetchProducts"
@@ -42,27 +42,27 @@
           <el-option v-for="status in productStatusOptions" :key="status" :label="status" :value="status" />
         </el-select>
         <el-button type="primary" :loading="loading" @click="fetchProducts">
-          查询
+          {{ t('products.query') }}
         </el-button>
         <el-button :disabled="!hasFilters" @click="resetFilters">
-          重置
+          {{ t('products.reset') }}
         </el-button>
       </div>
       <div class="toolbar-right">
-        <el-tooltip content="手动新增产品" placement="top">
+        <el-tooltip :content="t('products.manualAdd')" placement="top">
           <el-button
             :icon="Plus"
             circle
-            aria-label="手动新增产品"
+            :aria-label="t('products.manualAdd')"
             @click="openManualDialog"
           />
         </el-tooltip>
-        <el-tooltip content="同步产品" placement="top">
+        <el-tooltip :content="t('products.sync')" placement="top">
           <el-button
             :icon="Refresh"
             :loading="syncing"
             circle
-            aria-label="同步产品"
+            :aria-label="t('products.sync')"
             @click="syncProducts"
           />
         </el-tooltip>
@@ -78,9 +78,9 @@
     >
       <template #title>
         <div class="load-error-content">
-          <span>产品数据加载失败：{{ loadError }}</span>
+          <span>{{ t('products.loadFailed', { error: loadError }) }}</span>
           <el-button size="small" type="danger" plain :loading="loading" @click="retryLoad">
-            重试
+            {{ t('common.actions.retry') }}
           </el-button>
         </div>
       </template>
@@ -95,7 +95,7 @@
       class="product-table"
       height="calc(100vh - 182px)"
     >
-      <el-table-column label="条码" width="220" fixed="left" show-overflow-tooltip>
+      <el-table-column :label="t('products.barcode')" width="220" fixed="left" show-overflow-tooltip>
         <template #default="{ row }">
           <strong>{{ row.barcode }}</strong>
         </template>
@@ -170,16 +170,16 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="原数据 CSV" min-width="150">
+      <el-table-column :label="t('products.rawCsv')" min-width="150">
         <template #default="{ row }">
           <a v-if="selectedTest(row)?.csv_link" :href="selectedTest(row)?.csv_link" target="_blank" rel="noopener noreferrer" class="link-button">
-            打开
+            {{ t('products.open') }}
           </a>
           <span v-else>-</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="数据分析" width="120" fixed="right">
+      <el-table-column :label="t('products.analysis')" width="120" fixed="right">
         <template #default="{ row }">
           <el-button
             link
@@ -187,14 +187,14 @@
             :disabled="!selectedTest(row)?.csv_link && !selectedTest(row)?.source_csv_path"
             @click="openAnalysis(row)"
           >
-            分析
+            {{ t('products.analyze') }}
           </el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <div v-if="!loadError" class="product-footer">
-      <span>产品 {{ filteredProducts.length }} / 上传记录 {{ uploadRecordCount }}</span>
+      <span>{{ t('products.totals', { products: filteredProducts.length, records: uploadRecordCount }) }}</span>
       <el-pagination
         v-model:current-page="currentPage"
         :page-size="pageSize"
@@ -203,7 +203,7 @@
       />
     </div>
 
-    <el-dialog v-model="manualDialogVisible" title="手动新增产品" width="520px">
+    <el-dialog v-model="manualDialogVisible" :title="t('products.manualAdd')" width="520px">
       <el-form
         ref="manualFormRef"
         :model="manualForm"
@@ -211,7 +211,7 @@
         label-width="112px"
         class="manual-product-form"
       >
-        <el-form-item label="条码" prop="barcode">
+        <el-form-item :label="t('products.barcode')" prop="barcode">
           <el-input v-model="manualForm.barcode" clearable placeholder="Serial Number / Barcode" />
         </el-form-item>
         <el-form-item label="Status" prop="status">
@@ -227,7 +227,7 @@
             clearable
             default-first-option
             filterable
-            placeholder="选择或输入产品"
+            :placeholder="t('products.selectOrEnterProduct')"
           >
             <el-option v-for="model in manualModelOptions" :key="model" :label="model" :value="model" />
           </el-select>
@@ -240,7 +240,7 @@
             clearable
             default-first-option
             filterable
-            placeholder="选择或输入类型"
+            :placeholder="t('products.selectOrEnterType')"
           >
             <el-option v-for="type in manualTypeOptions" :key="type" :label="type" :value="type" />
           </el-select>
@@ -253,7 +253,7 @@
             clearable
             default-first-option
             filterable
-            placeholder="选择或输入测试"
+            :placeholder="t('products.selectOrEnterTest')"
           >
             <el-option v-for="testType in testTypeOptions" :key="testType" :label="formatTestType(testType)" :value="testType" />
           </el-select>
@@ -263,8 +263,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="manualDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="manualSaving" @click="submitManualProduct">保存</el-button>
+        <el-button @click="manualDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="manualSaving" @click="submitManualProduct">{{ t('common.actions.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -279,6 +279,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { productManagementApi } from '@/scripts/api'
 import { canonicalTestType, formatTestType, sameTestType, uniqueTestTypes } from '@/scripts/utils/testNames'
 import type { ProductManagementFilterOptionsResponse, ProductManagementItem, ProductManagementTest } from '@/scripts/types'
+import { useAppLocale } from '@/i18n'
 
 type ProductTest = ProductManagementTest
 
@@ -294,6 +295,7 @@ type ProductRow = {
 }
 
 const router = useRouter()
+const { locale, t } = useAppLocale()
 const products = ref<ProductRow[]>([])
 const loading = ref(true)
 const loadError = ref('')
@@ -324,13 +326,13 @@ const manualForm = ref({
   test_type: '',
   csv_link: ''
 })
-const manualRules: FormRules = {
-  barcode: [{ required: true, message: '请输入条码', trigger: 'blur' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
-  model: [{ required: true, message: '请输入 Productions', trigger: 'change' }],
-  oem: [{ required: true, message: '请输入 Type', trigger: 'change' }],
-  test_type: [{ required: true, message: '请输入 Test Data', trigger: 'change' }]
-}
+const manualRules = computed<FormRules>(() => ({
+  barcode: [{ required: true, message: t('products.validation.barcode'), trigger: 'blur' }],
+  status: [{ required: true, message: t('products.validation.status'), trigger: 'change' }],
+  model: [{ required: true, message: t('products.validation.product'), trigger: 'change' }],
+  oem: [{ required: true, message: t('products.validation.type'), trigger: 'change' }],
+  test_type: [{ required: true, message: t('products.validation.test'), trigger: 'change' }]
+}))
 
 const hasFilters = computed(() => Boolean(filters.value.barcode || filters.value.model || filters.value.testType || filters.value.status))
 const testTypeOptions = computed(() => uniqueTestTypes(filterOptions.value.test_types?.length
@@ -377,7 +379,7 @@ async function fetchProducts() {
     uploadRecordCount.value = nextProducts.reduce((sum, product) => sum + (product.uploadRecordCount || product.tests.length), 0)
   } catch (error: any) {
     const detail = error?.response?.data?.detail
-    loadError.value = detail?.message || detail?.error || detail || error?.message || '未知错误'
+    loadError.value = detail?.message || detail?.error || detail || error?.message || t('errors.unknown')
   } finally {
     loading.value = false
   }
@@ -402,7 +404,7 @@ async function fetchFilterOptions() {
     return true
   } catch (error: any) {
     filterOptions.value = { models: [], statuses: defaultProductStatuses, test_types: [] }
-    loadError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || '未知错误'
+    loadError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('errors.unknown')
     return false
   }
 }
@@ -505,11 +507,11 @@ async function syncProducts() {
   try {
     const response = await productManagementApi.syncProducts()
     const data = response.data
-    ElMessage.success(`同步完成：产品 ${data.total_products}，来源记录 ${data.source_records}`)
+    ElMessage.success(t('products.syncCompleted', { products: data.total_products, records: data.source_records }))
     await fetchFilterOptions()
     await fetchProducts()
   } catch (error: any) {
-    ElMessage.error('同步产品失败: ' + (error?.response?.data?.detail || error?.message || '未知错误'))
+    ElMessage.error(t('products.syncFailed', { error: error?.response?.data?.detail || error?.message || t('errors.unknown') }))
   } finally {
     syncing.value = false
   }
@@ -523,12 +525,12 @@ async function updateProductStatus(row: ProductRow, status: string) {
   try {
     const response = await productManagementApi.updateStatus(row.barcode, status)
     if (!response.data.success) {
-      throw new Error(response.data.error || '状态更新失败')
+      throw new Error(response.data.error || t('products.statusUpdateFailed'))
     }
-    ElMessage.success('状态已更新')
+    ElMessage.success(t('products.statusUpdated'))
   } catch (error: any) {
     row.status = previous
-    ElMessage.error('更新状态失败: ' + (error?.response?.data?.detail || error?.message || '未知错误'))
+    ElMessage.error(t('products.updateStatusFailed', { error: error?.response?.data?.detail || error?.message || t('errors.unknown') }))
   } finally {
     statusUpdatingBarcode.value = ''
   }
@@ -562,12 +564,12 @@ async function submitManualProduct() {
         source_csv_path: manualForm.value.csv_link.trim() || undefined
       }
       const response = await productManagementApi.addManual(payload)
-      ElMessage.success(response.data.created_product ? '产品已新增' : '测试数据已新增')
+      ElMessage.success(response.data.created_product ? t('products.productAdded') : t('products.testAdded'))
       manualDialogVisible.value = false
       await fetchFilterOptions()
       await fetchProducts()
     } catch (error: any) {
-      ElMessage.error('手动新增失败: ' + (error?.response?.data?.detail || error?.message || '未知错误'))
+      ElMessage.error(t('products.manualAddFailed', { error: error?.response?.data?.detail || error?.message || t('errors.unknown') }))
     } finally {
       manualSaving.value = false
     }
@@ -610,7 +612,7 @@ function formatDateTime(value?: string) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

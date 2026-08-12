@@ -1,26 +1,24 @@
 <template>
   <div class="barcode-provision-panel">
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请先选择一台设备" />
+      <el-empty :description="t('devices.selectOne')" />
     </div>
 
     <template v-else>
       <section class="provision-console">
         <div class="section-header">
           <div>
-            <div class="section-title">烧录条码</div>
-            <div class="section-subtitle">
-              通过 SSH 调用机器人上的 provision 脚本写入条码；当前条码来自设备 HTTP instruments/modules
-            </div>
+            <div class="section-title">{{ t('devices.barcode.title') }}</div>
+            <div class="section-subtitle">{{ t('devices.barcode.description') }}</div>
           </div>
-          <el-button :loading="loading" :icon="Refresh" @click="loadTargets">刷新</el-button>
+          <el-button :loading="loading" :icon="Refresh" @click="loadTargets">{{ t('common.actions.refresh') }}</el-button>
         </div>
 
         <el-alert
           v-if="targetsResponse?.simulating"
           type="info"
           :closable="false"
-          title="当前为 Simulating 模式：烧录会写入本地模拟状态，不会真实 SSH"
+          :title="t('devices.barcode.simulating')"
           class="status-alert"
         />
 
@@ -35,15 +33,15 @@
 
         <div class="connection-row">
           <el-tag :type="targetsResponse?.http_connected ? 'success' : 'danger'" size="small">
-            HTTP {{ targetsResponse?.http_connected ? '已连接' : '未连接' }}
+            HTTP {{ targetsResponse?.http_connected ? t('devices.connected') : t('devices.disconnected') }}
           </el-tag>
           <el-tag :type="targetsResponse?.ssh_connected ? 'success' : 'danger'" size="small">
-            SSH {{ targetsResponse?.ssh_connected ? '已连接' : '未连接' }}
+            SSH {{ targetsResponse?.ssh_connected ? t('devices.connected') : t('devices.disconnected') }}
           </el-tag>
         </div>
 
         <section class="support-guide">
-          <div class="support-guide-title">当前支持的烧录设备类型</div>
+          <div class="support-guide-title">{{ t('devices.barcode.supportedTypes') }}</div>
           <div class="support-guide-grid">
             <article
               v-for="item in supportedKinds"
@@ -54,13 +52,13 @@
               <div class="support-card-head">
                 <span class="support-kind">{{ item.kind }}</span>
                 <el-tag :type="item.supported ? 'success' : 'info'" size="small" effect="plain">
-                  {{ item.supported ? '可烧录' : '暂不支持' }}
+                  {{ item.supported ? t('devices.barcode.supported') : t('devices.barcode.unsupported') }}
                 </el-tag>
               </div>
               <div class="support-name">{{ item.name }}</div>
               <div class="support-format">{{ item.format }}</div>
               <div v-if="item.example" class="support-example">
-                <span class="example-label">示例</span>
+                <span class="example-label">{{ t('devices.barcode.example') }}</span>
                 <code>{{ item.example }}</code>
                 <el-button
                   v-if="item.supported"
@@ -69,7 +67,7 @@
                   size="small"
                   @click="serialInput = item.example"
                 >
-                  填入
+                  {{ t('devices.barcode.fill') }}
                 </el-button>
               </div>
               <div v-if="item.notes" class="support-notes">{{ item.notes }}</div>
@@ -79,11 +77,11 @@
 
         <div class="form-grid">
           <label class="field">
-            <span>烧录目标</span>
+            <span>{{ t('devices.barcode.target') }}</span>
             <el-select
               v-model="selectedTargetId"
               filterable
-              placeholder="选择产品 / 挂载位"
+              :placeholder="t('devices.barcode.targetPlaceholder')"
               :disabled="loading || !targets.length"
             >
               <el-option
@@ -97,16 +95,16 @@
           </label>
 
           <label class="field">
-            <span>当前条码</span>
+            <span>{{ t('devices.barcode.currentSerial') }}</span>
             <el-input :model-value="selectedTarget?.current_serial || '—'" readonly />
           </label>
 
           <label class="field barcode-field">
-            <span>新条码</span>
+            <span>{{ t('devices.barcode.newSerial') }}</span>
             <el-input
               v-model="serialInput"
               clearable
-              placeholder="扫描或输入条码后回车烧录"
+              :placeholder="t('devices.barcode.serialPlaceholder')"
               :disabled="!canProvision"
               @keyup.enter="handleProvision"
             />
@@ -114,14 +112,14 @@
         </div>
 
         <div v-if="selectedTarget" class="target-meta">
-          <div>产品：{{ selectedTarget.product || '—' }}</div>
-          <div>类型：{{ selectedTarget.kind }}</div>
-          <div v-if="selectedTarget.mount">挂载：{{ selectedTarget.mount }}</div>
-          <div v-if="selectedTarget.slot">槽位：{{ selectedTarget.slot }}</div>
-          <div v-if="selectedTarget.script">脚本：{{ selectedTarget.script }}</div>
+          <div>{{ t('devices.barcode.product', { value: selectedTarget.product || '—' }) }}</div>
+          <div>{{ t('devices.barcode.type', { value: selectedTarget.kind }) }}</div>
+          <div v-if="selectedTarget.mount">{{ t('devices.barcode.mount', { value: selectedTarget.mount }) }}</div>
+          <div v-if="selectedTarget.slot">{{ t('devices.barcode.slot', { value: selectedTarget.slot }) }}</div>
+          <div v-if="selectedTarget.script">{{ t('devices.barcode.script', { value: selectedTarget.script }) }}</div>
           <div v-if="selectedTarget.hint" class="hint">{{ selectedTarget.hint }}</div>
           <div v-if="!selectedTarget.provisionable" class="hint warn">
-            {{ selectedTarget.hint || '该目标暂不支持烧录' }}
+            {{ selectedTarget.hint || t('devices.barcode.targetUnsupported') }}
           </div>
         </div>
 
@@ -132,9 +130,9 @@
             :disabled="!canProvision || !serialInput.trim()"
             @click="handleProvision"
           >
-            烧录
+            {{ t('devices.barcode.provision') }}
           </el-button>
-          <el-button :disabled="provisioning || !serialInput" @click="serialInput = ''">清空输入</el-button>
+          <el-button :disabled="provisioning || !serialInput" @click="serialInput = ''">{{ t('devices.barcode.clearInput') }}</el-button>
         </div>
 
         <div
@@ -144,13 +142,13 @@
         >
           <div class="result-header">
             <el-tag :type="lastResult.success ? 'success' : 'danger'" size="small">
-              {{ lastResult.success ? '成功' : '失败' }}
+              {{ lastResult.success ? t('common.status.completed') : t('common.status.error') }}
             </el-tag>
             <span>{{ lastResult.message || '—' }}</span>
           </div>
           <div class="result-meta">
-            <span>请求条码：{{ String(lastResult.data?.requested_serial ?? '—') }}</span>
-            <span>读回条码：{{ String(lastResult.data?.current_serial ?? '—') }}</span>
+            <span>{{ t('devices.barcode.requestedSerial', { value: String(lastResult.data?.requested_serial ?? '—') }) }}</span>
+            <span>{{ t('devices.barcode.currentSerialResult', { value: String(lastResult.data?.current_serial ?? '—') }) }}</span>
             <span>exit：{{ String(lastResult.data?.exit_code ?? '—') }}</span>
           </div>
           <pre v-if="resultOutput" class="result-output">{{ resultOutput }}</pre>
@@ -170,6 +168,9 @@ import {
   type RobotBarcodeTarget,
   type RobotBarcodeTargetsResponse
 } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useAppLocale()
 
 const props = defineProps<{
   ip: string | null
@@ -196,55 +197,53 @@ const canProvision = computed(
   )
 )
 
-const SSH_UNAVAILABLE_MESSAGE = '当前SSH未连接，烧录条码不可用，请检查设备是否安装密钥'
-
-const supportedKinds = [
+const supportedKinds = computed(() => [
   {
     kind: 'robot',
-    name: 'Robot / Flex 主机',
+    name: t('devices.barcode.kinds.robotName'),
     supported: true,
-    format: 'FLX + 版本 + YYYYMMDD + 三位序号',
+    format: t('devices.barcode.kinds.robotFormat'),
     example: 'FLXA1020230605001',
-    notes: '脚本：provision_robot（写 EEPROM + /var/serial）'
+    notes: t('devices.barcode.kinds.robotNotes')
   },
   {
     kind: 'pipette',
-    name: 'Pipette（left / right）',
+    name: t('devices.barcode.kinds.pipetteName'),
     supported: true,
-    format: 'PNNNVMM + 序列码（如 P1KS / P1KM / P50S / P50M / P1KH / P50H / P2HH）',
+    format: t('devices.barcode.kinds.pipetteFormat'),
     example: 'P1KSV0120250101001',
-    notes: '脚本：provision_pipette --which left|right'
+    notes: t('devices.barcode.kinds.pipetteNotes')
   },
   {
     kind: 'gripper',
     name: 'Gripper',
     supported: true,
-    format: 'GRPV + 两位型号 + 序列码',
+    format: t('devices.barcode.kinds.gripperFormat'),
     example: 'GRPV0120250101001',
-    notes: '脚本：provision_gripper'
+    notes: t('devices.barcode.kinds.gripperNotes')
   },
   {
     kind: 'module',
-    name: 'HEPA / UV Module',
+    name: t('devices.barcode.kinds.moduleName'),
     supported: true,
-    format: 'HUV + 两位型号 + 序列码',
+    format: t('devices.barcode.kinds.moduleFormat'),
     example: 'HUV0120250101001',
-    notes: '脚本：provision_hepauv（目前唯一支持烧录的 module）'
+    notes: t('devices.barcode.kinds.moduleNotes')
   },
   {
     kind: 'module*',
-    name: '其它 Module',
+    name: t('devices.barcode.kinds.otherModule'),
     supported: false,
-    format: 'Thermocycler / Heater-Shaker / Absorbance 等',
+    format: t('devices.barcode.kinds.otherFormat'),
     example: '',
-    notes: 'Opentrons 源码暂无对应工厂烧录脚本，仅展示当前条码'
+    notes: t('devices.barcode.kinds.otherNotes')
   }
-] as const
+])
 
 async function warnSshUnavailable() {
-  await ElMessageBox.alert(SSH_UNAVAILABLE_MESSAGE, 'SSH 未连接', {
+  await ElMessageBox.alert(t('devices.barcode.sshUnavailable'), t('devices.barcode.sshUnavailableTitle'), {
     type: 'warning',
-    confirmButtonText: '知道了'
+    confirmButtonText: t('devices.barcode.acknowledged')
   })
 }
 const resultOutput = computed(() => {
@@ -262,7 +261,7 @@ const resultOutput = computed(() => {
 })
 
 function formatTargetOption(target: RobotBarcodeTarget): string {
-  const mark = target.provisionable ? '' : '（不可烧录）'
+  const mark = target.provisionable ? '' : t('devices.barcode.unavailableMark')
   return `${target.label}${mark}`
 }
 
@@ -296,7 +295,7 @@ async function loadTargets(options?: { warnSsh?: boolean }) {
     }
   } catch (error: any) {
     targetsResponse.value = null
-    ElMessage.error(error?.response?.data?.detail?.message || error?.message || '加载烧录目标失败')
+    ElMessage.error(error?.response?.data?.detail?.message || error?.message || t('devices.barcode.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -310,24 +309,24 @@ async function handleProvision() {
   }
   const serial = serialInput.value.trim()
   if (!serial) {
-    ElMessage.warning('请输入条码')
+    ElMessage.warning(t('devices.barcode.enterSerial'))
     return
   }
 
   const kind = selectedTarget.value.kind
   if (kind !== 'robot' && kind !== 'pipette' && kind !== 'gripper' && kind !== 'hepauv') {
-    ElMessage.warning('该目标不支持烧录')
+    ElMessage.warning(t('devices.barcode.unsupportedTarget'))
     return
   }
 
   try {
     await ElMessageBox.confirm(
-      `确认将 ${selectedTarget.value.label} 条码烧录为\n${serial}？`,
-      '确认烧录',
+      t('devices.barcode.confirm', { target: selectedTarget.value.label, serial }),
+      t('devices.barcode.confirmTitle'),
       {
         type: 'warning',
-        confirmButtonText: '烧录',
-        cancelButtonText: '取消'
+        confirmButtonText: t('devices.barcode.provision'),
+        cancelButtonText: t('common.actions.cancel')
       }
     )
   } catch {
@@ -348,15 +347,15 @@ async function handleProvision() {
     })
     lastResult.value = response.data
     if (response.data.success) {
-      ElMessage.success(response.data.message || '烧录成功')
+      ElMessage.success(response.data.message || t('devices.barcode.success'))
       serialInput.value = ''
       await loadTargets()
     } else {
-      ElMessage.error(response.data.message || '烧录失败')
+      ElMessage.error(response.data.message || t('devices.barcode.failed'))
       await loadTargets()
     }
   } catch (error: any) {
-    const message = error?.response?.data?.detail?.message || error?.message || '烧录请求失败'
+    const message = error?.response?.data?.detail?.message || error?.message || t('devices.barcode.requestFailed')
     lastResult.value = { success: false, message, data: {} }
     ElMessage.error(message)
   } finally {

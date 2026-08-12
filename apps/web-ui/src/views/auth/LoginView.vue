@@ -1,5 +1,6 @@
 <template>
   <main class="login-page">
+    <LocaleSwitcher class="login-locale-switcher" variant="surface" />
     <section class="login-visual" aria-hidden="true">
       <img class="login-wordmark" :src="productionsLogo" alt="" />
       <p>Production Testing · Productions Versions</p>
@@ -11,14 +12,14 @@
         <div class="login-heading">
           <span class="login-heading-icon"><ShieldCheck :size="20" aria-hidden="true" /></span>
           <div>
-            <p>SECURE ACCESS</p>
-            <h1>登录生产测试平台</h1>
+            <p>{{ t('auth.login.secureAccess') }}</p>
+            <h1>{{ t('auth.login.title') }}</h1>
           </div>
         </div>
 
         <form class="login-form" @submit.prevent="submit">
           <label>
-            <span>账号</span>
+            <span>{{ t('auth.login.account') }}</span>
             <div class="login-input">
               <UserRound :size="18" aria-hidden="true" />
               <input
@@ -27,7 +28,7 @@
                 name="username"
                 autocomplete="username"
                 maxlength="64"
-                placeholder="请输入账号"
+                :placeholder="t('auth.login.accountPlaceholder')"
                 :disabled="submitting"
                 required
               />
@@ -35,7 +36,7 @@
           </label>
 
           <label>
-            <span>密码</span>
+            <span>{{ t('auth.login.password') }}</span>
             <div class="login-input">
               <LockKeyhole :size="18" aria-hidden="true" />
               <input
@@ -44,11 +45,11 @@
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="current-password"
                 maxlength="256"
-                placeholder="请输入密码"
+                :placeholder="t('auth.login.passwordPlaceholder')"
                 :disabled="submitting"
                 required
               />
-              <button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword">
+              <button type="button" :aria-label="showPassword ? t('auth.login.hidePassword') : t('auth.login.showPassword')" @click="showPassword = !showPassword">
                 <EyeOff v-if="showPassword" :size="17" aria-hidden="true" />
                 <Eye v-else :size="17" aria-hidden="true" />
               </button>
@@ -63,7 +64,7 @@
           <button class="login-submit" type="submit" :disabled="submitting || !username || !password">
             <LoaderCircle v-if="submitting" class="is-spinning" :size="18" aria-hidden="true" />
             <LogIn v-else :size="18" aria-hidden="true" />
-            {{ submitting ? '正在验证' : '登录' }}
+            {{ submitting ? t('auth.login.submitting') : t('auth.login.submit') }}
           </button>
         </form>
       </div>
@@ -87,10 +88,13 @@ import {
 } from '@lucide/vue'
 import productionsLogo from '@/assets/dashboard/productions-logo.svg'
 import { useAuthStore } from '@/scripts/stores/auth'
+import { useAppLocale } from '@/i18n'
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useAppLocale()
 const usernameInput = ref<HTMLInputElement | null>(null)
 const username = ref('')
 const password = ref('')
@@ -113,9 +117,9 @@ async function submit(): Promise<void> {
     await router.replace(safeRedirect(route.query.redirect))
   } catch (error) {
     const status = axios.isAxiosError(error) ? error.response?.status : undefined
-    if (status === 429) errorMessage.value = '登录尝试过多，请稍后再试'
-    else if (status === 503) errorMessage.value = '登录服务尚未完成安全配置'
-    else errorMessage.value = '账号或密码错误'
+    if (status === 429) errorMessage.value = t('auth.login.tooManyAttempts')
+    else if (status === 503) errorMessage.value = t('auth.login.serviceUnavailable')
+    else errorMessage.value = t('auth.login.invalidCredentials')
     password.value = ''
     await nextTick()
   } finally {
@@ -128,6 +132,7 @@ onMounted(() => usernameInput.value?.focus())
 
 <style scoped>
 .login-page { position: relative; min-height: 100vh; overflow: hidden; display: grid; place-items: center; background: #e9f1f3; color: #182126; }
+.login-locale-switcher { position: absolute; z-index: 3; top: 24px; right: 24px; }
 .login-visual { position: absolute; inset: 0; overflow: hidden; padding: 42px 54px 34px; pointer-events: none; }
 .login-wordmark { width: 215px; height: auto; position: relative; z-index: 2; }
 .login-visual > p { position: absolute; bottom: 34px; left: 54px; margin: 0; color: #607078; font-size: 12px; font-weight: 650; }

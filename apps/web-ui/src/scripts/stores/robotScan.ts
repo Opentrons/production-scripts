@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { robotApi, type RobotScanParams, type RobotScanResponse } from '@/scripts/api'
+import { i18n } from '@/i18n'
 
 const SCAN_CACHE_KEY = 'production-scripts:robot-scan'
 const REFRESH_POLL_INTERVAL_MS = 1000
@@ -95,7 +96,7 @@ export const useRobotScanStore = defineStore('robotScan', () => {
         return response.data
       }
     }
-    throw new Error('后台设备扫描仍在运行，请稍后再试')
+    throw new Error(i18n.global.t('devices.scanStillRunning'))
   }
 
   async function refreshScan(options: { silent?: boolean; params?: RobotScanParams } = {}): Promise<RobotScanResponse | null> {

@@ -4,9 +4,10 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from threading import RLock
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 
 from core import config
+from core.i18n import api_error
 from modules.auth.dependencies import (
     ACCESS_COOKIE_NAME,
     CSRF_COOKIE_NAME,
@@ -49,10 +50,7 @@ class LoginRateLimiter:
             while failures and now - failures[0] > self.window:
                 failures.popleft()
             if len(failures) >= self.attempts:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many login attempts. Try again later.",
-                )
+                raise api_error(status.HTTP_429_TOO_MANY_REQUESTS, "auth.too_many_attempts")
 
     def record_failure(self, key: str) -> None:
         with self._lock:
@@ -148,10 +146,10 @@ def login(
             ip_address=ip_address,
         )
     except AuthenticationConfigurationError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.configuration_error") from exc
     except AuthenticationError as exc:
         login_rate_limiter.record_failure(rate_key)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+        raise api_error(status.HTTP_401_UNAUTHORIZED, "auth.invalid_credentials") from exc
     login_rate_limiter.clear(rate_key)
     _set_session_cookies(response, session)
     return _session_response(session)
@@ -166,14 +164,14 @@ def refresh(
     verify_refresh_csrf(request)
     refresh_token = request.cookies.get(REFRESH_COOKIE_NAME, "")
     if not refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token required")
+        raise api_error(status.HTTP_401_UNAUTHORIZED, "auth.refresh_token_required")
     try:
         session = service.refresh(refresh_token)
     except AuthenticationConfigurationError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.configuration_error") from exc
     except AuthenticationError as exc:
         _clear_session_cookies(response)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+        raise api_error(status.HTTP_401_UNAUTHORIZED, "auth.authentication_required") from exc
     _set_session_cookies(response, session)
     return _session_response(session)
 

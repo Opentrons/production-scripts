@@ -54,10 +54,13 @@ def test_robot_scan_gateways_use_sqlite_when_simulating(tmp_path: Path, monkeypa
     runtime_mode._SIMULATING = None
     runtime_mode.set_simulating(True)
 
-    robots.add_scan_gateway("192.168.7.1")
-    listed = robots.list_scan_gateways()
-    assert listed["gateways"][0]["gateway"] == "192.168.7.1"
-    assert (db_root / "simulating" / "platform.sqlite3").exists()
+    try:
+        robots.add_scan_gateway("192.168.7.1")
+        listed = robots.list_scan_gateways()
+        assert listed["gateways"][0]["gateway"] == "192.168.7.1"
+        assert (db_root / "simulating" / "platform.sqlite3").exists()
+    finally:
+        runtime_mode.set_simulating(False)
 
 
 def test_migrate_legacy_sqlite_files(tmp_path: Path, monkeypatch) -> None:

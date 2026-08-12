@@ -2,13 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { pinia } from '@/scripts/stores'
 import { useAuthStore } from '@/scripts/stores/auth'
+import { i18n } from '@/i18n'
 
 const DEFAULT_FAVICON = '/favicon.png'
 const AGENT_FAVICON = '/agent-favicon.svg'
 const TESTING_FAVICON = '/testing-favicon.svg'
 const VERSION_FAVICON = '/versions-favicon.svg'
 const productionTestingMeta = {
-  title: 'Productions Testing',
+  titleKey: 'titles.testing',
   favicon: TESTING_FAVICON,
 }
 
@@ -17,33 +18,33 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/auth/LoginView.vue'),
-    meta: { standalone: true, public: true, title: '登录 | Productions', favicon: DEFAULT_FAVICON },
+    meta: { standalone: true, public: true, titleKey: 'titles.login', favicon: DEFAULT_FAVICON },
   },
   {
     path: '/',
     name: 'Platform',
     component: () => import('@/views/dashboard/DashboardView.vue'),
     props: { mode: 'dashboard' },
-    meta: { standalone: true, title: 'Productions', favicon: DEFAULT_FAVICON },
+    meta: { standalone: true, titleKey: 'titles.platform', favicon: DEFAULT_FAVICON },
   },
   {
     path: '/downloads',
     name: 'Downloads',
     component: () => import('@/views/dashboard/DashboardView.vue'),
     props: { mode: 'downloads' },
-    meta: { standalone: true, title: 'Productions Downloads', favicon: DEFAULT_FAVICON },
+    meta: { standalone: true, titleKey: 'titles.downloads', favicon: DEFAULT_FAVICON },
   },
   {
     path: '/versions',
     name: 'Versions',
     component: () => import('@/views/version_modules/WorkflowManagementView.vue'),
-    meta: { standalone: true, title: 'Produtions Versions', favicon: VERSION_FAVICON },
+    meta: { standalone: true, titleKey: 'titles.versions', favicon: VERSION_FAVICON },
   },
   {
     path: '/agent',
     name: 'ProductionAgent',
     component: () => import('@/views/agent/ProductionAgentView.vue'),
-    meta: { standalone: true, title: 'Production Agent', favicon: AGENT_FAVICON },
+    meta: { standalone: true, titleKey: 'titles.agent', favicon: AGENT_FAVICON },
   },
   {
     path: '/home',
@@ -163,8 +164,9 @@ router.beforeEach(async (to) => {
   return true
 })
 
-router.afterEach((to) => {
-  const title = typeof to.meta.title === 'string' ? to.meta.title : 'Productions'
+function updateDocumentMetadata(to: typeof router.currentRoute.value): void {
+  const titleKey = typeof to.meta.titleKey === 'string' ? to.meta.titleKey : 'titles.platform'
+  const title = String(i18n.global.t(titleKey))
   const favicon = typeof to.meta.favicon === 'string' ? to.meta.favicon : DEFAULT_FAVICON
   document.title = title
 
@@ -177,6 +179,16 @@ router.afterEach((to) => {
   }
   faviconLink.type = favicon.endsWith('.svg') ? 'image/svg+xml' : 'image/png'
   faviconLink.href = favicon
+}
+
+router.afterEach((to) => {
+  updateDocumentMetadata(to)
 })
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('production-platform-locale-change', () => {
+    updateDocumentMetadata(router.currentRoute.value)
+  })
+}
 
 export default router

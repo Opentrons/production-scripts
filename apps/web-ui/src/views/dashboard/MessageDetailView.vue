@@ -5,15 +5,15 @@
         <div class="card-header">
           <el-button text @click="goBack">
             <el-icon><ArrowLeft /></el-icon>
-            返回
+            {{ t('messages.detail.back') }}
           </el-button>
-          <span class="header-title">消息详情</span>
+          <span class="header-title">{{ t('messages.detail.title') }}</span>
         </div>
       </template>
       
       <div v-if="initialLoading || messageStore.loading" class="message-detail-loading">
         <el-icon class="is-loading message-detail-loading-icon"><Loading /></el-icon>
-        <span>正在加载消息详情...</span>
+        <span>{{ t('messages.detail.loading') }}</span>
       </div>
 
       <el-alert
@@ -25,9 +25,9 @@
       >
         <template #title>
           <div class="message-detail-error-content">
-            <span>消息加载失败：{{ messageStore.error }}</span>
+            <span>{{ t('messages.detail.loadFailed', { error: messageStore.error }) }}</span>
             <el-button size="small" type="danger" plain :loading="messageStore.loading" @click="retryLoad">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -35,32 +35,32 @@
 
       <div v-else-if="message" class="message-detail">
         <div class="detail-row">
-          <span class="label">标题:</span>
+          <span class="label">{{ t('messages.detail.fields.title') }}</span>
           <span class="status-dot" :class="messageDotClass(message)"></span>
           <span class="value title">{{ formatTitle(message) }}</span>
         </div>
         
         <div class="detail-row">
-          <span class="label">状态:</span>
+          <span class="label">{{ t('messages.detail.fields.status') }}</span>
           <el-tag :type="message.new === true ? 'danger' : 'success'" size="small">
-            {{ message.new === true ? '未读' : '已读' }}
+            {{ message.new === true ? t('messages.detail.unread') : t('messages.detail.read') }}
           </el-tag>
         </div>
         
         <div class="detail-row">
-          <span class="label">时间:</span>
+          <span class="label">{{ t('messages.detail.fields.time') }}</span>
           <span class="value">{{ formatTime(message.created_at) }}</span>
         </div>
         
         <el-divider />
         
         <div class="content-section">
-          <div class="content-label">消息内容:</div>
-          <div class="content-text">{{ message.content || '无内容' }}</div>
+          <div class="content-label">{{ t('messages.detail.fields.content') }}</div>
+          <div class="content-text">{{ message.content || t('messages.list.noContent') }}</div>
         </div>
       </div>
       
-      <el-empty v-else description="消息不存在" />
+      <el-empty v-else :description="t('messages.detail.missing')" />
     </el-card>
   </div>
 </template>
@@ -70,10 +70,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessageStore } from '@/scripts/stores/message'
 import { ArrowLeft, Loading } from '@element-plus/icons-vue'
+import { useAppLocale } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const messageStore = useMessageStore()
+const { locale, t } = useAppLocale()
 const initialLoading = ref(true)
 
 const messageId = computed(() => route.params.id as string)
@@ -84,7 +86,7 @@ const message = computed(() => {
 
 const isErrorMessage = (message: any) => {
   const text = `${message?.title || ''} ${message?.content || ''} ${message?.error || ''}`.toLowerCase()
-  return text.includes('failed') || text.includes('fail') || text.includes('error') || text.includes('报错') || text.includes('失败')
+  return text.includes('failed') || text.includes('fail') || text.includes('error') || /\u62a5\u9519|\u5931\u8d25/.test(text)
 }
 
 const messageDotClass = (message: any) => {
@@ -92,16 +94,16 @@ const messageDotClass = (message: any) => {
 }
 
 const formatTitle = (message: any) => {
-  if (message?.title === 'Upload Successful') return '数据上传成功'
-  if (message?.title === 'Upload Failed') return '数据上传失败'
-  return message?.title || '无标题'
+  if (message?.title === 'Upload Successful') return t('messages.titles.uploadSuccessful')
+  if (message?.title === 'Upload Failed') return t('messages.titles.uploadFailed')
+  return message?.title || t('messages.list.untitled')
 }
 
 const formatTime = (time: string | undefined): string => {
   if (!time) return ''
   try {
     const date = new Date(time)
-    return date.toLocaleString('zh-CN', {
+    return date.toLocaleString(locale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

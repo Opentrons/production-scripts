@@ -4,25 +4,25 @@
       <template v-if="isBatchMode">
         <div class="device-identity">
           <div class="device-copy">
-            <span class="device-name">批量处理</span>
-            <span class="device-ip">{{ selectedIps.length }} / {{ availableRobots.length }} 台设备已选择</span>
+            <span class="device-name">{{ t('devices.workbench.batchProcessing') }}</span>
+            <span class="device-ip">{{ t('devices.workbench.selectedDevices', { selected: selectedIps.length, total: availableRobots.length }) }}</span>
           </div>
         </div>
 
         <div class="device-meta">
-          <span class="status-pill">多选模式</span>
-          <span class="meta-item">{{ availableRobots.length }} 台可选设备</span>
+          <span class="status-pill">{{ t('devices.workbench.multiSelect') }}</span>
+          <span class="meta-item">{{ t('devices.workbench.availableDevices', { count: availableRobots.length }) }}</span>
         </div>
       </template>
 
       <template v-else>
         <div class="device-identity">
-          <el-tooltip content="返回设备管理" placement="bottom">
+          <el-tooltip :content="t('devices.workbench.back')" placement="bottom">
             <el-button
               class="device-back-button"
               :icon="ArrowLeft"
               circle
-              aria-label="返回设备管理"
+              :aria-label="t('devices.workbench.back')"
               @click="returnToDeviceList"
             />
           </el-tooltip>
@@ -32,13 +32,13 @@
               <span class="inline-status" :class="currentServiceStatus">
                 {{ formatServiceStatus(currentServiceStatus) }}
               </span>
-              <span class="device-ip">{{ selectedIp || '未选择设备' }}</span>
+              <span class="device-ip">{{ selectedIp || t('devices.workbench.noDeviceSelected') }}</span>
             </span>
           </div>
         </div>
 
         <div class="device-meta">
-          <el-tooltip content="设备信息" placement="left">
+          <el-tooltip :content="t('devices.info')" placement="left">
             <el-button
               :icon="Tickets"
               circle
@@ -46,7 +46,7 @@
               @click="openInfoDrawer"
             />
           </el-tooltip>
-          <el-tooltip content="刷新状态" placement="left">
+          <el-tooltip :content="t('devices.refreshStatus')" placement="left">
             <el-button
               :icon="Refresh"
               :loading="refreshing"
@@ -60,7 +60,7 @@
 
     <div v-if="initialScanLoading" class="initial-device-loading">
       <el-icon class="is-loading initial-device-loading-icon"><Loading /></el-icon>
-      <span>正在加载设备扫描结果...</span>
+      <span>{{ t('devices.workbench.loadingScan') }}</span>
     </div>
 
     <section v-else class="workbench">
@@ -70,11 +70,11 @@
         :before-leave="beforeTabLeave"
         @tab-change="handleTabChange"
       >
-        <el-tab-pane label="设备控制" name="control" lazy>
+        <el-tab-pane :label="t('devices.workbench.tabs.control')" name="control" lazy>
           <DeviceControlPanel :ip="selectedIp" />
         </el-tab-pane>
 
-        <el-tab-pane label="烧录条码" name="barcode" lazy>
+        <el-tab-pane :label="t('devices.workbench.tabs.barcode')" name="barcode" lazy>
           <DeviceBarcodeProvisionPanel :ip="selectedIp" />
         </el-tab-pane>
 
@@ -82,31 +82,31 @@
           <DeviceProtocolsPanel :ip="selectedIp" standalone />
         </el-tab-pane>
 
-        <el-tab-pane label="文件管理" name="files">
+        <el-tab-pane :label="t('devices.workbench.tabs.files')" name="files">
           <DeviceFilesPanel :ip="selectedIp" />
         </el-tab-pane>
 
-        <el-tab-pane label="测试数据" name="testing-data">
+        <el-tab-pane :label="t('devices.workbench.tabs.testingData')" name="testing-data">
           <DeviceTestingDataPanel :ip="selectedIp" />
         </el-tab-pane>
 
-        <el-tab-pane label="执行命令" name="command">
+        <el-tab-pane :label="t('devices.workbench.tabs.command')" name="command">
           <el-tabs v-model="singleCommandMode" class="command-mode-tabs" @tab-change="handleCommandModeChange">
             <el-tab-pane label="HTTP API" name="http">
               <section class="command-console">
                 <div v-if="!selectedIp" class="panel-empty">
-                  <el-empty description="请先选择一台设备" />
+                  <el-empty :description="t('devices.selectOne')" />
                 </div>
 
                 <template v-else>
                   <div class="command-form-grid">
                     <label class="command-field http-command-preset-field">
-                      <span>预设命令</span>
+                      <span>{{ t('devices.workbench.command.preset') }}</span>
                       <el-select
                         v-model="singleHttpCommandPresetId"
                         clearable
                         filterable
-                        placeholder="选择后自动填入 Path"
+                        :placeholder="t('devices.workbench.command.presetPlaceholder')"
                         @change="applySingleHttpCommandPreset"
                       >
                         <el-option
@@ -118,7 +118,7 @@
                       </el-select>
                     </label>
                     <label class="command-field">
-                      <span>方法</span>
+                      <span>{{ t('devices.workbench.command.method') }}</span>
                       <el-select v-model="singleCommandMethod">
                         <el-option label="GET" value="GET" />
                         <el-option label="POST" value="POST" />
@@ -149,14 +149,14 @@
                       :disabled="!canRunSingleCommand"
                       @click="runSingleCommand"
                     >
-                      执行
+                      {{ t('devices.workbench.command.execute') }}
                     </el-button>
                     <el-button
                       v-if="singleCommandResult"
                       :disabled="singleCommandRunning"
                       @click="singleCommandResult = null"
                     >
-                      清空结果
+                      {{ t('devices.workbench.command.clearResult') }}
                     </el-button>
                   </div>
 
@@ -168,7 +168,7 @@
                     <div class="command-result-header">
                       <span>{{ singleCommandResult.method }} {{ singleCommandResult.path }}</span>
                       <el-tag size="small" :type="singleCommandResult.success ? 'success' : 'danger'">
-                        {{ singleCommandResult.success ? '成功' : '失败' }}
+                        {{ t(singleCommandResult.success ? 'common.status.completed' : 'common.status.error') }}
                       </el-tag>
                     </div>
                     <pre class="command-result-body">{{ singleCommandResultText }}</pre>
@@ -180,7 +180,7 @@
             <el-tab-pane label="SSH COMMAND" name="ssh">
               <section class="ssh-command-workspace">
                 <div v-if="!selectedIp" class="panel-empty">
-                  <el-empty description="请先选择一台设备" />
+                  <el-empty :description="t('devices.selectOne')" />
                 </div>
 
                 <template v-else>
@@ -189,12 +189,12 @@
                     class="ssh-command-alert"
                     type="warning"
                     :closable="false"
-                    :title="`自定义命令暂时不可用：${sshCommandDatabaseError}`"
+                    :title="t('devices.workbench.command.unavailable', { error: sshCommandDatabaseError })"
                   />
 
                   <div class="ssh-command-settings">
                     <label class="command-field">
-                      <span>常用 / 自定义命令</span>
+                      <span>{{ t('devices.workbench.command.commonCustom') }}</span>
                       <el-select
                         v-model="selectedSshCommandId"
                         class="ssh-command-preset-select"
@@ -202,10 +202,10 @@
                         clearable
                         :loading="sshCommandsLoading"
                         popper-class="ssh-command-select-popper"
-                        placeholder="选择命令后自动填入"
+                        :placeholder="t('devices.workbench.command.commandPlaceholder')"
                         @change="applySelectedSshCommand"
                       >
-                        <el-option-group label="常用命令">
+                        <el-option-group :label="t('devices.workbench.command.builtin')">
                           <el-option
                             v-for="item in builtinSshCommands"
                             :key="item.id"
@@ -220,7 +220,7 @@
                             </div>
                           </el-option>
                         </el-option-group>
-                        <el-option-group v-if="customSshCommands.length" label="自定义命令">
+                        <el-option-group v-if="customSshCommands.length" :label="t('devices.workbench.command.custom')">
                           <el-option
                             v-for="item in customSshCommands"
                             :key="item.id"
@@ -238,21 +238,21 @@
                       </el-select>
                     </label>
                     <label class="command-field ssh-timeout-field">
-                      <span>超时时间（秒）</span>
+                      <span>{{ t('devices.workbench.command.timeout') }}</span>
                       <el-input-number v-model="sshCommandTimeout" :min="1" :max="300" controls-position="right" />
                     </label>
                   </div>
 
                   <label class="command-field">
                     <span class="command-field-title">
-                      SSH 命令
-                      <small>支持多条命令，可使用服务器变量 $DATE、$DATE_EPOCH</small>
+                      {{ t('devices.workbench.command.ssh') }}
+                      <small>{{ t('devices.workbench.command.sshHint') }}</small>
                     </span>
                     <el-input
                       v-model="sshCommandText"
                       type="textarea"
                       :rows="5"
-                      placeholder="例如：mount -o remount,rw /; timedatectl set-ntp false; ..."
+                      :placeholder="t('devices.workbench.command.sshPlaceholder')"
                       @keydown.ctrl.enter.prevent="runSshCommand"
                     />
                   </label>
@@ -264,16 +264,16 @@
                       :disabled="!canRunSshCommand"
                       @click="runSshCommand"
                     >
-                      执行 SSH 命令
+                      {{ t('devices.workbench.command.executeSsh') }}
                     </el-button>
                     <el-button
                       v-if="sshCommandResult || sshCommandExecutionError"
                       :disabled="sshCommandRunning"
                       @click="clearSshCommandOutput"
                     >
-                      清空输出
+                      {{ t('devices.workbench.command.clearOutput') }}
                     </el-button>
-                    <span class="command-shortcut">Ctrl + Enter 执行</span>
+                    <span class="command-shortcut">{{ t('devices.workbench.command.shortcut') }}</span>
                   </div>
 
                   <div
@@ -294,27 +294,27 @@
                         </el-tooltip>
                       </div>
                       <el-tag size="small" :type="sshCommandResult.success ? 'success' : 'danger'">
-                        {{ sshCommandResult.success ? '执行成功' : `退出码 ${sshCommandResult.exit_code}` }}
+                        {{ sshCommandResult.success ? t('devices.workbench.command.executeSuccess') : t('devices.workbench.command.exitCode', { code: sshCommandResult.exit_code }) }}
                       </el-tag>
                     </div>
                     <div class="ssh-result-meta">
-                      <span>退出码：{{ sshCommandResult.exit_code }}</span>
-                      <span>耗时：{{ sshCommandResult.duration_ms }} ms</span>
-                      <span>完成时间：{{ formatLogDate(sshCommandResult.finished_at) }}</span>
+                      <span>{{ t('devices.workbench.command.exitCode', { code: sshCommandResult.exit_code }) }}</span>
+                      <span>{{ t('devices.workbench.command.duration', { duration: sshCommandResult.duration_ms }) }}</span>
+                      <span>{{ t('devices.workbench.command.completedAt', { time: formatLogDate(sshCommandResult.finished_at) }) }}</span>
                       <span>
-                        服务器 DATE：{{ sshCommandResult.environment?.DATE }}
+                        {{ t('devices.workbench.command.serverDate', { date: sshCommandResult.environment?.DATE }) }}
                         <template v-if="sshCommandResult.environment?.DATE_TIMEZONE">
                           （{{ sshCommandResult.environment.DATE_TIMEZONE }}）
                         </template>
                       </span>
-                      <span v-if="sshCommandResult.output_truncated">输出已截断</span>
+                      <span v-if="sshCommandResult.output_truncated">{{ t('devices.workbench.command.truncated') }}</span>
                     </div>
                     <div class="ssh-output-section">
-                      <div class="ssh-output-title">标准输出 stdout</div>
-                      <pre class="command-result-body">{{ sshCommandResult.stdout || '(无输出)' }}</pre>
+                      <div class="ssh-output-title">{{ t('devices.workbench.command.stdout') }}</div>
+                      <pre class="command-result-body">{{ sshCommandResult.stdout || t('devices.workbench.command.noOutput') }}</pre>
                     </div>
                     <div v-if="sshCommandResult.stderr" class="ssh-output-section is-stderr">
-                      <div class="ssh-output-title">错误输出 stderr</div>
+                      <div class="ssh-output-title">{{ t('devices.workbench.command.stderr') }}</div>
                       <pre class="command-result-body">{{ sshCommandResult.stderr }}</pre>
                     </div>
                   </div>
@@ -331,7 +331,7 @@
                           <span class="ssh-result-command">{{ sshCommandText }}</span>
                         </el-tooltip>
                       </div>
-                      <el-tag size="small" type="danger">连接或执行失败</el-tag>
+                      <el-tag size="small" type="danger">{{ t('devices.workbench.command.connectionFailed') }}</el-tag>
                     </div>
                     <pre class="command-result-body">{{ sshCommandExecutionError }}</pre>
                   </div>
@@ -339,8 +339,8 @@
                   <section class="custom-command-section">
                     <div class="custom-command-header">
                       <div>
-                        <h3>自定义命令</h3>
-                        <p>保存到 MongoDB，所有用户共享。</p>
+                        <h3>{{ t('devices.workbench.command.custom') }}</h3>
+                        <p>{{ t('devices.workbench.command.customDescription') }}</p>
                       </div>
                       <el-button
                         type="primary"
@@ -348,7 +348,7 @@
                         :disabled="Boolean(sshCommandDatabaseError)"
                         @click="openCreateSshCommand"
                       >
-                        新增命令
+                        {{ t('devices.workbench.command.addCommand') }}
                       </el-button>
                     </div>
 
@@ -356,27 +356,27 @@
                       v-loading="sshCommandsLoading"
                       :data="customSshCommands"
                       border
-                      empty-text="暂无自定义命令"
+                      :empty-text="t('devices.workbench.command.noCustom')"
                     >
-                      <el-table-column prop="name" label="名称" min-width="150" />
-                      <el-table-column label="属性" width="90">
+                      <el-table-column prop="name" :label="t('devices.workbench.command.name')" min-width="150" />
+                      <el-table-column :label="t('devices.workbench.command.property')" width="90">
                         <template #default="scope">
                           <el-tag size="small" :type="scope.row.tag === 'risk' ? 'danger' : 'info'">
                             {{ scope.row.tag }}
                           </el-tag>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="command" label="命令" min-width="260" show-overflow-tooltip />
-                      <el-table-column prop="description" label="说明" min-width="180" show-overflow-tooltip />
-                      <el-table-column label="更新时间" width="180">
+                      <el-table-column prop="command" :label="t('devices.workbench.command.command')" min-width="260" show-overflow-tooltip />
+                      <el-table-column prop="description" :label="t('devices.workbench.command.description')" min-width="180" show-overflow-tooltip />
+                      <el-table-column :label="t('devices.workbench.command.updatedAt')" width="180">
                         <template #default="scope">
                           {{ formatLogDate(scope.row.updated_at) }}
                         </template>
                       </el-table-column>
-                      <el-table-column label="操作" width="130" fixed="right">
+                      <el-table-column :label="t('devices.workbench.command.action')" width="130" fixed="right">
                         <template #default="scope">
-                          <el-button link type="primary" @click="openEditSshCommand(scope.row)">编辑</el-button>
-                          <el-button link type="danger" @click="removeSshCommand(scope.row)">删除</el-button>
+                          <el-button link type="primary" @click="openEditSshCommand(scope.row)">{{ t('common.actions.edit') }}</el-button>
+                          <el-button link type="danger" @click="removeSshCommand(scope.row)">{{ t('common.actions.delete') }}</el-button>
                         </template>
                       </el-table-column>
                     </el-table>
@@ -387,22 +387,22 @@
           </el-tabs>
         </el-tab-pane>
 
-        <el-tab-pane label="查询版本" name="versions">
+        <el-tab-pane :label="t('devices.workbench.tabs.versions')" name="versions">
           <el-tabs
             v-model="versionQueryTab"
             class="version-query-tabs"
             @tab-change="handleVersionQueryTabChange"
           >
-            <el-tab-pane label="子系统版本" name="subsystems">
+            <el-tab-pane :label="t('devices.workbench.tabs.subsystems')" name="subsystems">
               <section class="subsystem-version-workspace">
             <div v-if="!selectedIp" class="panel-empty">
-              <el-empty description="请先选择一台设备" />
+              <el-empty :description="t('devices.selectOne')" />
             </div>
 
             <template v-else>
               <div class="subsystem-version-toolbar">
                 <div class="subsystem-version-heading">
-                  <span>测试版本</span>
+                  <span>{{ t('devices.workbench.versions.testVersion') }}</span>
                   <span class="subsystem-version-separator" aria-hidden="true">.</span>
                   <el-tooltip
                     :content="subsystemTestVersion"
@@ -417,14 +417,14 @@
                     type="primary"
                     :icon="Plus"
                     @click="openVersionCaptureDialog"
-                  >新增版本</el-button>
+                  >{{ t('devices.workbench.versions.add') }}</el-button>
                   <el-button
                     type="primary"
                     plain
                     :icon="Refresh"
                     :loading="subsystemVersionsLoading"
                     @click="loadSubsystemVersions"
-                  >刷新</el-button>
+                  >{{ t('common.actions.refresh') }}</el-button>
                 </div>
               </div>
 
@@ -441,27 +441,27 @@
                 :data="subsystemVersionRows"
                 border
                 stripe
-                empty-text="暂无子系统版本数据"
+                :empty-text="t('devices.workbench.versions.noSubsystems')"
               >
-                <el-table-column prop="name" label="子系统" min-width="150" />
-                <el-table-column prop="currentVersion" label="当前版本" min-width="120" />
-                <el-table-column prop="nextVersion" label="目标版本" min-width="120" />
+                <el-table-column prop="name" :label="t('devices.workbench.versions.subsystem')" min-width="150" />
+                <el-table-column prop="currentVersion" :label="t('devices.workbench.versions.current')" min-width="120" />
+                <el-table-column prop="nextVersion" :label="t('devices.workbench.versions.target')" min-width="120" />
                 <el-table-column prop="revision" label="Revision" min-width="110" />
-                <el-table-column label="状态" width="100">
+                <el-table-column :label="t('devices.workbench.versions.status')" width="100">
                   <template #default="scope">
                     <el-tag size="small" :type="subsystemStatusType(scope.row.ok)">
                       {{ subsystemStatusLabel(scope.row.ok) }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="固件升级" width="120">
+                <el-table-column :label="t('devices.workbench.versions.firmwareUpdate')" width="120">
                   <template #default="scope">
                     <el-tag size="small" :type="subsystemUpdateType(scope.row.updateNeeded)">
                       {{ subsystemUpdateLabel(scope.row.updateNeeded) }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="查询时间" min-width="180">
+                <el-table-column :label="t('devices.workbench.versions.queriedAt')" min-width="180">
                   <template #default="scope">
                     {{ formatLogDate(scope.row.queriedAt) }}
                   </template>
@@ -471,12 +471,12 @@
               </section>
             </el-tab-pane>
 
-            <el-tab-pane label="查询历史" name="history">
+            <el-tab-pane :label="t('devices.workbench.tabs.history')" name="history">
               <section class="version-history-workspace">
             <div class="subsystem-version-toolbar">
               <div class="subsystem-version-heading">
-                <h2>版本查询历史</h2>
-                <span>{{ versionHistoryTotal }} 个产品</span>
+                <h2>{{ t('devices.workbench.versions.historyTitle') }}</h2>
+                <span>{{ t('devices.workbench.versions.productCount', { count: versionHistoryTotal }) }}</span>
               </div>
               <el-button
                 type="primary"
@@ -484,7 +484,7 @@
                 :icon="Refresh"
                 :loading="versionHistoryLoading"
                 @click="loadVersionHistory"
-              >刷新</el-button>
+              >{{ t('common.actions.refresh') }}</el-button>
             </div>
 
             <el-alert
@@ -500,15 +500,15 @@
               :data="versionHistoryRows"
               border
               stripe
-              empty-text="暂无版本查询历史"
+              :empty-text="t('devices.workbench.versions.noHistory')"
             >
-              <el-table-column prop="productName" label="产品" min-width="210" show-overflow-tooltip />
-              <el-table-column prop="barcode" label="条码" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="testName" label="测试过程" min-width="280" show-overflow-tooltip />
-              <el-table-column prop="testVersion" label="测试版本" min-width="150" show-overflow-tooltip />
-              <el-table-column prop="versionSummary" label="版本信息" min-width="320" show-overflow-tooltip />
-              <el-table-column prop="robotIp" label="设备 IP" width="140" />
-              <el-table-column label="查询时间" width="180">
+              <el-table-column prop="productName" :label="t('devices.workbench.versions.product')" min-width="210" show-overflow-tooltip />
+              <el-table-column prop="barcode" :label="t('devices.workbench.versions.barcode')" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="testName" :label="t('devices.workbench.versions.testProcess')" min-width="280" show-overflow-tooltip />
+              <el-table-column prop="testVersion" :label="t('devices.workbench.versions.testVersion')" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="versionSummary" :label="t('devices.workbench.versions.versionInfo')" min-width="320" show-overflow-tooltip />
+              <el-table-column prop="robotIp" :label="t('devices.workbench.versions.deviceIp')" width="140" />
+              <el-table-column :label="t('devices.workbench.versions.queriedAt')" width="180">
                 <template #default="scope">
                   {{ formatLogDate(scope.row.queriedAt) }}
                 </template>
@@ -519,24 +519,24 @@
           </el-tabs>
         </el-tab-pane>
 
-        <el-tab-pane label="烧录代码" name="code-flash" lazy>
+        <el-tab-pane :label="t('devices.workbench.tabs.codeFlash')" name="code-flash" lazy>
           <DeviceCodeFlashPanel :ip="selectedIp" />
         </el-tab-pane>
 
-        <el-tab-pane label="下载 Log" name="device-logs">
+        <el-tab-pane :label="t('devices.workbench.tabs.logs')" name="device-logs">
           <section class="single-operation-panel">
             <div v-if="!selectedIp" class="panel-empty">
-              <el-empty description="请先选择一台设备" />
+              <el-empty :description="t('devices.selectOne')" />
             </div>
 
             <template v-else>
               <el-tabs v-model="singleLogViewTab" class="log-view-tabs">
-                <el-tab-pane label="选择下载" name="select">
+                <el-tab-pane :label="t('devices.workbench.logs.select')" name="select">
               <div class="log-download-intro">
                 <div>
-                  <div class="log-section-title">下载当前设备诊断 Log</div>
+                  <div class="log-section-title">{{ t('devices.workbench.logs.currentTitle') }}</div>
                   <div class="log-section-description">
-                    按 flex_diagnostics.sh 的收集方式在设备端打包，再保存到服务器目录。
+                    {{ t('devices.workbench.logs.description') }}
                   </div>
                 </div>
                 <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
@@ -544,9 +544,9 @@
 
               <div v-loading="logOptionsLoading" class="log-option-section">
                 <div class="log-option-heading">
-                  <span>选择 Log 文件夹</span>
+                  <span>{{ t('devices.workbench.logs.selectFolders') }}</span>
                   <el-button size="small" text @click="toggleAllLogFolders">
-                    {{ areAllLogFoldersSelected ? '取消全选' : '全选' }}
+                    {{ t(areAllLogFoldersSelected ? 'devices.workbench.logs.clearAll' : 'devices.workbench.logs.selectAll') }}
                   </el-button>
                 </div>
                 <el-checkbox-group v-model="selectedLogFolderKeys" class="log-folder-grid">
@@ -575,16 +575,16 @@
                   :disabled="!canStartSingleLogDownload"
                   @click="startSingleLogDownload"
                 >
-                  开始下载 Log
+                  {{ t('devices.workbench.logs.start') }}
                 </el-button>
               </div>
 
               <section v-if="singleActiveLogTask" class="log-progress-panel">
                 <div class="log-progress-header">
                   <div>
-                    <div class="log-section-title">下载进度</div>
+                    <div class="log-section-title">{{ t('devices.workbench.logs.progress') }}</div>
                     <div class="log-section-description">
-                      {{ singleActiveLogTask.completed_devices }} / {{ singleActiveLogTask.total_devices }} 台完成
+                      {{ t('devices.workbench.logs.completed', { completed: singleActiveLogTask.completed_devices, total: singleActiveLogTask.total_devices }) }}
                     </div>
                   </div>
                   <el-tag :type="getLogStatusTagType(singleActiveLogTask.status)">
@@ -597,9 +597,9 @@
                   :stroke-width="12"
                 />
                 <div class="log-task-stats">
-                  <span>成功 {{ singleActiveLogTask.successful_devices }}</span>
-                  <span>警告 {{ singleActiveLogTask.warning_devices || 0 }}</span>
-                  <span>失败 {{ singleActiveLogTask.failed_devices }}</span>
+                  <span>{{ t('devices.workbench.logs.success', { count: singleActiveLogTask.successful_devices }) }}</span>
+                  <span>{{ t('devices.workbench.logs.warning', { count: singleActiveLogTask.warning_devices || 0 }) }}</span>
+                  <span>{{ t('devices.workbench.logs.failed', { count: singleActiveLogTask.failed_devices }) }}</span>
                 </div>
 
                 <div class="log-device-progress-list">
@@ -632,7 +632,7 @@
                       {{ device.error || device.cleanup_error || device.current_step }}
                     </div>
                     <div v-if="device.command_logs?.length" class="log-command-console">
-                      <div class="log-command-console-title">实时执行命令</div>
+                      <div class="log-command-console-title">{{ t('devices.workbench.logs.liveCommands') }}</div>
                       <article
                         v-for="commandLog in getDisplayCommandLogs(device.command_logs)"
                         :key="`single-${commandLog.id}`"
@@ -654,7 +654,7 @@
               </section>
                 </el-tab-pane>
 
-                <el-tab-pane label="下载记录" name="records" lazy>
+                <el-tab-pane :label="t('devices.workbench.logs.records')" name="records" lazy>
                   <DeviceLogHistoryPanel :robot-ip="selectedIp" />
                 </el-tab-pane>
               </el-tabs>
@@ -662,26 +662,26 @@
           </section>
         </el-tab-pane>
 
-        <el-tab-pane label="安装密钥" name="ssh-keys">
+        <el-tab-pane :label="t('devices.workbench.tabs.sshKeys')" name="ssh-keys">
           <section class="single-operation-panel">
             <div v-if="!selectedIp" class="panel-empty">
-              <el-empty description="请先选择一台设备" />
+              <el-empty :description="t('devices.selectOne')" />
             </div>
 
             <template v-else>
               <div class="ssh-key-install-intro">
                 <div>
-                  <div class="log-section-title">安装当前设备 Flex SSH 密钥</div>
+                  <div class="log-section-title">{{ t('devices.workbench.sshKeys.currentTitle') }}</div>
                   <div class="log-section-description">
-                    服务器将对 {{ selectedIp }} 执行固定的 setup_ssh_keys.sh -flex 命令。
+                    {{ t('devices.workbench.sshKeys.currentDescription', { ip: selectedIp }) }}
                   </div>
                 </div>
-                <el-tag type="warning" effect="plain">设备需插入密钥 U 盘</el-tag>
+                <el-tag type="warning" effect="plain">{{ t('devices.workbench.sshKeys.usbRequired') }}</el-tag>
               </div>
 
               <div class="ssh-key-install-settings is-single">
                 <label class="batch-field">
-                  <span>超时（秒）</span>
+                  <span>{{ t('devices.workbench.sshKeys.timeout') }}</span>
                   <el-input-number
                     v-model="singleSshKeyInstallTimeout"
                     :min="1"
@@ -702,14 +702,14 @@
                   :disabled="!canInstallSingleSshKey"
                   @click="runSingleSshKeyInstall"
                 >
-                  安装密钥
+                  {{ t('devices.workbench.sshKeys.install') }}
                 </el-button>
                 <el-button
                   v-if="singleSshKeyInstallResult"
                   :disabled="singleSshKeyInstallRunning"
                   @click="singleSshKeyInstallResult = null"
                 >
-                  清空结果
+                  {{ t('devices.workbench.command.clearResult') }}
                 </el-button>
               </div>
 
@@ -724,7 +724,7 @@
                     <span>{{ singleSshKeyInstallResult.ip }}</span>
                   </div>
                   <el-tag size="small" :type="singleSshKeyInstallResult.success ? 'success' : 'danger'">
-                    {{ singleSshKeyInstallResult.success ? '安装成功' : '安装失败' }}
+                    {{ t(singleSshKeyInstallResult.success ? 'devices.workbench.sshKeys.installed' : 'devices.workbench.sshKeys.failed') }}
                   </el-tag>
                 </div>
                 <div
@@ -734,15 +734,15 @@
                   {{ singleSshKeyInstallResult.message }}
                 </div>
                 <div class="ssh-result-meta">
-                  <span>退出码：{{ singleSshKeyInstallResult.exit_code ?? '-' }}</span>
-                  <span>耗时：{{ singleSshKeyInstallResult.duration_ms }} ms</span>
+                  <span>{{ t('devices.workbench.command.exitCode', { code: singleSshKeyInstallResult.exit_code ?? '-' }) }}</span>
+                  <span>{{ t('devices.workbench.command.duration', { duration: singleSshKeyInstallResult.duration_ms }) }}</span>
                 </div>
                 <div v-if="singleSshKeyInstallResult.stdout" class="ssh-output-section">
-                  <div class="ssh-output-title">脚本输出</div>
+                  <div class="ssh-output-title">{{ t('devices.workbench.sshKeys.scriptOutput') }}</div>
                   <pre class="command-result-body">{{ singleSshKeyInstallResult.stdout }}</pre>
                 </div>
                 <div v-if="singleSshKeyInstallResult.stderr" class="ssh-output-section is-stderr">
-                  <div class="ssh-output-title">错误输出</div>
+                  <div class="ssh-output-title">{{ t('devices.workbench.sshKeys.errorOutput') }}</div>
                   <pre class="command-result-body">{{ singleSshKeyInstallResult.stderr }}</pre>
                 </div>
               </article>
@@ -750,11 +750,11 @@
           </section>
         </el-tab-pane>
 
-        <el-tab-pane label="批量处理" name="batch">
+        <el-tab-pane :label="t('devices.workbench.tabs.batch')" name="batch">
           <div class="batch-workspace">
             <aside class="batch-device-panel">
               <div class="batch-panel-header">
-                <span class="panel-title">目标设备</span>
+                <span class="panel-title">{{ t('devices.workbench.batch.targets') }}</span>
                 <span class="device-count">{{ availableRobots.length }}</span>
                 <el-button
                   type="primary"
@@ -762,18 +762,18 @@
                   link
                   @click="toggleSelectAll"
                 >
-                  {{ isAllSelected ? '取消全选' : '全选' }}
+                  {{ t(isAllSelected ? 'devices.workbench.logs.clearAll' : 'devices.workbench.logs.selectAll') }}
                 </el-button>
               </div>
 
               <div class="manual-ip">
                 <el-input
                   v-model="manualIpInput"
-                  placeholder="输入 IP 后回车"
+                  :placeholder="t('devices.workbench.batch.ipPlaceholder')"
                   size="small"
                   @keyup.enter="addManualIp"
                 />
-                <el-button size="small" type="primary" @click="addManualIp">添加</el-button>
+                <el-button size="small" type="primary" @click="addManualIp">{{ t('common.actions.add') }}</el-button>
               </div>
 
               <el-checkbox-group
@@ -787,7 +787,7 @@
                   :value="robot.ip"
                   class="batch-device-option"
                 >
-                  <span class="batch-device-name">{{ robot.name || '未命名设备' }}</span>
+                  <span class="batch-device-name">{{ robot.name || t('devices.unnamed') }}</span>
                   <span class="batch-device-ip">{{ robot.ip }}</span>
                   <span class="batch-device-status" :class="robot.service_status">
                     {{ formatServiceStatus(robot.service_status) }}
@@ -795,14 +795,14 @@
                 </el-checkbox>
               </el-checkbox-group>
 
-              <el-empty v-else description="暂无设备" :image-size="72" />
+              <el-empty v-else :description="t('common.empty')" :image-size="72" />
             </aside>
 
             <section class="batch-command-panel">
               <div class="batch-topbar">
                 <div class="batch-summary">
                   <span class="summary-value">{{ selectedIps.length }}</span>
-                  <span class="summary-label">台设备已选择</span>
+                  <span class="summary-label">{{ t('devices.workbench.batch.selected') }}</span>
                 </div>
                 <el-button
                   v-if="batchResults.length"
@@ -810,16 +810,16 @@
                   text
                   @click="batchResults = []"
                 >
-                  清空结果
+                  {{ t('devices.workbench.command.clearResult') }}
                 </el-button>
               </div>
 
               <el-tabs v-model="batchActionTab" class="batch-action-tabs">
-                <el-tab-pane label="改文件" name="edit">
+                <el-tab-pane :label="t('devices.workbench.batch.editFile')" name="edit">
                   <div class="batch-form-grid">
                     <label class="batch-field">
-                      <span>参考设备</span>
-                      <el-select v-model="batchReferenceIp" placeholder="选择要读取的设备">
+                      <span>{{ t('devices.workbench.batch.reference') }}</span>
+                      <el-select v-model="batchReferenceIp" :placeholder="t('devices.workbench.batch.selectReference')">
                         <el-option
                           v-for="robot in selectedRobots"
                           :key="`ref-${robot.ip}`"
@@ -829,13 +829,13 @@
                       </el-select>
                     </label>
                     <label class="batch-field">
-                      <span>文件路径</span>
+                      <span>{{ t('devices.workbench.batch.filePath') }}</span>
                       <el-input v-model="batchEditPath" placeholder="/data/file.json" />
                     </label>
                   </div>
                   <div class="batch-actions-row">
                     <el-button :loading="batchReading" :disabled="!canReadBatchFile" @click="readBatchFile">
-                      打开文件
+                      {{ t('devices.workbench.batch.openFile') }}
                     </el-button>
                     <el-button
                       type="primary"
@@ -843,7 +843,7 @@
                       :disabled="!canWriteBatchFile"
                       @click="runBatchEditReplace"
                     >
-                      保存并批量替换
+                      {{ t('devices.workbench.batch.saveReplace') }}
                     </el-button>
                   </div>
                   <el-input
@@ -851,18 +851,18 @@
                     class="batch-editor"
                     type="textarea"
                     :rows="14"
-                    placeholder="先从参考设备打开文件，编辑后保存到选中的设备"
+                    :placeholder="t('devices.workbench.batch.editorPlaceholder')"
                   />
                 </el-tab-pane>
 
-                <el-tab-pane label="传文件" name="upload">
+                <el-tab-pane :label="t('devices.workbench.batch.uploadFile')" name="upload">
                   <div class="batch-form-grid">
                     <label class="batch-field">
-                      <span>目标路径</span>
+                      <span>{{ t('devices.workbench.batch.targetPath') }}</span>
                       <el-input v-model="batchUploadPath" placeholder="/data/config.json" />
                     </label>
                     <label class="batch-field">
-                      <span>本地文件</span>
+                      <span>{{ t('devices.workbench.batch.localFile') }}</span>
                       <input class="native-file-input" type="file" @change="handleBatchUploadFileChange" />
                     </label>
                   </div>
@@ -873,16 +873,16 @@
                       :disabled="!canBatchUpload"
                       @click="runBatchUpload"
                     >
-                      批量上传
+                      {{ t('devices.workbench.batch.batchUpload') }}
                     </el-button>
                   </div>
                 </el-tab-pane>
 
-                <el-tab-pane label="下载文件" name="download">
+                <el-tab-pane :label="t('devices.workbench.batch.downloadFile')" name="download">
                   <div class="batch-form-grid">
                     <label class="batch-field">
-                      <span>远程路径</span>
-                      <el-input v-model="batchDownloadPath" placeholder="/data 或 /data/file.csv" />
+                      <span>{{ t('devices.workbench.batch.remotePath') }}</span>
+                      <el-input v-model="batchDownloadPath" placeholder="/data or /data/file.csv" />
                     </label>
                   </div>
                   <div class="batch-actions-row">
@@ -892,19 +892,19 @@
                       :disabled="!canBatchDownload"
                       @click="runBatchDownload"
                     >
-                      批量下载
+                      {{ t('devices.workbench.batch.batchDownload') }}
                     </el-button>
                   </div>
                 </el-tab-pane>
 
-                <el-tab-pane label="下载 Log" name="logs">
+                <el-tab-pane :label="t('devices.workbench.tabs.logs')" name="logs">
                   <el-tabs v-model="logViewTab" class="log-view-tabs">
-                    <el-tab-pane label="选择下载" name="select">
+                    <el-tab-pane :label="t('devices.workbench.logs.select')" name="select">
                       <div class="log-download-intro">
                         <div>
-                          <div class="log-section-title">诊断 Log 下载到服务器</div>
+                          <div class="log-section-title">{{ t('devices.workbench.logs.batchTitle') }}</div>
                           <div class="log-section-description">
-                            按 flex_diagnostics.sh 的收集方式在设备端打包，再保存到服务器目录。
+                            {{ t('devices.workbench.logs.description') }}
                           </div>
                         </div>
                         <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
@@ -912,9 +912,9 @@
 
                       <div v-loading="logOptionsLoading" class="log-option-section">
                         <div class="log-option-heading">
-                          <span>选择 Log 文件夹</span>
+                          <span>{{ t('devices.workbench.logs.selectFolders') }}</span>
                           <el-button size="small" text @click="toggleAllLogFolders">
-                            {{ areAllLogFoldersSelected ? '取消全选' : '全选' }}
+                            {{ t(areAllLogFoldersSelected ? 'devices.workbench.logs.clearAll' : 'devices.workbench.logs.selectAll') }}
                           </el-button>
                         </div>
                         <el-checkbox-group v-model="selectedLogFolderKeys" class="log-folder-grid">
@@ -934,7 +934,7 @@
 
                       <div class="log-run-settings">
                         <label class="batch-field">
-                          <span>并发线程数</span>
+                          <span>{{ t('devices.workbench.logs.concurrency') }}</span>
                           <el-input-number
                             v-model="logConcurrency"
                             :min="1"
@@ -943,8 +943,8 @@
                           />
                         </label>
                         <div class="log-thread-summary">
-                          <span>{{ selectedIps.length }} 台设备</span>
-                          <span>最多 {{ effectiveLogConcurrency }} 个线程同时下载</span>
+                          <span>{{ t('devices.workbench.logs.deviceCount', { count: selectedIps.length }) }}</span>
+                          <span>{{ t('devices.workbench.logs.maxThreads', { count: effectiveLogConcurrency }) }}</span>
                         </div>
                         <el-button
                           type="primary"
@@ -952,17 +952,16 @@
                           :disabled="!canStartLogDownload"
                           @click="startLogDownload"
                         >
-                          开始下载 Log
+                          {{ t('devices.workbench.logs.start') }}
                         </el-button>
                       </div>
 
                       <section v-if="activeLogTask" class="log-progress-panel">
                         <div class="log-progress-header">
                           <div>
-                            <div class="log-section-title">批量下载进度</div>
+                            <div class="log-section-title">{{ t('devices.workbench.logs.batchProgress') }}</div>
                             <div class="log-section-description">
-                              {{ activeLogTask.completed_devices }} / {{ activeLogTask.total_devices }} 台完成，
-                              {{ activeLogTask.active_workers }} 个线程运行中
+                              {{ t('devices.workbench.logs.runningThreads', { completed: activeLogTask.completed_devices, total: activeLogTask.total_devices, workers: activeLogTask.active_workers }) }}
                             </div>
                           </div>
                           <el-tag :type="getLogStatusTagType(activeLogTask.status)">
@@ -975,10 +974,10 @@
                           :stroke-width="12"
                         />
                         <div class="log-task-stats">
-                          <span>成功 {{ activeLogTask.successful_devices }}</span>
-                          <span>警告 {{ activeLogTask.warning_devices || 0 }}</span>
-                          <span>失败 {{ activeLogTask.failed_devices }}</span>
-                          <span>并发 {{ activeLogTask.concurrency || '-' }}</span>
+                          <span>{{ t('devices.workbench.logs.success', { count: activeLogTask.successful_devices }) }}</span>
+                          <span>{{ t('devices.workbench.logs.warning', { count: activeLogTask.warning_devices || 0 }) }}</span>
+                          <span>{{ t('devices.workbench.logs.failed', { count: activeLogTask.failed_devices }) }}</span>
+                          <span>{{ t('devices.workbench.logs.concurrent', { count: activeLogTask.concurrency || '-' }) }}</span>
                         </div>
 
                         <div class="log-device-progress-list">
@@ -1011,7 +1010,7 @@
                               {{ device.error || device.cleanup_error || device.current_step }}
                             </div>
                             <div v-if="device.command_logs?.length" class="log-command-console">
-                              <div class="log-command-console-title">实时执行命令</div>
+                              <div class="log-command-console-title">{{ t('devices.workbench.logs.liveCommands') }}</div>
                               <article
                                 v-for="commandLog in getDisplayCommandLogs(device.command_logs)"
                                 :key="commandLog.id"
@@ -1033,13 +1032,13 @@
                       </section>
                     </el-tab-pane>
 
-                    <el-tab-pane label="下载记录" name="records" lazy>
+                    <el-tab-pane :label="t('devices.workbench.logs.records')" name="records" lazy>
                       <DeviceLogHistoryPanel />
                     </el-tab-pane>
                   </el-tabs>
                 </el-tab-pane>
 
-                <el-tab-pane label="执行命令" name="command">
+                <el-tab-pane :label="t('devices.workbench.tabs.command')" name="command">
                   <el-tabs
                     v-model="batchCommandMode"
                     class="batch-command-mode-tabs"
@@ -1048,12 +1047,12 @@
                     <el-tab-pane label="HTTP API" name="http">
                       <div class="batch-form-grid">
                         <label class="batch-field http-command-preset-field">
-                          <span>预设命令</span>
+                          <span>{{ t('devices.workbench.command.preset') }}</span>
                           <el-select
                             v-model="batchHttpCommandPresetId"
                             clearable
                             filterable
-                            placeholder="选择后自动填入 Path"
+                            :placeholder="t('devices.workbench.command.presetPlaceholder')"
                             @change="applyBatchHttpCommandPreset"
                           >
                             <el-option
@@ -1065,7 +1064,7 @@
                           </el-select>
                         </label>
                         <label class="batch-field">
-                          <span>方法</span>
+                          <span>{{ t('devices.workbench.command.method') }}</span>
                           <el-select v-model="batchCommandMethod">
                             <el-option label="GET" value="GET" />
                             <el-option label="POST" value="POST" />
@@ -1094,7 +1093,7 @@
                           :disabled="!canBatchCommand"
                           @click="runBatchCommand"
                         >
-                          批量执行 HTTP API
+                          {{ t('devices.workbench.batch.executeHttp') }}
                         </el-button>
                       </div>
                     </el-tab-pane>
@@ -1105,12 +1104,12 @@
                         class="ssh-command-alert"
                         type="warning"
                         :closable="false"
-                        :title="`自定义命令暂时不可用：${sshCommandDatabaseError}`"
+                        :title="t('devices.workbench.command.unavailable', { error: sshCommandDatabaseError })"
                       />
 
                       <div class="batch-ssh-settings">
                         <label class="batch-field batch-ssh-command-select">
-                          <span>常用 / 自定义命令</span>
+                          <span>{{ t('devices.workbench.command.commonCustom') }}</span>
                           <el-select
                             v-model="batchSshSelectedCommandId"
                             class="ssh-command-preset-select"
@@ -1118,10 +1117,10 @@
                             clearable
                             :loading="sshCommandsLoading"
                             popper-class="ssh-command-select-popper"
-                            placeholder="选择命令后自动填入"
+                            :placeholder="t('devices.workbench.command.commandPlaceholder')"
                             @change="applySelectedBatchSshCommand"
                           >
-                            <el-option-group label="常用命令">
+                            <el-option-group :label="t('devices.workbench.command.builtin')">
                               <el-option
                                 v-for="item in builtinSshCommands"
                                 :key="item.id"
@@ -1136,7 +1135,7 @@
                                 </div>
                               </el-option>
                             </el-option-group>
-                            <el-option-group v-if="customSshCommands.length" label="自定义命令">
+                            <el-option-group v-if="customSshCommands.length" :label="t('devices.workbench.command.custom')">
                               <el-option
                                 v-for="item in customSshCommands"
                                 :key="item.id"
@@ -1154,25 +1153,25 @@
                           </el-select>
                         </label>
                         <label class="batch-field">
-                          <span>超时（秒）</span>
+                          <span>{{ t('devices.workbench.sshKeys.timeout') }}</span>
                           <el-input-number v-model="batchSshTimeout" :min="1" :max="300" controls-position="right" />
                         </label>
                         <label class="batch-field">
-                          <span>并发设备数</span>
+                          <span>{{ t('devices.workbench.sshKeys.concurrency') }}</span>
                           <el-input-number v-model="batchSshConcurrency" :min="1" :max="20" controls-position="right" />
                         </label>
                       </div>
 
                       <label class="batch-field">
                         <span class="command-field-title">
-                          SSH 命令
-                          <small>对 {{ selectedIps.length }} 台已选设备执行，可使用 $DATE、$DATE_EPOCH</small>
+                          {{ t('devices.workbench.command.ssh') }}
+                          <small>{{ t('devices.workbench.command.batchHint', { count: selectedIps.length }) }}</small>
                         </span>
                         <el-input
                           v-model="batchSshCommandText"
                           type="textarea"
                           :rows="6"
-                          placeholder="例如：date"
+                          :placeholder="t('devices.workbench.command.batchPlaceholder')"
                           @keydown.ctrl.enter.prevent="runBatchSshCommand"
                         />
                       </label>
@@ -1184,23 +1183,23 @@
                           :disabled="!canRunBatchSshCommand"
                           @click="runBatchSshCommand"
                         >
-                          批量执行 SSH 命令
+                          {{ t('devices.workbench.batch.executeSsh') }}
                         </el-button>
                         <el-button
                           v-if="batchSshResults.length"
                           :disabled="batchSshRunning"
                           @click="batchSshResults = []"
                         >
-                          清空输出
+                          {{ t('devices.workbench.command.clearOutput') }}
                         </el-button>
-                        <span class="command-shortcut">Ctrl + Enter 执行</span>
+                        <span class="command-shortcut">{{ t('devices.workbench.command.shortcut') }}</span>
                       </div>
 
                       <div v-if="batchSshResults.length" class="batch-ssh-results">
                         <div class="batch-ssh-result-summary">
-                          <span>共 {{ batchSshResults.length }} 台</span>
-                          <span class="is-success">成功 {{ batchSshSuccessCount }} 台</span>
-                          <span class="is-failed">失败 {{ batchSshFailedCount }} 台</span>
+                          <span>{{ t('devices.workbench.batch.total', { count: batchSshResults.length }) }}</span>
+                          <span class="is-success">{{ t('devices.workbench.batch.successTotal', { count: batchSshSuccessCount }) }}</span>
+                          <span class="is-failed">{{ t('devices.workbench.batch.failedTotal', { count: batchSshFailedCount }) }}</span>
                         </div>
 
                         <article
@@ -1215,12 +1214,12 @@
                               <span>{{ result.ip }}</span>
                             </div>
                             <el-tag size="small" :type="result.success ? 'success' : 'danger'">
-                              {{ result.success ? '执行成功' : (result.exit_code === null ? '连接失败' : `退出码 ${result.exit_code}`) }}
+                              {{ result.success ? t('devices.workbench.command.executeSuccess') : (result.exit_code === null ? t('devices.workbench.command.connectedFailed') : t('devices.workbench.command.exitCode', { code: result.exit_code })) }}
                             </el-tag>
                           </div>
                           <div class="ssh-result-meta">
-                            <span>退出码：{{ result.exit_code ?? '-' }}</span>
-                            <span>耗时：{{ result.duration_ms }} ms</span>
+                            <span>{{ t('devices.workbench.command.exitCode', { code: result.exit_code ?? '-' }) }}</span>
+                            <span>{{ t('devices.workbench.command.duration', { duration: result.duration_ms }) }}</span>
                             <span v-if="result.environment?.DATE">
                               DATE：{{ result.environment.DATE }}
                               <template v-if="result.environment.DATE_TIMEZONE">
@@ -1230,11 +1229,11 @@
                           </div>
                           <div v-if="result.error" class="batch-ssh-error">{{ result.error }}</div>
                           <div class="ssh-output-section">
-                            <div class="ssh-output-title">标准输出 stdout</div>
-                            <pre class="command-result-body">{{ result.stdout || '(无输出)' }}</pre>
+                            <div class="ssh-output-title">{{ t('devices.workbench.command.stdout') }}</div>
+                            <pre class="command-result-body">{{ result.stdout || t('devices.workbench.command.noOutput') }}</pre>
                           </div>
                           <div v-if="result.stderr" class="ssh-output-section is-stderr">
-                            <div class="ssh-output-title">错误输出 stderr</div>
+                            <div class="ssh-output-title">{{ t('devices.workbench.command.stderr') }}</div>
                             <pre class="command-result-body">{{ result.stderr }}</pre>
                           </div>
                         </article>
@@ -1243,20 +1242,20 @@
                   </el-tabs>
                 </el-tab-pane>
 
-                <el-tab-pane label="安装密钥" name="ssh-keys">
+                <el-tab-pane :label="t('devices.workbench.tabs.sshKeys')" name="ssh-keys">
                   <div class="ssh-key-install-intro">
                     <div>
-                      <div class="log-section-title">批量安装 Flex SSH 密钥</div>
+                      <div class="log-section-title">{{ t('devices.workbench.sshKeys.batchTitle') }}</div>
                       <div class="log-section-description">
-                        服务器将对每台设备执行固定的 setup_ssh_keys.sh -flex 命令。
+                        {{ t('devices.workbench.sshKeys.batchDescription') }}
                       </div>
                     </div>
-                    <el-tag type="warning" effect="plain">设备需插入密钥 U 盘</el-tag>
+                    <el-tag type="warning" effect="plain">{{ t('devices.workbench.sshKeys.usbRequired') }}</el-tag>
                   </div>
 
                   <div class="ssh-key-install-settings">
                     <label class="batch-field">
-                      <span>超时（秒）</span>
+                      <span>{{ t('devices.workbench.sshKeys.timeout') }}</span>
                       <el-input-number
                         v-model="sshKeyInstallTimeout"
                         :min="1"
@@ -1265,7 +1264,7 @@
                       />
                     </label>
                     <label class="batch-field">
-                      <span>并发设备数</span>
+                      <span>{{ t('devices.workbench.sshKeys.concurrency') }}</span>
                       <el-input-number
                         v-model="sshKeyInstallConcurrency"
                         :min="1"
@@ -1275,7 +1274,7 @@
                     </label>
                     <div class="ssh-key-install-summary">
                       <strong>{{ selectedIps.length }}</strong>
-                      <span>台设备待安装</span>
+                      <span>{{ t('devices.workbench.sshKeys.pending') }}</span>
                     </div>
                   </div>
 
@@ -1286,22 +1285,22 @@
                       :disabled="!canInstallSshKeys"
                       @click="runSshKeyInstall"
                     >
-                      安装密钥
+                      {{ t('devices.workbench.sshKeys.install') }}
                     </el-button>
                     <el-button
                       v-if="sshKeyInstallResults.length"
                       :disabled="sshKeyInstallRunning"
                       @click="sshKeyInstallResults = []"
                     >
-                      清空结果
+                      {{ t('devices.workbench.command.clearResult') }}
                     </el-button>
                   </div>
 
                   <div v-if="sshKeyInstallResults.length" class="batch-ssh-results">
                     <div class="batch-ssh-result-summary">
-                      <span>共 {{ sshKeyInstallResults.length }} 台</span>
-                      <span class="is-success">成功 {{ sshKeyInstallSuccessCount }} 台</span>
-                      <span class="is-failed">失败 {{ sshKeyInstallFailedCount }} 台</span>
+                      <span>{{ t('devices.workbench.sshKeys.total', { count: sshKeyInstallResults.length }) }}</span>
+                      <span class="is-success">{{ t('devices.workbench.sshKeys.successTotal', { count: sshKeyInstallSuccessCount }) }}</span>
+                      <span class="is-failed">{{ t('devices.workbench.sshKeys.failedTotal', { count: sshKeyInstallFailedCount }) }}</span>
                     </div>
 
                     <article
@@ -1316,22 +1315,22 @@
                           <span>{{ result.ip }}</span>
                         </div>
                         <el-tag size="small" :type="result.success ? 'success' : 'danger'">
-                          {{ result.success ? '安装成功' : '安装失败' }}
+                          {{ t(result.success ? 'devices.workbench.sshKeys.installed' : 'devices.workbench.sshKeys.failed') }}
                         </el-tag>
                       </div>
                       <div class="ssh-key-result-message" :class="{ 'is-error': !result.success }">
                         {{ result.message }}
                       </div>
                       <div class="ssh-result-meta">
-                        <span>退出码：{{ result.exit_code ?? '-' }}</span>
-                        <span>耗时：{{ result.duration_ms }} ms</span>
+                        <span>{{ t('devices.workbench.command.exitCode', { code: result.exit_code ?? '-' }) }}</span>
+                        <span>{{ t('devices.workbench.command.duration', { duration: result.duration_ms }) }}</span>
                       </div>
                       <div v-if="result.stdout" class="ssh-output-section">
-                        <div class="ssh-output-title">脚本输出</div>
+                        <div class="ssh-output-title">{{ t('devices.workbench.sshKeys.scriptOutput') }}</div>
                         <pre class="command-result-body">{{ result.stdout }}</pre>
                       </div>
                       <div v-if="result.stderr" class="ssh-output-section is-stderr">
-                        <div class="ssh-output-title">错误输出</div>
+                        <div class="ssh-output-title">{{ t('devices.workbench.sshKeys.errorOutput') }}</div>
                         <pre class="command-result-body">{{ result.stderr }}</pre>
                       </div>
                     </article>
@@ -1366,54 +1365,54 @@
 
     <el-dialog
       v-model="sshCommandDialogVisible"
-      :title="editingSshCommandId ? '编辑自定义命令' : '新增自定义命令'"
+      :title="t(editingSshCommandId ? 'devices.workbench.command.editCustom' : 'devices.workbench.command.addCustom')"
       width="620px"
       destroy-on-close
     >
       <div class="ssh-command-dialog-form">
         <label class="command-field">
-          <span>命令名称</span>
-          <el-input v-model="sshCommandForm.name" maxlength="80" show-word-limit placeholder="例如：查看 Robot Server 日志" />
+          <span>{{ t('devices.workbench.command.commandName') }}</span>
+          <el-input v-model="sshCommandForm.name" maxlength="80" show-word-limit :placeholder="t('devices.workbench.command.namePlaceholder')" />
         </label>
         <label class="command-field">
-          <span>命令属性</span>
+          <span>{{ t('devices.workbench.command.commandProperty') }}</span>
           <el-select v-model="sshCommandForm.tag">
-            <el-option label="general（普通命令）" value="general" />
-            <el-option label="risk（风险命令）" value="risk" />
+            <el-option :label="t('devices.workbench.command.general')" value="general" />
+            <el-option :label="t('devices.workbench.command.risk')" value="risk" />
           </el-select>
         </label>
         <label class="command-field">
           <span class="command-field-title">
-            命令内容
-            <small>支持多行命令或使用 ; 串联执行</small>
+            {{ t('devices.workbench.command.content') }}
+            <small>{{ t('devices.workbench.command.contentHint') }}</small>
           </span>
           <el-input v-model="sshCommandForm.command" type="textarea" :rows="8" maxlength="20000" show-word-limit />
         </label>
         <label class="command-field">
-          <span>说明</span>
+          <span>{{ t('devices.workbench.command.description') }}</span>
           <el-input v-model="sshCommandForm.description" type="textarea" :rows="3" maxlength="500" show-word-limit />
         </label>
       </div>
       <template #footer>
-        <el-button @click="sshCommandDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="sshCommandSaving" @click="saveSshCommand">保存</el-button>
+        <el-button @click="sshCommandDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="sshCommandSaving" @click="saveSshCommand">{{ t('common.actions.save') }}</el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="versionCaptureDialogVisible"
-      title="新增版本"
+      :title="t('devices.workbench.versions.add')"
       width="min(760px, calc(100vw - 32px))"
       destroy-on-close
     >
       <div v-loading="versionProductsLoading" class="version-capture-form">
         <label class="command-field">
-          <span>当前设备</span>
+          <span>{{ t('devices.workbench.versions.currentDevice') }}</span>
           <el-input :model-value="selectedIp || ''" readonly />
         </label>
         <label class="command-field">
-          <span>产品</span>
-          <el-select v-model="versionCaptureProductType" placeholder="选择产品">
+          <span>{{ t('devices.workbench.versions.product') }}</span>
+          <el-select v-model="versionCaptureProductType" :placeholder="t('devices.workbench.versions.selectProduct')">
             <el-option
               v-for="product in versionProducts"
               :key="product.key"
@@ -1423,11 +1422,11 @@
           </el-select>
         </label>
         <label class="command-field version-capture-test-field">
-          <span>测试过程</span>
+          <span>{{ t('devices.workbench.versions.testProcess') }}</span>
           <el-select
             v-model="versionCaptureTestName"
             filterable
-            placeholder="选择测试过程"
+            :placeholder="t('devices.workbench.versions.selectTest')"
           >
             <el-option
               v-for="testName in versionCaptureTestOptions"
@@ -1450,12 +1449,12 @@
       <template v-if="versionCaptureResult">
         <el-divider />
         <el-descriptions :column="2" border size="small">
-          <el-descriptions-item label="条码">{{ versionCaptureResult.test.sn }}</el-descriptions-item>
-          <el-descriptions-item label="测试版本">{{ versionCaptureResult.test.test_version }}</el-descriptions-item>
-          <el-descriptions-item label="存储位置">
+          <el-descriptions-item :label="t('devices.workbench.versions.barcode')">{{ versionCaptureResult.test.sn }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.workbench.versions.testVersion')">{{ versionCaptureResult.test.test_version }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.workbench.versions.storage')">
             {{ versionCaptureResult.storage === 'sqlite' ? 'SQLite' : 'MongoDB' }}
           </el-descriptions-item>
-          <el-descriptions-item label="查询时间">
+          <el-descriptions-item :label="t('devices.workbench.versions.queriedAt')">
             {{ formatLogDate(versionCaptureResult.test.queried_at) }}
           </el-descriptions-item>
         </el-descriptions>
@@ -1466,11 +1465,11 @@
           size="small"
           class="version-capture-preview"
         >
-          <el-table-column prop="name" label="名称" min-width="150" />
-          <el-table-column prop="firmwareVersion" label="固件版本" min-width="120" />
-          <el-table-column prop="nextVersion" label="目标版本" min-width="120" />
+          <el-table-column prop="name" :label="t('devices.workbench.versions.name')" min-width="150" />
+          <el-table-column prop="firmwareVersion" :label="t('devices.workbench.versions.firmware')" min-width="120" />
+          <el-table-column prop="nextVersion" :label="t('devices.workbench.versions.target')" min-width="120" />
           <el-table-column prop="revision" label="Revision" min-width="110" />
-          <el-table-column label="状态" width="90">
+          <el-table-column :label="t('devices.workbench.versions.status')" width="90">
             <template #default="scope">
               <el-tag size="small" :type="subsystemStatusType(scope.row.ok)">
                 {{ subsystemStatusLabel(scope.row.ok) }}
@@ -1481,13 +1480,13 @@
       </template>
 
       <template #footer>
-        <el-button @click="versionCaptureDialogVisible = false">关闭</el-button>
+        <el-button @click="versionCaptureDialogVisible = false">{{ t('common.actions.close') }}</el-button>
         <el-button
           type="primary"
           :loading="versionCaptureLoading"
           :disabled="!canCaptureVersion"
           @click="captureVersion"
-        >读取版本</el-button>
+        >{{ t('devices.workbench.versions.read') }}</el-button>
       </template>
     </el-dialog>
 
@@ -1505,13 +1504,13 @@
         :show-header="false"
       />
       <template #footer>
-        <el-button @click="infoDrawerVisible = false">关闭</el-button>
+        <el-button @click="infoDrawerVisible = false">{{ t('common.actions.close') }}</el-button>
         <el-button
           type="primary"
           :icon="Refresh"
           :loading="infoRefreshing"
           @click="refreshDeviceInfo"
-        >刷新</el-button>
+        >{{ t('common.actions.refresh') }}</el-button>
       </template>
     </el-drawer>
   </div>
@@ -1522,6 +1521,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Loading, Plus, Refresh, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import { useAppLocale } from '@/i18n'
 import {
   robotApi,
   type RobotInfo,
@@ -1540,6 +1541,9 @@ import {
 } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import { useAuthStore } from '@/scripts/stores/auth'
+
+const { t } = useI18n()
+const { locale } = useAppLocale()
 import DeviceControlPanel from '@/views/devices/components/DeviceControlPanel.vue'
 import DeviceBarcodeProvisionPanel from '@/views/devices/components/DeviceBarcodeProvisionPanel.vue'
 import DeviceProtocolsPanel from '@/views/devices/components/DeviceProtocolsPanel.vue'
@@ -1655,15 +1659,15 @@ const sshCommandForm = ref({
   tag: 'general' as RobotSshCommand['tag']
 })
 
-const RISK_COMMAND_WARNING = '该命令存在风险，请确保执行设备为测试工装！'
+const RISK_COMMAND_WARNING = computed(() => t('devices.workbench.command.riskWarning'))
 
-const HTTP_COMMAND_PRESETS = [
-  { id: 'subsystems', name: '全部子系统状态', path: '/subsystems/status' },
-  { id: 'gantry-x', name: 'X 轴状态', path: '/subsystems/status/gantry_x' },
-  { id: 'gantry-y', name: 'Y 轴状态', path: '/subsystems/status/gantry_y' },
-  { id: 'head', name: 'Head 状态', path: '/subsystems/status/head' },
-  { id: 'rear-panel', name: '后面板状态', path: '/subsystems/status/rear_panel' }
-] as const
+const HTTP_COMMAND_PRESETS = computed(() => [
+  { id: 'subsystems', name: t('devices.workbench.command.presets.all'), path: '/subsystems/status' },
+  { id: 'gantry-x', name: t('devices.workbench.command.presets.x'), path: '/subsystems/status/gantry_x' },
+  { id: 'gantry-y', name: t('devices.workbench.command.presets.y'), path: '/subsystems/status/gantry_y' },
+  { id: 'head', name: t('devices.workbench.command.presets.head'), path: '/subsystems/status/head' },
+  { id: 'rear-panel', name: t('devices.workbench.command.presets.rear'), path: '/subsystems/status/rear_panel' }
+])
 
 interface BatchOperationResult {
   ip: string
@@ -1736,7 +1740,7 @@ const currentDevice = computed(() => {
 })
 
 const currentDeviceName = computed(() => {
-  return currentDevice.value?.name?.trim() || '未命名设备'
+  return currentDevice.value?.name?.trim() || t('devices.unnamed')
 })
 
 const currentServiceStatus = computed<RobotInfo['service_status']>(() => {
@@ -1852,7 +1856,7 @@ const singleCommandResultText = computed(() => {
 })
 
 const infoDrawerTitle = computed(() => {
-  return selectedIp.value ? `设备信息 - ${selectedIp.value}` : '设备信息'
+  return selectedIp.value ? t('devices.infoTitle', { ip: selectedIp.value }) : t('devices.info')
 })
 
 function syncRobotsFromStore() {
@@ -1925,9 +1929,9 @@ function getBatchResultTagType(status: BatchOperationStatus) {
 }
 
 function getBatchResultStatusLabel(status: BatchOperationStatus) {
-  if (status === 'success') return '成功'
-  if (status === 'skipped') return '跳过'
-  return '失败'
+  if (status === 'success') return t('common.status.completed')
+  if (status === 'skipped') return t('devices.workbench.batch.skipped')
+  return t('common.status.error')
 }
 
 function normalizeError(error: any): string {
@@ -1935,12 +1939,12 @@ function normalizeError(error: any): string {
     || error?.response?.data?.detail?.error
     || error?.response?.data?.message
     || error?.message
-    || '未知错误'
+    || t('errors.unknown')
 }
 
 async function runForSelectedDevices(action: string, runner: (ip: string) => Promise<string>) {
   if (selectedIps.value.length === 0) {
-    ElMessage.warning('请先选择设备')
+    ElMessage.warning(t('devices.workbench.batch.selectDevice'))
     return
   }
   batchRunning.value = true
@@ -1964,11 +1968,11 @@ async function runForSelectedDevices(action: string, runner: (ip: string) => Pro
       }
     }
     if (failed > 0) {
-      ElMessage.warning(`${action} 完成：成功 ${success}，跳过 ${skipped}，失败 ${failed}`)
+      ElMessage.warning(t('devices.workbench.batch.resultAll', { action, success, skipped, failed }))
     } else if (skipped > 0) {
-      ElMessage.warning(`${action} 完成：成功 ${success}，跳过 ${skipped}`)
+      ElMessage.warning(t('devices.workbench.batch.resultSkipped', { action, success, skipped }))
     } else {
-      ElMessage.success(`${action} 完成：成功 ${success}`)
+      ElMessage.success(t('devices.workbench.batch.resultSuccess', { action, success }))
     }
   } finally {
     batchRunning.value = false
@@ -1987,9 +1991,9 @@ async function readBatchFile() {
   try {
     const response = await robotApi.readFile(batchReferenceIp.value, batchEditPath.value.trim())
     batchEditContent.value = response.data.content
-    ElMessage.success('文件已打开')
+    ElMessage.success(t('devices.workbench.batch.fileOpened'))
   } catch (error: any) {
-    ElMessage.error('打开文件失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.batch.openFailed', { error: normalizeError(error) }))
   } finally {
     batchReading.value = false
   }
@@ -1998,12 +2002,12 @@ async function readBatchFile() {
 async function runBatchEditReplace() {
   const path = batchEditPath.value.trim()
   if (!path) return
-  await runForSelectedDevices('批量替换文件', async (ip) => {
+  await runForSelectedDevices(t('devices.workbench.batch.replaceAction'), async (ip) => {
     const response = await robotApi.writeFile(ip, path, batchEditContent.value, { createIfMissing: false })
     if (response.data.data?.skipped) {
-      throw buildSkippedBatchOperation(`目标文件不存在，已跳过 ${path}`)
+      throw buildSkippedBatchOperation(t('devices.workbench.batch.missingFile', { path }))
     }
-    return `已写入 ${path}`
+    return t('devices.workbench.batch.written', { path })
   })
 }
 
@@ -2016,9 +2020,9 @@ async function runBatchUpload() {
   const file = batchUploadFile.value
   const path = batchUploadPath.value.trim()
   if (!file || !path) return
-  await runForSelectedDevices('批量上传文件', async (ip) => {
+  await runForSelectedDevices(t('devices.workbench.batch.uploadAction'), async (ip) => {
     await robotApi.uploadFile(ip, path, file)
-    return `已上传到 ${path}`
+    return t('devices.workbench.batch.uploaded', { path })
   })
 }
 
@@ -2044,25 +2048,25 @@ function basename(path: string): string {
 async function runBatchDownload() {
   const path = batchDownloadPath.value.trim()
   if (!path) return
-  await runForSelectedDevices('批量下载文件', async (ip) => {
+  await runForSelectedDevices(t('devices.workbench.batch.downloadAction'), async (ip) => {
     const response = await robotApi.downloadFile(ip, path)
     const fallbackName = `${ip.replace(/\./g, '-')}-${basename(path)}`
     const filename = parseDownloadFilename(response.headers['content-disposition'], fallbackName)
     saveBlob(response.data, filename)
-    return `已下载 ${path}`
+    return t('devices.workbench.batch.downloaded', { path })
   })
 }
 
 function getLogStatusLabel(status: RobotLogDownloadStatus) {
   const labels: Record<RobotLogDownloadStatus, string> = {
-    queued: '等待中',
-    running: '下载中',
-    success: '成功',
-    warning: '清理警告',
-    failed: '失败',
-    completed: '已完成',
-    completed_with_warnings: '完成有警告',
-    completed_with_errors: '部分失败'
+    queued: t('devices.workbench.logs.statuses.queued'),
+    running: t('devices.workbench.logs.statuses.running'),
+    success: t('devices.workbench.logs.statuses.success'),
+    warning: t('devices.workbench.logs.statuses.warning'),
+    failed: t('devices.workbench.logs.statuses.failed'),
+    completed: t('devices.workbench.logs.statuses.completed'),
+    completed_with_warnings: t('devices.workbench.logs.statuses.warnings'),
+    completed_with_errors: t('devices.workbench.logs.statuses.errors')
   }
   return labels[status] || status
 }
@@ -2079,7 +2083,7 @@ function formatLogDate(value?: string | null) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -2108,7 +2112,7 @@ function formatCommandTime(value?: string | null) {
   if (!value) return '--:--:--'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale.value, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -2121,9 +2125,9 @@ function getDisplayCommandLogs(commandLogs?: RobotLogCommandEntry[]) {
 }
 
 function getCommandStatusLabel(status: RobotLogCommandEntry['status']) {
-  if (status === 'running') return '执行中'
-  if (status === 'success') return '成功'
-  return '失败'
+  if (status === 'running') return t('devices.workbench.logs.statuses.commandRunning')
+  if (status === 'success') return t('devices.workbench.logs.statuses.success')
+  return t('devices.workbench.logs.statuses.failed')
 }
 
 function getCommandStatusTagType(status: RobotLogCommandEntry['status']) {
@@ -2145,7 +2149,7 @@ async function loadLogFolderOptions() {
     logMaxConcurrency.value = response.data.max_concurrency
     logConcurrency.value = Math.min(logConcurrency.value, response.data.max_concurrency)
   } catch (error: any) {
-    ElMessage.error('加载 Log 目录失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.logs.loadFoldersFailed', { error: normalizeError(error) }))
   } finally {
     logOptionsLoading.value = false
   }
@@ -2182,15 +2186,15 @@ async function pollLogTask(taskId: string, showError = false) {
     }
     if (response.data.failed_devices > 0) {
       ElMessage.warning(
-        `Log 下载完成：成功 ${response.data.successful_devices}，警告 ${response.data.warning_devices}，失败 ${response.data.failed_devices}`
+        t('devices.workbench.logs.completedSummary', { success: response.data.successful_devices, warnings: response.data.warning_devices, failed: response.data.failed_devices })
       )
     } else if (response.data.warning_devices > 0) {
-      ElMessage.warning(`Log 下载完成：成功 ${response.data.successful_devices}，清理警告 ${response.data.warning_devices}`)
+      ElMessage.warning(t('devices.workbench.logs.completedWarnings', { success: response.data.successful_devices, warnings: response.data.warning_devices }))
     } else {
-      ElMessage.success(`Log 下载完成：成功 ${response.data.successful_devices}`)
+      ElMessage.success(t('devices.workbench.logs.completedSuccess', { success: response.data.successful_devices }))
     }
   } catch (error: any) {
-    if (showError) ElMessage.error('获取 Log 下载进度失败: ' + normalizeError(error))
+    if (showError) ElMessage.error(t('devices.workbench.logs.progressFailed', { error: normalizeError(error) }))
     logPollTimer = setTimeout(() => pollLogTask(taskId), 3000)
   }
 }
@@ -2208,10 +2212,10 @@ async function startLogDownload() {
       concurrency: effectiveLogConcurrency.value
     })
     activeLogTask.value = response.data
-    ElMessage.success('Log 下载任务已启动')
+    ElMessage.success(t('devices.workbench.logs.taskStarted'))
     await pollLogTask(response.data.task_id, true)
   } catch (error: any) {
-    ElMessage.error('启动 Log 下载失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.logs.startFailed', { error: normalizeError(error) }))
   } finally {
     logTaskStarting.value = false
   }
@@ -2227,14 +2231,14 @@ async function pollSingleLogTask(taskId: string, showError = false) {
       return
     }
     if (response.data.failed_devices > 0) {
-      ElMessage.error('当前设备 Log 下载失败')
+      ElMessage.error(t('devices.workbench.logs.currentFailed'))
     } else if (response.data.warning_devices > 0) {
-      ElMessage.warning('当前设备 Log 下载完成，设备端清理存在警告')
+      ElMessage.warning(t('devices.workbench.logs.currentWarning'))
     } else {
-      ElMessage.success('当前设备 Log 下载完成')
+      ElMessage.success(t('devices.workbench.logs.currentSuccess'))
     }
   } catch (error: any) {
-    if (showError) ElMessage.error('获取 Log 下载进度失败: ' + normalizeError(error))
+    if (showError) ElMessage.error(t('devices.workbench.logs.progressFailed', { error: normalizeError(error) }))
     singleLogPollTimer = setTimeout(() => pollSingleLogTask(taskId), 3000)
   }
 }
@@ -2252,10 +2256,10 @@ async function startSingleLogDownload() {
       concurrency: 1
     })
     singleActiveLogTask.value = response.data
-    ElMessage.success(`已启动 ${ip} 的 Log 下载任务`)
+    ElMessage.success(t('devices.workbench.logs.deviceStarted', { ip }))
     await pollSingleLogTask(response.data.task_id, true)
   } catch (error: any) {
-    ElMessage.error('启动 Log 下载失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.logs.startFailed', { error: normalizeError(error) }))
   } finally {
     singleLogTaskStarting.value = false
   }
@@ -2266,13 +2270,13 @@ function parseCommandBody(text: string): Record<string, unknown> | undefined {
   if (!trimmed) return undefined
   const parsed = JSON.parse(trimmed)
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('Body JSON 必须是对象')
+    throw new Error(t('devices.workbench.command.bodyObject'))
   }
   return parsed as Record<string, unknown>
 }
 
 function findHttpCommandPreset(presetId: string) {
-  return HTTP_COMMAND_PRESETS.find(preset => preset.id === presetId)
+  return HTTP_COMMAND_PRESETS.value.find(preset => preset.id === presetId)
 }
 
 function applySingleHttpCommandPreset(presetId: string) {
@@ -2290,9 +2294,9 @@ function applyBatchHttpCommandPreset(presetId: string) {
 }
 
 function subsystemStatusLabel(ok: boolean | null): string {
-  if (ok === true) return '正常'
-  if (ok === false) return '异常'
-  return '未知'
+  if (ok === true) return t('devices.workbench.versions.healthy')
+  if (ok === false) return t('devices.workbench.versions.abnormal')
+  return t('devices.workbench.versions.unknown')
 }
 
 function subsystemStatusType(ok: boolean | null) {
@@ -2302,9 +2306,9 @@ function subsystemStatusType(ok: boolean | null) {
 }
 
 function subsystemUpdateLabel(updateNeeded: boolean | null): string {
-  if (updateNeeded === true) return '需要升级'
-  if (updateNeeded === false) return '已是最新'
-  return '未知'
+  if (updateNeeded === true) return t('devices.workbench.versions.updateNeeded')
+  if (updateNeeded === false) return t('devices.workbench.versions.currentLatest')
+  return t('devices.workbench.versions.unknown')
 }
 
 function subsystemUpdateType(updateNeeded: boolean | null) {
@@ -2338,7 +2342,7 @@ async function loadVersionProducts() {
     }
     versionCaptureTestName.value = selectedVersionProduct.value?.test_names[0] || ''
   } catch (error: any) {
-    versionCaptureError.value = '加载产品与测试过程失败：' + normalizeError(error)
+    versionCaptureError.value = t('devices.workbench.versions.loadOptionsFailed', { error: normalizeError(error) })
   } finally {
     versionProductsLoading.value = false
   }
@@ -2370,9 +2374,9 @@ async function captureVersion() {
     versionCaptureResult.value = response.data
     subsystemTestVersion.value = response.data.test.test_version || 'N/A'
     await loadVersionHistory()
-    ElMessage.success('版本已读取并保存')
+    ElMessage.success(t('devices.workbench.versions.saved'))
   } catch (error: any) {
-    versionCaptureError.value = '读取版本失败：' + normalizeError(error)
+    versionCaptureError.value = t('devices.workbench.versions.readFailed', { error: normalizeError(error) })
   } finally {
     versionCaptureLoading.value = false
   }
@@ -2389,7 +2393,7 @@ async function loadVersionHistory() {
   } catch (error: any) {
     versionHistoryRecords.value = []
     versionHistoryTotal.value = 0
-    versionHistoryError.value = '加载版本查询历史失败：' + normalizeError(error)
+    versionHistoryError.value = t('devices.workbench.versions.historyFailed', { error: normalizeError(error) })
   } finally {
     versionHistoryLoading.value = false
   }
@@ -2413,7 +2417,7 @@ async function loadSubsystemVersions() {
       queriedAt
     }))
     if (!rows.length) {
-      throw new Error('接口未返回子系统版本数据')
+      throw new Error(t('devices.workbench.versions.noSubsystemResponse'))
     }
     if (selectedIp.value === requestIp) {
       subsystemVersionRows.value = rows
@@ -2423,7 +2427,7 @@ async function loadSubsystemVersions() {
     if (selectedIp.value === requestIp) {
       subsystemVersionRows.value = []
       subsystemTestVersion.value = 'N/A'
-      subsystemVersionsError.value = '查询子系统版本失败：' + normalizeError(error)
+      subsystemVersionsError.value = t('devices.workbench.versions.queryFailed', { error: normalizeError(error) })
     }
   } finally {
     subsystemVersionsLoading.value = false
@@ -2436,7 +2440,7 @@ async function runSingleCommand() {
   try {
     body = parseCommandBody(singleCommandBody.value)
   } catch (error: any) {
-    ElMessage.error(error.message || 'Body JSON 格式错误')
+    ElMessage.error(error.message || t('devices.workbench.command.bodyInvalid'))
     return
   }
 
@@ -2462,9 +2466,9 @@ async function runSingleCommand() {
       error: result?.error
     }
     if (result?.success) {
-      ElMessage.success('命令执行成功')
+      ElMessage.success(t('devices.workbench.command.runSuccess'))
     } else {
-      ElMessage.error(result?.error || '命令执行失败')
+      ElMessage.error(result?.error || t('devices.workbench.command.runFailed'))
     }
   } catch (error: any) {
     singleCommandResult.value = {
@@ -2473,7 +2477,7 @@ async function runSingleCommand() {
       success: false,
       error: normalizeError(error)
     }
-    ElMessage.error('命令执行失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.command.runFailedWithError', { error: normalizeError(error) }))
   } finally {
     singleCommandRunning.value = false
   }
@@ -2487,7 +2491,7 @@ async function loadSshCommands(showError = true) {
     customSshCommands.value = response.data.custom_commands || []
     sshCommandDatabaseError.value = response.data.database_available
       ? ''
-      : (response.data.error || 'MongoDB 连接失败')
+      : (response.data.error || t('devices.workbench.command.mongoFailed'))
 
     const allCommands = [...builtinSshCommands.value, ...customSshCommands.value]
     const selectedExists = allCommands.some(item => item.id === selectedSshCommandId.value)
@@ -2497,7 +2501,7 @@ async function loadSshCommands(showError = true) {
     }
   } catch (error: any) {
     sshCommandDatabaseError.value = normalizeError(error)
-    if (showError) ElMessage.error('加载 SSH 命令失败: ' + sshCommandDatabaseError.value)
+    if (showError) ElMessage.error(t('devices.workbench.command.loadFailed', { error: sshCommandDatabaseError.value }))
   } finally {
     sshCommandsLoading.value = false
   }
@@ -2534,12 +2538,12 @@ function isRiskSshCommand(selectedCommandId: string, commandText: string) {
 async function confirmRiskSshCommand() {
   try {
     await ElMessageBox.confirm(
-      RISK_COMMAND_WARNING,
-      '风险命令提醒',
+      RISK_COMMAND_WARNING.value,
+      t('devices.workbench.command.riskTitle'),
       {
         type: 'warning',
-        confirmButtonText: '确认执行',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.workbench.command.confirmExecute'),
+        cancelButtonText: t('common.actions.cancel'),
         closeOnClickModal: false
       }
     )
@@ -2582,13 +2586,13 @@ async function runSshCommand() {
     })
     sshCommandResult.value = response.data
     if (response.data.success) {
-      ElMessage.success('SSH 命令执行成功')
+      ElMessage.success(t('devices.workbench.command.sshSuccess'))
     } else {
-      ElMessage.warning(`SSH 命令已结束，退出码 ${response.data.exit_code}`)
+      ElMessage.warning(t('devices.workbench.command.sshExit', { code: response.data.exit_code }))
     }
   } catch (error: any) {
     sshCommandExecutionError.value = normalizeError(error)
-    ElMessage.error('SSH 命令执行失败: ' + sshCommandExecutionError.value)
+    ElMessage.error(t('devices.workbench.command.sshFailed', { error: sshCommandExecutionError.value }))
   } finally {
     sshCommandRunning.value = false
   }
@@ -2619,11 +2623,11 @@ async function saveSshCommand() {
     tag: sshCommandForm.value.tag
   }
   if (!payload.name) {
-    ElMessage.warning('请输入命令名称')
+    ElMessage.warning(t('devices.workbench.command.enterName'))
     return
   }
   if (!payload.command) {
-    ElMessage.warning('请输入命令内容')
+    ElMessage.warning(t('devices.workbench.command.enterContent'))
     return
   }
 
@@ -2636,9 +2640,9 @@ async function saveSshCommand() {
     await loadSshCommands(false)
     selectedSshCommandId.value = response.data.id
     sshCommandText.value = response.data.command
-    ElMessage.success(editingSshCommandId.value ? '自定义命令已更新' : '自定义命令已新增')
+    ElMessage.success(t(editingSshCommandId.value ? 'devices.workbench.command.updated' : 'devices.workbench.command.added'))
   } catch (error: any) {
-    ElMessage.error('保存自定义命令失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.command.saveFailed', { error: normalizeError(error) }))
   } finally {
     sshCommandSaving.value = false
   }
@@ -2647,19 +2651,19 @@ async function saveSshCommand() {
 async function removeSshCommand(command: RobotSshCommand) {
   try {
     await ElMessageBox.confirm(
-      `确定删除自定义命令“${command.name}”吗？`,
-      '删除自定义命令',
-      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+      t('devices.workbench.command.deleteConfirm', { name: command.name }),
+      t('devices.workbench.command.deleteTitle'),
+      { type: 'warning', confirmButtonText: t('common.actions.delete'), cancelButtonText: t('common.actions.cancel') }
     )
     await robotApi.deleteSshCommand(command.id)
     if (selectedSshCommandId.value === command.id) {
       selectedSshCommandId.value = ''
     }
     await loadSshCommands(false)
-    ElMessage.success('自定义命令已删除')
+    ElMessage.success(t('devices.workbench.command.deleted'))
   } catch (error: any) {
     if (error === 'cancel' || error === 'close') return
-    ElMessage.error('删除自定义命令失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.command.deleteFailed', { error: normalizeError(error) }))
   }
 }
 
@@ -2668,12 +2672,12 @@ async function runBatchCommand() {
   try {
     body = parseCommandBody(batchCommandBody.value)
   } catch (error: any) {
-    ElMessage.error(error.message || 'Body JSON 格式错误')
+    ElMessage.error(error.message || t('devices.workbench.command.bodyInvalid'))
     return
   }
 
   const path = batchCommandPath.value.trim()
-  await runForSelectedDevices('批量执行命令', async (ip) => {
+  await runForSelectedDevices(t('devices.workbench.command.batchAction'), async (ip) => {
     const response = await robotApi.executeCommands({
       ips: [ip],
       method: batchCommandMethod.value,
@@ -2683,9 +2687,9 @@ async function runBatchCommand() {
     })
     const result = response.data.results?.[0]
     if (!result?.success) {
-      throw new Error(result?.error || `HTTP ${result?.status_code || '失败'}`)
+      throw new Error(result?.error || `HTTP ${result?.status_code || t('devices.workbench.command.httpFailed')}`)
     }
-    return `命令已执行 ${batchCommandMethod.value} ${path}`
+    return t('devices.workbench.command.executed', { method: batchCommandMethod.value, path })
   })
 }
 
@@ -2706,12 +2710,12 @@ async function runBatchSshCommand() {
     })
     batchSshResults.value = response.data.results || []
     if (response.data.failed_count > 0) {
-      ElMessage.warning(`批量 SSH 执行完成：成功 ${response.data.success_count} 台，失败 ${response.data.failed_count} 台`)
+      ElMessage.warning(t('devices.workbench.command.batchSshCompleted', { success: response.data.success_count, failed: response.data.failed_count }))
     } else {
-      ElMessage.success(`批量 SSH 执行成功：${response.data.success_count} 台设备`)
+      ElMessage.success(t('devices.workbench.command.batchSshSuccess', { count: response.data.success_count }))
     }
   } catch (error: any) {
-    ElMessage.error('批量 SSH 命令执行失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.command.batchSshFailed', { error: normalizeError(error) }))
   } finally {
     batchSshRunning.value = false
   }
@@ -2721,11 +2725,11 @@ async function runSshKeyInstall() {
   if (!canInstallSshKeys.value) return
   try {
     await ElMessageBox.confirm(
-      `将为 ${selectedIps.value.length} 台 Flex 安装 SSH 密钥。请确认每台设备均已插入包含公钥的 U 盘。`,
-      '确认安装密钥',
+      t('devices.workbench.sshKeys.batchConfirm', { count: selectedIps.value.length }),
+      t('devices.workbench.sshKeys.confirmTitle'),
       {
-        confirmButtonText: '开始安装',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.workbench.sshKeys.startInstall'),
+        cancelButtonText: t('common.actions.cancel'),
         type: 'warning'
       }
     )
@@ -2743,12 +2747,12 @@ async function runSshKeyInstall() {
     })
     sshKeyInstallResults.value = response.data.results || []
     if (response.data.failed_count > 0) {
-      ElMessage.warning(`密钥安装完成：成功 ${response.data.success_count} 台，失败 ${response.data.failed_count} 台`)
+      ElMessage.warning(t('devices.workbench.sshKeys.batchCompleted', { success: response.data.success_count, failed: response.data.failed_count }))
     } else {
-      ElMessage.success(`密钥安装成功：${response.data.success_count} 台设备`)
+      ElMessage.success(t('devices.workbench.sshKeys.batchSuccess', { count: response.data.success_count }))
     }
   } catch (error: any) {
-    ElMessage.error('安装密钥失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.sshKeys.installFailed', { error: normalizeError(error) }))
   } finally {
     sshKeyInstallRunning.value = false
   }
@@ -2759,11 +2763,11 @@ async function runSingleSshKeyInstall() {
   if (!ip || !canInstallSingleSshKey.value) return
   try {
     await ElMessageBox.confirm(
-      `将为 ${currentDeviceName.value}（${ip}）安装 Flex SSH 密钥。请确认设备已插入包含公钥的 U 盘。`,
-      '确认安装密钥',
+      t('devices.workbench.sshKeys.singleConfirm', { name: currentDeviceName.value, ip }),
+      t('devices.workbench.sshKeys.confirmTitle'),
       {
-        confirmButtonText: '开始安装',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.workbench.sshKeys.startInstall'),
+        cancelButtonText: t('common.actions.cancel'),
         type: 'warning'
       }
     )
@@ -2780,15 +2784,15 @@ async function runSingleSshKeyInstall() {
       concurrency: 1
     })
     const result = response.data.results?.[0]
-    if (!result) throw new Error('服务器未返回安装结果')
+    if (!result) throw new Error(t('devices.workbench.sshKeys.missingResult'))
     singleSshKeyInstallResult.value = result
     if (result.success) {
-      ElMessage.success(`${ip} 密钥安装成功`)
+      ElMessage.success(t('devices.workbench.sshKeys.deviceSuccess', { ip }))
     } else {
-      ElMessage.error(`${ip} 密钥安装失败：${result.message}`)
+      ElMessage.error(t('devices.workbench.sshKeys.deviceFailed', { ip, error: result.message }))
     }
   } catch (error: any) {
-    ElMessage.error('安装密钥失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.workbench.sshKeys.installFailed', { error: normalizeError(error) }))
   } finally {
     singleSshKeyInstallRunning.value = false
   }
@@ -2801,7 +2805,7 @@ async function refreshRobots() {
     syncRobotsFromStore()
     selectFallbackDevice()
   } catch (error: any) {
-    ElMessage.error('刷新设备失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.workbench.refreshFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     refreshing.value = false
   }
@@ -2819,10 +2823,10 @@ function openInfoDrawer() {
 function beforeTabLeave(nextTab: string | number): boolean {
   if (nextTab !== 'control' || !isDeviceOperator.value) return true
   void ElMessageBox.alert(
-    '当前账号无设备控制权限。',
-    '权限受控',
+    t('devices.workbench.permissionMessage'),
+    t('devices.workbench.permissionTitle'),
     {
-      confirmButtonText: '我知道了',
+      confirmButtonText: t('devices.workbench.understood'),
       type: 'warning',
       closeOnClickModal: false,
       showClose: false,
@@ -2881,15 +2885,15 @@ async function handleVersionQueryTabChange(tabName: string | number) {
 
 function formatServiceStatus(status: RobotInfo['service_status']) {
   const statusMap: Record<RobotInfo['service_status'], string> = {
-    normal: '正常',
-    error: '异常',
-    unknown: '未知'
+    normal: t('common.status.healthy'),
+    error: t('common.status.abnormal'),
+    unknown: t('common.status.unknown')
   }
-  return statusMap[status] || '未知'
+  return statusMap[status] || t('common.status.unknown')
 }
 
 function getRobotDisplayName(ip: string) {
-  return availableRobots.value.find(robot => robot.ip === ip)?.name?.trim() || '未命名设备'
+  return availableRobots.value.find(robot => robot.ip === ip)?.name?.trim() || t('devices.unnamed')
 }
 
 watch(selectedIp, (ip) => {

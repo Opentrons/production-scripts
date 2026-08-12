@@ -1,7 +1,7 @@
 <template>
   <div v-loading="loading" class="device-files-panel">
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请先选择一台设备" />
+      <el-empty :description="t('devices.selectOne')" />
     </div>
 
     <template v-else>
@@ -23,12 +23,12 @@
             class="toolbar-search"
             clearable
             size="small"
-            placeholder="搜索当前列表"
+            :placeholder="t('devices.files.search')"
           />
-          <el-tooltip content="刷新" placement="top">
+          <el-tooltip :content="t('common.actions.refresh')" placement="top">
             <el-button :icon="Refresh" :loading="loading" circle size="small" @click="refreshDirectory" />
           </el-tooltip>
-          <el-tooltip content="上级目录" placement="top">
+          <el-tooltip :content="t('devices.files.parent')" placement="top">
             <el-button :icon="Top" circle size="small" @click="openPath(parentPath)" />
           </el-tooltip>
         </div>
@@ -54,7 +54,7 @@
           </button>
 
           <div class="entry-meta">
-            <span>{{ entry.is_dir ? '文件夹' : formatSize(entry.size) }}</span>
+            <span>{{ entry.is_dir ? t('devices.files.folder') : formatSize(entry.size) }}</span>
             <span>{{ formatTime(entry.modified_at) }}</span>
           </div>
 
@@ -76,16 +76,16 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="download" :icon="Download">
-                  下载
+                  {{ t('devices.files.download') }}
                 </el-dropdown-item>
                 <el-dropdown-item command="copy_path" :icon="CopyDocument">
-                  复制路径
+                  {{ t('devices.files.copyPath') }}
                 </el-dropdown-item>
                 <el-dropdown-item v-if="!entry.is_dir" command="edit" :icon="Edit">
-                  编辑
+                  {{ t('common.actions.edit') }}
                 </el-dropdown-item>
                 <el-dropdown-item command="delete" :icon="Delete">
-                  删除
+                  {{ t('common.actions.delete') }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -95,16 +95,16 @@
 
       <el-empty
         v-else
-        :description="entries.length ? '没有匹配的文件或文件夹' : '当前目录为空'"
+        :description="entries.length ? t('devices.files.noMatches') : t('devices.files.emptyDirectory')"
         :image-size="80"
       />
     </template>
 
-    <el-dialog v-model="editorVisible" :title="`编辑文件 - ${editorFileName}`" width="720px">
+    <el-dialog v-model="editorVisible" :title="t('devices.files.editTitle', { name: editorFileName })" width="720px">
       <el-input v-model="editorContent" type="textarea" :rows="18" />
       <template #footer>
-        <el-button @click="editorVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="saveFile">保存</el-button>
+        <el-button @click="editorVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="saveFile">{{ t('common.actions.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -115,6 +115,9 @@ import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { CopyDocument, Delete, Document, Download, Edit, FolderOpened, MoreFilled, Refresh, Top } from '@element-plus/icons-vue'
 import { robotApi, type RobotFileEntry } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { locale, t } = useAppLocale()
 
 const props = defineProps<{
   ip: string | null
@@ -171,7 +174,7 @@ function formatSize(size: number): string {
 
 function formatTime(timestamp: number | null): string {
   if (!timestamp) return '-'
-  return new Date(timestamp * 1000).toLocaleString('zh-CN')
+  return new Date(timestamp * 1000).toLocaleString(locale.value)
 }
 
 async function refreshDirectory() {
@@ -182,7 +185,7 @@ async function refreshDirectory() {
     currentPath.value = response.data.path
     entries.value = response.data.entries
   } catch (error: any) {
-    ElMessage.error('读取目录失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.files.readDirectoryFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     loading.value = false
   }
@@ -229,9 +232,9 @@ function handleEntryAction(command: FileActionCommand, entry: RobotFileEntry) {
 async function copyEntryPath(entry: RobotFileEntry) {
   try {
     await navigator.clipboard.writeText(entry.path)
-    ElMessage.success('路径已复制')
+    ElMessage.success(t('devices.files.pathCopied'))
   } catch {
-    ElMessage.error('复制路径失败')
+    ElMessage.error(t('devices.files.pathCopyFailed'))
   }
 }
 
@@ -249,9 +252,9 @@ async function downloadEntry(entry: RobotFileEntry) {
     anchor.download = filename
     anchor.click()
     URL.revokeObjectURL(url)
-    ElMessage.success(entry.is_dir ? '文件夹已打包下载' : '下载成功')
+    ElMessage.success(entry.is_dir ? t('devices.files.folderDownloaded') : t('devices.files.downloaded'))
   } catch (error: any) {
-    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.files.downloadFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     downloadingPath.value = null
   }
@@ -272,7 +275,7 @@ async function editEntry(entry: RobotFileEntry) {
     editorContent.value = response.data.content
     editorVisible.value = true
   } catch (error: any) {
-    ElMessage.error('读取文件失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.files.readFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     loading.value = false
   }
@@ -283,11 +286,11 @@ async function saveFile() {
   saving.value = true
   try {
     await robotApi.writeFile(props.ip, editorPath.value, editorContent.value)
-    ElMessage.success('文件已保存')
+    ElMessage.success(t('devices.files.saved'))
     editorVisible.value = false
     await refreshDirectory()
   } catch (error: any) {
-    ElMessage.error('保存失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.files.saveFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     saving.value = false
   }
@@ -296,13 +299,13 @@ async function saveFile() {
 async function deleteEntry(entry: RobotFileEntry) {
   if (!props.ip) return
   try {
-    await ElMessageBox.confirm(`确认删除 ${entry.name} ？`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(t('devices.files.deleteConfirm', { name: entry.name }), t('devices.files.deleteTitle'), { type: 'warning' })
     await robotApi.deleteFile(props.ip, entry.path)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('devices.files.deleted'))
     await refreshDirectory()
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+      ElMessage.error(t('devices.files.deleteFailed', { error: error.message || t('errors.unknown') }))
     }
   }
 }

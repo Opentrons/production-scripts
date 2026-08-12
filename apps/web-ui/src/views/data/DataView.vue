@@ -14,7 +14,7 @@
             <template v-if="activePanel === 'records'">
             <el-select
               v-model="selectedCollection" 
-              placeholder="选择数据集合" 
+              :placeholder="t('dataView.selectCollection')"
               @change="handleCollectionChange"
               style="width: 220px"
               size="small"
@@ -33,7 +33,7 @@
               :icon="Refresh"
               @click="handleRefresh"
               :loading="collectionsLoading || dataLoading"
-            >刷新</el-button>
+            >{{ t('common.actions.refresh') }}</el-button>
             </template>
             <template v-else>
               <el-button
@@ -44,14 +44,14 @@
                 :icon="Refresh"
                 @click="syncUnitTrackerRows"
                 :loading="unitTrackerSyncing"
-              >解析上传 CSV</el-button>
+              >{{ t('dataView.parseCsv') }}</el-button>
               <el-button
                 type="primary"
                 size="small"
                 :icon="Refresh"
                 @click="fetchUnitTrackerRows(true)"
                 :loading="unitTrackerLoading"
-              >刷新</el-button>
+              >{{ t('common.actions.refresh') }}</el-button>
             </template>
           </div>
         </div>
@@ -59,13 +59,13 @@
 
       <template v-if="activePanel === 'records'">
       <div v-if="!collectionsLoading && !dataLoading" class="table-info">
-        <span class="total-count">集合: {{ selectedCollectionTitle }} | 共 {{ total }} 条记录</span>
+        <span class="total-count">{{ t('dataView.collectionTotal', { collection: selectedCollectionTitle, count: total }) }}</span>
       </div>
 
       <div class="filter-bar">
         <el-select
           v-model="filters.model"
-          placeholder="产品型号"
+          :placeholder="t('dataView.model')"
           clearable
           filterable
           size="small"
@@ -81,7 +81,7 @@
         </el-select>
         <el-select
           v-model="filters.type"
-          placeholder="产品类型"
+          :placeholder="t('dataView.type')"
           clearable
           filterable
           size="small"
@@ -97,7 +97,7 @@
         </el-select>
         <el-select
           v-model="filters.totalResult"
-          placeholder="测试结果"
+          :placeholder="t('dataView.result')"
           clearable
           filterable
           size="small"
@@ -114,9 +114,9 @@
         <el-date-picker
           v-model="filters.dateRange"
           type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
+          :range-separator="t('dataView.rangeSeparator')"
+          :start-placeholder="t('dataView.startDate')"
+          :end-placeholder="t('dataView.endDate')"
           value-format="YYYY-MM-DD"
           size="small"
           class="date-filter"
@@ -124,7 +124,7 @@
         />
         <el-input
           v-model="filters.barcode"
-          placeholder="条码 / SN"
+          :placeholder="t('dataView.barcode')"
           clearable
           size="small"
           class="barcode-filter"
@@ -132,10 +132,10 @@
           @clear="handleFilterSearch"
         />
         <el-button size="small" type="primary" plain @click="handleFilterSearch" :loading="dataLoading">
-          查询
+          {{ t('common.actions.search') }}
         </el-button>
         <el-button size="small" @click="handleResetFilters" :disabled="!hasActiveFilters">
-          重置
+          {{ t('dataLinks.reset') }}
         </el-button>
       </div>
 
@@ -148,9 +148,9 @@
       >
         <template #title>
           <div class="load-error-content">
-            <span>测试数据加载或扫描失败：{{ collectionsError }}</span>
+            <span>{{ t('dataView.loadFailed', { error: collectionsError }) }}</span>
             <el-button size="small" type="danger" plain :loading="collectionsLoading" @click="fetchCollections">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -165,9 +165,9 @@
       >
         <template #title>
           <div class="load-error-content">
-            <span>测试数据加载或扫描失败：{{ dataError }}</span>
+            <span>{{ t('dataView.loadFailed', { error: dataError }) }}</span>
             <el-button size="small" type="danger" plain :loading="dataLoading" @click="fetchCollectionData">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -178,7 +178,7 @@
         class="records-loading-state"
       >
         <el-icon class="is-loading records-loading-icon"><Loading /></el-icon>
-        <span>正在加载测试数据...</span>
+        <span>{{ t('dataView.loading') }}</span>
       </div>
       
       <el-table 
@@ -208,7 +208,7 @@
               >
                 {{ formatResultText(getTotalResult(scope.row)) }}
               </el-tag>
-              <el-tooltip v-else content="当前数据不完整" placement="top">
+              <el-tooltip v-else :content="t('dataView.incomplete')" placement="top">
                 <span class="na-cell">N/A</span>
               </el-tooltip>
             </template>
@@ -229,17 +229,17 @@
               <span class="time-cell">{{ formatDateTime(scope.row[column.key]) }}</span>
             </template>
             <template v-else-if="shouldRenderUnavailable(column, scope.row[column.key])">
-              <el-tooltip content="当前数据不完整" placement="top">
+              <el-tooltip :content="t('dataView.incomplete')" placement="top">
                 <span class="na-cell">N/A</span>
               </el-tooltip>
             </template>
             <template v-else>{{ formatCellValue(scope.row[column.key]) }}</template>
           </template>
         </el-table-column>
-        <el-table-column label="分析" width="92" fixed="right">
+        <el-table-column :label="t('dataView.analysis')" width="92" fixed="right">
           <template #default="scope">
             <el-button size="small" text type="primary" @click="openAnalysis(scope.row)">
-              分析
+              {{ t('dataView.analysis') }}
             </el-button>
           </template>
         </el-table-column>
@@ -247,7 +247,7 @@
       
       <el-empty 
         v-else-if="!collectionsLoading && !dataLoading && !collectionsError && !dataError" 
-        description="当前暂无数据" 
+        :description="t('dataView.empty')"
       />
       
       <div class="pagination-container" v-if="total > 0">
@@ -272,7 +272,7 @@
           />
           <el-input
             v-model="unitTrackerFilters.barcode"
-            placeholder="SN / 条码"
+            :placeholder="t('dataView.tracker.barcode')"
             clearable
             size="small"
             class="barcode-filter"
@@ -281,7 +281,7 @@
           />
           <el-select
             v-model="unitTrackerFilters.product"
-            placeholder="产品"
+            :placeholder="t('dataView.tracker.product')"
             size="small"
             class="filter-control"
             @change="handleUnitTrackerProductChange"
@@ -295,7 +295,7 @@
           </el-select>
           <el-select
             v-model="unitTrackerFilters.testType"
-            placeholder="测试"
+            :placeholder="t('dataView.tracker.test')"
             filterable
             size="small"
             class="filter-control"
@@ -310,7 +310,7 @@
           </el-select>
           <el-select
             v-model="unitTrackerSelectedGroups"
-            placeholder="分组"
+            :placeholder="t('dataView.tracker.group')"
             multiple
             collapse-tags
             collapse-tags-tooltip
@@ -327,12 +327,12 @@
             />
           </el-select>
           <el-button size="small" type="primary" plain @click="fetchUnitTrackerRows()" :loading="unitTrackerLoading">
-            查询
+            {{ t('common.actions.search') }}
           </el-button>
           <el-button size="small" @click="resetUnitTrackerFilters" :disabled="!hasUnitTrackerFilters">
-            重置
+            {{ t('dataLinks.reset') }}
           </el-button>
-          <span class="unit-tracker-meta">{{ unitTrackerSourceLabel }} {{ unitTrackerTotal }} 条</span>
+          <span class="unit-tracker-meta">{{ t('dataView.tracker.count', { source: unitTrackerSourceLabel, count: unitTrackerTotal }) }}</span>
         </div>
 
         <el-alert
@@ -344,7 +344,7 @@
           @close="unitTrackerSyncResult = null"
         >
           <template #title>
-            扫描 {{ unitTrackerSyncResult.scanned }}，更新 {{ unitTrackerSyncResult.updated }}，跳过 {{ unitTrackerSyncResult.skipped }}
+            {{ t('dataView.tracker.syncSummary', { scanned: unitTrackerSyncResult.scanned, updated: unitTrackerSyncResult.updated, skipped: unitTrackerSyncResult.skipped }) }}
           </template>
         </el-alert>
 
@@ -357,9 +357,9 @@
         >
           <template #title>
             <div class="load-error-content">
-              <span>Unit Tracker 数据加载失败：{{ unitTrackerError }}</span>
+              <span>{{ t('dataView.tracker.loadFailed', { error: unitTrackerError }) }}</span>
               <el-button size="small" type="danger" plain :loading="unitTrackerLoading || unitTrackerSyncing" @click="fetchUnitTrackerRows(true)">
-                重试
+                {{ t('common.actions.retry') }}
               </el-button>
             </div>
           </template>
@@ -370,7 +370,7 @@
           class="records-loading-state"
         >
           <el-icon class="is-loading records-loading-icon"><Loading /></el-icon>
-          <span>{{ unitTrackerSyncing ? '正在解析上传 CSV...' : unitTrackerLoadingLabel }}</span>
+          <span>{{ unitTrackerSyncing ? t('dataView.tracker.parsing') : unitTrackerLoadingLabel }}</span>
         </div>
 
         <el-table
@@ -406,7 +406,7 @@
                   rel="noopener noreferrer"
                   class="link-cell"
                 >
-                  打开
+                  {{ t('dataView.open') }}
                 </a>
                 <button
                   v-else-if="column.key === 'sn' && unitTrackerAnalysisPath(row)"
@@ -446,6 +446,11 @@ import { Loading, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { sameTestType } from '@/scripts/utils/testNames'
 import type { UnitTrackerColumn, UnitTrackerOption, UnitTrackerRow, UnitTrackerSource, UnitTrackerSyncResponse } from '@/scripts/types'
+import { useI18n } from 'vue-i18n'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useI18n()
+const { locale } = useAppLocale()
 
 interface TableColumn {
   key: string
@@ -461,15 +466,15 @@ type ActivePanel = 'records' | 'unit_tracker'
 const DEFAULT_UNIT_TRACKER_PRODUCT = 'P2HH'
 const DEFAULT_UNIT_TRACKER_TEST = 'Assembly QC'
 
-const BASE_COLUMNS: TableColumn[] = [
-  { key: 'update_time', label: '更新时间', minWidth: 190 },
-  { key: 'sn', label: '条码 / SN', minWidth: 170 },
-  { key: 'model', label: '产品型号', minWidth: 110 },
-  { key: 'type', label: '产品类型', minWidth: 120 },
-  { key: 'total_result', label: '测试结果', minWidth: 120 },
-  { key: 'csv_link', label: '测试数据', minWidth: 110, isLink: true, linkText: '打开' },
-  { key: 'unit_tracker', label: '测试总表', minWidth: 140, isLink: true, linkText: '打开' }
-]
+const baseColumns = computed<TableColumn[]>(() => [
+  { key: 'update_time', label: t('dataView.columns.updatedAt'), minWidth: 190 },
+  { key: 'sn', label: t('dataView.columns.barcode'), minWidth: 170 },
+  { key: 'model', label: t('dataView.columns.model'), minWidth: 110 },
+  { key: 'type', label: t('dataView.columns.type'), minWidth: 120 },
+  { key: 'total_result', label: t('dataView.columns.result'), minWidth: 120 },
+  { key: 'csv_link', label: t('dataView.columns.testData'), minWidth: 110, isLink: true, linkText: t('dataView.open') },
+  { key: 'unit_tracker', label: t('dataView.columns.tracker'), minWidth: 140, isLink: true, linkText: t('dataView.open') }
+])
 
 const collections = ref<string[]>([])
 const activePanel = ref<ActivePanel>('records')
@@ -511,14 +516,14 @@ const unitTrackerFilters = ref({
   barcode: ''
 })
 
-const panelOptions = [
-  { label: '测试数据', value: 'records' },
-  { label: 'Unit Tracker', value: 'unit_tracker' }
-]
-const unitTrackerSourceOptions = [
+const panelOptions = computed(() => [
+  { label: t('dataView.panels.records'), value: 'records' },
+  { label: t('dataView.panels.tracker'), value: 'unit_tracker' }
+])
+const unitTrackerSourceOptions = computed(() => [
   { label: 'MongoDB CSV', value: 'mongodb' },
-  { label: 'Google Drive 总表', value: 'google_drive' }
-]
+  { label: t('dataView.tracker.googleOption'), value: 'google_drive' }
+])
 const unitTrackerProductOptions = computed(() => (
   [...new Set(
     unitTrackerOptions.value
@@ -535,27 +540,27 @@ const unitTrackerTestOptions = computed(() => (
     .map((option) => option.test_type)
 ))
 const unitTrackerSourceLabel = computed(() => (
-  unitTrackerSource.value === 'google_drive' ? 'Google 总表' : 'MongoDB 标准行'
+  unitTrackerSource.value === 'google_drive' ? t('dataView.tracker.googleSource') : t('dataView.tracker.mongoSource')
 ))
 const unitTrackerLoadingLabel = computed(() => (
   unitTrackerSource.value === 'google_drive'
-    ? '正在读取 Google Drive 总表...'
-    : '正在读取 MongoDB 标准行...'
+    ? t('dataView.tracker.googleLoading')
+    : t('dataView.tracker.mongoLoading')
 ))
 const unitTrackerEmptyLabel = computed(() => (
   unitTrackerSource.value === 'google_drive'
-    ? 'Google Drive 总表暂无数据'
-    : 'MongoDB 暂无已解析的 CSV 标准行'
+    ? t('dataView.tracker.googleEmpty')
+    : t('dataView.tracker.mongoEmpty')
 ))
 
 const tableColumns = computed(() => {
   if (selectedCollection.value === ALL_COLLECTION) {
     return [
-      { key: 'collection', label: '数据集合', minWidth: 180 },
-      ...BASE_COLUMNS
+      { key: 'collection', label: t('dataView.columns.collection'), minWidth: 180 },
+      ...baseColumns.value
     ]
   }
-  return BASE_COLUMNS
+  return baseColumns.value
 })
 
 const unitTrackerAllColumnGroups = computed(() => {
@@ -603,7 +608,7 @@ const collectionOptions = computed(() => {
 
 const selectedCollectionTitle = computed(() => {
   if (selectedCollection.value === ALL_COLLECTION) {
-    return '全部测试数据'
+    return t('dataView.allData')
   }
   return selectedCollection.value ? selectedCollection.value.toUpperCase() : ''
 })
@@ -669,7 +674,7 @@ const formatDateTime = (value: unknown) => {
   if (!value) return '-'
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -769,7 +774,7 @@ const fetchCollections = async () => {
       await fetchCollectionData()
     }
   } catch (e: any) {
-    collectionsError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || '未知错误'
+    collectionsError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || t('errors.unknown')
   } finally {
     collectionsLoading.value = false
   }
@@ -793,7 +798,7 @@ const fetchFilterOptions = async () => {
     return true
   } catch (e: any) {
     filterOptions.value = { models: [], types: [], total_results: [] }
-    collectionsError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || '未知错误'
+    collectionsError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || t('errors.unknown')
     return false
   }
 }
@@ -830,7 +835,7 @@ const fetchCollectionData = async () => {
     tableData.value = response.data.data || []
     total.value = response.data.total || 0
   } catch (e: any) {
-    dataError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || '未知错误'
+    dataError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || t('errors.unknown')
   } finally {
     dataLoading.value = false
   }
@@ -893,7 +898,7 @@ const fetchUnitTrackerOptions = async () => {
     }
   } catch (error: any) {
     unitTrackerOptions.value = []
-    unitTrackerError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || '未知错误'
+    unitTrackerError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('errors.unknown')
   }
 }
 
@@ -917,7 +922,7 @@ const fetchUnitTrackerRows = async (refresh = false) => {
       unitTrackerError.value = response.data.error
     }
   } catch (error: any) {
-    unitTrackerError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || '未知错误'
+    unitTrackerError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('errors.unknown')
   } finally {
     unitTrackerLoading.value = false
   }
@@ -959,12 +964,12 @@ const syncUnitTrackerRows = async () => {
   try {
     const response = await uploadRecordApi.syncUnitTrackerRows()
     unitTrackerSyncResult.value = response.data
-    ElMessage.success(`CSV 标准行解析完成：更新 ${response.data.updated}，跳过 ${response.data.skipped}`)
+    ElMessage.success(t('dataView.tracker.syncCompleted', { updated: response.data.updated, skipped: response.data.skipped }))
     unitTrackerPage.value = 1
     await fetchUnitTrackerRows()
   } catch (error: any) {
     const detail = error?.response?.data?.detail
-    unitTrackerError.value = detail?.message || detail || error?.message || '未知错误'
+    unitTrackerError.value = detail?.message || detail || error?.message || t('errors.unknown')
   } finally {
     unitTrackerSyncing.value = false
   }
@@ -999,7 +1004,7 @@ const unitTrackerAnalysisPath = (row: UnitTrackerRow) => {
 const openUnitTrackerAnalysis = (row: UnitTrackerRow) => {
   const path = unitTrackerAnalysisPath(row)
   if (!path) {
-    ElMessage.warning('当前标准行没有本地 CSV 缓存路径')
+    ElMessage.warning(t('dataView.tracker.noLocalPath'))
     return
   }
   router.push({

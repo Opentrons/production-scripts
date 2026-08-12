@@ -3,10 +3,10 @@
     <div class="analysis-mode-bar">
       <el-button-group>
         <el-button :type="analysisMode === 'local' ? 'primary' : 'default'" @click="analysisMode = 'local'">
-          本地分析
+          {{ t('analysis.common.local') }}
         </el-button>
         <el-button :type="analysisMode === 'online' ? 'primary' : 'default'" @click="analysisMode = 'online'">
-          在线分析
+          {{ t('analysis.common.online') }}
         </el-button>
       </el-button-group>
     </div>
@@ -26,8 +26,8 @@
           >
             <div class="upload-empty-content">
               <el-icon class="upload-icon"><UploadFilled /></el-icon>
-              <div class="upload-title">上传 Assembly QC CSV</div>
-              <div class="upload-subtitle">支持 P2HH RawData / Pipette Assembly QC</div>
+              <div class="upload-title">{{ t('analysis.diagnostic.uploadTitle') }}</div>
+              <div class="upload-subtitle">{{ t('analysis.diagnostic.uploadSubtitle') }}</div>
             </div>
           </el-upload>
 
@@ -44,10 +44,10 @@
             </div>
             <div class="action-buttons">
               <el-button type="primary" :icon="Histogram" :loading="loading" :disabled="!selectedFiles.length" @click="analyzeSelectedFiles">
-                分析
+                {{ t('analysis.common.analyze') }}
               </el-button>
               <el-button :icon="Delete" :disabled="!selectedFiles.length || loading" @click="clearAnalysis">
-                清空
+                {{ t('analysis.common.clear') }}
               </el-button>
             </div>
           </div>
@@ -59,16 +59,16 @@
       <template v-if="activeAnalysis">
         <div class="result-toolbar">
           <div class="result-title">
-            <el-tooltip content="返回上传" placement="bottom">
+            <el-tooltip :content="t('analysis.common.backToUpload')" placement="bottom">
               <el-button class="back-button" :icon="ArrowLeft" circle @click="clearAnalysis" />
             </el-tooltip>
-            <strong>{{ activeAnalysis.file?.name || 'Assembly QC 分析结果' }}</strong>
+            <strong>{{ activeAnalysis.file?.name || t('analysis.diagnostic.resultTitle') }}</strong>
           </div>
           <el-select v-if="analyses.length > 1" v-model="selectedAnalysisIndex" class="result-select">
             <el-option
               v-for="(item, index) in analyses"
               :key="item.file?.path || item.file?.name || index"
-              :label="item.file?.name || `分析 ${index + 1}`"
+              :label="item.file?.name || t('analysis.common.analysisIndex', { index: index + 1 })"
               :value="index"
             />
           </el-select>
@@ -97,8 +97,8 @@
             </div>
           </div>
           <el-table :data="metadataRows" size="small" border>
-            <el-table-column prop="label" label="字段" min-width="160" />
-            <el-table-column prop="value" label="值" min-width="220">
+            <el-table-column prop="label" :label="t('analysis.diagnostic.field')" min-width="160" />
+            <el-table-column prop="value" :label="t('analysis.diagnostic.value')" min-width="220">
               <template #default="{ row }">{{ formatCell(row.value) }}</template>
             </el-table-column>
           </el-table>
@@ -234,7 +234,7 @@
           <el-select
             v-model="onlineFilters.product"
             class="online-product-select"
-            placeholder="产品"
+            :placeholder="t('analysis.common.product')"
             filterable
             :loading="onlineProductsLoading"
             @change="handleOnlineProductChange"
@@ -249,7 +249,7 @@
           <el-select
             v-model="onlineFilters.test"
             class="online-test-select"
-            placeholder="测试"
+            :placeholder="t('analysis.common.test')"
             filterable
             :disabled="!onlineTestOptions.length"
             @change="handleOnlineTestChange"
@@ -286,9 +286,9 @@
               <el-input
                 v-model="onlineManualCsvLink"
                 clearable
-                placeholder="手动输入 Google Sheet CSV link"
+                :placeholder="t('analysis.common.csvLinkPlaceholder')"
               />
-              <div class="csv-link-hint">为空时使用当前条码/SN 的默认 CSV link</div>
+              <div class="csv-link-hint">{{ t('analysis.common.csvLinkHint') }}</div>
             </div>
             <template #reference>
               <el-button class="csv-link-button" :icon="EditPen" :disabled="!canEditOnlineCsvLink" />
@@ -301,7 +301,7 @@
             :disabled="!onlineFilters.product || !onlineFilters.test || !effectiveOnlineCsvLink"
             @click="analyzeOnlineSelection"
           >
-            分析
+            {{ t('analysis.common.analyze') }}
           </el-button>
         </div>
         <div v-if="loadMessage" class="hint-line">{{ loadMessage }}</div>
@@ -310,9 +310,9 @@
           type="warning"
           :closable="false"
           show-icon
-          title="当前产品和测试没有匹配的 SN CSV link，可点击编辑图标手动输入"
+          :title="t('analysis.common.noCsvLink')"
         />
-        <el-empty v-if="!loading" description="选择产品、测试后开始在线分析；缺少默认链接时可手动输入" />
+        <el-empty v-if="!loading" :description="t('analysis.common.onlineEmpty')" />
       </div>
     </section>
   </div>
@@ -320,12 +320,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import type { UploadFile, UploadInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, CircleCheck, CircleClose, Delete, EditPen, Histogram, InfoFilled, Search, UploadFilled } from '@element-plus/icons-vue'
 import { dataAnalysisApi, productManagementApi } from '@/scripts/api'
 import { canonicalTestType, formatTestType, sameTestType, uniqueTestTypes } from '@/scripts/utils/testNames'
+import { useAppLocale } from '@/i18n'
 import type {
   DataAnalysisDiagnosticSection,
   DataAnalysisItem,
@@ -337,6 +339,8 @@ import type {
 type AnalysisMode = 'local' | 'online'
 
 const route = useRoute()
+const { t } = useI18n()
+const { locale } = useAppLocale()
 const analysisMode = ref<AnalysisMode>('local')
 const loading = ref(false)
 const selectedFiles = ref<File[]>([])
@@ -408,15 +412,9 @@ function getOnlineTestCsvLink(test?: ProductManagementTest | null) {
   return /^https?:\/\//i.test(sourcePath) ? sourcePath : ''
 }
 
-const sectionDescriptionMap: Record<string, string> = {
-  PLUNGER: 'Plunger Test 为了快速展示Pipette Plunger 电机的执行结果，更多运行过程参考Test Details。',
-  JAWS: 'Jaws 测试用于检查 Pipette 两侧的Jaw 电机运行过程能正常回到限位开关状态。',
-  CAPACITANCE: 'Capacitance 测试用于检查电容传感相关读数是否处于规格范围内，用于判断 tip 检测链路是否稳定。',
-  PRESSURE: 'Pressure 测试用于检查压力传感器读数和响应是否满足规格，用于发现气路、传感器或装配异常。',
-  'ENVIRONMENT-SENSOR': 'Environment Sensor 测试用于检查环境温湿度传感器读数是否可用且处于规格范围内。',
-  'TIP-SENSOR': 'Tip Sensor 测试用于检查 tip 识别或装载检测相关传感信号是否满足规格。',
-  DROPLETS: 'Droplets 测试用于检查移液过程中残液或液滴相关检测结果，帮助判断吐液和残留状态。',
-  ENCODER: 'Encoder 测试用于检查运动编码器读数、方向或位置反馈是否符合诊断要求。'
+const sectionDescriptionKeys: Record<string, string> = {
+  PLUNGER: 'plunger', JAWS: 'jaws', CAPACITANCE: 'capacitance', PRESSURE: 'pressure',
+  'ENVIRONMENT-SENSOR': 'environmentSensor', 'TIP-SENSOR': 'tipSensor', DROPLETS: 'droplets', ENCODER: 'encoder'
 }
 
 function handleFileChange(uploadFile: UploadFile) {
@@ -452,12 +450,12 @@ async function analyzeSelectedFiles() {
     const response = await dataAnalysisApi.analyzeFiles(selectedFiles.value)
     applyAnalysisResponse(response.data)
     if (analyses.value.length) {
-      ElMessage.success('分析完成')
+      ElMessage.success(t('analysis.messages.completed'))
     } else {
-      ElMessage.warning('未生成诊断分析结果')
+      ElMessage.warning(t('analysis.messages.noDiagnosticResult'))
     }
   } catch (error: any) {
-    ElMessage.error('分析失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.failed', { error: formatError(error) }))
   } finally {
     loading.value = false
   }
@@ -465,14 +463,14 @@ async function analyzeSelectedFiles() {
 
 async function analyzePath(filePath: string) {
   loading.value = true
-  loadMessage.value = `正在分析 ${filePath}`
+  loadMessage.value = t('analysis.messages.analyzing', { file: filePath })
   try {
     const response = await dataAnalysisApi.analyzePaths([filePath])
     applyAnalysisResponse(response.data)
     loadMessage.value = ''
   } catch (error: any) {
     loadMessage.value = ''
-    ElMessage.error('分析失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.failed', { error: formatError(error) }))
   } finally {
     loading.value = false
   }
@@ -484,7 +482,7 @@ async function analyzeOnlineSelection() {
   const csvLink = effectiveOnlineCsvLink.value
   if (!onlineFilters.value.product || !testType || !csvLink) return
   loading.value = true
-  loadMessage.value = `正在读取 ${product?.barcode || onlineFilters.value.product} / ${formatTestType(testType)}`
+  loadMessage.value = t('analysis.messages.reading', { product: product?.barcode || onlineFilters.value.product, test: formatTestType(testType) })
   try {
     const response = await dataAnalysisApi.analyzeOnline({
       barcode: product?.barcode || '',
@@ -495,13 +493,13 @@ async function analyzeOnlineSelection() {
     applyAnalysisResponse(response.data)
     loadMessage.value = ''
     if (analyses.value.length) {
-      ElMessage.success('在线分析完成')
+      ElMessage.success(t('analysis.messages.onlineCompleted'))
     } else {
-      ElMessage.warning('未生成诊断分析结果')
+      ElMessage.warning(t('analysis.messages.noDiagnosticResult'))
     }
   } catch (error: any) {
     loadMessage.value = ''
-    ElMessage.error('在线分析失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.onlineFailed', { error: formatError(error) }))
   } finally {
     loading.value = false
   }
@@ -514,7 +512,7 @@ async function loadOnlineProducts() {
     onlineProductOptions.value = response.data.products || []
     if (onlineFilters.value.product) handleOnlineProductChange()
   } catch (error: any) {
-    ElMessage.error('加载在线产品失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.loadProductsFailed', { error: formatError(error) }))
   } finally {
     onlineProductsLoading.value = false
   }
@@ -554,7 +552,7 @@ function applyAnalysisResponse(data: DataAnalysisResponse) {
       ...analysisErrors.value,
       ...unsupportedAnalyses.map(item => ({
         file: item.file,
-        message: `当前页面只支持移液器诊断分析，请使用对应分析页面打开 ${item.channel_label || item.channel || '该测试'}`
+        message: t('analysis.diagnostic.unsupported', { test: item.channel_label || item.channel || t('analysis.common.thisTest') })
       }))
     ]
   }
@@ -568,9 +566,9 @@ function isPipetteAssemblyQcAnalysis(item: DataAnalysisItem) {
 
 function tableDescription(key: 'metadata' | 'section_results') {
   if (key === 'metadata') {
-    return '展示本次诊断 CSV 中解析出的产品、设备、测试时间、软件版本等基础信息，用于确认分析对象和原始数据来源。'
+    return t('analysis.diagnostic.descriptions.metadata')
   }
-  return '汇总每个测试 section 的整体结果。第一行是测试项名称，第二行是对应的 PASS/FAIL 状态，便于快速定位失败模块。'
+  return t('analysis.diagnostic.descriptions.sectionResults')
 }
 
 function matrixDescription(matrix: { section?: string; title?: string; description?: string }) {
@@ -579,16 +577,16 @@ function matrixDescription(matrix: { section?: string; title?: string; descripti
 
 function selectedSectionDescription() {
   const section = selectedSection.value
-  if (!section) return '展示当前测试 section 的原始诊断明细，包括实际值、目标值、规格范围和判定结果。'
+  if (!section) return t('analysis.diagnostic.descriptions.currentSection')
   return sectionDescription(section.section, section.label)
 }
 
 function sectionDescription(section?: string, label?: string) {
   const key = String(section || '').toUpperCase()
-  const description = sectionDescriptionMap[key]
-  if (description) return description
-  const name = label || section || '当前测试'
-  return `${name} 明细用于展示该测试项解析出的实际值、目标值、规格范围和 PASS/FAIL 判定，便于追踪具体失败原因。`
+  const descriptionKey = sectionDescriptionKeys[key]
+  if (descriptionKey) return t(`analysis.diagnostic.sections.${descriptionKey}`)
+  const name = label || section || t('analysis.diagnostic.currentTest')
+  return t('analysis.diagnostic.descriptions.generic', { name })
 }
 
 function statusTagType(status?: string | null) {
@@ -608,7 +606,7 @@ function sectionStatusClass(status?: string | null) {
 function formatMetric(value: unknown) {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return ''
-  return Number(numeric.toFixed(4)).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+  return Number(numeric.toFixed(4)).toLocaleString(locale.value, { maximumFractionDigits: 4 })
 }
 
 function formatCell(value: unknown) {
@@ -626,7 +624,7 @@ function formatSpec(spec?: Record<string, any>) {
 }
 
 function formatError(error: any) {
-  return error?.response?.data?.detail || error?.message || '未知错误'
+  return error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('errors.unknown')
 }
 
 function onlineProductName(product: ProductManagementItem) {
@@ -637,7 +635,7 @@ function onlineProductName(product: ProductManagementItem) {
 function formatOnlineProductUpdatedAt(product: ProductManagementItem, mode: 'full' | 'short' = 'full') {
   const formattedDate = formatOnlineDate(product.latest_date || latestTestDate(product.tests))
   if (!formattedDate) return ''
-  return `${mode === 'short' ? '更新' : '最后更新'} ${formattedDate}`
+  return t(mode === 'short' ? 'analysis.common.updated' : 'analysis.common.lastUpdated', { time: formattedDate })
 }
 
 function latestTestDate(tests?: ProductManagementTest[]) {
@@ -652,7 +650,7 @@ function formatOnlineDate(value?: string) {
   if (!value) return ''
   const date = new Date(value)
   if (!Number.isNaN(date.getTime())) {
-    return date.toLocaleString('zh-CN', {
+    return date.toLocaleString(locale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

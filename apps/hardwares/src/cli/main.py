@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 from pathlib import Path
 
 from InquirerPy.base.control import Choice
@@ -27,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
         description="Production hardware tests for OT3/Flex workflows.",
     )
     parser.add_argument("--debug", action="store_true", help="show full tracebacks on failure")
+    parser.add_argument(
+        "--language",
+        choices=ui.SUPPORTED_LANGUAGES,
+        default=os.getenv("PRODUCTIONS_LANGUAGE", "zh-CN"),
+        help="interface language (or set PRODUCTIONS_LANGUAGE)",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
     leveling = subparsers.add_parser("leveling", help="run leveling tests")
@@ -151,6 +158,7 @@ async def dispatch(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    ui.set_language(args.language)
     try:
         with ui.graceful_errors(debug=args.debug):
             args = _entry_prompt(args)

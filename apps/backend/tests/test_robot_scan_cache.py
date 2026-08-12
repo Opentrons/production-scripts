@@ -8,6 +8,11 @@ import pytest
 from modules.robots import robots
 
 
+@pytest.fixture(autouse=True)
+def use_test_scan_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(robots.setting, "use_sqlite_persistence", lambda: False)
+
+
 class FakeCollection:
     def __init__(self) -> None:
         self.docs: dict[str, dict] = {}

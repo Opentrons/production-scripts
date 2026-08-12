@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import traceback
 from contextlib import contextmanager
 from typing import Iterator
@@ -13,9 +14,22 @@ from rich.text import Text
 
 console = Console()
 
+SUPPORTED_LANGUAGES = ("zh-CN", "en-US")
+_language = "en-US" if os.getenv("PRODUCTIONS_LANGUAGE", "").lower().startswith("en") else "zh-CN"
+
+
+def set_language(language: str) -> None:
+    global _language
+    normalized = language.replace("_", "-").lower()
+    _language = "en-US" if normalized.startswith("en") else "zh-CN"
+
+
+def get_language() -> str:
+    return _language
+
 
 def bilingual(en: str, cn: str) -> str:
-    return f"{en} ({cn})"
+    return en if _language == "en-US" else cn
 
 
 def _mount_label_en(mount: str) -> str:
@@ -78,8 +92,7 @@ def bilingual_error(
     details: str | None = None,
 ) -> None:
     text = Text()
-    text.append(message_en, style="bold red")
-    text.append(f" ({message_cn})", style="red")
+    text.append(bilingual(message_en, message_cn), style="bold red")
     if details:
         text.append(f"\n\n{details}", style="dim red")
     console.print()

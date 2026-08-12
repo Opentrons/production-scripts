@@ -1,13 +1,13 @@
 <template>
   <div v-loading="loading" class="device-protocols-panel" :class="{ 'is-standalone': standalone }">
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请先选择一台设备" />
+      <el-empty :description="t('devices.selectOne')" />
     </div>
 
     <template v-else>
       <div class="protocol-toolbar">
         <div class="title-group">
-          <span class="section-title">Protocol 工作台</span>
+          <span class="section-title">{{ t('devices.protocols.workspace') }}</span>
           <div class="protocol-switch">
             <button
               class="switch-button"
@@ -15,7 +15,7 @@
               type="button"
               @click="activePanel = 'protocols'"
             >
-              设备 Protocols
+              {{ t('devices.protocols.deviceProtocols') }}
               <span>{{ protocols.length }}</span>
             </button>
             <button
@@ -24,7 +24,7 @@
               type="button"
               @click="activePanel = 'runs'"
             >
-              运行历史
+              {{ t('devices.protocols.runHistory') }}
               <span>{{ runs.length }}</span>
             </button>
           </div>
@@ -38,10 +38,10 @@
             :on-change="handleUploadChange"
           >
             <el-button type="primary" :icon="Upload" :loading="uploading" :disabled="!ip">
-              上传
+              {{ t('devices.protocols.upload') }}
             </el-button>
           </el-upload>
-          <el-tooltip content="刷新" placement="top">
+          <el-tooltip :content="t('common.actions.refresh')" placement="top">
             <el-button :icon="Refresh" circle :disabled="!ip" :loading="loading" @click="refreshAll" />
           </el-tooltip>
         </div>
@@ -75,15 +75,15 @@
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="source">
-                        下载源文件
+                        {{ t('devices.protocols.downloadSource') }}
                       </el-dropdown-item>
                       <el-dropdown-item command="json">
-                        下载 JSON
+                        {{ t('devices.protocols.downloadJson') }}
                       </el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
-                <el-tooltip content="分析" placement="top">
+                <el-tooltip :content="t('devices.protocols.analyze')" placement="top">
                   <el-button
                     :icon="DataAnalysis"
                     circle
@@ -91,7 +91,7 @@
                     @click="analyzeProtocol(String(protocol.id))"
                   />
                 </el-tooltip>
-                <el-tooltip content="执行" placement="top">
+                <el-tooltip :content="t('devices.protocols.execute')" placement="top">
                   <el-button
                     :icon="SwitchButton"
                     circle
@@ -103,7 +103,7 @@
               </div>
             </article>
           </div>
-          <el-empty v-else description="暂无 Protocol" :image-size="96" />
+          <el-empty v-else :description="t('devices.protocols.empty')" :image-size="96" />
         </template>
 
         <template v-else>
@@ -126,7 +126,7 @@
                 </el-tag>
               </div>
               <div class="run-actions">
-                <el-tooltip content="播放" placement="top">
+                <el-tooltip :content="t('devices.protocols.play')" placement="top">
                   <el-button
                     :icon="VideoPlay"
                     circle
@@ -136,7 +136,7 @@
                     @click="controlRun(String(run.id), 'play')"
                   />
                 </el-tooltip>
-                <el-tooltip content="暂停" placement="top">
+                <el-tooltip :content="t('devices.protocols.pause')" placement="top">
                   <el-button
                     :icon="VideoPause"
                     circle
@@ -145,7 +145,7 @@
                     @click="controlRun(String(run.id), 'pause')"
                   />
                 </el-tooltip>
-                <el-tooltip content="停止" placement="top">
+                <el-tooltip :content="t('devices.protocols.stop')" placement="top">
                   <el-button
                     :icon="Close"
                     circle
@@ -158,15 +158,15 @@
               </div>
             </article>
           </div>
-          <el-empty v-else description="暂无运行记录" :image-size="80" />
+          <el-empty v-else :description="t('devices.protocols.emptyRuns')" :image-size="80" />
         </template>
       </div>
     </template>
 
-    <el-dialog v-model="analysisVisible" :title="`分析结果 - ${analysisProtocolId}`" width="720px">
+    <el-dialog v-model="analysisVisible" :title="t('devices.protocols.analysisTitle', { id: analysisProtocolId })" width="720px">
       <pre class="analysis-pre">{{ analysisText }}</pre>
       <template #footer>
-        <el-button @click="analysisVisible = false">关闭</el-button>
+        <el-button @click="analysisVisible = false">{{ t('common.actions.close') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -188,6 +188,9 @@ import {
 } from '@element-plus/icons-vue'
 import type { UploadFile } from 'element-plus'
 import { robotApi } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { locale, t } = useAppLocale()
 
 const props = withDefaults(defineProps<{
   ip: string | null
@@ -208,7 +211,7 @@ const analysisText = ref('')
 function formatTime(value: unknown): string {
   if (!value || typeof value !== 'string') return '-'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('zh-CN')
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(locale.value)
 }
 
 function compactId(value: unknown): string {
@@ -230,7 +233,7 @@ function protocolDisplayName(protocol: Record<string, unknown>): string {
     const first = files[0] as Record<string, unknown>
     if (first.name) return String(first.name)
   }
-  return String(protocol.id || '未命名 Protocol')
+  return String(protocol.id || t('devices.protocols.unnamed'))
 }
 
 function runStatusType(status: unknown): 'success' | 'warning' | 'danger' | 'info' {
@@ -244,12 +247,12 @@ function runStatusType(status: unknown): 'success' | 'warning' | 'danger' | 'inf
 function formatRunStatus(status: unknown): string {
   const value = String(status || '')
   const statusMap: Record<string, string> = {
-    succeeded: '成功',
-    running: '运行中',
-    paused: '暂停',
-    failed: '失败',
-    stopped: '停止',
-    idle: '待机'
+    succeeded: t('devices.protocols.statuses.succeeded'),
+    running: t('devices.protocols.statuses.running'),
+    paused: t('devices.protocols.statuses.paused'),
+    failed: t('devices.protocols.statuses.failed'),
+    stopped: t('devices.protocols.statuses.stopped'),
+    idle: t('devices.protocols.statuses.idle')
   }
   return statusMap[value] || value || '-'
 }
@@ -265,7 +268,7 @@ async function refreshAll() {
     protocols.value = protocolResponse.data.protocols
     runs.value = runResponse.data.runs
   } catch (error: any) {
-    ElMessage.error('加载 Protocols 失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.protocols.loadFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     loading.value = false
   }
@@ -282,10 +285,10 @@ async function handleUploadChange(uploadFile: UploadFile, uploadFiles: UploadFil
       .map(item => item.raw)
       .filter((file): file is NonNullable<typeof file> => file instanceof File)
     await robotApi.uploadProtocol(props.ip, files)
-    ElMessage.success('Protocol 上传成功')
+    ElMessage.success(t('devices.protocols.uploaded'))
     await refreshAll()
   } catch (error: any) {
-    ElMessage.error('上传失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.protocols.uploadFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     uploading.value = false
     loading.value = false
@@ -312,9 +315,9 @@ async function downloadProtocol(protocolId: string, format: 'json' | 'source') {
     anchor.download = filename
     anchor.click()
     URL.revokeObjectURL(url)
-    ElMessage.success(format === 'source' ? '源文件下载已开始' : 'JSON 下载已开始')
+    ElMessage.success(format === 'source' ? t('devices.protocols.sourceDownloadStarted') : t('devices.protocols.jsonDownloadStarted'))
   } catch (error: any) {
-    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.protocols.downloadFailed', { error: error.message || t('errors.unknown') }))
   }
 }
 
@@ -327,9 +330,9 @@ async function analyzeProtocol(protocolId: string) {
     analysisProtocolId.value = protocolId
     analysisText.value = JSON.stringify(response.data.data?.analyses ?? response.data, null, 2)
     analysisVisible.value = true
-    ElMessage.success('分析完成')
+    ElMessage.success(t('devices.protocols.analysisCompleted'))
   } catch (error: any) {
-    ElMessage.error('分析失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.protocols.analysisFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     loading.value = false
   }
@@ -340,10 +343,10 @@ async function executeProtocol(protocolId: string) {
   loading.value = true
   try {
     await robotApi.createRun(props.ip, protocolId)
-    ElMessage.success('已创建 Run 并开始执行')
+    ElMessage.success(t('devices.protocols.runCreated'))
     await refreshAll()
   } catch (error: any) {
-    ElMessage.error('执行失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.protocols.executionFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     loading.value = false
   }
@@ -353,10 +356,10 @@ async function controlRun(runId: string, actionType: 'play' | 'pause' | 'stop') 
   if (!props.ip) return
   try {
     await robotApi.controlRun(props.ip, runId, actionType)
-    ElMessage.success('Run 控制命令已发送')
+    ElMessage.success(t('devices.protocols.controlSent'))
     await refreshAll()
   } catch (error: any) {
-    ElMessage.error('控制失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.protocols.controlFailed', { error: error.message || t('errors.unknown') }))
   }
 }
 

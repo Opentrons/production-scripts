@@ -9,7 +9,7 @@
         </div>
       </div>
 
-      <nav class="main-nav" aria-label="主导航">
+      <nav class="main-nav" :aria-label="w('mainNavigation')">
         <button
           class="nav-item"
           :class="{ 'is-active': activeModule === 'workflows' }"
@@ -17,7 +17,7 @@
           @click="activeModule = 'workflows'"
         >
           <el-icon><Connection /></el-icon>
-          工作流
+          {{ w('workflows') }}
         </button>
         <button
           class="nav-item"
@@ -55,31 +55,29 @@
       <header class="versions-topbar">
         <div>
           <p class="eyebrow">VERSION AUTOMATION</p>
-          <h1>版本检测工作流</h1>
-          <p>创建、编排并运行产品版本与 BOM 核对流程。</p>
+          <h1>{{ w('title') }}</h1>
+          <p>{{ w('subtitle') }}</p>
         </div>
         <div class="versions-topbar-actions">
-          <el-button type="primary" :icon="Plus" @click="createDialogVisible = true">新建工作流</el-button>
-          <el-button :icon="Refresh" :loading="loading" @click="loadWorkflows">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="createDialogVisible = true">{{ w('newWorkflow') }}</el-button>
+          <el-button :icon="Refresh" :loading="loading" @click="loadWorkflows">{{ t('common.actions.refresh') }}</el-button>
         </div>
       </header>
 
       <section
         class="workflow-attention-board"
         :class="{ 'is-collapsed': !attentionBoardExpanded }"
-        aria-label="工作流待处理概览"
+        :aria-label="w('attentionOverview')"
       >
         <div class="attention-board-header">
           <div class="attention-board-title panel-heading-copy">
             <div>
               <span>ALERTS</span>
-              <strong>告警看板</strong>
+              <strong>{{ w('alertBoard') }}</strong>
             </div>
             <small v-if="!attentionBoardExpanded" class="attention-board-summary">
-              工作流 {{ workflows.length }}
-              · 告警 {{ totalWarningCount }}
-              · 待处理 {{ pendingWorkflowSummaries.length }}
-              <template v-if="!pendingWorkflowSummaries.length"> · 不用处理</template>
+              {{ w('attentionSummary', { workflows: workflows.length, warnings: totalWarningCount, pending: pendingWorkflowSummaries.length }) }}
+              <template v-if="!pendingWorkflowSummaries.length"> · {{ w('nothingToHandle') }}</template>
             </small>
           </div>
           <el-button
@@ -87,8 +85,8 @@
             type="primary"
             class="attention-board-toggle"
             :icon="attentionBoardExpanded ? ArrowUp : ArrowDown"
-            :aria-label="attentionBoardExpanded ? '收起看板' : '展开看板'"
-            :title="attentionBoardExpanded ? '收起看板' : '展开看板'"
+            :aria-label="attentionBoardExpanded ? w('collapseBoard') : w('expandBoard')"
+            :title="attentionBoardExpanded ? w('collapseBoard') : w('expandBoard')"
             @click="toggleAttentionBoard"
           />
         </div>
@@ -96,25 +94,25 @@
         <template v-if="attentionBoardExpanded">
           <div class="attention-stat-row">
             <article>
-              <span>工作流</span>
+              <span>{{ w('workflows') }}</span>
               <strong>{{ workflows.length }}</strong>
             </article>
             <article :class="{ 'is-alert': totalWarningCount > 0 }">
-              <span>告警</span>
+              <span>{{ w('warnings') }}</span>
               <strong>{{ totalWarningCount }}</strong>
             </article>
             <article :class="{ 'is-pending': pendingWorkflowSummaries.length > 0 }">
-              <span>待处理</span>
+              <span>{{ w('pending') }}</span>
               <strong>{{ pendingWorkflowSummaries.length }}</strong>
             </article>
           </div>
 
-          <div v-if="attentionSummaryLoading" class="attention-empty">正在统计告警…</div>
+          <div v-if="attentionSummaryLoading" class="attention-empty">{{ w('countingWarnings') }}</div>
           <div v-else-if="!pendingWorkflowSummaries.length" class="attention-empty is-clear">
-            不用处理
+            {{ w('nothingToHandle') }}
           </div>
           <div v-else class="attention-shortcuts">
-            <span class="attention-shortcuts-label">待处理工作流</span>
+            <span class="attention-shortcuts-label">{{ w('pendingWorkflows') }}</span>
             <div class="attention-shortcut-list">
               <button
                 v-for="item in pendingWorkflowSummaries"
@@ -125,10 +123,8 @@
               >
                 <span class="attention-shortcut-name">{{ item.name }}</span>
                 <small>
-                  执行历史 {{ item.runHistoryCount }}
-                  .
-                  当前告警 {{ item.warningCount }}
-                  <template v-if="item.failedCount"> · 最近失败</template>
+                  {{ w('shortcutMeta', { history: item.runHistoryCount, warnings: item.warningCount }) }}
+                  <template v-if="item.failedCount"> · {{ w('recentFailure') }}</template>
                 </small>
               </button>
             </div>
@@ -147,7 +143,7 @@
             @click="openWorkflowHistory(item.id)"
           >
             <span class="attention-shortcut-name">{{ item.name }}</span>
-            <small>执行历史 {{ item.runHistoryCount }} . 当前告警 {{ item.warningCount }}</small>
+            <small>{{ w('shortcutMeta', { history: item.runHistoryCount, warnings: item.warningCount }) }}</small>
           </button>
         </div>
       </section>
@@ -160,20 +156,20 @@
           <div class="panel-heading">
             <div>
               <span>WORKFLOWS</span>
-              <strong>工作流列表</strong>
+              <strong>{{ w('workflowList') }}</strong>
             </div>
             <el-button
               v-if="editorVisible"
               text
               :icon="Close"
-              aria-label="关闭工作流列表"
+              :aria-label="w('closeWorkflowList')"
               @click="closeWorkflowList"
-            >关闭</el-button>
+            >{{ t('common.actions.close') }}</el-button>
           </div>
 
           <div class="workflow-list-scroll">
-            <div v-if="loading && !workflows.length" class="list-state">正在加载工作流…</div>
-            <div v-else-if="!workflows.length" class="list-state">还没有工作流</div>
+            <div v-if="loading && !workflows.length" class="list-state">{{ w('loadingWorkflows') }}</div>
+            <div v-else-if="!workflows.length" class="list-state">{{ w('noWorkflows') }}</div>
             <div
               v-for="workflow in workflows"
               :key="workflow.id"
@@ -191,14 +187,14 @@
                     class="workflow-runtime-status"
                     :class="isWorkflowRunning(workflow.id) ? 'is-running' : 'is-idle'"
                   >
-                    {{ isWorkflowRunning(workflow.id) ? '运行' : '空闲' }}
+                    {{ isWorkflowRunning(workflow.id) ? w('running') : w('idle') }}
                   </span>
                 </strong>
                 <small class="workflow-list-meta">
                   <span class="workflow-list-meta-left">
                     <span class="workflow-status" :class="`is-${workflow.status}`">{{ statusText[workflow.status] }}</span>
-                    · 历史 {{ workflow.run_count || 0 }} 次 ·
-                    上一次运行 {{ formatLastRunDate(workflow.last_run_at) }}
+                    · {{ w('historyCount', { count: workflow.run_count || 0 }) }} ·
+                    {{ w('lastRun', { time: formatLastRunDate(workflow.last_run_at) }) }}
                   </span>
                 </small>
               </span>
@@ -208,16 +204,16 @@
                 @click.stop
                 @command="handleWorkflowCommand(workflow, $event)"
               >
-                <button class="workflow-more-button" type="button" aria-label="工作流操作" @click.stop>
+                <button class="workflow-more-button" type="button" :aria-label="w('workflowActions')" @click.stop>
                   <el-icon><MoreFilled /></el-icon>
                 </button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="copy" :disabled="isWorkflowCopying(workflow.id)">复制</el-dropdown-item>
-                    <el-dropdown-item command="run" :disabled="isWorkflowRunning(workflow.id)">运行</el-dropdown-item>
-                    <el-dropdown-item command="history">运行历史</el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="edit">{{ t('common.actions.edit') }}</el-dropdown-item>
+                    <el-dropdown-item command="copy" :disabled="isWorkflowCopying(workflow.id)">{{ w('copy') }}</el-dropdown-item>
+                    <el-dropdown-item command="run" :disabled="isWorkflowRunning(workflow.id)">{{ w('run') }}</el-dropdown-item>
+                    <el-dropdown-item command="history">{{ w('runHistory') }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>{{ t('common.actions.delete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -234,7 +230,7 @@
                   <h2>{{ editForm.name }}</h2>
                   <span class="kind-pill">{{ kindText[editForm.kind] }}</span>
                 </div>
-                <p>{{ editForm.description || '暂无描述' }}</p>
+                <p>{{ editForm.description || w('noDescription') }}</p>
               </div>
             </div>
             <div class="builder-actions">
@@ -243,28 +239,28 @@
                 :loading="triggering"
                 :disabled="isWorkflowRunning(selectedWorkflow.id)"
                 @click="triggerSelectedWorkflow"
-              >运行</el-button>
+              >{{ w('run') }}</el-button>
               <template v-if="builderTab === 'editor'">
-                <el-button type="primary" :icon="Check" :loading="saving" @click="saveSelectedWorkflow">保存</el-button>
+                <el-button type="primary" :icon="Check" :loading="saving" @click="saveSelectedWorkflow">{{ t('common.actions.save') }}</el-button>
               </template>
-              <el-button text :icon="Close" aria-label="关闭" @click="closeWorkflowEditor">关闭</el-button>
+              <el-button text :icon="Close" :aria-label="t('common.actions.close')" @click="closeWorkflowEditor">{{ t('common.actions.close') }}</el-button>
             </div>
           </header>
 
-          <nav class="builder-navigation" aria-label="工作流详情导航">
+          <nav class="builder-navigation" :aria-label="w('detailNavigation')">
             <button
               type="button"
               :class="{ 'is-active': builderTab === 'editor' }"
               @click="builderTab = 'editor'"
             >
-              编辑工作流
+              {{ w('editWorkflow') }}
             </button>
             <button
               type="button"
               :class="{ 'is-active': builderTab === 'history' }"
               @click="builderTab = 'history'"
             >
-              历史运行
+              {{ w('historicalRuns') }}
               <span>{{ historyTotal }}</span>
             </button>
           </nav>
@@ -273,19 +269,19 @@
             <template v-if="builderTab === 'editor'">
               <section class="configuration-strip">
                 <label class="config-field is-wide">
-                  <span>工作流名称</span>
+                  <span>{{ w('workflowName') }}</span>
                   <el-input v-model="editForm.name" />
                 </label>
                 <label class="config-field">
-                  <span>状态</span>
+                  <span>{{ t('versions.common.status') }}</span>
                   <el-select v-model="editForm.status">
-                    <el-option label="草稿" value="draft" />
-                    <el-option label="启用" value="active" />
-                    <el-option label="暂停" value="paused" />
+                    <el-option :label="w('statuses.draft')" value="draft" />
+                    <el-option :label="w('statuses.active')" value="active" />
+                    <el-option :label="w('statuses.paused')" value="paused" />
                   </el-select>
                 </label>
                 <label class="config-field schedule-field">
-                  <span>定时触发</span>
+                  <span>{{ w('scheduledTrigger') }}</span>
                   <div class="schedule-control">
                     <el-switch v-model="editForm.schedule.enabled" />
                     <el-input-number
@@ -295,14 +291,14 @@
                       :max="10080"
                       controls-position="right"
                     />
-                    <em>分钟</em>
+                    <em>{{ w('minutes') }}</em>
                   </div>
                 </label>
                 <label v-if="editForm.kind === 'duro_bom_check'" class="config-field quantity-warning-field">
-                  <span>忽略数量差异告警</span>
+                  <span>{{ w('ignoreQuantityWarning') }}</span>
                   <div class="quantity-warning-control">
                     <el-switch v-model="sourceConfiguration.ignore_quantity_mismatch_warning" />
-                    <em>仍显示数量差异，不计入警告</em>
+                    <em>{{ w('ignoreQuantityHint') }}</em>
                   </div>
                 </label>
               </section>
@@ -312,22 +308,22 @@
                   <header>
                     <div class="section-label">
                       <span>SOP SOURCE</span>
-                      <strong>SOP 产品</strong>
+                      <strong>{{ w('sopProducts') }}</strong>
                     </div>
                     <el-button
                       text
                       :icon="Refresh"
                       :loading="sopSourcesLoading"
                       @click="loadSopSources(true)"
-                    >手动刷新</el-button>
+                    >{{ w('manualRefresh') }}</el-button>
                   </header>
-                  <p>可按产品和工序筛选全部 SOP；核对只使用全文料号引用，不读取物料清单页。</p>
+                  <p>{{ w('sopSourceHint') }}</p>
                   <div class="sop-source-filters">
                     <el-select
                       v-model="sopProjectFilter"
                       clearable
                       filterable
-                      placeholder="筛选产品"
+                      :placeholder="w('filterProducts')"
                       @change="sopProcessFilter = ''"
                     >
                       <el-option
@@ -337,7 +333,7 @@
                         :value="project"
                       />
                     </el-select>
-                    <el-select v-model="sopProcessFilter" clearable filterable placeholder="筛选工序">
+                    <el-select v-model="sopProcessFilter" clearable filterable :placeholder="w('filterProcesses')">
                       <el-option
                         v-for="process in sopProcessOptions"
                         :key="process"
@@ -354,7 +350,7 @@
                     collapse-tags
                     :max-collapse-tags="2"
                     :loading="sopSourcesLoading"
-                    placeholder="选择一个或多个 SOP"
+                    :placeholder="w('selectSops')"
                     @change="handleSopSourceChange"
                   >
                     <el-option
@@ -364,8 +360,8 @@
                       :value="entry.drive_file_id || ''"
                     >
                       <div class="source-option">
-                        <strong>{{ entry.project || '未分类产品' }}</strong>
-                        <span>{{ entry.process }} · {{ entry.issue_date || '无日期' }}</span>
+                        <strong>{{ entry.project || w('uncategorizedProduct') }}</strong>
+                        <span>{{ entry.process }} · {{ entry.issue_date || w('noDate') }}</span>
                       </div>
                     </el-option>
                   </el-select>
@@ -374,8 +370,8 @@
                   </el-alert>
                   <div v-if="selectedSopEntries.length" class="source-selection-list">
                     <div v-for="entry in selectedSopEntries" :key="entry.drive_file_id || entry.row_number">
-                      <strong>{{ entry.project || '未分类产品' }}</strong>
-                      <span>{{ entry.process }} · {{ entry.issue_date || '无日期' }}</span>
+                      <strong>{{ entry.project || w('uncategorizedProduct') }}</strong>
+                      <span>{{ entry.process }} · {{ entry.issue_date || w('noDate') }}</span>
                     </div>
                   </div>
                 </article>
@@ -384,16 +380,16 @@
                   <header>
                     <div class="section-label">
                       <span>DURO SOURCE</span>
-                      <strong>Duro 产品</strong>
+                      <strong>{{ w('duroProducts') }}</strong>
                     </div>
                     <el-button
                       text
                       :icon="Refresh"
                       :loading="duroProductsLoading"
                       @click="loadDuroProducts(true)"
-                    >手动刷新</el-button>
+                    >{{ w('manualRefresh') }}</el-button>
                   </header>
-                  <p>通过当前 Duro 产品 API 加载产品、料号及当前 Revision。</p>
+                  <p>{{ w('duroSourceHint') }}</p>
                   <el-select
                     v-model="sourceConfiguration.duro_product_id"
                     filterable
@@ -401,7 +397,7 @@
                     placement="bottom-start"
                     :fallback-placements="['top-start', 'bottom-start']"
                     :loading="duroProductsLoading"
-                    placeholder="选择 Duro 产品"
+                    :placeholder="w('selectDuroProduct')"
                     @change="handleDuroProductChange"
                   >
                     <el-option
@@ -412,7 +408,7 @@
                     >
                       <div class="source-option">
                         <strong>{{ product.cpn || product.name || product._id }}</strong>
-                        <span>{{ product.name }} · {{ product.revision || '无 Revision' }}</span>
+                        <span>{{ product.name }} · {{ product.revision || w('noRevision') }}</span>
                       </div>
                     </el-option>
                   </el-select>
@@ -424,14 +420,14 @@
                     <el-collapse-item name="submenus">
                       <template #title>
                         <div class="duro-submenu-collapse-title">
-                          <strong>选择子项目</strong>
-                          <span>已选择 {{ sourceConfiguration.duro_submenu_ids?.length || 0 }} 项</span>
+                          <strong>{{ w('selectSubprojects') }}</strong>
+                          <span>{{ w('selectedItems', { count: sourceConfiguration.duro_submenu_ids?.length || 0 }) }}</span>
                         </div>
                       </template>
                       <div class="duro-submenu-heading">
-                        <span>子项目仅用于限定扫描范围，本身不参与核对；只扫描其下级 BOM 料号。</span>
+                        <span>{{ w('subprojectHint') }}</span>
                       </div>
-                      <div v-if="duroSubmenusLoading" class="duro-submenu-state">正在读取缓存的 BOM 子项目…</div>
+                      <div v-if="duroSubmenusLoading" class="duro-submenu-state">{{ w('loadingSubprojects') }}</div>
                       <el-alert v-else-if="duroSubmenusError" type="warning" :closable="false" show-icon>
                         {{ duroSubmenusError }}
                       </el-alert>
@@ -444,24 +440,24 @@
                         <el-checkbox v-for="submenu in duroSubmenuOptions" :key="submenu.id" :value="submenu.id">
                           <span class="duro-submenu-option-copy">
                             <strong>{{ duroSubmenuLabel(submenu) }}</strong>
-                            <small>{{ submenu.name || '未命名子项目' }}</small>
+                            <small>{{ submenu.name || w('unnamedSubproject') }}</small>
                           </span>
                         </el-checkbox>
                       </el-checkbox-group>
-                      <div v-else class="duro-submenu-state">该产品没有可选择的第一层 BOM 子项目。</div>
+                      <div v-else class="duro-submenu-state">{{ w('noSubprojects') }}</div>
                     </el-collapse-item>
                   </el-collapse>
                   <el-alert v-if="duroProductsError" type="warning" :closable="false" show-icon>
                     {{ duroProductsError }}
                   </el-alert>
                   <label class="source-revision-field">
-                    <span>目标 Revision</span>
-                    <el-input v-model="sourceConfiguration.target_revision" placeholder="选择产品后自动带入，可手动修改" />
+                    <span>{{ w('targetRevision') }}</span>
+                    <el-input v-model="sourceConfiguration.target_revision" :placeholder="w('targetRevisionHint')" />
                   </label>
                   <div v-if="selectedDuroProduct" class="source-selection-summary">
-                    <span>产品：{{ selectedDuroProduct.name || '—' }}</span>
-                    <span>料号：{{ selectedDuroProduct.cpn || '—' }}</span>
-                    <span>当前 Revision：{{ selectedDuroProduct.revision || '—' }}</span>
+                    <span>{{ w('selectedProduct', { product: selectedDuroProduct.name || '—' }) }}</span>
+                    <span>{{ w('selectedPart', { part: selectedDuroProduct.cpn || '—' }) }}</span>
+                    <span>{{ w('currentRevision', { revision: selectedDuroProduct.revision || '—' }) }}</span>
                   </div>
                 </article>
               </section>
@@ -471,8 +467,8 @@
                   <div class="section-label">
                     <span>SOP PRODUCT FILTER</span>
                     <div class="ignore-rule-title">
-                      <strong>忽略 SOP 相关产品</strong>
-                      <button type="button" aria-label="添加忽略 SOP 产品规则" @click="openIgnoreRuleDialog('sop')">
+                      <strong>{{ w('ignoreSopProducts') }}</strong>
+                      <button type="button" :aria-label="w('addIgnoreSopRule')" @click="openIgnoreRuleDialog('sop')">
                         <el-icon><Plus /></el-icon>
                       </button>
                     </div>
@@ -484,8 +480,7 @@
                     </div>
                   </div>
                   <div class="workflow-filter-summary">
-                    已配置 {{ sourceConfiguration.ignored_sop_product_keywords?.length || 0 }} 个产品关键字；
-                    SOP 物料名称包含关键片段且顺序一致时不计入差异，片段之间允许出现其它文字。
+                    {{ w('ignoredSopHint', { count: sourceConfiguration.ignored_sop_product_keywords?.length || 0 }) }}
                   </div>
                 </div>
 
@@ -493,17 +488,17 @@
                   <div class="section-label">
                     <span>BOM PART FILTER</span>
                     <div class="ignore-rule-title">
-                      <strong>忽略 BOM 料号</strong>
+                      <strong>{{ w('ignoreBomParts') }}</strong>
                       <button
                         type="button"
-                        aria-label="刷新真实忽略 BOM 料号"
-                        title="刷新真实忽略 BOM 料号"
+                        :aria-label="w('refreshIgnoredParts')"
+                        :title="w('refreshIgnoredParts')"
                         :disabled="Boolean(ignoredPartRulesLoading[selectedWorkflow.id])"
                         @click="refreshWorkflowIgnoredPartRules(selectedWorkflow.id, true)"
                       >
                         <el-icon :class="{ 'is-loading': ignoredPartRulesLoading[selectedWorkflow.id] }"><Refresh /></el-icon>
                       </button>
-                      <button type="button" aria-label="添加忽略 BOM 料号" @click="openIgnoreRuleDialog('part')">
+                      <button type="button" :aria-label="w('addIgnoreBomPart')" @click="openIgnoreRuleDialog('part')">
                         <el-icon><Plus /></el-icon>
                       </button>
                     </div>
@@ -515,8 +510,7 @@
                     </div>
                   </div>
                   <div class="workflow-filter-summary">
-                    已配置 {{ sourceConfiguration.ignored_part_numbers?.length || 0 }} 个忽略料号；
-                    执行时会同时从 SOP 与 Duro BOM 中排除。
+                    {{ w('ignoredPartsHint', { count: sourceConfiguration.ignored_part_numbers?.length || 0 }) }}
                   </div>
                 </div>
               </section>
@@ -525,7 +519,7 @@
                 <div class="section-heading-row">
                   <div class="section-label">
                     <span>BOM CHECK FLOW</span>
-                    <strong>核对流程</strong>
+                    <strong>{{ w('verificationFlow') }}</strong>
                   </div>
                 </div>
 
@@ -538,7 +532,7 @@
                       <div class="node-copy">
                         <span>{{ stepKindText[step.kind] }}</span>
                         <strong>{{ step.name }}</strong>
-                        <small>{{ step.description || '暂无步骤说明' }}</small>
+                        <small>{{ step.description || w('noStepDescription') }}</small>
                       </div>
                     </article>
                   </template>
@@ -551,12 +545,12 @@
                 <div class="section-label">
                   <span>EXECUTION HISTORY</span>
                   <div class="history-title-line">
-                    <strong>历史运行</strong>
+                    <strong>{{ w('historicalRuns') }}</strong>
                     <button
                       class="history-refresh-icon"
                       type="button"
-                      aria-label="刷新运行记录"
-                      title="刷新运行记录"
+                      :aria-label="w('refreshRuns')"
+                      :title="w('refreshRuns')"
                       :disabled="historyLoading"
                       @click="loadRuns(selectedWorkflow.id)"
                     >
@@ -566,16 +560,16 @@
                 </div>
                 <div class="history-filter-panel">
                   <div class="history-stat-grid">
-                    <article class="is-success"><span>成功</span><strong>{{ historySuccessCount }}</strong></article>
-                    <article class="is-failed"><span>失败</span><strong>{{ historyFailedCount }}</strong></article>
-                    <article class="is-warning"><span>告警</span><strong>{{ historyWarningCount }}</strong></article>
+                    <article class="is-success"><span>{{ w('success') }}</span><strong>{{ historySuccessCount }}</strong></article>
+                    <article class="is-failed"><span>{{ w('failed') }}</span><strong>{{ historyFailedCount }}</strong></article>
+                    <article class="is-warning"><span>{{ w('warnings') }}</span><strong>{{ historyWarningCount }}</strong></article>
                   </div>
                   <el-date-picker
                     v-model="historyDateRange"
                     type="daterange"
-                    range-separator="至"
-                    start-placeholder="开始日期"
-                    end-placeholder="结束日期"
+                    :range-separator="w('to')"
+                    :start-placeholder="w('startDate')"
+                    :end-placeholder="w('endDate')"
                     unlink-panels
                     clearable
                     @change="handleHistoryDateChange"
@@ -589,19 +583,19 @@
                     @click="handleHistoryDeleteButton"
                   >
                     <el-icon><Delete /></el-icon>
-                    <span>{{ selectedRunCount ? '删除全部' : '删除记录' }}</span>
+                    <span>{{ selectedRunCount ? w('deleteAll') : w('deleteRecords') }}</span>
                   </button>
                   <button
                     v-if="historySelectionMode"
                     class="history-selection-cancel"
                     type="button"
                     @click="cancelHistorySelection"
-                  >取消</button>
-                  <span class="next-run-text">下次运行：{{ formatDate(selectedWorkflow.next_run_at) }}</span>
+                  >{{ t('common.actions.cancel') }}</button>
+                  <span class="next-run-text">{{ w('nextRun', { time: formatDate(selectedWorkflow.next_run_at) }) }}</span>
                 </div>
               </div>
-              <div v-if="historyLoading" class="empty-runs">正在加载运行历史…</div>
-              <div v-else-if="!workflowRuns.length" class="empty-runs">还没有运行记录，点击“手动运行”验证触发链路。</div>
+              <div v-if="historyLoading" class="empty-runs">{{ w('loadingRunHistory') }}</div>
+              <div v-else-if="!workflowRuns.length" class="empty-runs">{{ w('noRunHistory') }}</div>
               <el-collapse
                 v-else
                 v-model="activeRunIds"
@@ -631,27 +625,27 @@
                         <el-tooltip :content="runMessageText(run)" placement="top" :show-after="300">
                           <small class="run-message-line" :class="{ 'is-failure-reason': run.status === 'failed' }">
                             <span>{{ truncatedRunMessage(run) }}</span>
-                            <em v-if="run.finished_at">· 耗时 {{ formatRunDuration(run) }}</em>
+                            <em v-if="run.finished_at">· {{ w('duration', { duration: formatRunDuration(run) }) }}</em>
                           </small>
                         </el-tooltip>
                       </div>
                       <div class="run-warning-summary" :class="{ 'is-warning': runHasWarnings(run) }">
                         <template v-if="run.report">
-                          <strong class="is-total-warning">警告 {{ runWarningCount(run) }}</strong>
-                          <span class="is-missing">Duro 缺失 {{ run.report.missing_in_duro_count }}</span>
-                          <span class="is-extra">Duro 冗余 {{ run.report.extra_in_duro_count }}</span>
-                          <span class="is-quantity">数量差异 {{ run.report.quantity_mismatch_count }}</span>
-                          <span class="is-unknown">数量未知 {{ run.report.quantity_unknown_count }}</span>
+                          <strong class="is-total-warning">{{ w('warningCount', { count: runWarningCount(run) }) }}</strong>
+                          <span class="is-missing">{{ w('missingCount', { count: run.report.missing_in_duro_count }) }}</span>
+                          <span class="is-extra">{{ w('extraCount', { count: run.report.extra_in_duro_count }) }}</span>
+                          <span class="is-quantity">{{ w('mismatchCount', { count: run.report.quantity_mismatch_count }) }}</span>
+                          <span class="is-unknown">{{ w('unknownCount', { count: run.report.quantity_unknown_count }) }}</span>
                         </template>
                         <span v-else>—</span>
                       </div>
-                      <span class="run-trigger-type">{{ run.trigger_type === 'manual' ? '手动' : '定时' }}</span>
+                      <span class="run-trigger-type">{{ run.trigger_type === 'manual' ? w('manual') : w('scheduled') }}</span>
                       <time>{{ formatDate(run.created_at) }}</time>
                     </div>
                   </template>
 
                   <div v-if="runDetailLoading[run.id] && !runDetailLoaded[run.id]" class="empty-runs">
-                    正在加载运行结果和核对明细…
+                    {{ w('loadingRunDetails') }}
                   </div>
                   <el-alert
                     v-else-if="runDetailErrors[run.id]"
@@ -662,28 +656,28 @@
                   />
                   <div v-else-if="runDetailLoaded[run.id] && run.report" class="bom-report">
                     <div class="bom-report-metrics">
-                      <article><span>SOP 源</span><strong>{{ run.report.sop_source_count }}</strong></article>
-                      <article><span>全文引用料号</span><strong>{{ run.report.sop_material_count }}</strong></article>
-                      <article><span>Duro 料号</span><strong>{{ run.report.duro_material_count }}</strong></article>
-                      <article><span>一致</span><strong>{{ run.report.matched_count }}</strong></article>
-                      <article class="is-danger"><span>缺失</span><strong>{{ run.report.missing_in_duro_count }}</strong></article>
-                      <article class="is-warning"><span>冗余</span><strong>{{ run.report.extra_in_duro_count }}</strong></article>
-                      <article class="is-warning"><span>数量差异</span><strong>{{ run.report.quantity_mismatch_count }}</strong></article>
-                      <article><span>数量未知</span><strong>{{ run.report.quantity_unknown_count }}</strong></article>
-                      <article class="is-ignored"><span>已忽略</span><strong>{{ run.report.total_ignored_count }}</strong></article>
+                      <article><span>{{ w('sopSources') }}</span><strong>{{ run.report.sop_source_count }}</strong></article>
+                      <article><span>{{ w('fullTextParts') }}</span><strong>{{ run.report.sop_material_count }}</strong></article>
+                      <article><span>{{ w('duroParts') }}</span><strong>{{ run.report.duro_material_count }}</strong></article>
+                      <article><span>{{ w('matched') }}</span><strong>{{ run.report.matched_count }}</strong></article>
+                      <article class="is-danger"><span>{{ w('missing') }}</span><strong>{{ run.report.missing_in_duro_count }}</strong></article>
+                      <article class="is-warning"><span>{{ w('extra') }}</span><strong>{{ run.report.extra_in_duro_count }}</strong></article>
+                      <article class="is-warning"><span>{{ w('quantityMismatch') }}</span><strong>{{ run.report.quantity_mismatch_count }}</strong></article>
+                      <article><span>{{ w('quantityUnknown') }}</span><strong>{{ run.report.quantity_unknown_count }}</strong></article>
+                      <article class="is-ignored"><span>{{ w('ignored') }}</span><strong>{{ run.report.total_ignored_count }}</strong></article>
                     </div>
-                    <nav class="report-detail-nav" aria-label="核对结果明细导航">
+                    <nav class="report-detail-nav" :aria-label="w('reportNavigation')">
                       <div class="report-detail-nav-pages">
                         <button
                           type="button"
                           :class="{ 'is-active': reportView(run.id) === 'differences' }"
                           @click="setReportView(run.id, 'differences')"
-                        >差异明细 <small>共 {{ run.report.total_difference_count }} 项，显示 {{ filteredReportDifferences(run).length }} 项</small></button>
+                        >{{ w('differenceDetails') }} <small>{{ w('showingItems', { total: run.report.total_difference_count, shown: filteredReportDifferences(run).length }) }}</small></button>
                         <button
                           type="button"
                           :class="{ 'is-active': reportView(run.id) === 'ignored' }"
                           @click="setReportView(run.id, 'ignored')"
-                        >已忽略 <small>共 {{ run.report.total_ignored_count }} 项，显示 {{ filteredReportIgnoredItems(run).length }} 项</small></button>
+                        >{{ w('ignored') }} <small>{{ w('showingItems', { total: run.report.total_ignored_count, shown: filteredReportIgnoredItems(run).length }) }}</small></button>
                       </div>
                       <div class="bom-report-filters">
                         <el-button
@@ -691,13 +685,13 @@
                           :icon="Download"
                           :loading="Boolean(runExporting[run.id])"
                           @click="exportWorkflowRun(run)"
-                        >导出 Excel</el-button>
+                        >{{ w('exportExcel') }}</el-button>
                         <el-input
                           :model-value="reportSearchText(run.id)"
                           class="report-search-input"
                           :prefix-icon="Search"
                           clearable
-                          placeholder="搜索料号 / 名称"
+                          :placeholder="w('searchPartOrName')"
                           @input="setReportSearchText(run.id, String($event))"
                         />
                         <el-select
@@ -709,7 +703,7 @@
                           collapse-tags
                           :max-collapse-tags="2"
                           popper-class="submenu-filter-popper"
-                          placeholder="全部下级BOM"
+                          :placeholder="w('allChildBom')"
                           @change="setReportSubmenuFilter(run.id, $event)"
                         >
                           <el-option
@@ -720,7 +714,7 @@
                           >
                             <div class="report-submenu-option">
                               <strong>{{ submenu.label }}</strong>
-                              <span>{{ submenu.name || '未命名子菜单' }}</span>
+                              <span>{{ submenu.name || w('unnamedSubmenu') }}</span>
                             </div>
                           </el-option>
                         </el-select>
@@ -729,12 +723,12 @@
                           class="difference-filter-select"
                           @change="setReportFilter(run.id, $event)"
                         >
-                          <el-option label="全部类型" value="all" />
-                          <el-option label="不看数量差异" value="structure" />
-                          <el-option label="只看 Duro 缺失" value="missing_in_duro" />
-                          <el-option label="只看 Duro 冗余" value="extra_in_duro" />
-                          <el-option label="只看数量差异" value="quantity_mismatch" />
-                          <el-option label="只看数量未知" value="quantity_unknown" />
+                          <el-option :label="w('filters.all')" value="all" />
+                          <el-option :label="w('filters.structure')" value="structure" />
+                          <el-option :label="w('filters.missing')" value="missing_in_duro" />
+                          <el-option :label="w('filters.extra')" value="extra_in_duro" />
+                          <el-option :label="w('filters.mismatch')" value="quantity_mismatch" />
+                          <el-option :label="w('filters.unknown')" value="quantity_unknown" />
                         </el-select>
                       </div>
                     </nav>
@@ -746,7 +740,7 @@
                       row-key="part_number"
                       height="520"
                       border
-                      empty-text="SOP BOM 与 Duro BOM 一致"
+                      :empty-text="w('bomMatched')"
                       @row-click="handleDifferenceRowClick(run.id, $event)"
                       @row-contextmenu="handleDifferenceRowContextMenu.bind(null, run)"
                     >
@@ -766,14 +760,14 @@
                                 :disabled="isDifferenceIgnoreUpdating(run.workflow_id, row.part_number)"
                                 @click.stop="ignoreWorkflowDifference(run, row)"
                               >
-                                忽略差异
+                                {{ w('ignoreDifference') }}
                               </el-button>
                             </div>
                             <section class="difference-analysis-card">
                               <header class="difference-analysis-header">
                                 <div>
                                   <small>DIFFERENCE ANALYSIS</small>
-                                  <strong>差异分析</strong>
+                                  <strong>{{ w('differenceAnalysis') }}</strong>
                                 </div>
                                 <span class="difference-status" :class="`is-${row.status}`">
                                   {{ differenceLabel(row.status) }}
@@ -781,35 +775,35 @@
                               </header>
 
                               <div class="difference-analysis-overview">
-                                <strong>核对结论</strong>
+                                <strong>{{ w('verificationConclusion') }}</strong>
                                 <p>{{ differenceSummary(row) }}</p>
                               </div>
 
                               <div class="difference-analysis-metrics">
                                 <article class="is-occurrence">
-                                  <span>SOP 正文出现</span>
-                                  <strong>{{ differenceSopOccurrenceCount(row) }} 次</strong>
-                                  <small>{{ row.sop_locations.join('；') || '正文未出现' }}</small>
+                                  <span>{{ w('sopTextOccurrences') }}</span>
+                                  <strong>{{ w('times', { count: differenceSopOccurrenceCount(row) }) }}</strong>
+                                  <small>{{ row.sop_locations.join('; ') || w('notInText') }}</small>
                                 </article>
                                 <article class="is-total">
-                                  <span>最终统计数量</span>
+                                  <span>{{ w('finalQuantity') }}</span>
                                   <strong>{{ differenceFinalSopQuantity(row) }}</strong>
-                                  <small>由下方逐次累加过程汇总</small>
+                                  <small>{{ w('summedBelow') }}</small>
                                 </article>
                                 <article class="is-duro">
                                   <span>Duro BOM</span>
-                                  <strong>{{ row.duro_quantity === null ? '未出现' : '已出现' }}</strong>
-                                  <small>{{ row.duro_quantity === null ? '当前扫描范围内未找到' : `BOM 数量 ${formatReportQuantity(row.duro_quantity)}` }}</small>
+                                  <strong>{{ row.duro_quantity === null ? w('notPresent') : w('present') }}</strong>
+                                  <small>{{ row.duro_quantity === null ? w('notInScanScope') : w('bomQuantity', { quantity: formatReportQuantity(row.duro_quantity) }) }}</small>
                                 </article>
                               </div>
 
                               <section class="difference-occurrence-flow">
                                 <header>
                                   <div>
-                                    <strong>正文累加过程</strong>
-                                    <small>每一次料号正文命中均记录为 +N 或 +0</small>
+                                    <strong>{{ w('textAccumulation') }}</strong>
+                                    <small>{{ w('textAccumulationHint') }}</small>
                                   </div>
-                                  <span>合计 {{ formatOccurrenceDelta(differenceOccurrenceTotal(row)) }}</span>
+                                  <span>{{ w('totalDelta', { delta: formatOccurrenceDelta(differenceOccurrenceTotal(row)) }) }}</span>
                                 </header>
                                 <div v-if="differenceOccurrenceSteps(row).length" class="difference-occurrence-list">
                                   <article
@@ -822,12 +816,12 @@
                                     </div>
                                     <div class="difference-occurrence-content">
                                       <div class="difference-occurrence-meta">
-                                        <span>{{ step.source || 'SOP' }}<template v-if="step.page_number"> · 第 {{ step.page_number }} 页</template></span>
+                                        <span>{{ step.source || 'SOP' }}<template v-if="step.page_number"> · {{ w('pageNumber', { number: step.page_number }) }}</template></span>
                                         <strong :class="step.quantity_delta ? 'is-added' : 'is-zero'">
                                           {{ formatOccurrenceDelta(step.quantity_delta) }}
                                         </strong>
                                       </div>
-                                      <blockquote>{{ step.evidence || '未保留正文片段' }}</blockquote>
+                                      <blockquote>{{ step.evidence || w('noEvidence') }}</blockquote>
                                       <p v-if="step.action || step.reason">
                                         <strong v-if="step.action">{{ step.action }}</strong>
                                         <span>{{ step.reason }}</span>
@@ -836,51 +830,51 @@
                                   </article>
                                 </div>
                                 <div v-else class="difference-occurrence-empty">
-                                  此历史记录未保存逐次正文证据；重新运行工作流后会显示每次出现的页码、原文和累加值。
+                                  {{ w('legacyEvidenceMissing') }}
                                 </div>
                               </section>
 
                               <section v-if="row.sop_quantity_explanations?.length" class="difference-semantic-notes">
-                                <strong>语义统计说明</strong>
+                                <strong>{{ w('semanticStatistics') }}</strong>
                                 <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
                               </section>
                             </section>
                           </div>
                         </template>
                       </el-table-column>
-                      <el-table-column label="差异类型" width="125">
+                      <el-table-column :label="w('differenceType')" width="125">
                         <template #default="{ row }">
                           <span class="difference-status" :class="`is-${row.status}`">
                             {{ differenceLabel(row.status) }}
                           </span>
                         </template>
                       </el-table-column>
-                      <el-table-column label="料号" width="170">
+                      <el-table-column :label="w('partNumber')" width="170">
                         <template #default="{ row }">
                           <div class="difference-part-number">
                             <span>{{ row.part_number }}</span>
-                            <span v-if="row.is_ignored" class="difference-ignored-tag">已忽略</span>
+                            <span v-if="row.is_ignored" class="difference-ignored-tag">{{ w('ignored') }}</span>
                           </div>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="name" label="物料名称" min-width="260" show-overflow-tooltip />
-                      <el-table-column label="Duro 子菜单" min-width="150" show-overflow-tooltip>
-                        <template #default="{ row }">{{ row.duro_submenu_labels.join('、') || '—' }}</template>
+                      <el-table-column prop="name" :label="w('materialName')" min-width="260" show-overflow-tooltip />
+                      <el-table-column :label="w('duroSubmenu')" min-width="150" show-overflow-tooltip>
+                        <template #default="{ row }">{{ row.duro_submenu_labels.join(', ') || '—' }}</template>
                       </el-table-column>
-                      <el-table-column label="SOP 数量" width="100" align="right">
+                      <el-table-column :label="w('sopQuantity')" width="100" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.sop_quantity) }}</template>
                       </el-table-column>
-                      <el-table-column label="Duro 数量" width="100" align="right">
+                      <el-table-column :label="w('duroQuantity')" width="100" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.duro_quantity) }}</template>
                       </el-table-column>
-                      <el-table-column label="差值" width="90" align="right">
+                      <el-table-column :label="w('delta')" width="90" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.quantity_delta) }}</template>
                       </el-table-column>
-                      <el-table-column label="SOP 位置" min-width="260" show-overflow-tooltip>
-                        <template #default="{ row }">{{ row.sop_locations.join('；') || '—' }}</template>
+                      <el-table-column :label="w('sopLocation')" min-width="260" show-overflow-tooltip>
+                        <template #default="{ row }">{{ row.sop_locations.join('; ') || '—' }}</template>
                       </el-table-column>
-                      <el-table-column label="Duro 路径" min-width="300" show-overflow-tooltip>
-                        <template #default="{ row }">{{ row.duro_paths.join('；') || '—' }}</template>
+                      <el-table-column :label="w('duroPath')" min-width="300" show-overflow-tooltip>
+                        <template #default="{ row }">{{ row.duro_paths.join('; ') || '—' }}</template>
                       </el-table-column>
                     </el-table>
                     </template>
@@ -889,14 +883,14 @@
                           :data="filteredReportIgnoredItems(run)"
                           border
                           height="520"
-                          empty-text="没有符合筛选条件的已忽略数据"
+                          :empty-text="w('noIgnoredData')"
                           @row-contextmenu="handleIgnoredRowContextMenu.bind(null, run)"
                         >
                           <el-table-column type="expand" width="48">
                             <template #default="{ row }">
                               <div class="semantic-audit-panel">
                                 <div v-if="row.sop_quantity_explanations?.length" class="semantic-audit-summary">
-                                  <strong>数量汇总说明</strong>
+                                  <strong>{{ w('quantityExplanation') }}</strong>
                                   <p v-for="explanation in row.sop_quantity_explanations" :key="explanation">{{ explanation }}</p>
                                 </div>
                                 <article
@@ -905,11 +899,11 @@
                                   class="semantic-decision-item"
                                 >
                                   <span class="semantic-decision-badge" :class="decision.accumulate ? 'is-added' : 'is-skipped'">
-                                    {{ decision.accumulate ? `累加 ${formatReportQuantity(decision.quantity_delta)}` : '不累加' }}
+                                    {{ decision.accumulate ? w('accumulate', { quantity: formatReportQuantity(decision.quantity_delta) }) : w('doNotAccumulate') }}
                                   </span>
                                   <div>
-                                    <strong>{{ decision.action || '语义判断' }}</strong>
-                                    <small>{{ decision.source }}<template v-if="decision.page_numbers?.length"> · 第 {{ decision.page_numbers.join('、') }} 页</template></small>
+                                    <strong>{{ decision.action || w('semanticDecision') }}</strong>
+                                    <small>{{ decision.source }}<template v-if="decision.page_numbers?.length"> · {{ w('pageNumbers', { pages: decision.page_numbers.join(', ') }) }}</template></small>
                                     <p>{{ decision.reason || '—' }}</p>
                                     <blockquote v-if="decision.evidence">{{ decision.evidence }}</blockquote>
                                   </div>
@@ -917,27 +911,27 @@
                               </div>
                             </template>
                           </el-table-column>
-                          <el-table-column label="原差异" width="120">
+                          <el-table-column :label="w('originalDifference')" width="120">
                             <template #default="{ row }">
-                              <span v-if="row.ignore_type === 'part_number_cleanup'" class="difference-status is-cleanup">物料清洗</span>
+                              <span v-if="row.ignore_type === 'part_number_cleanup'" class="difference-status is-cleanup">{{ w('materialCleanup') }}</span>
                               <span v-else class="difference-status" :class="`is-${row.status}`">{{ differenceLabel(row.status) }}</span>
                             </template>
                           </el-table-column>
-                          <el-table-column prop="part_number" label="原料号" width="140" />
-                          <el-table-column prop="name" label="物料名称" min-width="180" show-overflow-tooltip />
-                          <el-table-column label="Duro 子菜单" min-width="150" show-overflow-tooltip>
-                            <template #default="{ row }">{{ row.duro_submenu_labels.join('、') || '—' }}</template>
+                          <el-table-column prop="part_number" :label="w('originalPartNumber')" width="140" />
+                          <el-table-column prop="name" :label="w('materialName')" min-width="180" show-overflow-tooltip />
+                          <el-table-column :label="w('duroSubmenu')" min-width="150" show-overflow-tooltip>
+                            <template #default="{ row }">{{ row.duro_submenu_labels.join(', ') || '—' }}</template>
                           </el-table-column>
-                          <el-table-column label="忽略类型" width="130">
+                          <el-table-column :label="w('ignoreType')" width="130">
                             <template #default="{ row }">
-                              {{ row.ignore_type === 'part_number_cleanup' ? '默认料号清洗' : row.ignore_type === 'part_number' ? '忽略料号' : 'SOP 产品关键字' }}
+                              {{ row.ignore_type === 'part_number_cleanup' ? w('defaultPartCleanup') : row.ignore_type === 'part_number' ? w('ignoredPart') : w('sopProductKeyword') }}
                             </template>
                           </el-table-column>
-                          <el-table-column prop="ignore_value" label="命中规则" width="140" show-overflow-tooltip />
-                          <el-table-column prop="ignore_reason" label="忽略原因" min-width="220" show-overflow-tooltip />
-                          <el-table-column label="开始忽略" width="170">
+                          <el-table-column prop="ignore_value" :label="w('matchedRule')" width="140" show-overflow-tooltip />
+                          <el-table-column prop="ignore_reason" :label="w('ignoreReason')" min-width="220" show-overflow-tooltip />
+                          <el-table-column :label="w('ignoredSince')" width="170">
                             <template #default="{ row }">
-                              {{ row.ignored_at ? formatDate(row.ignored_at) : '历史配置' }}
+                              {{ row.ignored_at ? formatDate(row.ignored_at) : w('legacyConfiguration') }}
                             </template>
                           </el-table-column>
                         </el-table>
@@ -945,7 +939,7 @@
                   </div>
                   <el-alert
                     v-else-if="runDetailLoaded[run.id] && (run.status === 'running' || run.status === 'queued')"
-                    title="正在读取并核对 BOM，请稍后刷新运行记录"
+                    :title="w('checkingBom')"
                     type="info"
                     :closable="false"
                     show-icon
@@ -971,82 +965,82 @@
 
       </section>
 
-      <footer class="workflow-board-footer" aria-label="工作流数量看板">
-        <span>工作流 <strong>{{ workflows.length }}</strong></span>
-        <span>已启用 <strong>{{ activeWorkflowCount }}</strong></span>
-        <span>定时任务 <strong>{{ scheduledWorkflowCount }}</strong></span>
+      <footer class="workflow-board-footer" :aria-label="w('boardAria')">
+        <span>{{ w('workflows') }} <strong>{{ workflows.length }}</strong></span>
+        <span>{{ w('enabled') }} <strong>{{ activeWorkflowCount }}</strong></span>
+        <span>{{ w('scheduledTasks') }} <strong>{{ scheduledWorkflowCount }}</strong></span>
         <span>Duro BOM <strong>{{ duroWorkflowCount }}</strong></span>
       </footer>
     </main>
     <SopOverviewPanel v-else-if="activeModule === 'sop'" />
     <DuroProductsPanel v-else />
 
-    <el-dialog v-model="createDialogVisible" title="新建工作流" width="520px">
+    <el-dialog v-model="createDialogVisible" :title="w('newWorkflow')" width="520px">
       <div class="dialog-form">
         <label>
-          <span>工作流名称</span>
-          <el-input v-model="createForm.name" placeholder="输入工作流名称" />
+          <span>{{ w('workflowName') }}</span>
+          <el-input v-model="createForm.name" :placeholder="w('workflowNamePlaceholder')" />
         </label>
         <label>
-          <span>模板</span>
+          <span>{{ w('template') }}</span>
           <el-radio-group v-model="createForm.template">
-            <el-radio-button value="duro">Duro BOM 核对</el-radio-button>
-            <el-radio-button value="blank">空白工作流</el-radio-button>
+            <el-radio-button value="duro">{{ w('duroBomCheck') }}</el-radio-button>
+            <el-radio-button value="blank">{{ w('blankWorkflow') }}</el-radio-button>
           </el-radio-group>
         </label>
         <label>
-          <span>描述</span>
+          <span>{{ w('description') }}</span>
           <el-input v-model="createForm.description" type="textarea" :rows="3" />
         </label>
       </div>
       <template #footer>
-        <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="createWorkflow">创建</el-button>
+        <el-button @click="createDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="creating" @click="createWorkflow">{{ w('create') }}</el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="ignoreRuleDialogVisible"
-      :title="ignoreRuleDialogType === 'sop' ? '添加忽略 SOP 产品规则' : '添加忽略 BOM 料号'"
+      :title="ignoreRuleDialogType === 'sop' ? w('addIgnoreSopRule') : w('addIgnoreBomPart')"
       width="480px"
     >
       <div class="ignore-rule-dialog-form">
         <label>
-          <span>{{ ignoreRuleDialogType === 'sop' ? '产品关键字' : 'BOM 料号' }}</span>
+          <span>{{ ignoreRuleDialogType === 'sop' ? w('productKeyword') : w('bomPartNumber') }}</span>
           <el-input
             v-if="ignoreRuleDialogType === 'sop'"
             v-model="pendingSopKeyword"
-            placeholder="例如 200μl"
+            :placeholder="w('keywordExample')"
             @keyup.enter="addIgnoredSopKeyword"
           />
           <el-input
             v-else
             v-model="pendingPartNumber"
-            placeholder="例如 100-00001"
+            :placeholder="w('partExample')"
             @keyup.enter="addIgnoredPartNumber"
           />
         </label>
         <label>
-          <span>忽略原因</span>
+          <span>{{ w('ignoreReason') }}</span>
           <el-input
             v-if="ignoreRuleDialogType === 'sop'"
             v-model="pendingSopKeywordReason"
             type="textarea"
             :rows="3"
-            placeholder="必填，请说明忽略原因"
+            :placeholder="w('ignoreReasonPlaceholder')"
           />
           <el-input
             v-else
             v-model="pendingPartNumberReason"
             type="textarea"
             :rows="3"
-            placeholder="必填，请说明忽略原因"
+            :placeholder="w('ignoreReasonPlaceholder')"
           />
         </label>
       </div>
       <template #footer>
-        <el-button @click="ignoreRuleDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmIgnoreRule">添加</el-button>
+        <el-button @click="ignoreRuleDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" @click="confirmIgnoreRule">{{ t('common.actions.add') }}</el-button>
       </template>
     </el-dialog>
 
@@ -1055,7 +1049,7 @@
         v-if="differenceContextMenu.visible && differenceContextMenu.run && differenceContextMenu.row"
         class="difference-context-menu"
         role="menu"
-        aria-label="差异操作"
+        :aria-label="w('differenceActions')"
         :style="{ left: `${differenceContextMenu.x}px`, top: `${differenceContextMenu.y}px` }"
         @click.stop
         @contextmenu.prevent
@@ -1068,7 +1062,7 @@
             :disabled="!canRestoreIgnoredDifference(differenceContextMenu.row) || isDifferenceIgnoreUpdating(differenceContextMenu.run.workflow_id, differenceContextMenu.row.part_number)"
             @click="handleDifferenceContextMenuCommand('restore')"
           >
-            恢复原差异（{{ differenceLabel(differenceContextMenu.row.status) }}）
+            {{ w('restoreDifference', { type: differenceLabel(differenceContextMenu.row.status) }) }}
           </button>
         </template>
         <template v-else>
@@ -1078,11 +1072,11 @@
             :disabled="isDifferenceIgnoreUpdating(differenceContextMenu.run.workflow_id, differenceContextMenu.row.part_number)"
             @click="handleDifferenceContextMenuCommand('ignore')"
           >
-            忽略料号
+            {{ w('ignorePart') }}
           </button>
           <div class="difference-context-menu-divider" role="separator"></div>
           <button type="button" role="menuitem" @click="handleDifferenceContextMenuCommand('expand')">
-            展开
+            {{ w('expand') }}
           </button>
         </template>
       </div>
@@ -1093,6 +1087,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus'
 import {
@@ -1118,6 +1113,7 @@ import {
 import DuroProductsPanel from '@/views/version_modules/DuroProductsPanel.vue'
 import SopOverviewPanel from '@/views/version_modules/SopOverviewPanel.vue'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
+import { useAppLocale } from '@/i18n'
 import '@/styles/version_modules/version_modules.css'
 import { duroApi, type DuroBomNode, type DuroProduct } from '@/scripts/modules/version_modules/api/duro'
 import { sopApi, type SopCatalogEntry } from '@/scripts/modules/version_modules/api/sop'
@@ -1141,6 +1137,13 @@ import {
 type VersionModule = 'workflows' | 'sop' | 'duro'
 
 const route = useRoute()
+const { t } = useI18n()
+const { locale } = useAppLocale()
+const w = (key: string, params?: Record<string, unknown>) => t(`versions.workflow.${key}`, params || {})
+
+const apiError = (error: any, fallback: string) => (
+  error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || fallback
+)
 
 function versionModuleFromQuery(value: unknown): VersionModule {
   const module = Array.isArray(value) ? value[0] : value
@@ -1284,21 +1287,18 @@ interface WorkflowSourceConfiguration extends Record<string, unknown> {
 }
 
 const createForm = reactive({
-  name: 'Duro BOM 核对',
+  name: w('duroBomCheck'),
   template: 'duro' as 'duro' | 'blank',
-  description: '核对 Duro 产品 BOM 的结构、料号、数量和版本差异。'
+  description: w('defaultDescription')
 })
 
-const statusText: Record<WorkflowStatus, string> = {
-  draft: '草稿',
-  active: '启动',
-  paused: '暂停'
-}
+const statusText = computed<Record<WorkflowStatus, string>>(() => ({
+  draft: w('statuses.draft'), active: w('statuses.active'), paused: w('statuses.paused')
+}))
 
-const kindText: Record<WorkflowKind, string> = {
-  duro_bom_check: 'Duro BOM',
-  custom: '自定义'
-}
+const kindText = computed<Record<WorkflowKind, string>>(() => ({
+  duro_bom_check: 'Duro BOM', custom: w('custom')
+}))
 
 const stepKindText: Record<WorkflowStepKind, string> = {
   duro_bom_fetch: 'DURO SOURCE',
@@ -1307,20 +1307,14 @@ const stepKindText: Record<WorkflowStepKind, string> = {
   custom: 'CUSTOM STEP'
 }
 
-const runStatusText: Record<WorkflowRunStatus, string> = {
-  queued: '等待执行',
-  running: '执行中',
-  succeeded: '执行成功',
-  failed: '执行失败',
-  skipped: '等待配置'
-}
+const runStatusText = computed<Record<WorkflowRunStatus, string>>(() => ({
+  queued: w('runStatuses.queued'), running: w('runStatuses.running'), succeeded: w('runStatuses.succeeded'),
+  failed: w('runStatuses.failed'), skipped: w('runStatuses.skipped')
+}))
 
-const differenceStatusText: Record<WorkflowBomDifferenceStatus, string> = {
-  missing_in_duro: 'Duro 缺失',
-  extra_in_duro: 'Duro 冗余',
-  quantity_mismatch: '数量差异',
-  quantity_unknown: '数量未知'
-}
+const differenceStatusText = computed<Record<WorkflowBomDifferenceStatus, string>>(() => ({
+  missing_in_duro: w('missing'), extra_in_duro: w('extra'), quantity_mismatch: w('quantityMismatch'), quantity_unknown: w('quantityUnknown')
+}))
 
 const selectedWorkflow = computed(() =>
   workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value) ?? null
@@ -1348,7 +1342,7 @@ const pendingWorkflowSummaries = computed(() => (
       }
     })
     .filter((item) => item.alertCount > 0)
-    .sort((left, right) => right.alertCount - left.alertCount || left.name.localeCompare(right.name, 'zh-CN'))
+    .sort((left, right) => right.alertCount - left.alertCount || left.name.localeCompare(right.name, locale.value))
 ))
 
 const totalWarningCount = computed(() => (
@@ -1369,19 +1363,19 @@ const allSopOptions = computed(() =>
     )
 )
 const sopProjectOptions = computed(() =>
-  [...new Set(allSopOptions.value.map((entry) => entry.project || '未分类产品'))].sort((a, b) => a.localeCompare(b))
+  [...new Set(allSopOptions.value.map((entry) => entry.project || w('uncategorizedProduct')))].sort((a, b) => a.localeCompare(b))
 )
 const sopProcessOptions = computed(() =>
   [...new Set(
     allSopOptions.value
-      .filter((entry) => !sopProjectFilter.value || (entry.project || '未分类产品') === sopProjectFilter.value)
-      .map((entry) => entry.process || '未命名工序')
+      .filter((entry) => !sopProjectFilter.value || (entry.project || w('uncategorizedProduct')) === sopProjectFilter.value)
+      .map((entry) => entry.process || w('unnamedProcess'))
   )].sort((a, b) => a.localeCompare(b))
 )
 const filteredSopOptions = computed(() =>
   allSopOptions.value.filter((entry) =>
-    (!sopProjectFilter.value || (entry.project || '未分类产品') === sopProjectFilter.value)
-    && (!sopProcessFilter.value || (entry.process || '未命名工序') === sopProcessFilter.value)
+    (!sopProjectFilter.value || (entry.project || w('uncategorizedProduct')) === sopProjectFilter.value)
+    && (!sopProcessFilter.value || (entry.process || w('unnamedProcess')) === sopProcessFilter.value)
   )
 )
 const displayedSopOptions = computed(() => {
@@ -1414,15 +1408,15 @@ const dataSourceStatusClass = computed(() => ({
   'is-error': !dataSourcesChecking.value && !dataSourcesConnected.value
 }))
 const dataSourceStatusTitle = computed(() => {
-  if (dataSourcesChecking.value) return '正在检测数据源'
-  return dataSourcesConnected.value ? '数据源已接入' : '数据源接入失败'
+  if (dataSourcesChecking.value) return w('checkingSources')
+  return dataSourcesConnected.value ? w('sourcesConnected') : w('sourcesFailed')
 })
 const dataSourceStatusDetail = computed(() => {
-  if (dataSourcesChecking.value) return '正在检查 SOP / Duro API'
+  if (dataSourcesChecking.value) return w('checkingSopDuro')
   if (dataSourcesConnected.value) return 'SOP / Duro API'
-  if (sopSourcesError.value && duroProductsError.value) return 'SOP、Duro API 获取失败'
-  if (sopSourcesError.value) return 'SOP 获取失败'
-  return 'Duro API 获取失败'
+  if (sopSourcesError.value && duroProductsError.value) return w('bothSourcesFailed')
+  if (sopSourcesError.value) return w('sopSourceFailed')
+  return w('duroSourceFailed')
 })
 const dataSourceErrorDetail = computed(() =>
   [
@@ -1495,10 +1489,10 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     ignored_sop_product_keywords: ignoredSopProductKeywords,
     ignored_part_numbers: ignoredPartNumbers,
     ignored_sop_product_keyword_reasons: Object.fromEntries(
-      ignoredSopProductKeywords.map((keyword) => [keyword, String(keywordReasons[keyword] || '历史配置未填写原因')])
+      ignoredSopProductKeywords.map((keyword) => [keyword, String(keywordReasons[keyword] || w('legacyReasonMissing'))])
     ),
     ignored_part_number_reasons: Object.fromEntries(
-      ignoredPartNumbers.map((partNumber) => [partNumber, String(partReasons[partNumber] || '历史配置未填写原因')])
+      ignoredPartNumbers.map((partNumber) => [partNumber, String(partReasons[partNumber] || w('legacyReasonMissing'))])
     ),
     ignore_quantity_mismatch_warning: Boolean(configuration.ignore_quantity_mismatch_warning)
   }
@@ -1524,7 +1518,7 @@ async function loadWorkflows() {
   } catch (error) {
     console.error(error)
     workflowAttentionMap.value = {}
-    ElMessage.error('工作流加载失败，请确认后端已启动')
+    ElMessage.error(w('messages.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -1631,10 +1625,10 @@ async function refreshWorkflowIgnoredPartRules(workflowId: string, notify = fals
       sourceConfiguration.value.ignored_part_numbers = partNumbers
       sourceConfiguration.value.ignored_part_number_reasons = reasons
     }
-    if (notify) ElMessage.success(`已刷新 ${partNumbers.length} 个真实忽略料号`)
+    if (notify) ElMessage.success(w('messages.ignoredPartsRefreshed', { count: partNumbers.length }))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '真实忽略 BOM 料号刷新失败')
+    ElMessage.error(apiError(error, w('messages.refreshIgnoredPartsFailed')))
   } finally {
     ignoredPartRulesLoading[workflowId] = false
   }
@@ -1725,7 +1719,7 @@ async function loadSopSources(refresh = false) {
     sopCatalogEntries.value = response.data.entries
   } catch (error: any) {
     console.error(error)
-    sopSourcesError.value = error?.response?.data?.detail || error?.message || 'SOP 数据源加载失败'
+    sopSourcesError.value = apiError(error, w('messages.sopSourceLoadFailed'))
   } finally {
     sopSourcesLoading.value = false
     sopSourceChecked.value = true
@@ -1740,7 +1734,7 @@ async function loadDuroProducts(refresh = false) {
     duroProducts.value = response.data.products
   } catch (error: any) {
     console.error(error)
-    duroProductsError.value = error?.response?.data?.detail || error?.message || 'Duro 产品加载失败'
+    duroProductsError.value = apiError(error, w('messages.duroProductsLoadFailed'))
   } finally {
     duroProductsLoading.value = false
     duroSourceChecked.value = true
@@ -1803,7 +1797,7 @@ async function loadDuroSubmenus(productId: string) {
   } catch (error: any) {
     console.error(error)
     duroSubmenuOptions.value = []
-    duroSubmenusError.value = error?.response?.data?.detail || error?.message || 'Duro BOM 子菜单加载失败'
+    duroSubmenusError.value = apiError(error, w('messages.submenusLoadFailed'))
   } finally {
     duroSubmenusLoading.value = false
   }
@@ -1824,8 +1818,8 @@ function duroSubmenuLabel(submenu: DuroBomNode) {
 function addIgnoredPartNumber() {
   const partNumber = pendingPartNumber.value.trim().toUpperCase()
   const reason = pendingPartNumberReason.value.trim()
-  if (!partNumber) return ElMessage.warning('请输入 BOM 料号')
-  if (!reason) return ElMessage.warning('添加忽略料号前必须填写原因')
+  if (!partNumber) return ElMessage.warning(w('messages.enterBomPart'))
+  if (!reason) return ElMessage.warning(w('messages.ignoreReasonRequired'))
   sourceConfiguration.value.ignored_part_numbers = [
     ...new Set([...(sourceConfiguration.value.ignored_part_numbers ?? []), partNumber])
   ]
@@ -1849,8 +1843,8 @@ function removeIgnoredPartNumber(partNumber: string) {
 function addIgnoredSopKeyword() {
   const keyword = pendingSopKeyword.value.trim()
   const reason = pendingSopKeywordReason.value.trim()
-  if (!keyword) return ElMessage.warning('请输入 SOP 产品关键字')
-  if (!reason) return ElMessage.warning('添加产品关键字前必须填写原因')
+  if (!keyword) return ElMessage.warning(w('messages.enterSopKeyword'))
+  if (!reason) return ElMessage.warning(w('messages.ignoreKeywordReasonRequired'))
   sourceConfiguration.value.ignored_sop_product_keywords = uniqueKeywords([
     ...(sourceConfiguration.value.ignored_sop_product_keywords ?? []),
     keyword
@@ -1897,7 +1891,7 @@ function uniqueKeywords(values: string[]) {
 }
 
 function sopOptionLabel(entry: SopCatalogEntry) {
-  return `${entry.project || '未分类产品'} · ${entry.process}${entry.issue_date ? ` · ${entry.issue_date}` : ''}`
+  return `${entry.project || w('uncategorizedProduct')} · ${entry.process}${entry.issue_date ? ` · ${entry.issue_date}` : ''}`
 }
 
 function duroProductLabel(product: DuroProduct) {
@@ -2016,11 +2010,11 @@ async function handleHistoryDeleteButton() {
   if (!selectedRunCount.value || deletingRuns.value) return
   try {
     await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedRunCount.value} 条运行记录？删除后无法恢复。`,
-      '批量删除运行记录',
+      w('dialogs.deleteRunsBody', { count: selectedRunCount.value }),
+      w('dialogs.deleteRunsTitle'),
       {
-        confirmButtonText: '删除全部',
-        cancelButtonText: '取消',
+        confirmButtonText: w('deleteAll'),
+        cancelButtonText: t('common.actions.cancel'),
         type: 'warning'
       }
     )
@@ -2038,10 +2032,10 @@ async function handleHistoryDeleteButton() {
     cancelHistorySelection()
     if (selectedWorkflowId.value) await loadRuns(selectedWorkflowId.value)
     await loadWorkflows()
-    ElMessage.success(`已删除 ${deletedCount} 条运行记录`)
+    ElMessage.success(w('messages.runsDeleted', { count: deletedCount }))
   } catch (error) {
     console.error(error)
-    ElMessage.error('运行记录删除失败')
+    ElMessage.error(w('messages.deleteRunsFailed'))
   } finally {
     deletingRuns.value = false
   }
@@ -2075,7 +2069,7 @@ async function loadRunDetail(runId: string, force = false) {
     runDetailLoaded[runId] = true
   } catch (error: any) {
     console.error(error)
-    runDetailErrors[runId] = error?.response?.data?.detail || error?.message || '运行明细加载失败'
+    runDetailErrors[runId] = apiError(error, w('messages.runDetailFailed'))
   } finally {
     runDetailLoading[runId] = false
     if (runDetailReloadPending[runId]) {
@@ -2093,7 +2087,7 @@ async function exportWorkflowRun(run: WorkflowRun) {
     const contentDisposition = String(response.headers['content-disposition'] || '')
     const encodedFilename = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition)?.[1]
     const quotedFilename = /filename="([^"]+)"/i.exec(contentDisposition)?.[1]
-    const fallbackName = `${run.workflow_name.replace(/[\\/:*?"<>|]+/g, '_') || '工作流'}_差异明细.xlsx`
+    const fallbackName = `${run.workflow_name.replace(/[\\/:*?"<>|]+/g, '_') || w('workflows')}_${w('differenceDetails')}.xlsx`
     let filename = quotedFilename || fallbackName
     if (encodedFilename) {
       try {
@@ -2110,10 +2104,10 @@ async function exportWorkflowRun(run: WorkflowRun) {
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(url)
-    ElMessage.success('差异明细已导出')
+    ElMessage.success(w('messages.exported'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '导出 Excel 失败')
+    ElMessage.error(apiError(error, w('messages.exportFailed')))
   } finally {
     runExporting[run.id] = false
   }
@@ -2122,7 +2116,7 @@ async function exportWorkflowRun(run: WorkflowRun) {
 async function saveSelectedWorkflow() {
   if (!selectedWorkflowId.value || !editForm.value) return
   if (!editForm.value.name.trim()) {
-    ElMessage.warning('请输入工作流名称')
+    ElMessage.warning(w('messages.enterWorkflowName'))
     return
   }
   saving.value = true
@@ -2132,10 +2126,10 @@ async function saveSelectedWorkflow() {
     if (index >= 0) workflows.value[index] = response.data
     editForm.value = cloneWorkflowPayload(response.data)
     await refreshWorkflowIgnoredPartRules(response.data.id)
-    ElMessage.success('工作流已保存')
+    ElMessage.success(w('messages.saved'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('工作流保存失败')
+    ElMessage.error(w('messages.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -2143,7 +2137,7 @@ async function saveSelectedWorkflow() {
 
 async function createWorkflow() {
   if (!createForm.name.trim()) {
-    ElMessage.warning('请输入工作流名称')
+    ElMessage.warning(w('messages.enterWorkflowName'))
     return
   }
   creating.value = true
@@ -2166,10 +2160,10 @@ async function createWorkflow() {
     editorVisible.value = false
     workflowListVisible.value = true
     createDialogVisible.value = false
-    ElMessage.success('工作流已创建')
+    ElMessage.success(w('messages.created'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('工作流创建失败')
+    ElMessage.error(w('messages.createFailed'))
   } finally {
     creating.value = false
   }
@@ -2180,13 +2174,13 @@ async function copyWorkflow(workflow: Workflow) {
   copyingWorkflowIds.value = new Set(copyingWorkflowIds.value).add(workflow.id)
   try {
     const payload = cloneWorkflowPayload(workflow)
-    payload.name = `${workflow.name}-副本`
+    payload.name = w('copyName', { name: workflow.name })
     await workflowApi.create(payload)
     await loadWorkflows()
-    ElMessage.success(`已复制“${workflow.name}”`)
+    ElMessage.success(w('messages.copied', { name: workflow.name }))
   } catch (error) {
     console.error(error)
-    ElMessage.error('工作流复制失败')
+    ElMessage.error(w('messages.copyFailed'))
   } finally {
     const next = new Set(copyingWorkflowIds.value)
     next.delete(workflow.id)
@@ -2196,9 +2190,9 @@ async function copyWorkflow(workflow: Workflow) {
 
 async function deleteWorkflow(workflow: Workflow) {
   try {
-    await ElMessageBox.confirm(`确认删除“${workflow.name}”？`, '删除工作流', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(w('dialogs.deleteWorkflowBody', { name: workflow.name }), w('dialogs.deleteWorkflowTitle'), {
+      confirmButtonText: t('common.actions.delete'),
+      cancelButtonText: t('common.actions.cancel'),
       type: 'warning'
     })
   } catch {
@@ -2218,10 +2212,10 @@ async function deleteWorkflow(workflow: Workflow) {
       editorVisible.value = false
       workflowListVisible.value = true
     }
-    ElMessage.success('工作流已删除')
+    ElMessage.success(w('messages.deleted'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('工作流删除失败')
+    ElMessage.error(w('messages.deleteFailed'))
   }
 }
 
@@ -2237,13 +2231,13 @@ async function triggerWorkflow(workflow: Workflow) {
   triggering.value = true
   try {
     const response = await workflowApi.trigger(workflow.id)
-    ElMessage.success('工作流已触发')
+    ElMessage.success(w('messages.triggered'))
     if (editorVisible.value && selectedWorkflowId.value === workflow.id) builderTab.value = 'history'
     startPollingWorkflowRun(workflow.id, response.data.id)
     await loadWorkflows()
   } catch (error) {
     console.error(error)
-    ElMessage.error('工作流触发失败')
+    ElMessage.error(w('messages.triggerFailed'))
     setWorkflowRunning(workflow.id, false)
   } finally {
     triggering.value = false
@@ -2294,8 +2288,8 @@ async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
 
 function duroTemplateSteps(): WorkflowStep[] {
   return [
-    createStep('核对 Duro BOM', 'bom_compare', '汇总所选 SOP 的全文料号引用，并与 Duro BOM 核对料号和出现次数。'),
-    createStep('核对报告', 'report', '输出缺失料号、冗余料号、数量差异和无法比较项。')
+    createStep(w('steps.compareName'), 'bom_compare', w('steps.compareDescription')),
+    createStep(w('steps.reportName'), 'report', w('steps.reportDescription'))
   ]
 }
 
@@ -2317,17 +2311,17 @@ function stepIcon(kind: WorkflowStepKind) {
 }
 
 function scheduleText(workflow: Workflow) {
-  return workflow.schedule.enabled ? `每 ${workflow.schedule.interval_minutes} 分钟` : '仅手动'
+  return workflow.schedule.enabled ? w('everyMinutes', { minutes: workflow.schedule.interval_minutes }) : w('manualOnly')
 }
 
 function formatDate(value: string | null) {
-  if (!value) return '未安排'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  if (!value) return w('notScheduled')
+  return new Date(value).toLocaleString(locale.value, { hour12: false })
 }
 
 function formatLastRunDate(value: string | null) {
-  if (!value) return '从未运行'
-  return new Date(value).toLocaleString('zh-CN', {
+  if (!value) return w('neverRun')
+  return new Date(value).toLocaleString(locale.value, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -2341,15 +2335,15 @@ function formatRunDuration(run: WorkflowRun) {
   const start = new Date(run.started_at || run.created_at).getTime()
   const finish = new Date(run.finished_at).getTime()
   const milliseconds = Math.max(0, finish - start)
-  if (milliseconds < 1000) return `${milliseconds} 毫秒`
+  if (milliseconds < 1000) return w('milliseconds', { count: milliseconds })
   const totalSeconds = Math.round(milliseconds / 1000)
-  if (totalSeconds < 60) return `${totalSeconds} 秒`
+  if (totalSeconds < 60) return w('seconds', { count: totalSeconds })
   const totalMinutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
-  if (totalMinutes < 60) return `${totalMinutes} 分 ${seconds} 秒`
+  if (totalMinutes < 60) return w('minutesSeconds', { minutes: totalMinutes, seconds })
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  return `${hours} 小时 ${minutes} 分`
+  return w('hoursMinutes', { hours, minutes })
 }
 
 function formatReportQuantity(value: number | null) {
@@ -2358,7 +2352,7 @@ function formatReportQuantity(value: number | null) {
 }
 
 function differenceLabel(status: string) {
-  return differenceStatusText[status as WorkflowBomDifferenceStatus] || status
+  return differenceStatusText.value[status as WorkflowBomDifferenceStatus] || status
 }
 
 function differenceOccurrenceSteps(row: WorkflowBomDifference): WorkflowSopOccurrenceStep[] {
@@ -2372,7 +2366,7 @@ function differenceOccurrenceSteps(row: WorkflowBomDifference): WorkflowSopOccur
       quantity_delta: pageIndex === 0 && decision.accumulate ? decision.quantity_delta : 0,
       accumulate: pageIndex === 0 && decision.accumulate,
       action: decision.action,
-      reason: pageIndex === 0 ? decision.reason : '同一语义事件的其它正文位置，计入 +0'
+      reason: pageIndex === 0 ? decision.reason : w('sameEventOtherLocation')
     }))
   })
 }
@@ -2397,18 +2391,18 @@ function formatOccurrenceDelta(value: number) {
 }
 
 function differenceSummary(row: WorkflowBomDifference) {
-  const material = row.name ? `${row.part_number}（${row.name}）` : row.part_number
+  const material = row.name ? `${row.part_number} (${row.name})` : row.part_number
   const occurrenceCount = differenceSopOccurrenceCount(row)
   if (row.status === 'missing_in_duro') {
-    return `${material} 在 SOP 正文中出现 ${occurrenceCount} 次，最终统计数量为 ${formatReportQuantity(row.sop_quantity)}；当前 Duro BOM 扫描范围内未出现。`
+    return w('summaries.missing', { material, occurrences: occurrenceCount, sopQuantity: formatReportQuantity(row.sop_quantity) })
   }
   if (row.status === 'extra_in_duro') {
-    return `${material} 在 SOP 正文中出现 0 次，最终统计数量为 0；Duro BOM 中已出现，数量为 ${formatReportQuantity(row.duro_quantity)}。`
+    return w('summaries.extra', { material, duroQuantity: formatReportQuantity(row.duro_quantity) })
   }
   if (row.status === 'quantity_mismatch') {
-    return `${material} 在 SOP 正文中出现 ${occurrenceCount} 次，最终统计数量为 ${formatReportQuantity(row.sop_quantity)}；Duro BOM 中已出现，数量为 ${formatReportQuantity(row.duro_quantity)}，差值为 ${formatReportQuantity(row.quantity_delta)}（Duro - SOP）。`
+    return w('summaries.mismatch', { material, occurrences: occurrenceCount, sopQuantity: formatReportQuantity(row.sop_quantity), duroQuantity: formatReportQuantity(row.duro_quantity), delta: formatReportQuantity(row.quantity_delta) })
   }
-  return `${material} 在 SOP 正文中出现 ${occurrenceCount} 次，但最终数量无法可靠确定；Duro BOM 中已出现，数量为 ${formatReportQuantity(row.duro_quantity)}。`
+  return w('summaries.unknown', { material, occurrences: occurrenceCount, duroQuantity: formatReportQuantity(row.duro_quantity) })
 }
 
 function differenceIgnoreKey(workflowId: string, partNumber: string) {
@@ -2511,14 +2505,14 @@ async function ignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDiffer
   let reason = ''
   try {
     const response = await ElMessageBox.prompt(
-      `料号：${row.part_number}${row.name ? ` · ${row.name}` : ''}`,
-      '忽略该差异',
+      w('dialogs.partIdentity', { part: row.part_number, name: row.name ? ` · ${row.name}` : '' }),
+      w('dialogs.ignoreDifferenceTitle'),
       {
-        confirmButtonText: '确认忽略',
-        cancelButtonText: '取消',
+        confirmButtonText: w('confirmIgnore'),
+        cancelButtonText: t('common.actions.cancel'),
         inputType: 'textarea',
-        inputPlaceholder: '必填，请填写忽略原因',
-        inputValidator: (value) => value.trim().length > 0 || '请填写忽略原因'
+        inputPlaceholder: w('ignoreReasonPlaceholder'),
+        inputValidator: (value) => value.trim().length > 0 || w('enterIgnoreReason')
       }
     )
     reason = response.value.trim()
@@ -2532,10 +2526,10 @@ async function ignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDiffer
     await workflowApi.ignorePart(run.workflow_id, row.part_number, reason)
     await refreshWorkflowIgnoredPartRules(run.workflow_id)
     await loadRunDetail(run.id, true)
-    ElMessage.success(`已忽略料号 ${row.part_number}`)
+    ElMessage.success(w('messages.partIgnored', { part: row.part_number }))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '忽略料号失败')
+    ElMessage.error(apiError(error, w('messages.ignorePartFailed')))
   } finally {
     differenceIgnoreUpdating[key] = false
   }
@@ -2544,11 +2538,11 @@ async function ignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDiffer
 async function unignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDifference) {
   try {
     await ElMessageBox.confirm(
-      `确认取消忽略料号 ${row.part_number}？后续运行将重新统计该差异。`,
-      '取消忽略',
+      w('dialogs.unignoreBody', { part: row.part_number }),
+      w('dialogs.unignoreTitle'),
       {
-        confirmButtonText: '确认取消',
-        cancelButtonText: '返回',
+        confirmButtonText: w('confirmUnignore'),
+        cancelButtonText: w('back'),
         type: 'warning'
       }
     )
@@ -2562,10 +2556,10 @@ async function unignoreWorkflowDifference(run: WorkflowRun, row: WorkflowBomDiff
     await workflowApi.unignorePart(run.workflow_id, row.part_number)
     await refreshWorkflowIgnoredPartRules(run.workflow_id)
     await loadRunDetail(run.id, true)
-    ElMessage.success(`已取消忽略料号 ${row.part_number}`)
+    ElMessage.success(w('messages.partUnignored', { part: row.part_number }))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '取消忽略失败')
+    ElMessage.error(apiError(error, w('messages.unignoreFailed')))
   } finally {
     differenceIgnoreUpdating[key] = false
   }
@@ -2579,21 +2573,21 @@ function canRestoreIgnoredDifference(
 
 function ignoredDifferenceRestoreHint(row: WorkflowBomDifference | WorkflowBomIgnoredItem) {
   if (!('ignore_type' in row)) return ''
-  if (row.ignore_type === 'sop_product_keyword') return '该项由 SOP 产品关键字规则忽略，请在工作流配置中移除对应规则'
-  if (row.ignore_type === 'part_number_cleanup') return '该项由默认料号清洗规则忽略，不能单独恢复'
-  if (!row.ignored_at) return '该项来自工作流固定忽略配置，请在工作流配置中移除对应料号'
-  return `恢复为${differenceLabel(row.status)}`
+  if (row.ignore_type === 'sop_product_keyword') return w('restoreHints.sopKeyword')
+  if (row.ignore_type === 'part_number_cleanup') return w('restoreHints.cleanup')
+  if (!row.ignored_at) return w('restoreHints.fixedConfig')
+  return w('restoreHints.restoreAs', { type: differenceLabel(row.status) })
 }
 
 async function restoreIgnoredWorkflowDifference(run: WorkflowRun, row: WorkflowBomIgnoredItem) {
   if (!canRestoreIgnoredDifference(row)) return
   try {
     await ElMessageBox.confirm(
-      `确认将料号 ${row.part_number} 恢复为“${differenceLabel(row.status)}”？后续运行将重新统计该差异。`,
-      '恢复原差异',
+      w('dialogs.restoreBody', { part: row.part_number, type: differenceLabel(row.status) }),
+      w('dialogs.restoreTitle'),
       {
-        confirmButtonText: '确认恢复',
-        cancelButtonText: '取消',
+        confirmButtonText: w('confirmRestore'),
+        cancelButtonText: t('common.actions.cancel'),
         type: 'warning'
       }
     )
@@ -2607,10 +2601,10 @@ async function restoreIgnoredWorkflowDifference(run: WorkflowRun, row: WorkflowB
     await workflowApi.unignorePart(run.workflow_id, row.part_number)
     await refreshWorkflowIgnoredPartRules(run.workflow_id)
     await loadRunDetail(run.id, true)
-    ElMessage.success(`已恢复 ${differenceLabel(row.status)}：${row.part_number}`)
+    ElMessage.success(w('messages.restored', { type: differenceLabel(row.status), part: row.part_number }))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '恢复原差异失败')
+    ElMessage.error(apiError(error, w('messages.restoreFailed')))
   } finally {
     differenceIgnoreUpdating[key] = false
   }
@@ -2632,14 +2626,14 @@ function runStatusClass(run: WorkflowRun) {
 }
 
 function runMessageText(run: WorkflowRun) {
-  if (run.status === 'succeeded' && run.report) return `核对完成：${runWarningCount(run)} 项警告`
+  if (run.status === 'succeeded' && run.report) return w('verificationCompleted', { count: runWarningCount(run) })
   const message = run.message.trim()
-  if (message) return run.status === 'failed' ? `失败原因：${message}` : message
+  if (message) return run.status === 'failed' ? w('failureReason', { reason: message }) : message
   if (run.status === 'failed') {
-    const lastLog = run.logs[run.logs.length - 1]?.replace(/^运行失败[：:]\s*/, '').trim()
-    return `失败原因：${lastLog || '未提供失败原因'}`
+    const lastLog = run.logs[run.logs.length - 1]?.replace(/^[^:：]+[：:]\s*/, '').trim()
+    return w('failureReason', { reason: lastLog || w('noFailureReason') })
   }
-  return '工作流正在运行'
+  return w('workflowRunning')
 }
 
 function truncatedRunMessage(run: WorkflowRun, limit = 38) {

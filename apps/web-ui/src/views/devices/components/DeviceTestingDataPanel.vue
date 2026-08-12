@@ -1,7 +1,7 @@
 <template>
   <div v-loading="loading || downloading || deleting" class="testing-data-panel">
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请先选择一台设备" />
+      <el-empty :description="t('devices.selectOne')" />
     </div>
 
     <template v-else>
@@ -24,9 +24,9 @@
             class="toolbar-search"
             clearable
             size="small"
-            placeholder="搜索当前列表"
+            :placeholder="t('devices.files.search')"
           />
-          <span class="selection-count">已选择 {{ selectedEntries.length }} 项</span>
+          <span class="selection-count">{{ t('devices.testingData.selected', { count: selectedEntries.length }) }}</span>
           <el-button
             :icon="Download"
             type="primary"
@@ -35,7 +35,7 @@
             :loading="downloading"
             @click="downloadSelected"
           >
-            下载 ZIP
+            {{ t('devices.testingData.downloadZip') }}
           </el-button>
           <el-button
             :icon="Delete"
@@ -46,12 +46,12 @@
             :loading="deleting"
             @click="deleteSelected"
           >
-            删除
+            {{ t('common.actions.delete') }}
           </el-button>
-          <el-tooltip content="刷新" placement="top">
+          <el-tooltip :content="t('common.actions.refresh')" placement="top">
             <el-button :icon="Refresh" :loading="loading" circle size="small" @click="refreshDirectory" />
           </el-tooltip>
-          <el-tooltip content="上级目录" placement="top">
+          <el-tooltip :content="t('devices.files.parent')" placement="top">
             <el-button
               :icon="Top"
               circle
@@ -68,12 +68,12 @@
         :data="filteredEntries"
         row-key="path"
         class="testing-data-table"
-        empty-text="当前目录为空"
+        :empty-text="t('devices.files.emptyDirectory')"
         @selection-change="handleSelectionChange"
         @row-dblclick="handleRowOpen"
       >
         <el-table-column type="selection" width="50" reserve-selection />
-        <el-table-column label="名称" min-width="320">
+        <el-table-column :label="t('devices.testingData.name')" min-width="320">
           <template #default="{ row }">
             <button
               class="entry-main"
@@ -93,17 +93,17 @@
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="类型" width="110">
+        <el-table-column :label="t('devices.testingData.type')" width="110">
           <template #default="{ row }">
-            {{ row.is_dir ? '文件夹' : '文件' }}
+            {{ row.is_dir ? t('devices.files.folder') : t('devices.files.file') }}
           </template>
         </el-table-column>
-        <el-table-column label="大小" width="120">
+        <el-table-column :label="t('devices.testingData.size')" width="120">
           <template #default="{ row }">
             {{ row.is_dir ? '-' : formatSize(row.size) }}
           </template>
         </el-table-column>
-        <el-table-column label="修改时间" width="190">
+        <el-table-column :label="t('devices.testingData.modifiedAt')" width="190">
           <template #default="{ row }">
             {{ formatTime(row.modified_at) }}
           </template>
@@ -119,6 +119,9 @@ import type { TableInstance } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Document, Download, FolderOpened, Refresh, Top } from '@element-plus/icons-vue'
 import { robotApi, type RobotFileEntry } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { locale, t } = useAppLocale()
 
 const ROOT_PATH = '/data/testing_data'
 
@@ -165,7 +168,7 @@ function normalizeError(error: any): string {
   return error?.response?.data?.detail?.message
     || error?.response?.data?.message
     || error?.message
-    || '未知错误'
+    || t('errors.unknown')
 }
 
 function formatSize(size: number): string {
@@ -177,7 +180,7 @@ function formatSize(size: number): string {
 
 function formatTime(timestamp: number | null): string {
   if (!timestamp) return '-'
-  return new Date(timestamp * 1000).toLocaleString('zh-CN')
+  return new Date(timestamp * 1000).toLocaleString(locale.value)
 }
 
 function clearSelection() {
@@ -196,7 +199,7 @@ async function refreshDirectory() {
   } catch (error: any) {
     entries.value = []
     clearSelection()
-    ElMessage.error('读取测试数据失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.testingData.readFailed', { error: normalizeError(error) }))
   } finally {
     loading.value = false
   }
@@ -244,9 +247,9 @@ async function downloadSelected() {
     const fallbackName = `testing-data-${props.ip.replace(/\./g, '-')}.zip`
     const filename = parseDownloadFilename(response.headers['content-disposition']) || fallbackName
     saveBlob(response.data, filename)
-    ElMessage.success(`已将 ${paths.length} 项打包下载`)
+    ElMessage.success(t('devices.testingData.downloaded', { count: paths.length }))
   } catch (error: any) {
-    ElMessage.error('下载测试数据失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.testingData.downloadFailed', { error: normalizeError(error) }))
   } finally {
     downloading.value = false
   }
@@ -257,17 +260,17 @@ async function deleteSelected() {
   const entriesToDelete = [...selectedEntries.value]
   const names = entriesToDelete.map(entry => entry.name)
   const preview = names.length > 5
-    ? `${names.slice(0, 5).join('、')} 等 ${names.length} 项`
-    : names.join('、')
+    ? t('devices.testingData.previewMany', { names: names.slice(0, 5).join(', '), count: names.length })
+    : names.join(', ')
 
   try {
     await ElMessageBox.confirm(
-      `确认删除 ${preview}？删除后无法恢复。`,
-      '删除测试数据',
+      t('devices.testingData.deleteConfirm', { items: preview }),
+      t('devices.testingData.deleteTitle'),
       {
         type: 'warning',
-        confirmButtonText: '确认删除',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.testingData.confirmDelete'),
+        cancelButtonText: t('common.actions.cancel'),
         closeOnClickModal: false
       }
     )
@@ -279,10 +282,10 @@ async function deleteSelected() {
   deleting.value = true
   try {
     await robotApi.deleteTestingData(props.ip, entriesToDelete.map(entry => entry.path))
-    ElMessage.success(`已删除 ${entriesToDelete.length} 项测试数据`)
+    ElMessage.success(t('devices.testingData.deleted', { count: entriesToDelete.length }))
     await refreshDirectory()
   } catch (error: any) {
-    ElMessage.error('删除测试数据失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.testingData.deleteFailed', { error: normalizeError(error) }))
   } finally {
     deleting.value = false
   }

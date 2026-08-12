@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request, status
 
 from core import config
+from core.i18n import api_error
 from modules.auth.service import (
     AuthService,
     AuthenticationConfigurationError,
@@ -55,10 +56,11 @@ def _credentials(request: Request) -> tuple[str, bool]:
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() == "bearer" and token.strip():
         return token.strip(), False
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required",
+    raise api_error(
+        status.HTTP_401_UNAUTHORIZED,
+        "auth.authentication_required",
         headers={"WWW-Authenticate": "Bearer"},
+        locale=request.headers.get("Accept-Language"),
     )
 
 
@@ -72,14 +74,22 @@ def _verify_csrf(request: Request, expected: str) -> None:
         and secrets.compare_digest(cookie_value, header_value)
         and secrets.compare_digest(cookie_value, expected)
     ):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed")
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "auth.csrf_validation_failed",
+            locale=request.headers.get("Accept-Language"),
+        )
 
 
 def verify_refresh_csrf(request: Request) -> None:
     cookie_value = request.cookies.get(CSRF_COOKIE_NAME, "")
     header_value = request.headers.get(CSRF_HEADER_NAME, "")
     if not cookie_value or not header_value or not secrets.compare_digest(cookie_value, header_value):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed")
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "auth.csrf_validation_failed",
+            locale=request.headers.get("Accept-Language"),
+        )
 
 
 def require_auth_context(
@@ -90,12 +100,17 @@ def require_auth_context(
     try:
         user, claims = service.verify_access_token(token)
     except AuthenticationConfigurationError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "auth.configuration_error",
+            locale=request.headers.get("Accept-Language"),
+        ) from exc
     except AuthenticationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
+        raise api_error(
+            status.HTTP_401_UNAUTHORIZED,
+            "auth.authentication_required",
             headers={"WWW-Authenticate": "Bearer"},
+            locale=request.headers.get("Accept-Language"),
         ) from exc
     if cookie_authenticated and request.method.upper() not in SAFE_METHODS:
         _verify_csrf(request, str(claims.get("csrf", "")))
@@ -118,8 +133,9 @@ def require_platform_access(
 
     path = request.url.path.rstrip("/") or "/"
     if DEVICE_CONTROL_PATH_PATTERN.match(path):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="当前账号无设备控制权限",
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "auth.permission_denied",
+            locale=request.headers.get("Accept-Language"),
         )
     return user

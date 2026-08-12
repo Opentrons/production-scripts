@@ -216,4 +216,16 @@ def test_device_operator_can_use_platform_but_not_device_control(tmp_path: Path)
         headers={"X-CSRF-Token": csrf_token},
     )
     assert control.status_code == 403
-    assert control.json()["detail"] == "当前账号无设备控制权限"
+    assert control.json()["detail"] == {
+        "code": "auth.permission_denied",
+        "message": "当前账号无设备控制权限",
+        "params": {},
+    }
+
+    english_control = client.post(
+        "/api/robots/192.168.1.10/control/home",
+        headers={"X-CSRF-Token": csrf_token, "Accept-Language": "en-US"},
+    )
+    assert english_control.status_code == 403
+    assert english_control.json()["detail"]["code"] == "auth.permission_denied"
+    assert english_control.json()["detail"]["message"] == "This account cannot use device controls."

@@ -4,13 +4,13 @@
       <template #header>
         <div class="card-header">
           <div class="title-block">
-            <span class="card-title">数据链接</span>
+            <span class="card-title">{{ t('dataLinks.title') }}</span>
             <span class="meta-text">{{ metaText }}</span>
           </div>
           <div class="header-tools">
             <el-select
               v-model="filters.product"
-              placeholder="产品型号"
+              :placeholder="t('dataLinks.product')"
               clearable
               filterable
               size="small"
@@ -25,7 +25,7 @@
             </el-select>
             <el-select
               v-model="filters.testType"
-              placeholder="测试类型"
+              :placeholder="t('dataLinks.testType')"
               clearable
               filterable
               size="small"
@@ -39,7 +39,7 @@
               />
             </el-select>
             <el-button size="small" @click="resetFilters" :disabled="!hasActiveFilters">
-              重置
+              {{ t('dataLinks.reset') }}
             </el-button>
             <el-button
               type="primary"
@@ -47,15 +47,15 @@
               :icon="Refresh"
               @click="fetchDataLinks"
               :loading="loading"
-            >刷新</el-button>
+            >{{ t('common.actions.refresh') }}</el-button>
           </div>
         </div>
       </template>
 
       <div v-if="!loading && !loadError && !dataLinks?.error" class="table-info">
-        <span class="total-count">共 {{ filteredLinks.length }} 条链接配置</span>
+        <span class="total-count">{{ t('dataLinks.total', { count: filteredLinks.length }) }}</span>
         <el-tag v-if="dataLinks?.current_month" size="small" type="info">
-          原数据: {{ dataLinks.current_month }} 月
+          {{ t('dataLinks.rawMonth', { month: dataLinks.current_month }) }}
         </el-tag>
       </div>
 
@@ -70,7 +70,7 @@
           <div class="load-error-content">
             <span>{{ loadError || dataLinks?.error }}</span>
             <el-button size="small" type="danger" plain :loading="loading" @click="fetchDataLinks">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -86,7 +86,7 @@
 
       <div v-if="loading" class="links-loading-state">
         <el-icon class="is-loading links-loading-icon"><Loading /></el-icon>
-        <span>正在加载数据链接...</span>
+        <span>{{ t('dataLinks.loading') }}</span>
       </div>
 
       <el-table
@@ -98,13 +98,13 @@
         :max-height="tableHeight"
         class="data-links-table"
       >
-        <el-table-column prop="product" label="产品型号" min-width="110" fixed="left" />
-        <el-table-column label="测试类型" min-width="210">
+        <el-table-column prop="product" :label="t('dataLinks.product')" min-width="110" fixed="left" />
+        <el-table-column :label="t('dataLinks.testType')" min-width="210">
           <template #default="{ row }">
             <span class="test-type-text">{{ formatTestType(row.test_type) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="模版链接" min-width="170">
+        <el-table-column :label="t('dataLinks.template')" min-width="170">
           <template #default="{ row }">
             <div v-if="availableLinks(row.templates).length" class="compact-link-cell">
               <el-tooltip
@@ -129,12 +129,12 @@
                 popper-class="data-links-popover"
               >
                 <template #reference>
-                  <button class="more-chip" type="button" aria-label="OEM 模版链接">
+                  <button class="more-chip" type="button" :aria-label="t('dataLinks.oemTemplates')">
                     <el-icon><MoreFilled /></el-icon>
                   </button>
                 </template>
                 <div class="popover-panel">
-                  <div class="popover-title">OEM 模版</div>
+                  <div class="popover-title">{{ t('dataLinks.oemTemplateTitle') }}</div>
                   <a
                     v-for="link in extraLinks(row.templates)"
                     :key="`${row.config_key}-template-extra-${link.label}-${link.file_id}`"
@@ -149,10 +149,10 @@
                 </div>
               </el-popover>
             </div>
-            <UnavailableCell v-else text="当前 YAML 未配置模版链接" />
+            <UnavailableCell v-else :text="t('dataLinks.noTemplate')" />
           </template>
         </el-table-column>
-        <el-table-column label="测试总表" min-width="220">
+        <el-table-column :label="t('dataLinks.tracker')" min-width="220">
           <template #default="{ row }">
             <div v-if="availableLinks(row.trackers).length" class="compact-link-cell">
               <el-tooltip
@@ -177,12 +177,12 @@
                 popper-class="data-links-popover"
               >
                 <template #reference>
-                  <button class="more-chip" type="button" aria-label="OEM 测试总表链接">
+                  <button class="more-chip" type="button" :aria-label="t('dataLinks.oemTrackers')">
                     <el-icon><MoreFilled /></el-icon>
                   </button>
                 </template>
                 <div class="popover-panel">
-                  <div class="popover-title">OEM 测试总表</div>
+                  <div class="popover-title">{{ t('dataLinks.oemTrackerTitle') }}</div>
                   <a
                     v-for="link in extraLinks(row.trackers)"
                     :key="`${row.config_key}-tracker-extra-${link.label}-${link.file_id}`"
@@ -197,10 +197,10 @@
                 </div>
               </el-popover>
             </div>
-            <UnavailableCell v-else text="当前 YAML 未配置测试总表链接" />
+            <UnavailableCell v-else :text="t('dataLinks.noTracker')" />
           </template>
         </el-table-column>
-        <el-table-column label="原数据文件夹" min-width="230">
+        <el-table-column :label="t('dataLinks.rawFolder')" min-width="230">
           <template #default="{ row }">
             <div v-if="rawFolderLinks(row).length" class="link-list">
               <el-tooltip
@@ -220,7 +220,7 @@
                 </a>
               </el-tooltip>
             </div>
-            <UnavailableCell v-else :text="row.raw_data_folder?.note || '当前 YAML 未配置当月原数据文件夹'" />
+            <UnavailableCell v-else :text="row.raw_data_folder?.note || t('dataLinks.noRawFolder')" />
           </template>
         </el-table-column>
       </el-table>
@@ -239,7 +239,7 @@
 
       <el-empty
         v-else-if="!loading && !loadError && !dataLinks?.error && filteredLinks.length === 0"
-        description="暂无数据链接"
+        :description="t('dataLinks.empty')"
       />
     </el-card>
   </div>
@@ -252,12 +252,15 @@ import type { DataLinkEntry, DataLinkItem, DataLinksResponse } from '@/scripts/t
 import { Document, FolderOpened, Link as LinkIcon, Loading, MoreFilled, Refresh } from '@element-plus/icons-vue'
 import { ElTooltip } from 'element-plus'
 import { formatTestType, sameTestType, uniqueTestTypes } from '@/scripts/utils/testNames'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useAppLocale()
 
 const UnavailableCell = defineComponent({
   props: {
     text: {
       type: String,
-      default: '当前数据不完整'
+      default: ''
     }
   },
   setup(props) {
@@ -314,11 +317,11 @@ const tableHeight = computed(() => {
 })
 
 const metaText = computed(() => {
-  if (!dataLinks.value) return '读取中'
+  if (!dataLinks.value) return t('dataLinks.reading')
   const environment = dataLinks.value.environment || '-'
   const configFile = dataLinks.value.config_file || '-'
   const currentDate = dataLinks.value.current_date || '-'
-  return `环境: ${environment} | 配置: ${configFile} | 日期: ${currentDate}`
+  return t('dataLinks.meta', { environment, config: configFile, date: currentDate })
 })
 
 const availableLinks = (items?: DataLinkItem[] | null) => {
@@ -327,7 +330,7 @@ const availableLinks = (items?: DataLinkItem[] | null) => {
 
 const primaryLink = (items?: DataLinkItem[] | null) => {
   const links = availableLinks(items)
-  return links.find((item) => item.label.includes('默认')) || links[0] || null
+  return links.find((item) => /(?:\u9ed8\u8ba4|default)/i.test(item.label)) || links[0] || null
 }
 
 const extraLinks = (items?: DataLinkItem[] | null) => {
@@ -354,7 +357,7 @@ const fetchDataLinks = async () => {
     const response = await dataLinksApi.getDataLinks()
     dataLinks.value = response.data
   } catch (e: any) {
-    loadError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || '未知错误'
+    loadError.value = e?.response?.data?.detail?.message || e?.response?.data?.detail || e?.message || t('errors.unknown')
   } finally {
     loading.value = false
   }

@@ -1,10 +1,10 @@
 <template>
   <div class="agent-page">
     <header class="agent-header">
-      <a class="agent-title-block" href="/" aria-label="生产助手，返回生产测试首页">
+      <a class="agent-title-block" href="/" :aria-label="t('agent.homeAria')">
         <span class="agent-title-icon"><Bot :size="24" :stroke-width="2.2" aria-hidden="true" /></span>
         <div>
-          <h1>生产助手</h1>
+          <h1>{{ t('agent.title') }}</h1>
           <p class="agent-model-line">
             <i class="agent-status-dot" :class="`is-${connectionState}`" aria-hidden="true"></i>
             <span>Production Agent </span>
@@ -16,8 +16,8 @@
         <button
           class="agent-icon-button"
           type="button"
-          title="清空对话"
-          aria-label="清空对话"
+          :title="t('agent.clear')"
+          :aria-label="t('agent.clear')"
           :disabled="messages.length <= 1"
           @click="clearConversation"
         >
@@ -28,10 +28,10 @@
     </header>
 
     <div class="agent-workspace">
-      <aside class="agent-rail" aria-label="快捷任务">
+      <aside class="agent-rail" :aria-label="t('agent.quickTasks')">
         <div class="agent-rail-heading">
           <Sparkles :size="17" aria-hidden="true" />
-          <h2>快捷任务</h2>
+          <h2>{{ t('agent.quickTasks') }}</h2>
         </div>
         <div class="agent-shortcuts">
           <button
@@ -48,9 +48,9 @@
         </div>
         <div class="agent-rail-status">
           <i class="agent-status-dot" :class="`is-${connectionState}`" aria-hidden="true"></i>
-          <label for="production-agent-model">当前模型</label>
+          <label for="production-agent-model">{{ t('agent.currentModel') }}</label>
           <div class="agent-model-select">
-            <select id="production-agent-model" v-model="selectedModel" aria-label="当前模型">
+            <select id="production-agent-model" v-model="selectedModel" :aria-label="t('agent.currentModel')">
               <option value="deepseek">DeepSeek</option>
             </select>
             <ChevronDown :size="15" aria-hidden="true" />
@@ -73,7 +73,7 @@
               </div>
               <div class="agent-message-content">
                 <header>
-                  <strong>{{ item.role === 'user' ? '你' : '小创同学' }}</strong>
+                  <strong>{{ t(item.role === 'user' ? 'agent.you' : 'agent.assistant') }}</strong>
                   <time>{{ formatTime(item.createdAt) }}</time>
                 </header>
 
@@ -95,11 +95,11 @@
                       aria-hidden="true"
                     />
                     <CircleCheck v-else :size="14" aria-hidden="true" />
-                    <strong>Thinking</strong>
+                    <strong>{{ t('agent.thinking') }}</strong>
                     <span>{{ toolSummary(item.toolActivities) }}</span>
                     <ChevronDown :size="14" class="agent-think-chevron" aria-hidden="true" />
                   </summary>
-                  <div class="agent-tool-list" aria-label="工具执行记录">
+                  <div class="agent-tool-list" :aria-label="t('agent.toolRecords')">
                     <div
                       v-for="activity in item.toolActivities"
                       :key="activity.id"
@@ -113,9 +113,9 @@
                         <span>{{ toolDisplayName(activity.name) }}</span>
                         <code>{{ activity.name }}</code>
                       </span>
-                      <small v-if="activity.status === 'running'">执行中</small>
-                      <small v-else-if="activity.status === 'success'">{{ activity.durationMs ? `${activity.durationMs} ms` : '完成' }}</small>
-                      <small v-else :title="activity.error">失败</small>
+                      <small v-if="activity.status === 'running'">{{ t('agent.running') }}</small>
+                      <small v-else-if="activity.status === 'success'">{{ activity.durationMs ? `${activity.durationMs} ms` : t('agent.completed') }}</small>
+                      <small v-else :title="activity.error">{{ t('agent.failed') }}</small>
                     </div>
                   </div>
                 </details>
@@ -123,7 +123,7 @@
                 <div
                   v-if="item.pending && !item.content && !item.toolActivities?.length"
                   class="agent-thinking"
-                  aria-label="正在生成"
+                  :aria-label="t('agent.generating')"
                 >
                   <i></i><i></i><i></i>
                 </div>
@@ -134,7 +134,7 @@
                       v-for="file in item.attachments"
                       :key="`${item.id}-${file.name}`"
                       class="agent-attachment-chip"
-                      :title="file.truncated ? `${file.name}（内容已截断）` : file.name"
+                      :title="file.truncated ? `${file.name} (${t('agent.truncated')})` : file.name"
                     >
                       <Paperclip :size="13" aria-hidden="true" />
                       <span>{{ file.name }}</span>
@@ -145,12 +145,12 @@
                 <div v-else class="agent-markdown" v-html="renderMarkdown(item.content)"></div>
 
                 <footer v-if="item.role === 'assistant' && item.content && !item.pending">
-                  <button type="button" :title="copiedMessageId === item.id ? '已复制' : '复制回答'" @click="copyMessage(item)">
+                  <button type="button" :title="t(copiedMessageId === item.id ? 'agent.copied' : 'agent.copyAnswer')" @click="copyMessage(item)">
                     <Check v-if="copiedMessageId === item.id" :size="14" aria-hidden="true" />
                     <Copy v-else :size="14" aria-hidden="true" />
-                    <span>{{ copiedMessageId === item.id ? '已复制' : '复制' }}</span>
+                    <span>{{ t(copiedMessageId === item.id ? 'agent.copied' : 'agent.copy') }}</span>
                   </button>
-                  <span v-if="item.stopped">已停止</span>
+                  <span v-if="item.stopped">{{ t('agent.stopped') }}</span>
                 </footer>
               </div>
             </article>
@@ -181,7 +181,7 @@
                 <small>{{ formatBytes(file.size) }}</small>
                 <button
                   type="button"
-                  :aria-label="`移除 ${file.name}`"
+                  :aria-label="t('agent.removeFile', { name: file.name })"
                   :disabled="streaming"
                   @click="removePendingAttachment(file.id)"
                 >
@@ -194,7 +194,7 @@
               v-model="draft"
               rows="3"
               maxlength="20000"
-              placeholder="输入生产问题，或上传 CSV / 文本文件…"
+              :placeholder="t('agent.placeholder')"
               :disabled="streaming"
               @focus="composerFocused = true"
               @blur="composerFocused = false"
@@ -216,21 +216,21 @@
                 <button
                   class="agent-attach-button"
                   type="button"
-                  title="上传文件"
-                  aria-label="上传文件"
+                  :title="t('agent.upload')"
+                  :aria-label="t('agent.upload')"
                   :disabled="streaming || connectionState === 'unconfigured'"
                   @click="openFilePicker"
                 >
                   <Paperclip :size="16" aria-hidden="true" />
                 </button>
-                <span>支持 CSV / TXT / JSON 等文本，Shift + Enter 换行</span>
+                <span>{{ t('agent.attachmentHint') }}</span>
               </div>
               <button
                 v-if="streaming"
                 class="agent-stop-button"
                 type="button"
-                title="停止生成"
-                aria-label="停止生成"
+                :title="t('agent.stop')"
+                :aria-label="t('agent.stop')"
                 @click="stopGeneration"
               >
                 <Square :size="15" fill="currentColor" aria-hidden="true" />
@@ -239,8 +239,8 @@
                 v-else
                 class="agent-send-button"
                 type="button"
-                title="发送消息"
-                aria-label="发送消息"
+                :title="t('agent.send')"
+                :aria-label="t('agent.send')"
                 :disabled="!canSend"
                 @click="sendMessage()"
               >
@@ -255,7 +255,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import {
@@ -282,6 +282,11 @@ import {
   type AgentToolEventData,
 } from '@/scripts/modules/agent/useProductionAgent'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
+import { useI18n } from 'vue-i18n'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useI18n()
+const { locale } = useAppLocale()
 
 interface ConversationMessage {
   id: string
@@ -327,15 +332,10 @@ const ATTACHMENT_EXTENSIONS = new Set([
 ])
 const ATTACHMENT_ACCEPT = [...ATTACHMENT_EXTENSIONS].map(ext => `.${ext}`).join(',')
 
-const quickPrompts = [
-  '汇总今天的数据上传成功率和主要失败原因',
-  '查询当前在线设备并总结异常状态',
-  '分析最近的产品测试数据和质量风险',
-  '从知识库检索 SOP 与 BOM 核对方法，并说明常用检查步骤',
-  '帮我检查谷歌表格数据：请先让我提供表格链接或工作表范围；读取后核对空值、重复项、格式异常和明显错误，并给出修正建议。写入前先说明影响并等待确认。',
-  '帮我编辑谷歌表格数据：请先确认表格链接、目标工作表和要修改的内容；先读取现状，说明具体变更范围，确认后再执行写入。',
-  '请根据我上传的 CSV/文本附件检查字段完整性、重复条码、异常结果和常见格式问题，并总结风险与建议。若还没上传附件，先提醒我上传。',
-]
+const quickPrompts = computed(() => [
+  t('agent.prompts.uploads'), t('agent.prompts.devices'), t('agent.prompts.quality'), t('agent.prompts.sop'),
+  t('agent.prompts.checkSheet'), t('agent.prompts.editSheet'), t('agent.prompts.attachment'),
+])
 
 const QUICK_PROMPT_DISPLAY_LIMIT = 30
 
@@ -345,38 +345,14 @@ function truncatePrompt(prompt: string): string {
   return `${text.slice(0, QUICK_PROMPT_DISPLAY_LIMIT)}...`
 }
 
-const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  get_current_time: '读取当前时间',
-  get_platform_overview: '查询平台概览',
-  query_upload_records: '查询上传记录',
-  analyze_upload_records: '分析上传数据',
-  query_products: '查询产品数据',
-  query_unit_tracker: '查询 Unit Tracker',
-  list_data_links: '读取数据链接',
-  list_test_data_collections: '读取测试数据集合',
-  query_test_data: '查询测试数据',
-  query_devices: '查询设备',
-  query_version_history: '查询版本',
-  query_protocol_monitor: '查询 Protocol 监控',
-  query_workflows: '查询工作流',
-  query_test_cases: '查询测试用例',
-  search_sop_catalog: '检索 SOP',
-  query_platform_messages: '查询平台消息',
-  query_platform_database: '读取数据库',
-  aggregate_platform_database: '分析数据库',
-  get_spreadsheet_info: '读取表格信息',
-  read_sheet_range: '读取表格',
-  create_spreadsheet: '新建表格',
-  add_sheet: '新增工作表',
-  update_sheet_range: '更新表格',
-  append_sheet_rows: '追加表格数据',
-  clear_sheet_range: '清空表格区域',
-  copy_sheet: '复制工作表',
-  search_knowledge: '检索知识库',
-  list_knowledge: '读取知识库',
-  save_knowledge: '保存知识',
-  delete_knowledge: '删除知识',
-}
+const TOOL_NAMES = [
+  'get_current_time', 'get_platform_overview', 'query_upload_records', 'analyze_upload_records', 'query_products',
+  'query_unit_tracker', 'list_data_links', 'list_test_data_collections', 'query_test_data', 'query_devices',
+  'query_version_history', 'query_protocol_monitor', 'query_workflows', 'query_test_cases', 'search_sop_catalog',
+  'query_platform_messages', 'query_platform_database', 'aggregate_platform_database', 'get_spreadsheet_info',
+  'read_sheet_range', 'create_spreadsheet', 'add_sheet', 'update_sheet_range', 'append_sheet_rows',
+  'clear_sheet_range', 'copy_sheet', 'search_knowledge', 'list_knowledge', 'save_knowledge', 'delete_knowledge',
+] as const
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -400,16 +376,16 @@ let cancelActiveTypewriter: (() => void) | null = null
 let dragDepth = 0
 
 const connectionLabel = computed(() => {
-  if (connectionState.value === 'ready') return modelName.value || '已连接'
-  if (connectionState.value === 'unconfigured') return '模型未配置'
-  if (connectionState.value === 'unavailable') return '服务不可用'
-  return '连接中'
+  if (connectionState.value === 'ready') return modelName.value || t('agent.status.connected')
+  if (connectionState.value === 'unconfigured') return t('agent.status.unconfigured')
+  if (connectionState.value === 'unavailable') return t('agent.status.unavailable')
+  return t('agent.status.connecting')
 })
 
 const composerNotice = computed(() => {
   if (attachmentError.value) return attachmentError.value
-  if (connectionState.value === 'unconfigured') return '后端未配置 PRODUCTION_PLATFORM_LLM_API_KEY'
-  if (connectionState.value === 'unavailable') return '暂时无法读取助手状态，仍可尝试发送消息'
+  if (connectionState.value === 'unconfigured') return t('agent.status.missingKey')
+  if (connectionState.value === 'unavailable') return t('agent.status.unavailableHint')
   return ''
 })
 
@@ -423,7 +399,7 @@ function createWelcomeMessage(): ConversationMessage {
   return {
     id: 'welcome',
     role: 'assistant',
-    content: '你好，我是小创同学。今天需要处理哪项生产问题？可直接提问，或上传 CSV / 文本后一起分析。',
+    content: t('agent.welcome'),
     createdAt: new Date().toISOString(),
     welcome: true,
   }
@@ -487,8 +463,8 @@ function buildMessageContent(text: string, attachments: PendingAttachment[]): st
   const sections: string[] = []
   if (text.trim()) sections.push(text.trim())
   for (const file of attachments) {
-    const note = file.truncated ? '（内容已截断）' : ''
-    sections.push(`附件: ${file.name}${note}\n\`\`\`\n${file.text}\n\`\`\``)
+    const note = file.truncated ? ` (${t('agent.truncated')})` : ''
+    sections.push(`${t('agent.attachment.prefix')}: ${file.name}${note}\n\`\`\`\n${file.text}\n\`\`\``)
   }
   return sections.join('\n\n').slice(0, MAX_MESSAGE_CHARS)
 }
@@ -503,10 +479,10 @@ function setComposerFeedback(message: string): void {
 
 async function readAttachment(file: File): Promise<PendingAttachment> {
   if (!isSupportedAttachment(file)) {
-    throw new Error(`暂不支持 ${file.name}，请上传 CSV / TXT / JSON 等文本文件`)
+    throw new Error(t('agent.attachment.unsupported', { name: file.name }))
   }
   if (file.size > MAX_ATTACHMENT_BYTES) {
-    throw new Error(`${file.name} 超过 ${formatBytes(MAX_ATTACHMENT_BYTES)} 限制`)
+    throw new Error(t('agent.attachment.tooLarge', { name: file.name, size: formatBytes(MAX_ATTACHMENT_BYTES) }))
   }
   const raw = await file.text()
   const truncated = raw.length > MAX_ATTACHMENT_CHARS
@@ -524,7 +500,7 @@ async function addFiles(fileList: FileList | File[]): Promise<void> {
   if (!files.length) return
   const remaining = MAX_ATTACHMENTS - pendingAttachments.value.length
   if (remaining <= 0) {
-    setComposerFeedback(`最多上传 ${MAX_ATTACHMENTS} 个附件`)
+    setComposerFeedback(t('agent.attachment.max', { count: MAX_ATTACHMENTS }))
     return
   }
   const selected = files.slice(0, remaining)
@@ -532,10 +508,10 @@ async function addFiles(fileList: FileList | File[]): Promise<void> {
     const next = await Promise.all(selected.map(readAttachment))
     pendingAttachments.value = [...pendingAttachments.value, ...next]
     if (files.length > remaining) {
-      setComposerFeedback(`最多上传 ${MAX_ATTACHMENTS} 个附件，已忽略多余文件`)
+      setComposerFeedback(t('agent.attachment.extrasIgnored', { count: MAX_ATTACHMENTS }))
     }
   } catch (error) {
-    setComposerFeedback(error instanceof Error ? error.message : '读取附件失败')
+    setComposerFeedback(error instanceof Error ? error.message : t('agent.attachment.readFailed'))
   }
 }
 
@@ -603,7 +579,7 @@ function renderMarkdown(content: string): string {
 function formatTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
 }
 
 async function scrollToBottom(behavior: ScrollBehavior = 'smooth'): Promise<void> {
@@ -614,7 +590,7 @@ async function scrollToBottom(behavior: ScrollBehavior = 'smooth'): Promise<void
 }
 
 function toolDisplayName(name: string): string {
-  return TOOL_DISPLAY_NAMES[name] || name
+  return (TOOL_NAMES as readonly string[]).includes(name) ? t(`agent.tools.${name}`) : name
 }
 
 function hasRunningTool(activities: ToolActivity[]): boolean {
@@ -627,10 +603,10 @@ function hasFailedTool(activities: ToolActivity[]): boolean {
 
 function toolSummary(activities: ToolActivity[]): string {
   const running = [...activities].reverse().find(activity => activity.status === 'running')
-  if (running) return `正在调用 ${toolDisplayName(running.name)}`
+  if (running) return t('agent.toolSummary.running', { name: toolDisplayName(running.name) })
   const failures = activities.filter(activity => activity.status === 'error').length
-  if (failures) return `${activities.length} 次调用，${failures} 次失败`
-  return `${activities.length} 次工具调用`
+  if (failures) return t('agent.toolSummary.failures', { total: activities.length, failures })
+  return t('agent.toolSummary.total', { count: activities.length })
 }
 
 function wait(milliseconds: number): Promise<void> {
@@ -708,7 +684,7 @@ function stopGeneration(): void {
   if (activeAssistantMessage) {
     activeAssistantMessage.pending = false
     activeAssistantMessage.stopped = true
-    if (!activeAssistantMessage.content) activeAssistantMessage.content = '已停止生成。'
+    if (!activeAssistantMessage.content) activeAssistantMessage.content = t('agent.stoppedMessage')
   }
   persistConversation()
 }
@@ -718,7 +694,7 @@ async function sendMessage(quickPrompt?: string): Promise<void> {
   const attachments = [...pendingAttachments.value]
   if ((!typed && !attachments.length) || streaming.value || connectionState.value === 'unconfigured') return
 
-  const displayContent = typed || (attachments.length ? '请根据附件内容分析' : '')
+  const displayContent = typed || (attachments.length ? t('agent.attachment.analyze') : '')
   const content = buildMessageContent(displayContent, attachments)
   messages.value.push({
     id: messageId(),
@@ -755,7 +731,7 @@ async function sendMessage(quickPrompt?: string): Promise<void> {
   let streamError = ''
   await chat(
     buildHistory(),
-    '当前页面：生产助手',
+    t('agent.pageContext'),
     {
       async onChunk(chunk) {
         receivedText += chunk
@@ -803,8 +779,8 @@ async function sendMessage(quickPrompt?: string): Promise<void> {
   await typewriter.drain()
   if (streamError) {
     assistantMessage.content = assistantMessage.content
-      ? `${assistantMessage.content}\n\n> 请求中断：${streamError}`
-      : `请求失败：${streamError}`
+      ? `${assistantMessage.content}\n\n> ${t('agent.interrupted', { error: streamError })}`
+      : t('agent.requestFailed', { error: streamError })
   } else if (!assistantMessage.stopped) {
     assistantMessage.content = finalContent || receivedText
   }
@@ -812,7 +788,7 @@ async function sendMessage(quickPrompt?: string): Promise<void> {
   if (cancelActiveTypewriter === typewriter.cancel) cancelActiveTypewriter = null
   if (activeAssistantMessage === assistantMessage) activeAssistantMessage = null
   assistantMessage.pending = false
-  if (!assistantMessage.content) assistantMessage.content = '模型未返回内容。'
+  if (!assistantMessage.content) assistantMessage.content = t('agent.noContent')
   persistConversation()
   await scrollToBottom()
 }
@@ -831,6 +807,11 @@ async function loadAgentStatus(): Promise<void> {
 onMounted(() => {
   void loadAgentStatus()
   void scrollToBottom('auto')
+})
+
+watch(locale, () => {
+  const welcome = messages.value.find(message => message.welcome)
+  if (welcome) welcome.content = t('agent.welcome')
 })
 
 onBeforeUnmount(() => {

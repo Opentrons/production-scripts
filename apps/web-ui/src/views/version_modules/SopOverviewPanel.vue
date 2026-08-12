@@ -3,12 +3,12 @@
     <header class="versions-topbar">
       <div>
         <p class="eyebrow">STANDARD OPERATING PROCEDURES</p>
-        <h1>SOP 总览</h1>
-        <p>读取 Google SOP 总表，分析 PDF 中的 BOM 物料和数量。</p>
+        <h1>{{ t('versions.sop.title') }}</h1>
+        <p>{{ t('versions.sop.subtitle') }}</p>
       </div>
       <div class="versions-topbar-actions">
-        <el-button :icon="Link" tag="a" :href="catalog?.source_url" target="_blank">打开总表</el-button>
-        <el-button type="primary" :icon="Refresh" :loading="loading" @click="loadCatalog(true)">刷新总表</el-button>
+        <el-button :icon="Link" tag="a" :href="catalog?.source_url" target="_blank">{{ t('versions.sop.openMaster') }}</el-button>
+        <el-button type="primary" :icon="Refresh" :loading="loading" @click="loadCatalog(true)">{{ t('versions.sop.refreshMaster') }}</el-button>
       </div>
     </header>
 
@@ -16,23 +16,23 @@
       <div class="sop-toolbar">
         <div class="section-label">
           <span>SOP CATALOG</span>
-          <strong>标准作业指导书</strong>
+          <strong>{{ t('versions.sop.catalog') }}</strong>
         </div>
         <div class="sop-filter-row">
           <el-input
             v-model="searchText"
             :prefix-icon="Search"
             clearable
-            placeholder="搜索项目、工序或日期"
+            :placeholder="t('versions.sop.searchPlaceholder')"
           />
-          <el-select v-model="selectedProject" clearable placeholder="全部项目">
+          <el-select v-model="selectedProject" clearable :placeholder="t('versions.sop.allProjects')">
             <el-option v-for="project in projectOptions" :key="project" :label="project" :value="project" />
           </el-select>
-          <el-select v-model="selectedProcess" clearable filterable placeholder="全部 Process">
+          <el-select v-model="selectedProcess" clearable filterable :placeholder="t('versions.sop.allProcesses')">
             <el-option v-if="!selectedProject" label="Include Assembly" :value="DEFAULT_PROCESS_FILTER" />
             <el-option v-for="process in processOptions" :key="process" :label="process" :value="process" />
           </el-select>
-          <el-select v-model="selectedStatus" clearable placeholder="全部状态">
+          <el-select v-model="selectedStatus" clearable :placeholder="t('versions.duro.allStatuses')">
             <el-option v-for="status in statusOptions" :key="status" :label="status" :value="status" />
           </el-select>
         </div>
@@ -40,27 +40,27 @@
 
       <div v-if="loading && !catalog" class="sop-loading-state">
         <el-icon class="is-loading"><Loading /></el-icon>
-        <span>正在读取 Google SOP 总表…</span>
+        <span>{{ t('versions.sop.loading') }}</span>
       </div>
       <el-table
         v-else
         :data="filteredEntries"
         height="clamp(360px, calc(100vh - 300px), 760px)"
         row-class-name="sop-table-row"
-        empty-text="没有符合条件的 SOP"
+        :empty-text="t('versions.sop.empty')"
         @row-click="openAnalysis"
       >
-        <el-table-column prop="project" label="项目" min-width="170" align="center" header-align="center" show-overflow-tooltip />
-        <el-table-column prop="process" label="工序 / SOP" min-width="260" align="center" header-align="center" show-overflow-tooltip>
+        <el-table-column prop="project" :label="t('versions.sop.project')" min-width="170" align="center" header-align="center" show-overflow-tooltip />
+        <el-table-column prop="process" :label="t('versions.sop.process')" min-width="260" align="center" header-align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="process-cell">
-              <strong>{{ row.process || '未命名 SOP' }}</strong>
-              <span>第 {{ row.row_number }} 行</span>
+              <strong>{{ row.process || t('versions.sop.unnamed') }}</strong>
+              <span>{{ t('versions.sop.rowNumber', { number: row.row_number }) }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="issue_date" label="发行日期" width="130" align="center" header-align="center" />
-        <el-table-column prop="status" label="阶段" width="90" align="center" header-align="center">
+        <el-table-column prop="issue_date" :label="t('versions.sop.issueDate')" width="130" align="center" header-align="center" />
+        <el-table-column prop="status" :label="t('versions.sop.stage')" width="90" align="center" header-align="center">
           <template #default="{ row }">
             <span class="sop-status-pill" :class="`is-${row.status.toLowerCase()}`">{{ row.status || '—' }}</span>
           </template>
@@ -73,35 +73,35 @@
               :href="sourcePdfUrl(row)"
               target="_blank"
               rel="noopener noreferrer"
-              title="打开源 SOP PDF"
-              aria-label="打开源 SOP PDF"
+              :title="t('versions.sop.openSourcePdf')"
+              :aria-label="t('versions.sop.openSourcePdf')"
               @click.stop
             >
               <el-icon class="pdf-ready-icon"><DocumentChecked /></el-icon>
             </a>
-            <span v-else class="missing-link">无链接</span>
+            <span v-else class="missing-link">{{ t('versions.sop.noLink') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="130" align="center" header-align="center">
+        <el-table-column :label="t('versions.common.actions')" width="130" align="center" header-align="center">
           <template #default="{ row }">
             <el-button text type="primary" :disabled="!row.drive_file_id" @click.stop="openAnalysis(row)">
-              分析 BOM
+              {{ t('versions.sop.analyzeBom') }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
       <footer class="catalog-footer">
-        <span>显示 {{ filteredEntries.length }} / {{ catalog?.total_rows ?? 0 }} 条</span>
-        <span>更新时间：{{ formatDate(catalog?.fetched_at ?? null) }}</span>
+        <span>{{ t('versions.sop.showing', { shown: filteredEntries.length, total: catalog?.total_rows ?? 0 }) }}</span>
+        <span>{{ t('versions.common.updatedAt', { time: formatDate(catalog?.fetched_at ?? null) }) }}</span>
       </footer>
     </section>
 
-    <footer class="sop-board-footer" aria-label="SOP 数量看板">
+    <footer class="sop-board-footer" :aria-label="t('versions.sop.boardAria')">
       <span>SOP <strong>{{ catalog?.total_rows ?? 0 }}</strong></span>
-      <span>可分析 PDF <strong>{{ catalog?.linked_file_count ?? 0 }}</strong></span>
-      <span>产品项目 <strong>{{ projectOptions.length }}</strong></span>
-      <span>当前筛选 <strong>{{ filteredEntries.length }}</strong></span>
-      <span class="sop-cache-state">{{ catalog?.cached ? 'SQLite 缓存' : 'Google Sheets' }}</span>
+      <span>{{ t('versions.sop.analyzablePdf') }} <strong>{{ catalog?.linked_file_count ?? 0 }}</strong></span>
+      <span>{{ t('versions.sop.productProjects') }} <strong>{{ projectOptions.length }}</strong></span>
+      <span>{{ t('versions.sop.currentFilter') }} <strong>{{ filteredEntries.length }}</strong></span>
+      <span class="sop-cache-state">{{ catalog?.cached ? t('versions.common.sqliteCache') : 'Google Sheets' }}</span>
     </footer>
 
     <el-drawer
@@ -115,58 +115,58 @@
           <span class="analysis-file-icon"><el-icon><Document /></el-icon></span>
           <div>
             <span>{{ selectedEntry?.project }}</span>
-            <strong>{{ selectedEntry?.process || 'SOP 分析' }}</strong>
+            <strong>{{ selectedEntry?.process || t('versions.sop.analysis') }}</strong>
           </div>
         </div>
       </template>
 
       <div v-if="analysisLoading" class="analysis-loading-state">
         <el-icon class="is-loading"><Loading /></el-icon>
-        <strong>正在下载并分析 SOP PDF</strong>
-        <span>大文件可能需要几十秒，完成后会显示 BOM 料耗。</span>
+        <strong>{{ t('versions.sop.analyzing') }}</strong>
+        <span>{{ t('versions.sop.analyzingHint') }}</span>
       </div>
       <el-result
         v-else-if="analysisError"
         icon="error"
-        title="SOP 分析失败"
+        :title="t('versions.sop.analysisFailed')"
         :sub-title="analysisError"
       >
         <template #extra>
-          <el-button type="primary" @click="retryAnalysis">重试</el-button>
+          <el-button type="primary" @click="retryAnalysis">{{ t('common.actions.retry') }}</el-button>
         </template>
       </el-result>
       <div v-else-if="analysis" class="analysis-content">
         <section class="analysis-summary">
           <div class="analysis-file-copy">
             <strong>{{ analysis.filename }}</strong>
-            <span>{{ formatBytes(analysis.size) }} · {{ analysis.page_count }} 页 · {{ analysis.cached ? '缓存结果' : '最新分析' }}</span>
+            <span>{{ t('versions.sop.fileMeta', { size: formatBytes(analysis.size), pages: analysis.page_count, state: analysis.cached ? t('versions.sop.cachedResult') : t('versions.sop.latestAnalysis') }) }}</span>
           </div>
           <div class="analysis-summary-actions">
             <el-button
               circle
               :icon="Refresh"
               :loading="analysisLoading"
-              aria-label="手动刷新 SOP PDF 分析"
-              title="手动刷新 SOP PDF 分析"
+              :aria-label="t('versions.sop.refreshAnalysis')"
+              :title="t('versions.sop.refreshAnalysis')"
               @click="refreshAnalysis"
             />
             <a v-if="selectedEntry?.link_url" :href="selectedEntry.link_url" target="_blank" rel="noreferrer">
               <el-icon><Link /></el-icon>
-              查看原始 PDF
+              {{ t('versions.sop.viewOriginal') }}
             </a>
           </div>
         </section>
 
         <el-alert
           v-if="analysis.ai_used"
-          title="已使用 AI 结合整份 SOP 文本识别物料和数量（包含 *10、X22 等数量表达）"
+          :title="t('versions.sop.aiUsed')"
           type="success"
           :closable="false"
           show-icon
         />
         <el-alert
           v-else-if="analysis.ai_fallback"
-          :title="`AI 识别失败，已使用本地规则解析兜底：${analysis.ai_error || '未知错误'}`"
+          :title="t('versions.sop.aiFallback', { error: analysis.ai_error || t('errors.unknown') })"
           type="warning"
           :closable="false"
           show-icon
@@ -181,75 +181,74 @@
 
         <section class="analysis-metrics">
           <article>
-            <span>唯一料号</span>
+            <span>{{ t('versions.sop.uniqueParts') }}</span>
             <strong>{{ analysis.bom_material_count }}</strong>
           </article>
           <article>
-            <span>物料行数</span>
+            <span>{{ t('versions.sop.materialRows') }}</span>
             <strong>{{ analysis.bom_occurrence_count }}</strong>
           </article>
           <article>
-            <span>提取文本</span>
+            <span>{{ t('versions.sop.extractedText') }}</span>
             <strong>{{ analysis.text_length.toLocaleString() }}</strong>
           </article>
         </section>
 
         <el-alert
           v-if="!analysis.bom_detected"
-          title="该 SOP 中没有识别到“物料清单 / Material List”表格"
+          :title="t('versions.sop.noMaterialList')"
           type="warning"
           :closable="false"
           show-icon
         />
 
         <el-tabs v-model="analysisTab" class="analysis-tabs">
-          <el-tab-pane label="BOM 物料汇总" name="summary">
+          <el-tab-pane :label="t('versions.sop.bomSummary')" name="summary">
             <div class="bom-toolbar">
-              <el-input v-model="bomSearchText" :prefix-icon="Search" clearable placeholder="搜索料号或物料名称" />
-              <span>同一料号多次出现时，数量为累计值</span>
+              <el-input v-model="bomSearchText" :prefix-icon="Search" clearable :placeholder="t('versions.sop.searchPart')" />
+              <span>{{ t('versions.sop.quantityAccumulated') }}</span>
             </div>
             <el-table :data="filteredBomMaterials" height="calc(100vh - 300px)" border>
-              <el-table-column prop="part_number" label="料号" width="130" fixed />
-              <el-table-column prop="name" label="物料名称" min-width="330" show-overflow-tooltip />
-              <el-table-column label="料耗数量" width="110" align="right">
+              <el-table-column prop="part_number" :label="t('versions.sop.partNumber')" width="130" fixed />
+              <el-table-column prop="name" :label="t('versions.sop.materialName')" min-width="330" show-overflow-tooltip />
+              <el-table-column :label="t('versions.sop.consumptionQuantity')" width="110" align="right">
                 <template #default="{ row }">
                   <strong>{{ formatQuantity(row.quantity) }}</strong>
-                  <el-tooltip v-if="!row.quantity_complete" content="部分物料行未识别到数量">
+                  <el-tooltip v-if="!row.quantity_complete" :content="t('versions.sop.incompleteQuantity')">
                     <el-icon class="quantity-warning"><Warning /></el-icon>
                   </el-tooltip>
                 </template>
               </el-table-column>
-              <el-table-column prop="occurrences" label="出现次数" width="90" align="center" />
-              <el-table-column label="页码" width="110">
+              <el-table-column prop="occurrences" :label="t('versions.sop.occurrences')" width="90" align="center" />
+              <el-table-column :label="t('versions.sop.pages')" width="110">
                 <template #default="{ row }">{{ row.pages.join(', ') }}</template>
               </el-table-column>
             </el-table>
           </el-tab-pane>
 
-          <el-tab-pane label="全文料号引用" name="references">
+          <el-tab-pane :label="t('versions.sop.fullTextReferences')" name="references">
             <div class="bom-toolbar">
               <el-input
                 v-model="referenceSearchText"
                 :prefix-icon="Search"
                 clearable
-                placeholder="搜索全文料号或物料名称"
+                :placeholder="t('versions.sop.searchFullText')"
               />
               <span>
-                已排除物料清单页 · {{ analysis.full_text_material_count }} 个料号，
-                共 {{ analysis.full_text_occurrence_count }} 次引用
+                {{ t('versions.sop.referenceMeta', { materials: analysis.full_text_material_count, occurrences: analysis.full_text_occurrence_count }) }}
               </span>
             </div>
             <el-table
               :data="filteredFullTextReferences"
               height="calc(100vh - 300px)"
               border
-              empty-text="除物料清单页外，没有识别到料号引用"
+              :empty-text="t('versions.sop.noReferences')"
             >
               <el-table-column type="expand" width="48">
                 <template #default="{ row }">
                   <div class="semantic-audit-panel">
                     <div v-if="row.quantity_explanation" class="semantic-audit-summary">
-                      <strong>数量汇总说明</strong>
+                      <strong>{{ t('versions.sop.quantityExplanation') }}</strong>
                       <p>{{ row.quantity_explanation }}</p>
                     </div>
                     <article
@@ -258,48 +257,48 @@
                       class="semantic-decision-item"
                     >
                       <span class="semantic-decision-badge" :class="decision.accumulate ? 'is-added' : 'is-skipped'">
-                        {{ decision.accumulate ? `累加 ${formatQuantity(decision.quantity_delta)}` : '不累加' }}
+                        {{ decision.accumulate ? t('versions.sop.accumulate', { quantity: formatQuantity(decision.quantity_delta) }) : t('versions.sop.doNotAccumulate') }}
                       </span>
                       <div>
-                        <strong>{{ decision.action || '语义判断' }}</strong>
+                        <strong>{{ decision.action || t('versions.sop.semanticDecision') }}</strong>
                         <small>
-                          <template v-if="decision.page_numbers?.length">第 {{ decision.page_numbers.join('、') }} 页</template>
-                          <template v-if="decision.target"> · 目标：{{ decision.target }}</template>
-                          <template v-if="decision.location"> · 位置：{{ decision.location }}</template>
+                          <template v-if="decision.page_numbers?.length">{{ t('versions.sop.pageNumbers', { pages: decision.page_numbers.join(', ') }) }}</template>
+                          <template v-if="decision.target"> · {{ t('versions.sop.target', { target: decision.target }) }}</template>
+                          <template v-if="decision.location"> · {{ t('versions.sop.location', { location: decision.location }) }}</template>
                         </small>
                         <p>{{ decision.reason || '—' }}</p>
                         <blockquote v-if="decision.evidence">{{ decision.evidence }}</blockquote>
                       </div>
                     </article>
-                    <el-empty v-if="!row.quantity_explanation && !row.quantity_decisions?.length" description="暂无语义累加说明" :image-size="42" />
+                    <el-empty v-if="!row.quantity_explanation && !row.quantity_decisions?.length" :description="t('versions.sop.noSemanticExplanation')" :image-size="42" />
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column prop="part_number" label="料号" width="140" fixed />
-              <el-table-column label="物料名称" min-width="330" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.name || '未识别' }}</template>
+              <el-table-column prop="part_number" :label="t('versions.sop.partNumber')" width="140" fixed />
+              <el-table-column :label="t('versions.sop.materialName')" min-width="330" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.name || t('versions.sop.unrecognized') }}</template>
               </el-table-column>
-              <el-table-column prop="occurrences" label="出现次数" width="110" align="center" />
-              <el-table-column prop="quantity" label="当前物料数量" width="130" align="center" />
-              <el-table-column label="出现页码" min-width="160">
+              <el-table-column prop="occurrences" :label="t('versions.sop.occurrences')" width="110" align="center" />
+              <el-table-column prop="quantity" :label="t('versions.sop.currentQuantity')" width="130" align="center" />
+              <el-table-column :label="t('versions.sop.occurrencePages')" min-width="160">
                 <template #default="{ row }">{{ row.pages.join(', ') }}</template>
               </el-table-column>
             </el-table>
           </el-tab-pane>
 
-          <el-tab-pane label="PDF 原文" name="text">
+          <el-tab-pane :label="t('versions.sop.pdfText')" name="text">
             <el-collapse class="pdf-page-collapse">
               <el-collapse-item v-for="page in analysis.pages" :key="page.page_number" :name="page.page_number">
                 <template #title>
                   <div class="section-collapse-title">
-                    <strong>第 {{ page.page_number }} 页</strong>
-                    <span>{{ sopPageCategoryText[page.category] }} · 仅显示包含物料的原文行</span>
+                    <strong>{{ t('versions.sop.pageNumber', { number: page.page_number }) }}</strong>
+                    <span>{{ sopPageCategoryText[page.category] }} · {{ t('versions.sop.materialLinesOnly') }}</span>
                   </div>
                 </template>
                 <pre>{{ page.text }}</pre>
               </el-collapse-item>
             </el-collapse>
-            <el-empty v-if="analysis.pages.length === 0" description="PDF 中没有识别到包含物料的原文行" />
+            <el-empty v-if="analysis.pages.length === 0" :description="t('versions.sop.noMaterialLines')" />
           </el-tab-pane>
         </el-tabs>
       </div>
@@ -309,6 +308,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
   Document,
@@ -320,8 +320,10 @@ import {
   Warning
 } from '@element-plus/icons-vue'
 import { sopApi, type SopBomMaterial, type SopCatalogEntry, type SopMasterSheet, type SopPdfAnalysis } from '@/scripts/modules/version_modules/api/sop'
+import { useAppLocale } from '@/i18n'
 
-
+const { t } = useI18n()
+const { locale } = useAppLocale()
 const loading = ref(true)
 const catalog = ref<SopMasterSheet | null>(null)
 const searchText = ref('')
@@ -337,11 +339,11 @@ const selectedEntry = ref<SopCatalogEntry | null>(null)
 const analysisTab = ref('summary')
 const bomSearchText = ref('')
 const referenceSearchText = ref('')
-const sopPageCategoryText = {
-  instruction: '操作内容',
-  material_list: '材料清单',
-  tool_list: '工具清单'
-}
+const sopPageCategoryText = computed<Record<string, string>>(() => ({
+  instruction: t('versions.sop.categories.instruction'),
+  material_list: t('versions.sop.categories.materialList'),
+  tool_list: t('versions.sop.categories.toolList')
+}))
 
 const projectOptions = computed(() =>
   [...new Set((catalog.value?.entries ?? []).map((entry) => entry.project).filter(Boolean))].sort()
@@ -402,10 +404,10 @@ async function loadCatalog(refresh = false) {
   try {
     const response = await sopApi.masterSheet(refresh)
     catalog.value = response.data
-    if (refresh) ElMessage.success('SOP 总表已刷新')
+    if (refresh) ElMessage.success(t('versions.sop.messages.masterRefreshed'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('SOP 总表读取失败')
+    ElMessage.error(t('versions.sop.messages.masterFailed'))
   } finally {
     loading.value = false
   }
@@ -413,7 +415,7 @@ async function loadCatalog(refresh = false) {
 
 async function openAnalysis(entry: SopCatalogEntry) {
   if (!entry.drive_file_id) {
-    ElMessage.warning('该 SOP 没有可解析的 Google Drive PDF 链接')
+    ElMessage.warning(t('versions.sop.messages.noPdfLink'))
     return
   }
   selectedEntry.value = entry
@@ -434,10 +436,10 @@ async function loadSelectedAnalysis(refresh = false) {
   try {
     const response = await sopApi.analyze(fileId, refresh)
     analysis.value = response.data
-    if (refresh) ElMessage.success('SOP PDF 分析缓存已刷新')
+    if (refresh) ElMessage.success(t('versions.sop.messages.analysisRefreshed'))
   } catch (error: any) {
     console.error(error)
-    analysisError.value = error?.response?.data?.detail || error?.message || 'PDF 下载或分析失败'
+    analysisError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.sop.messages.pdfFailed')
   } finally {
     analysisLoading.value = false
   }
@@ -460,7 +462,7 @@ function sourcePdfUrl(entry: SopCatalogEntry) {
 
 function formatDate(value: string | null) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  return new Date(value).toLocaleString(locale.value, { hour12: false })
 }
 
 function formatBytes(value: number) {
@@ -470,7 +472,7 @@ function formatBytes(value: number) {
 }
 
 function formatQuantity(value: number | null) {
-  if (value === null) return '未识别'
+  if (value === null) return t('versions.sop.unrecognized')
   return Number.isInteger(value) ? value.toString() : value.toFixed(2)
 }
 

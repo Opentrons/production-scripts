@@ -2,16 +2,16 @@
   <div class="app-container">
     <header class="app-header">
       <div class="header-left">
-        <div class="header-brand" aria-label="Productions Testing">
+        <div class="header-brand" :aria-label="t('layout.brand')">
           <span class="header-brand-mark" aria-hidden="true">T</span>
           <span class="header-brand-text">Productions Testing</span>
         </div>
       </div>
       <div class="header-right">
         <div class="health-status">
-          <span class="last-update">更新: {{ lastUpdateText }}</span>
+          <span class="last-update">{{ t('layout.lastUpdate', { time: lastUpdateText }) }}</span>
           <div class="status-item">
-            <span class="status-label">Server:</span>
+            <span class="status-label">{{ t('layout.server') }}:</span>
             <span 
               class="status-indicator" 
               :class="serverStatusClass"
@@ -46,6 +46,7 @@
               :icon="Bell"
               circle
               size="small"
+              :aria-label="t('layout.openMessages')"
               @click="openMessages"
             />
           </el-badge>
@@ -87,13 +88,13 @@
 
       <div class="sidebar-divider">
         <el-tooltip
-          :content="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          :content="sidebarCollapsed ? t('layout.expandSidebar') : t('layout.collapseSidebar')"
           placement="right"
         >
           <button
             class="sidebar-toggle"
             type="button"
-            :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+            :aria-label="sidebarCollapsed ? t('layout.expandSidebar') : t('layout.collapseSidebar')"
             @click="toggleSidebar"
           >
             <el-icon>
@@ -117,56 +118,58 @@ import { useHealthStore } from '@/scripts/stores/health'
 import { useMessageStore } from '@/scripts/stores/message'
 import { Refresh, DataAnalysis, Setting, Monitor, ArrowLeft, ArrowRight, UploadFilled, Bell, Link as LinkIcon, DocumentChecked, Histogram, Tickets, Memo } from '@element-plus/icons-vue'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
+import { useAppLocale } from '@/i18n'
 
 const router = useRouter()
 const route = useRoute()
 const healthStore = useHealthStore()
 const messageStore = useMessageStore()
+const { locale, t } = useAppLocale()
 const sidebarCollapsed = ref(false)
 const HEALTH_REFRESH_INTERVAL_MS = 10 * 60 * 1000
 const MESSAGE_REFRESH_INTERVAL_MS = 30 * 1000
 
-const allMenuItems = [
+const allMenuItems = computed(() => [
   {
     id: 'menu-devices',
-    name: '设备管理',
+    name: t('layout.nav.devices'),
     icon: Monitor,
     path: '/devices'
   },
   {
     id: 'menu-test-cases',
-    name: '测试管理',
+    name: t('layout.nav.tests'),
     icon: DocumentChecked,
     children: [
-      { id: 'menu-terminal-tests', name: '终端测试', icon: Tickets, path: '/test-cases' },
-      { id: 'menu-protocol-tests', name: 'Protocol测试', icon: Memo, path: '/test-cases/protocol' }
+      { id: 'menu-terminal-tests', name: t('layout.nav.terminalTests'), icon: Tickets, path: '/test-cases' },
+      { id: 'menu-protocol-tests', name: t('layout.nav.protocolTests'), icon: Memo, path: '/test-cases/protocol' }
     ]
   },
   {
     id: 'menu-data-uploads',
-    name: '数据上传',
+    name: t('layout.nav.uploads'),
     icon: UploadFilled,
     path: '/data/uploads'
   },
   {
     id: 'menu-data',
-    name: '数据管理',
+    name: t('layout.nav.data'),
     icon: DataAnalysis,
     children: [
-      { id: 'menu-data-list', name: '测试数据', icon: DataAnalysis, path: '/data' },
-      { id: 'menu-data-analysis', name: '数据分析', icon: Histogram, path: '/data/analysis' },
-      { id: 'menu-data-links', name: '数据链接', icon: LinkIcon, path: '/data/links' }
+      { id: 'menu-data-list', name: t('layout.nav.testData'), icon: DataAnalysis, path: '/data' },
+      { id: 'menu-data-analysis', name: t('layout.nav.analysis'), icon: Histogram, path: '/data/analysis' },
+      { id: 'menu-data-links', name: t('layout.nav.links'), icon: LinkIcon, path: '/data/links' }
     ]
   },
   {
     id: 'menu-settings',
-    name: '系统设置',
+    name: t('layout.nav.settings'),
     icon: Setting,
     path: '/settings'
   }
-]
+])
 
-const menuItems = computed(() => allMenuItems)
+const menuItems = computed(() => allMenuItems.value)
 
 const activeMenu = computed(() => {
   const path = route.path
@@ -195,17 +198,17 @@ const serverStatusClass = computed(() => {
 })
 
 const serverStatusText = computed(() => {
-  if (!healthStore.healthData?.services?.system_service) return '未知'
+  if (!healthStore.healthData?.services?.system_service) return t('common.status.unknown')
   const status = healthStore.healthData.services.system_service.status
   const statusMap: Record<string, string> = {
-    'running': '运行中',
-    'stopped': '已停止',
-    'failed': '失败',
-    'healthy': '正常',
-    'unhealthy': '异常',
-    'unknown': '未知'
+    'running': t('common.status.running'),
+    'stopped': t('common.status.stopped'),
+    'failed': t('common.status.error'),
+    'healthy': t('common.status.healthy'),
+    'unhealthy': t('common.status.abnormal'),
+    'unknown': t('common.status.unknown')
   }
-  return statusMap[status] || '未知'
+  return statusMap[status] || t('common.status.unknown')
 })
 
 const googleDriveStatusClass = computed(() => {
@@ -214,8 +217,10 @@ const googleDriveStatusClass = computed(() => {
 })
 
 const googleDriveStatusText = computed(() => {
-  if (!healthStore.healthData?.services?.google_drive) return '未知'
-  return healthStore.healthData.services.google_drive.status === 'healthy' ? '正常' : '异常'
+  if (!healthStore.healthData?.services?.google_drive) return t('common.status.unknown')
+  return healthStore.healthData.services.google_drive.status === 'healthy'
+    ? t('common.status.healthy')
+    : t('common.status.abnormal')
 })
 
 const slackStatusClass = computed(() => {
@@ -224,13 +229,15 @@ const slackStatusClass = computed(() => {
 })
 
 const slackStatusText = computed(() => {
-  if (!healthStore.healthData?.services?.slack) return '未知'
-  return healthStore.healthData.services.slack.status === 'healthy' ? '正常' : '异常'
+  if (!healthStore.healthData?.services?.slack) return t('common.status.unknown')
+  return healthStore.healthData.services.slack.status === 'healthy'
+    ? t('common.status.healthy')
+    : t('common.status.abnormal')
 })
 
 const lastUpdateText = computed(() => {
-  if (!healthStore.lastUpdateTime) return '未更新'
-  return healthStore.lastUpdateTime.toLocaleString('zh-CN', { 
+  if (!healthStore.lastUpdateTime) return t('layout.notUpdated')
+  return healthStore.lastUpdateTime.toLocaleString(locale.value, {
     year: 'numeric', 
     month: '2-digit', 
     day: '2-digit',

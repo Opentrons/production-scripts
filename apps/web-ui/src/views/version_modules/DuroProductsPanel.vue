@@ -3,12 +3,12 @@
     <header class="versions-topbar">
       <div>
         <p class="eyebrow">DURO PRODUCT LIFECYCLE</p>
-        <h1>Duro 产品总览</h1>
-        <p>读取 Duro 产品、版本、生命周期状态和产品图片。</p>
+        <h1>{{ t('versions.duro.title') }}</h1>
+        <p>{{ t('versions.duro.subtitle') }}</p>
       </div>
       <div class="versions-topbar-actions">
-        <el-button :icon="Link" tag="a" href="https://mfg.duro.app/dashboard" target="_blank">打开 Duro</el-button>
-        <el-button type="primary" :icon="Refresh" :loading="loading" @click="loadProducts(true)">刷新产品</el-button>
+        <el-button :icon="Link" tag="a" href="https://mfg.duro.app/dashboard" target="_blank">{{ t('versions.duro.open') }}</el-button>
+        <el-button type="primary" :icon="Refresh" :loading="loading" @click="loadProducts(true)">{{ t('versions.duro.refreshProducts') }}</el-button>
       </div>
     </header>
 
@@ -19,10 +19,10 @@
       :closable="false"
       show-icon
     >
-      <template #title>{{ connectionStatus.configured ? 'Duro token 已过期' : 'Duro token 尚未配置' }}</template>
+      <template #title>{{ t(connectionStatus.configured ? 'versions.duro.tokenExpired' : 'versions.duro.tokenMissing') }}</template>
       <template #default>
-        <span v-if="connectionStatus.token_expires_at">过期时间：{{ formatDate(connectionStatus.token_expires_at) }}。</span>
-        请配置 Remote Chrome，或在后端设置 <code>PRODUCTION_PLATFORM_DURO_TOKEN</code> 后重新加载。
+        <span v-if="connectionStatus.token_expires_at">{{ t('versions.duro.expiresAt', { time: formatDate(connectionStatus.token_expires_at) }) }}</span>
+        {{ t('versions.duro.tokenHelp') }} <code>PRODUCTION_PLATFORM_DURO_TOKEN</code> {{ t('versions.duro.tokenHelpSuffix') }}
       </template>
     </el-alert>
 
@@ -32,10 +32,10 @@
       type="warning"
       :closable="false"
       show-icon
-      title="Duro token 自动刷新未就绪"
+      :title="t('versions.duro.autoRefreshUnavailable')"
     >
       <template #default>
-        {{ connectionStatus.remote_chrome_error }}。请在自动打开的专用 Chrome 窗口登录 Duro；登录后后台会自动刷新，无需重启后端。
+        {{ t('versions.duro.remoteChromeHelp', { error: connectionStatus.remote_chrome_error }) }}
       </template>
     </el-alert>
 
@@ -43,19 +43,19 @@
       <div class="duro-toolbar">
         <div class="section-label">
           <span>PRODUCT CATALOG</span>
-          <strong>Duro 产品列表</strong>
+          <strong>{{ t('versions.duro.productList') }}</strong>
         </div>
         <div class="duro-filter-row">
           <el-input
             v-model="searchText"
             :prefix-icon="Search"
             clearable
-            placeholder="搜索名称、CPN、ID、Alias 或 Revision"
+            :placeholder="t('versions.duro.searchPlaceholder')"
           />
-          <el-select v-model="selectedStatus" clearable placeholder="全部状态">
+          <el-select v-model="selectedStatus" clearable :placeholder="t('versions.duro.allStatuses')">
             <el-option v-for="status in statusOptions" :key="status" :label="status" :value="status" />
           </el-select>
-          <el-select v-model="selectedRevision" clearable filterable placeholder="全部 Revision">
+          <el-select v-model="selectedRevision" clearable filterable :placeholder="t('versions.duro.allRevisions')">
             <el-option v-for="revision in revisionOptions" :key="revision" :label="revision" :value="revision" />
           </el-select>
         </div>
@@ -63,16 +63,16 @@
 
       <div v-if="loading && !productResponse" class="duro-loading-state">
         <el-icon class="is-loading"><Loading /></el-icon>
-        <span>正在读取 Duro 产品信息…</span>
+        <span>{{ t('versions.duro.loading') }}</span>
       </div>
       <el-result
         v-else-if="loadError && !productResponse"
         icon="warning"
-        title="Duro 产品读取失败"
+        :title="t('versions.duro.loadFailed')"
         :sub-title="loadError"
       >
         <template #extra>
-          <el-button type="primary" @click="loadProducts(true)">重试</el-button>
+          <el-button type="primary" @click="loadProducts(true)">{{ t('common.actions.retry') }}</el-button>
         </template>
       </el-result>
       <el-table
@@ -80,10 +80,10 @@
         :data="filteredProducts"
         height="clamp(360px, calc(100vh - 300px), 760px)"
         row-class-name="duro-product-row"
-        empty-text="没有符合条件的产品"
+        :empty-text="t('versions.duro.empty')"
         @row-click="openProduct"
       >
-        <el-table-column label="产品" min-width="310" fixed>
+        <el-table-column :label="t('versions.duro.product')" min-width="310" fixed>
           <template #default="{ row }">
             <div class="product-name-cell">
               <div class="product-thumbnail">
@@ -91,7 +91,7 @@
                 <el-icon v-else><Box /></el-icon>
               </div>
               <div>
-                <strong>{{ row.name || '未命名产品' }}</strong>
+                <strong>{{ row.name || t('versions.duro.unnamedProduct') }}</strong>
                 <span>{{ row.alias || row.cpn || row._id }}</span>
               </div>
             </div>
@@ -105,37 +105,37 @@
             <span class="revision-pill">{{ row.revision || '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="status" :label="t('versions.common.status')" width="120">
           <template #default="{ row }">
             <span class="duro-status-pill" :class="`is-${(row.status || '').toLowerCase()}`">
               {{ row.status || 'UNKNOWN' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="历史版本" width="100" align="center">
+        <el-table-column :label="t('versions.duro.revisionHistory')" width="100" align="center">
           <template #default="{ row }">{{ row.revisions?.length ?? 0 }}</template>
         </el-table-column>
-        <el-table-column label="最后修改" width="170">
+        <el-table-column :label="t('versions.duro.lastModified')" width="170">
           <template #default="{ row }">{{ formatDate(row.lastModified) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="100" align="right">
+        <el-table-column :label="t('versions.common.actions')" width="100" align="right">
           <template #default="{ row }">
-            <el-button text type="primary" @click.stop="openProduct(row)">详情</el-button>
+            <el-button text type="primary" @click.stop="openProduct(row)">{{ t('versions.common.details') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
       <footer class="product-footer">
-        <span>显示 {{ filteredProducts.length }} / {{ productResponse?.count ?? 0 }} 个产品</span>
-        <span>更新时间：{{ formatDate(productResponse?.fetched_at ?? null) }}</span>
+        <span>{{ t('versions.duro.showing', { shown: filteredProducts.length, total: productResponse?.count ?? 0 }) }}</span>
+        <span>{{ t('versions.common.updatedAt', { time: formatDate(productResponse?.fetched_at ?? null) }) }}</span>
       </footer>
     </section>
 
-    <footer class="duro-board-footer" aria-label="Duro 产品数量看板">
-      <span>产品总数 <strong>{{ productResponse?.count ?? 0 }}</strong></span>
+    <footer class="duro-board-footer" :aria-label="t('versions.duro.boardAria')">
+      <span>{{ t('versions.duro.totalProducts') }} <strong>{{ productResponse?.count ?? 0 }}</strong></span>
       <span>Production <strong>{{ statusCount('PRODUCTION') }}</strong></span>
       <span>Design <strong>{{ statusCount('DESIGN') }}</strong></span>
       <span>Obsolete <strong>{{ statusCount('OBSOLETE') }}</strong></span>
-      <span class="duro-source-state">{{ productResponse?.cached ? 'SQLite 缓存' : 'Duro API' }}</span>
+      <span class="duro-source-state">{{ productResponse?.cached ? t('versions.common.sqliteCache') : 'Duro API' }}</span>
     </footer>
 
     <el-drawer v-model="productDrawerVisible" size="min(780px, 100vw)" class="duro-product-drawer">
@@ -151,12 +151,12 @@
 
       <div v-if="selectedProduct" class="product-detail-content">
         <el-tabs v-model="detailTab" class="product-detail-tabs" @tab-change="handleDetailTabChange">
-          <el-tab-pane label="BOM 结构" name="bom">
+          <el-tab-pane :label="t('versions.duro.bomStructure')" name="bom">
             <section class="bom-panel">
               <div class="bom-toolbar">
                 <div>
                   <span>BILL OF MATERIALS</span>
-                  <strong>可折叠 BOM 树</strong>
+                  <strong>{{ t('versions.duro.collapsibleBom') }}</strong>
                 </div>
                 <div class="bom-toolbar-actions">
                   <el-button
@@ -165,17 +165,17 @@
                     :href="bomResponse?.source_url || duroProductUrl(selectedProduct._id)"
                     target="_blank"
                   >
-                    Duro 原页面
+                    {{ t('versions.duro.sourcePage') }}
                   </el-button>
-                  <el-button :icon="Refresh" :loading="bomLoading" @click="loadProductBom(true)">刷新 BOM</el-button>
+                  <el-button :icon="Refresh" :loading="bomLoading" @click="loadProductBom(true)">{{ t('versions.duro.refreshBom') }}</el-button>
                 </div>
               </div>
 
               <div v-if="bomResponse" class="bom-summary">
-                <article><span>产品 Revision</span><strong>{{ bomResponse.root.revision || '—' }}</strong></article>
-                <article><span>第一层物料</span><strong>{{ bomResponse.direct_child_count }}</strong></article>
-                <article><span>数据来源</span><strong>{{ bomResponse.cached ? 'SQLite 缓存' : 'Duro API' }}</strong></article>
-                <article><span>更新时间</span><strong>{{ formatDate(bomResponse.fetched_at) }}</strong></article>
+                <article><span>{{ t('versions.duro.productRevision') }}</span><strong>{{ bomResponse.root.revision || '—' }}</strong></article>
+                <article><span>{{ t('versions.duro.directMaterials') }}</span><strong>{{ bomResponse.direct_child_count }}</strong></article>
+                <article><span>{{ t('versions.common.source') }}</span><strong>{{ bomResponse.cached ? t('versions.common.sqliteCache') : 'Duro API' }}</strong></article>
+                <article><span>{{ t('versions.common.updateTime') }}</span><strong>{{ formatDate(bomResponse.fetched_at) }}</strong></article>
               </div>
 
               <div v-if="bomResponse" class="bom-search-row">
@@ -183,36 +183,36 @@
                   v-model="bomSearchText"
                   :prefix-icon="Search"
                   clearable
-                  placeholder="搜索 BOM 料号或产品名"
-                  aria-label="搜索 BOM 料号或产品名"
+                  :placeholder="t('versions.duro.bomSearch')"
+                  :aria-label="t('versions.duro.bomSearch')"
                 />
-                <span v-if="bomSearchLoading">正在搜索全部 BOM 层级…</span>
+                <span v-if="bomSearchLoading">{{ t('versions.duro.searchingBom') }}</span>
                 <span v-else-if="bomSearchResponse && countBomMatches(bomSearchResponse.root)">
-                  找到 {{ countBomMatches(bomSearchResponse.root) }} 个匹配项
+                  {{ t('versions.duro.matchesFound', { count: countBomMatches(bomSearchResponse.root) }) }}
                 </span>
-                <span v-else-if="bomSearchResponse">没有匹配的 BOM</span>
+                <span v-else-if="bomSearchResponse">{{ t('versions.duro.noBomMatch') }}</span>
               </div>
 
               <div v-if="bomLoading && !bomResponse" class="bom-loading-state">
                 <el-icon class="is-loading"><Loading /></el-icon>
-                <span>正在读取产品 BOM…</span>
+                <span>{{ t('versions.duro.loadingBom') }}</span>
               </div>
               <el-result
                 v-else-if="bomError && !bomResponse"
                 icon="warning"
-                title="BOM 读取失败"
+                :title="t('versions.duro.bomLoadFailed')"
                 :sub-title="bomError"
               >
                 <template #extra>
-                  <el-button type="primary" @click="loadProductBom(true)">重试</el-button>
+                  <el-button type="primary" @click="loadProductBom(true)">{{ t('common.actions.retry') }}</el-button>
                 </template>
               </el-result>
               <div v-else-if="bomResponse" class="bom-tree-shell">
                 <div class="bom-tree-columns">
-                  <span>料号 / 名称</span>
+                  <span>{{ t('versions.duro.partAndName') }}</span>
                   <span>Revision</span>
-                  <span>数量</span>
-                  <span>状态</span>
+                  <span>{{ t('versions.common.quantity') }}</span>
+                  <span>{{ t('versions.common.status') }}</span>
                 </div>
                 <el-tree
                   v-if="!bomSearchResponse"
@@ -224,7 +224,7 @@
                   :props="bomTreeProps"
                   :default-expanded-keys="[bomRootKey]"
                   :expand-on-click-node="false"
-                  empty-text="该产品没有 BOM 子项"
+                  :empty-text="t('versions.duro.noBomChildren')"
                 >
                   <template #default="{ data }">
                     <div class="bom-node-row" :class="{ 'is-product': data.node_type === 'product' }">
@@ -232,7 +232,7 @@
                         <el-icon><Box /></el-icon>
                         <div>
                           <strong>{{ data.cpn || data.alias || data.id }}</strong>
-                          <span>{{ data.name || '未命名物料' }}</span>
+                          <span>{{ data.name || t('versions.duro.unnamedMaterial') }}</span>
                         </div>
                       </div>
                       <span class="revision-pill">{{ data.revision || '—' }}</span>
@@ -251,7 +251,7 @@
                   :props="bomTreeProps"
                   default-expand-all
                   :expand-on-click-node="false"
-                  empty-text="没有匹配的 BOM"
+                  :empty-text="t('versions.duro.noBomMatch')"
                 >
                   <template #default="{ data }">
                     <div class="bom-node-row" :class="{ 'is-product': data.node_type === 'product' }">
@@ -259,7 +259,7 @@
                         <el-icon><Box /></el-icon>
                         <div>
                           <strong>{{ data.cpn || data.alias || data.id }}</strong>
-                          <span>{{ data.name || '未命名物料' }}</span>
+                          <span>{{ data.name || t('versions.duro.unnamedMaterial') }}</span>
                         </div>
                       </div>
                       <span class="revision-pill">{{ data.revision || '—' }}</span>
@@ -280,7 +280,7 @@
             </section>
           </el-tab-pane>
 
-          <el-tab-pane label="产品信息" name="info">
+          <el-tab-pane :label="t('versions.duro.productInfo')" name="info">
             <div class="product-hero">
               <img v-if="productImage(selectedProduct)" :src="productImage(selectedProduct) || ''" :alt="selectedProduct.name" />
               <div v-else class="product-hero-placeholder"><el-icon><Box /></el-icon></div>
@@ -289,7 +289,7 @@
             <div class="product-detail-heading">
               <div>
                 <strong>{{ selectedProduct.name }}</strong>
-                <span>{{ selectedProduct.description || '暂无产品描述' }}</span>
+                <span>{{ selectedProduct.description || t('versions.duro.noDescription') }}</span>
               </div>
               <span class="duro-status-pill" :class="`is-${(selectedProduct.status || '').toLowerCase()}`">
                 {{ selectedProduct.status || 'UNKNOWN' }}
@@ -300,21 +300,21 @@
               <article><span>Revision</span><strong>{{ selectedProduct.revision || '—' }}</strong></article>
               <article><span>CPN</span><strong>{{ selectedProduct.cpn || '—' }}</strong></article>
               <article><span>Alias</span><strong>{{ selectedProduct.alias || '—' }}</strong></article>
-              <article><span>历史版本</span><strong>{{ selectedProduct.revisions?.length ?? 0 }}</strong></article>
+              <article><span>{{ t('versions.duro.revisionHistory') }}</span><strong>{{ selectedProduct.revisions?.length ?? 0 }}</strong></article>
             </section>
 
             <section class="product-info-list">
               <div><span>Duro ID</span><code>{{ selectedProduct._id }}</code></div>
-              <div><span>前一版本</span><strong>{{ displayValue(selectedProduct.previousRevision) }}</strong></div>
-              <div><span>前一状态</span><strong>{{ displayValue(selectedProduct.previousStatus) }}</strong></div>
-              <div><span>最后修改</span><strong>{{ formatDate(selectedProduct.lastModified) }}</strong></div>
-              <div><span>创建时间</span><strong>{{ formatDate(selectedProduct.created) }}</strong></div>
+              <div><span>{{ t('versions.duro.previousRevision') }}</span><strong>{{ displayValue(selectedProduct.previousRevision) }}</strong></div>
+              <div><span>{{ t('versions.duro.previousStatus') }}</span><strong>{{ displayValue(selectedProduct.previousStatus) }}</strong></div>
+              <div><span>{{ t('versions.duro.lastModified') }}</span><strong>{{ formatDate(selectedProduct.lastModified) }}</strong></div>
+              <div><span>{{ t('versions.duro.createdAt') }}</span><strong>{{ formatDate(selectedProduct.created) }}</strong></div>
             </section>
 
             <section v-if="(selectedProduct.images?.length ?? 0) > 1" class="product-image-list">
               <div class="section-label">
                 <span>PRODUCT IMAGES</span>
-                <strong>产品图片</strong>
+                <strong>{{ t('versions.duro.productImages') }}</strong>
               </div>
               <div class="image-grid">
                 <img
@@ -334,6 +334,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Box, Link, Loading, Refresh, Search } from '@element-plus/icons-vue'
 import {
@@ -344,8 +345,10 @@ import {
   type DuroProductBomResponse,
   type DuroProductSearchResponse
 } from '@/scripts/modules/version_modules/api/duro'
+import { useAppLocale } from '@/i18n'
 
-
+const { t } = useI18n()
+const { locale } = useAppLocale()
 const loading = ref(true)
 const loadError = ref('')
 const connectionStatus = ref<DuroConnectionStatus | null>(null)
@@ -414,10 +417,10 @@ async function loadProducts(refresh = false) {
     }
     const response = await duroApi.products(refresh)
     productResponse.value = response.data
-    if (refresh) ElMessage.success(`已读取 ${response.data.count} 个 Duro 产品`)
+    if (refresh) ElMessage.success(t('versions.duro.messages.productsLoaded', { count: response.data.count }))
   } catch (error: any) {
     console.error(error)
-    loadError.value = error?.response?.data?.detail || error?.message || 'Duro 产品读取失败'
+    loadError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.duro.loadFailed')
     if (error?.response?.status === 401 && connectionStatus.value) {
       connectionStatus.value = { ...connectionStatus.value, token_valid: false }
     }
@@ -455,11 +458,11 @@ async function loadProductBom(refresh = false) {
     if (selectedProduct.value?._id !== productId) return
     bomResponse.value = response.data
     bomTreeVersion.value += 1
-    if (refresh) ElMessage.success(`已刷新 ${response.data.root.name || productId} 的 BOM`)
+    if (refresh) ElMessage.success(t('versions.duro.messages.bomRefreshed', { product: response.data.root.name || productId }))
   } catch (error: any) {
     console.error(error)
     if (bomRequestVersion.value !== requestVersion || selectedProduct.value?._id !== productId) return
-    bomError.value = error?.response?.data?.detail || error?.message || 'Duro BOM 读取失败'
+    bomError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.duro.bomLoadFailed')
   } finally {
     if (bomRequestVersion.value === requestVersion) bomLoading.value = false
   }
@@ -491,7 +494,7 @@ async function loadBomTreeNode(node: any, resolve: (children: DuroTreeNode[]) =>
     resolve(decorateBomChildren(response.data.children, current.ui_key))
   } catch (error: any) {
     console.error(error)
-    bomError.value = error?.response?.data?.detail || error?.message || `组件 ${current.cpn || current.id} 展开失败`
+    bomError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.duro.componentExpandFailed', { component: current.cpn || current.id })
     resolve([])
   }
 }
@@ -537,7 +540,7 @@ async function searchProductBom() {
   } catch (error: any) {
     console.error(error)
     if (requestVersion !== bomSearchRequestVersion.value) return
-    bomSearchError.value = error?.response?.data?.detail || error?.message || 'BOM 全层级搜索失败'
+    bomSearchError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.duro.bomSearchFailed')
   } finally {
     if (requestVersion === bomSearchRequestVersion.value) bomSearchLoading.value = false
   }
@@ -571,7 +574,7 @@ function formatDate(value: number | string | null | undefined) {
   const normalized = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value
   const date = new Date(normalized)
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return date.toLocaleString(locale.value, { hour12: false })
 }
 
 function displayValue(value: unknown) {

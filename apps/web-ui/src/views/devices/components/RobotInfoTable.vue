@@ -5,7 +5,7 @@
       type="warning"
       :closable="false"
       show-icon
-      title="当前设备服务异常，获取信息失败"
+      :title="t('devices.infoTable.serviceWarning')"
       class="service-warning"
     />
     <el-alert
@@ -13,12 +13,12 @@
       type="info"
       :closable="false"
       show-icon
-      title="部分详细字段未能获取，已显示可用信息"
+      :title="t('devices.infoTable.partialWarning')"
       class="service-warning"
     />
     <el-table :data="tableRows" border stripe size="small">
-      <el-table-column prop="label" label="字段" width="140" />
-      <el-table-column prop="value" label="值" />
+      <el-table-column prop="label" :label="t('devices.infoTable.field')" width="140" />
+      <el-table-column prop="value" :label="t('devices.infoTable.value')" />
     </el-table>
   </div>
 </template>
@@ -26,6 +26,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RobotInfo } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useAppLocale()
 
 const props = defineProps<{
   robot: RobotInfo
@@ -53,23 +56,23 @@ const showPartialWarning = computed(() => {
 const tableRows = computed(() => {
   const robot = props.robot
   return [
-    { label: 'IP地址', value: formatField(robot.ip) },
-    { label: '端口', value: formatField(String(robot.port)) },
-    { label: '设备名称', value: formatField(robot.name) },
-    { label: '序列号', value: formatField(robot.serial_number) },
-    { label: '设备类型', value: formatField(robot.robot_model ?? robot.robot_type) },
+    { label: t('devices.infoTable.ip'), value: formatField(robot.ip) },
+    { label: t('devices.infoTable.port'), value: formatField(String(robot.port)) },
+    { label: t('devices.infoTable.name'), value: formatField(robot.name) },
+    { label: t('devices.infoTable.serial'), value: formatField(robot.serial_number) },
+    { label: t('devices.infoTable.type'), value: formatField(robot.robot_model ?? robot.robot_type) },
     { label: 'API Level', value: formatApiLevel(robot.min_api_version, robot.max_api_version) },
-    { label: 'API版本', value: formatField(robot.api_version) },
-    { label: 'FW版本', value: formatField(robot.fw_version) },
+    { label: t('devices.infoTable.apiVersion'), value: formatField(robot.api_version) },
+    { label: t('devices.infoTable.firmwareVersion'), value: formatField(robot.fw_version) },
     {
-      label: '在线状态',
-      value: robot.online ? '在线' : '离线'
+      label: t('devices.infoTable.onlineStatus'),
+      value: robot.online ? t('common.status.online') : t('common.status.offline')
     },
     {
-      label: '服务状态',
-      value: robot.service_status === 'normal' ? '正常' : '异常'
+      label: t('devices.infoTable.serviceStatus'),
+      value: robot.service_status === 'normal' ? t('common.status.healthy') : t('common.status.abnormal')
     },
-    ...(robot.error ? [{ label: '错误信息', value: robot.error }] : [])
+    ...(robot.error ? [{ label: t('devices.infoTable.error'), value: robot.error }] : [])
   ]
 })
 </script>

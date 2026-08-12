@@ -3,13 +3,13 @@
     <div class="analysis-mode-bar">
       <el-button-group class="mode-switch">
         <el-button :type="analysisMode === 'local' ? 'primary' : 'default'" @click="analysisMode = 'local'">
-          本地分析
+          {{ t('analysis.common.local') }}
         </el-button>
         <el-button :type="analysisMode === 'online' ? 'primary' : 'default'" @click="analysisMode = 'online'">
-          在线分析
+          {{ t('analysis.common.online') }}
         </el-button>
       </el-button-group>
-      <el-tooltip content="Spec 设置" placement="bottom">
+      <el-tooltip :content="t('analysis.grav.specSettings')" placement="bottom">
         <el-button class="spec-settings-button" :icon="Setting" circle @click="openSpecDialog" />
       </el-tooltip>
     </div>
@@ -29,8 +29,8 @@
           >
             <div class="upload-empty-content">
               <el-icon class="upload-icon"><UploadFilled /></el-icon>
-              <div class="upload-title">上传 CSV 文件</div>
-              <div class="upload-subtitle">拖拽文件到此处，或点击选择</div>
+              <div class="upload-title">{{ t('analysis.grav.uploadTitle') }}</div>
+              <div class="upload-subtitle">{{ t('analysis.grav.uploadSubtitle') }}</div>
             </div>
           </el-upload>
 
@@ -55,10 +55,10 @@
                   :disabled="selectedFiles.length === 0"
                   @click="analyzeSelectedFiles"
                 >
-                  分析
+                  {{ t('analysis.common.analyze') }}
                 </el-button>
                 <el-button :icon="Delete" :disabled="selectedFiles.length === 0 || loading" @click="clearFiles">
-                  清空
+                  {{ t('analysis.common.clear') }}
                 </el-button>
               </div>
             </div>
@@ -73,10 +73,10 @@
       <template v-if="activeAnalysis">
         <div class="result-toolbar">
           <div class="result-title">
-            <el-tooltip content="返回上传" placement="bottom">
+            <el-tooltip :content="t('analysis.common.backToUpload')" placement="bottom">
               <el-button class="back-button" :icon="ArrowLeft" circle @click="clearFiles" />
             </el-tooltip>
-            <strong>{{ activeAnalysis.file?.name || 'CSV 分析结果' }}</strong>
+            <strong>{{ activeAnalysis.file?.name || t('analysis.grav.resultTitle') }}</strong>
           </div>
 
           <el-select
@@ -88,7 +88,7 @@
             <el-option
               v-for="(item, index) in analyses"
               :key="item.file?.path || item.file?.name || index"
-              :label="item.file?.name || `分析 ${index + 1}`"
+              :label="item.file?.name || t('analysis.common.analysisIndex', { index: index + 1 })"
               :value="index"
             />
           </el-select>
@@ -127,7 +127,7 @@
             <div class="panel-header">
               <div class="panel-title-tools">
                 <h2>
-                  {{ hasChannelTrialMatrices ? '容量/Channels' : '容量 / Trial %D' }}
+                  {{ hasChannelTrialMatrices ? t('analysis.grav.volumeChannels') : t('analysis.grav.volumeTrial') }}
                 </h2>
               </div>
               <div v-if="hasChannelTrialMatrices" class="trial-controls">
@@ -212,14 +212,14 @@
 
           <section class="chart-panel">
             <div class="panel-header">
-              <h2>温度变化</h2>
+              <h2>{{ t('analysis.grav.temperatureChange') }}</h2>
               <div class="trial-controls">
                 <el-checkbox-group v-model="temperatureSeriesSelection" size="small">
                   <el-checkbox-button label="pipette">Pipette</el-checkbox-button>
                   <el-checkbox-button label="air">Air</el-checkbox-button>
                 </el-checkbox-group>
                 <el-radio-group v-model="selectedTemperatureVolume" size="small">
-                  <el-radio-button label="all">全部容量</el-radio-button>
+                  <el-radio-button label="all">{{ t('analysis.grav.allVolumes') }}</el-radio-button>
                   <el-radio-button v-for="volume in activeVolumes" :key="volume" :label="volume">
                     {{ formatVolume(volume) }}
                   </el-radio-button>
@@ -231,14 +231,14 @@
 
           <section class="chart-panel">
             <div class="panel-header">
-              <h2>湿度变化</h2>
+              <h2>{{ t('analysis.grav.humidityChange') }}</h2>
               <div class="trial-controls">
                 <el-checkbox-group v-model="humiditySeriesSelection" size="small">
                   <el-checkbox-button label="pipette">Pipette</el-checkbox-button>
                   <el-checkbox-button label="air">Air</el-checkbox-button>
                 </el-checkbox-group>
                 <el-radio-group v-model="selectedHumidityVolume" size="small">
-                  <el-radio-button label="all">全部容量</el-radio-button>
+                  <el-radio-button label="all">{{ t('analysis.grav.allVolumes') }}</el-radio-button>
                   <el-radio-button v-for="volume in activeVolumes" :key="volume" :label="volume">
                     {{ formatVolume(volume) }}
                   </el-radio-button>
@@ -252,7 +252,7 @@
         <div v-if="hasChannelTrialMatrices" class="table-section matrix-section">
           <div class="panel-header">
             <div class="panel-title-tools">
-              <h2>通道 Trial 矩阵</h2>
+              <h2>{{ t('analysis.grav.channelMatrix') }}</h2>
               <span class="matrix-context">
                 {{ selectedTrialAction === 'aspirate' ? 'Aspirate' : 'Dispense' }}
               </span>
@@ -326,7 +326,7 @@
         <div v-if="hasSingleChannelTrialMatrices" class="table-section matrix-section">
           <div class="panel-header">
             <div class="panel-title-tools">
-              <h2>单通道 Trial 矩阵</h2>
+              <h2>{{ t('analysis.grav.singleChannelMatrix') }}</h2>
               <span class="matrix-context">
                 {{ selectedSingleChannelTrialMatrix?.label || formatVolume(selectedVolume) }}
               </span>
@@ -366,9 +366,9 @@
         <div class="table-section">
           <div class="panel-header">
             <div class="panel-title-tools">
-              <h2>Trial 明细</h2>
+              <h2>{{ t('analysis.grav.trialDetails') }}</h2>
               <el-select v-model="trialTableVolumeFilter" class="trial-filter-select" size="small">
-                <el-option label="全部容量" value="all" />
+                <el-option :label="t('analysis.grav.allVolumes')" value="all" />
                 <el-option
                   v-for="volume in activeVolumes"
                   :key="volume"
@@ -383,7 +383,7 @@
               :disabled="filteredTrialRows.length === 0"
               @click="openTrialDetail"
             >
-              详情
+              {{ t('analysis.grav.details') }}
             </el-button>
           </div>
           <el-table
@@ -393,7 +393,7 @@
             border
             max-height="420"
           >
-            <el-table-column prop="volume" label="容量" width="90">
+            <el-table-column prop="volume" :label="t('analysis.grav.volume')" width="90">
               <template #default="{ row }">{{ formatVolume(row.volume) }}</template>
             </el-table-column>
             <el-table-column prop="trial" label="Trial" width="80" />
@@ -402,16 +402,16 @@
             <el-table-column prop="aspirate_d" label="Aspirate %D" min-width="120" />
             <el-table-column prop="dispense_d" label="Dispense %D" min-width="130" />
             <el-table-column prop="water_remain" label="Water Remain" min-width="130" />
-            <el-table-column prop="celsius_pipette" label="移液器温度" min-width="120">
+            <el-table-column prop="celsius_pipette" :label="t('analysis.grav.pipetteTemperature')" min-width="120">
               <template #default="{ row }">{{ formatMetricValue(row.celsius_pipette) }}</template>
             </el-table-column>
-            <el-table-column prop="humidity_pipette" label="移液器湿度" min-width="120">
+            <el-table-column prop="humidity_pipette" :label="t('analysis.grav.pipetteHumidity')" min-width="120">
               <template #default="{ row }">{{ formatMetricValue(row.humidity_pipette) }}</template>
             </el-table-column>
-            <el-table-column prop="celsius_air" label="环境温度" min-width="110">
+            <el-table-column prop="celsius_air" :label="t('analysis.grav.airTemperature')" min-width="110">
               <template #default="{ row }">{{ formatMetricValue(row.celsius_air) }}</template>
             </el-table-column>
-            <el-table-column prop="humidity_air" label="环境湿度" min-width="110">
+            <el-table-column prop="humidity_air" :label="t('analysis.grav.airHumidity')" min-width="110">
               <template #default="{ row }">{{ formatMetricValue(row.humidity_air) }}</template>
             </el-table-column>
             <el-table-column prop="liquid_height" label="Liquid Height" min-width="120" />
@@ -442,7 +442,7 @@
           <el-select
             v-model="onlineFilters.product"
             class="online-select online-product-select"
-            placeholder="产品"
+            :placeholder="t('analysis.common.product')"
             filterable
             :loading="onlineProductsLoading"
             @change="handleOnlineProductChange"
@@ -457,7 +457,7 @@
           <el-select
             v-model="onlineFilters.test"
             class="online-select online-test-select"
-            placeholder="测试"
+            :placeholder="t('analysis.common.test')"
             filterable
             :disabled="onlineTestOptions.length === 0"
             @change="handleOnlineTestChange"
@@ -494,9 +494,9 @@
               <el-input
                 v-model="onlineManualCsvLink"
                 clearable
-                placeholder="手动输入 Google Sheet CSV link"
+                :placeholder="t('analysis.common.csvLinkPlaceholder')"
               />
-              <div class="csv-link-hint">为空时使用当前条码/SN 的默认 CSV link</div>
+              <div class="csv-link-hint">{{ t('analysis.common.csvLinkHint') }}</div>
             </div>
             <template #reference>
               <el-button class="csv-link-button" :icon="EditPen" :disabled="!canEditOnlineCsvLink" />
@@ -509,7 +509,7 @@
             :disabled="!onlineFilters.product || !onlineFilters.test || !effectiveOnlineCsvLink"
             @click="analyzeOnlineSelection"
           >
-            分析
+            {{ t('analysis.common.analyze') }}
           </el-button>
         </div>
         <div v-if="loadMessage" class="hint-line">
@@ -520,13 +520,13 @@
           type="warning"
           :closable="false"
           show-icon
-          title="当前产品和测试没有匹配的 SN CSV link，可点击编辑图标手动输入"
+          :title="t('analysis.common.noCsvLink')"
         />
-        <el-empty v-if="!activeAnalysis && !loading" description="选择产品、测试后开始在线分析；缺少默认链接时可手动输入" />
+        <el-empty v-if="!activeAnalysis && !loading" :description="t('analysis.common.onlineEmpty')" />
       </div>
     </section>
 
-    <el-drawer v-model="detailDrawerVisible" title="筛选详情" size="560px">
+    <el-drawer v-model="detailDrawerVisible" :title="t('analysis.grav.filteredDetails')" size="560px">
       <template v-if="filteredTrialRows.length > 0">
         <div class="detail-meta">
           <span>{{ detailVolumeLabel }}</span>
@@ -534,10 +534,10 @@
         </div>
 
         <el-table :data="detailStatisticRows" size="small" border class="detail-stat-table">
-          <el-table-column prop="metric" label="指标" min-width="150" />
-          <el-table-column prop="min" label="最小" min-width="100" />
-          <el-table-column prop="max" label="最大" min-width="100" />
-          <el-table-column prop="avg" label="平均 / 值" min-width="110" />
+          <el-table-column prop="metric" :label="t('analysis.grav.metric')" min-width="150" />
+          <el-table-column prop="min" :label="t('analysis.grav.minimum')" min-width="100" />
+          <el-table-column prop="max" :label="t('analysis.grav.maximum')" min-width="100" />
+          <el-table-column prop="avg" :label="t('analysis.grav.averageValue')" min-width="110" />
         </el-table>
 
         <div class="raw-toolbar">
@@ -547,19 +547,19 @@
               <span class="raw-link">Raw</span>
             </template>
           </el-popover>
-          <el-tooltip content="复制 Raw JSON" placement="top">
+          <el-tooltip :content="t('analysis.grav.copyRawJson')" placement="top">
             <el-button link :icon="CopyDocument" @click="copyDetailRaw" />
           </el-tooltip>
         </div>
       </template>
     </el-drawer>
 
-    <el-dialog v-model="specDialogVisible" title="Spec 设置" width="760px" class="spec-dialog">
+    <el-dialog v-model="specDialogVisible" :title="t('analysis.grav.specSettings')" width="760px" class="spec-dialog">
       <div class="spec-dialog-toolbar">
         <el-select
           v-model="specForm.product"
           class="spec-select"
-          placeholder="产品"
+          :placeholder="t('analysis.common.product')"
           :loading="specLoading"
           @change="handleSpecProductChange"
         >
@@ -570,14 +570,14 @@
             :value="product.product"
           />
         </el-select>
-        <el-select v-model="specForm.test_type" class="spec-select" placeholder="测试" disabled>
+        <el-select v-model="specForm.test_type" class="spec-select" :placeholder="t('analysis.common.test')" disabled>
           <el-option label="Gravimetric" value="gravimetric" />
         </el-select>
         <el-tag v-if="specStorageLabel" type="info">{{ specStorageLabel }}</el-tag>
       </div>
 
       <el-table :data="specForm.volumes" size="small" border class="spec-table">
-        <el-table-column label="容量 (uL)" min-width="140">
+        <el-table-column :label="t('analysis.grav.volumeUl')" min-width="140">
           <template #default="{ row }">
             <el-input-number v-model="row.volume" :min="0" :precision="3" :step="1" controls-position="right" />
           </template>
@@ -600,12 +600,12 @@
       </el-table>
 
       <div class="spec-actions">
-        <el-button @click="addSpecVolume">新增容量</el-button>
+        <el-button @click="addSpecVolume">{{ t('analysis.grav.addVolume') }}</el-button>
       </div>
 
       <template #footer>
-        <el-button @click="specDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="specSaving" @click="saveSpecSettings">保存</el-button>
+        <el-button @click="specDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="specSaving" @click="saveSpecSettings">{{ t('common.actions.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -613,6 +613,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { init, use, type ComposeOption, type EChartsCoreOption, type EChartsType } from 'echarts/core'
 import { BarChart, LineChart, type BarSeriesOption, type LineSeriesOption } from 'echarts/charts'
@@ -634,6 +635,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, CircleCheck, CircleClose, CopyDocument, Delete, EditPen, Histogram, Search, Setting, UploadFilled } from '@element-plus/icons-vue'
 import { dataAnalysisApi, productManagementApi } from '@/scripts/api'
 import { canonicalTestType, formatTestType, sameTestType, uniqueTestTypes } from '@/scripts/utils/testNames'
+import { useAppLocale } from '@/i18n'
 import type {
   DataAnalysisItem,
   DataAnalysisResponse,
@@ -713,6 +715,8 @@ use([
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
+const { locale } = useAppLocale()
 const analysisMode = ref<AnalysisMode>('local')
 const loading = ref(false)
 const selectedFiles = ref<File[]>([])
@@ -791,7 +795,7 @@ const availableTrialChannels = computed(() => {
   const matrix = selectedChannelTrialMatrix.value
   if (!matrix) return []
   return [...matrix.channels].sort((left, right) => {
-    return String(left).localeCompare(String(right), 'zh-CN', { numeric: true })
+    return String(left).localeCompare(String(right), locale.value, { numeric: true })
   })
 })
 const waterRemainChannelOptions = computed(() => {
@@ -801,7 +805,7 @@ const waterRemainChannelOptions = computed(() => {
       .map(row => String(row.channel || ''))
       .filter(channel => channel !== '')
   )).sort((left, right) => {
-    return left.localeCompare(right, 'zh-CN', { numeric: true })
+    return left.localeCompare(right, locale.value, { numeric: true })
   })
   return [
     { value: 'avg', label: 'channel-avg' },
@@ -933,7 +937,7 @@ const allTrialRows = computed<TrialTableRow[]>(() => {
     if (volumeDelta !== 0) return volumeDelta
     const trialDelta = Number(left.trial) - Number(right.trial)
     if (trialDelta !== 0) return trialDelta
-    return String(left.channel || '').localeCompare(String(right.channel || ''), 'zh-CN', { numeric: true })
+    return String(left.channel || '').localeCompare(String(right.channel || ''), locale.value, { numeric: true })
   })
 })
 const filteredTrialRows = computed(() => {
@@ -942,7 +946,7 @@ const filteredTrialRows = computed(() => {
 })
 const detailStatisticRows = computed<DetailStatisticRow[]>(() => buildDetailStatisticRows())
 const detailVolumeLabel = computed(() => {
-  if (trialTableVolumeFilter.value === 'all') return '全部容量'
+  if (trialTableVolumeFilter.value === 'all') return t('analysis.grav.allVolumes')
   return formatVolume(trialTableVolumeFilter.value)
 })
 const detailRawJson = computed(() => {
@@ -982,8 +986,8 @@ const summaryTableRows = computed<SummaryTableRow[]>(() => {
 const specStorageLabel = computed(() => {
   if (!specStorage.value) return ''
   if (specStorage.value === 'mongo') return 'MongoDB'
-  if (specStorage.value === 'json') return 'JSON 兜底'
-  return '默认配置'
+  if (specStorage.value === 'json') return t('analysis.grav.jsonFallback')
+  return t('analysis.grav.defaultConfig')
 })
 const onlineProductNameOptions = computed(() => {
   return Array.from(new Set(
@@ -1076,12 +1080,12 @@ async function analyzeSelectedFiles() {
     const response = await dataAnalysisApi.analyzeFiles(selectedFiles.value)
     applyAnalysisResponse(response.data)
     if (analyses.value.length > 0) {
-      ElMessage.success('分析完成')
+      ElMessage.success(t('analysis.messages.completed'))
     } else {
-      ElMessage.warning('未生成分析结果')
+      ElMessage.warning(t('analysis.messages.noResult'))
     }
   } catch (error: any) {
-    ElMessage.error('分析失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.failed', { error: formatError(error) }))
   } finally {
     loading.value = false
   }
@@ -1089,14 +1093,14 @@ async function analyzeSelectedFiles() {
 
 async function analyzePath(filePath: string) {
   loading.value = true
-  loadMessage.value = `正在分析 ${filePath}`
+  loadMessage.value = t('analysis.messages.analyzing', { file: filePath })
   try {
     const response = await dataAnalysisApi.analyzePaths([filePath])
     applyAnalysisResponse(response.data)
     loadMessage.value = ''
   } catch (error: any) {
     loadMessage.value = ''
-    ElMessage.error('分析失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.failed', { error: formatError(error) }))
   } finally {
     loading.value = false
   }
@@ -1108,7 +1112,7 @@ async function analyzeOnlineSelection() {
   const csvLink = effectiveOnlineCsvLink.value
   if (!onlineFilters.value.product || !testType || !csvLink) return
   loading.value = true
-  loadMessage.value = `正在读取 ${product?.barcode || onlineFilters.value.product} / ${formatTestType(testType)}`
+  loadMessage.value = t('analysis.messages.reading', { product: product?.barcode || onlineFilters.value.product, test: formatTestType(testType) })
   try {
     const response = await dataAnalysisApi.analyzeOnline({
       barcode: product?.barcode || '',
@@ -1119,13 +1123,13 @@ async function analyzeOnlineSelection() {
     applyAnalysisResponse(response.data)
     loadMessage.value = ''
     if (analyses.value.length > 0) {
-      ElMessage.success('在线分析完成')
+      ElMessage.success(t('analysis.messages.onlineCompleted'))
     } else {
-      ElMessage.warning('未生成分析结果')
+      ElMessage.warning(t('analysis.messages.noResult'))
     }
   } catch (error: any) {
     loadMessage.value = ''
-    ElMessage.error('在线分析失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.onlineFailed', { error: formatError(error) }))
   } finally {
     loading.value = false
   }
@@ -1140,7 +1144,7 @@ async function loadOnlineProducts() {
       handleOnlineProductChange()
     }
   } catch (error: any) {
-    ElMessage.error('加载在线产品失败: ' + formatError(error))
+    ElMessage.error(t('analysis.messages.loadProductsFailed', { error: formatError(error) }))
   } finally {
     onlineProductsLoading.value = false
   }
@@ -1180,7 +1184,7 @@ function applyAnalysisResponse(data: DataAnalysisResponse) {
       ...analysisErrors.value,
       ...unsupportedAnalyses.map(item => ({
         file: item.file,
-        message: `当前页面只支持移液器容量分析，请使用对应诊断分析页面打开 ${item.channel_label || item.channel || '该测试'}`
+        message: t('analysis.grav.unsupported', { test: item.channel_label || item.channel || t('analysis.common.thisTest') })
       }))
     ]
   }
@@ -1200,7 +1204,7 @@ function applyAnalysisResponse(data: DataAnalysisResponse) {
 }
 
 function formatError(error: any) {
-  return error?.response?.data?.detail || error?.message || '未知错误'
+  return error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('errors.unknown')
 }
 
 function isPipetteGravimetricAnalysis(item: DataAnalysisItem) {
@@ -1219,7 +1223,7 @@ function redirectUnsupportedAnalysis(items: DataAnalysisItem[]) {
   const diagnostic = items.find(item => item.view_key === 'pipette_assembly_qc' || item.channel === 'pipette_assembly_qc')
   const path = diagnostic?.file?.path
   if (!diagnostic || !path) return
-  ElMessage.info('已识别为移液器诊断数据，正在切换到诊断分析页面')
+  ElMessage.info(t('analysis.grav.switchingDiagnostic'))
   router.replace({
     path: '/data/analysis/pipette-assembly-qc',
     query: {
@@ -1251,7 +1255,7 @@ function formatOnlineProductUpdatedAt(product: ProductManagementItem, mode: 'ful
   const latestDate = product.latest_date || latestTestDate(product.tests)
   const formattedDate = formatOnlineDate(latestDate)
   if (!formattedDate) return ''
-  return `${mode === 'short' ? '更新' : '最后更新'} ${formattedDate}`
+  return t(mode === 'short' ? 'analysis.common.updated' : 'analysis.common.lastUpdated', { time: formattedDate })
 }
 
 function latestTestDate(tests?: ProductManagementTest[]) {
@@ -1269,7 +1273,7 @@ function formatOnlineDate(value?: string) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -1298,10 +1302,10 @@ async function loadSpecSettings() {
       setSpecForm(product)
     }
     if (response.data.error) {
-      ElMessage.warning(`Spec 配置使用默认值: ${response.data.error}`)
+      ElMessage.warning(t('analysis.grav.messages.specDefault', { error: response.data.error }))
     }
   } catch (error: any) {
-    ElMessage.error('加载 Spec 失败: ' + formatError(error))
+    ElMessage.error(t('analysis.grav.messages.loadSpecFailed', { error: formatError(error) }))
   } finally {
     specLoading.value = false
   }
@@ -1362,26 +1366,26 @@ async function saveSpecSettings() {
     upsertSpecItem(savedItem)
     specStorage.value = savedItem.storage || savedItem.source || specStorage.value
     setSpecForm(savedItem.product)
-    ElMessage.success(`Spec 已保存到 ${specStorageLabel.value || '配置'}`)
+    ElMessage.success(t('analysis.grav.messages.specSaved', { storage: specStorageLabel.value || t('analysis.grav.config') }))
   } catch (error: any) {
-    ElMessage.error('保存 Spec 失败: ' + formatError(error))
+    ElMessage.error(t('analysis.grav.messages.saveSpecFailed', { error: formatError(error) }))
   } finally {
     specSaving.value = false
   }
 }
 
 function validateSpecForm() {
-  if (!specForm.value.product) return '请选择产品'
-  if (specForm.value.volumes.length === 0) return '至少需要一个容量'
+  if (!specForm.value.product) return t('analysis.grav.validation.selectProduct')
+  if (specForm.value.volumes.length === 0) return t('analysis.grav.validation.oneVolume')
   const seenVolumes = new Set<number>()
   for (const row of specForm.value.volumes) {
     const volume = Number(row.volume)
     const cv = Number(row.cv)
     const dValue = Number(row.d)
-    if (!Number.isFinite(volume) || volume <= 0) return '容量必须大于 0'
-    if (!Number.isFinite(cv) || cv < 0) return 'CV Spec 不能小于 0'
-    if (!Number.isFinite(dValue) || dValue < 0) return '%D Spec 不能小于 0'
-    if (seenVolumes.has(volume)) return `容量 ${volume} uL 重复`
+    if (!Number.isFinite(volume) || volume <= 0) return t('analysis.grav.validation.volumePositive')
+    if (!Number.isFinite(cv) || cv < 0) return t('analysis.grav.validation.cvNonNegative')
+    if (!Number.isFinite(dValue) || dValue < 0) return t('analysis.grav.validation.dNonNegative')
+    if (seenVolumes.has(volume)) return t('analysis.grav.validation.duplicateVolume', { volume })
     seenVolumes.add(volume)
   }
   return ''
@@ -1418,18 +1422,18 @@ function upsertSpecItem(item: DataAnalysisSpecItem) {
 
 function formatVolume(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === '') return '-'
-  return `${Number(value).toLocaleString('zh-CN')} uL`
+  return `${Number(value).toLocaleString(locale.value)} uL`
 }
 
 function formatVolumeShort(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === '') return '-'
-  return `${Number(value).toLocaleString('zh-CN')}ul`
+  return `${Number(value).toLocaleString(locale.value)}ul`
 }
 
 function formatMetricValue(value: unknown) {
   const numeric = cleanMetricNumber(value)
   if (numeric === null || !Number.isFinite(numeric)) return ''
-  return Number(numeric.toFixed(2)).toLocaleString('zh-CN', {
+  return Number(numeric.toFixed(2)).toLocaleString(locale.value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   })
@@ -1438,7 +1442,7 @@ function formatMetricValue(value: unknown) {
 function formatTimeValue(value: unknown) {
   const numeric = cleanMetricNumber(value)
   if (numeric === null || !Number.isFinite(numeric)) return ''
-  return Number(numeric.toFixed(1)).toLocaleString('zh-CN', {
+  return Number(numeric.toFixed(1)).toLocaleString(locale.value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 1
   })
@@ -1502,10 +1506,10 @@ function buildDetailStatisticRows() {
   }
 
   statistics.push(
-    buildRangeStatistic('移液器温度', rows.map(row => row.celsius_pipette)),
-    buildRangeStatistic('环境温度', rows.map(row => row.celsius_air)),
-    buildRangeStatistic('移液器湿度', rows.map(row => row.humidity_pipette)),
-    buildRangeStatistic('环境湿度', rows.map(row => row.humidity_air)),
+    buildRangeStatistic(t('analysis.grav.pipetteTemperature'), rows.map(row => row.celsius_pipette)),
+    buildRangeStatistic(t('analysis.grav.airTemperature'), rows.map(row => row.celsius_air)),
+    buildRangeStatistic(t('analysis.grav.pipetteHumidity'), rows.map(row => row.humidity_pipette)),
+    buildRangeStatistic(t('analysis.grav.airHumidity'), rows.map(row => row.humidity_air)),
     buildRangeStatistic('Water Remain', rows.map(row => row.water_remain))
   )
 
@@ -1559,9 +1563,9 @@ async function copyDetailRaw() {
   if (!detailRawJson.value) return
   try {
     await navigator.clipboard.writeText(detailRawJson.value)
-    ElMessage.success('已复制 Raw JSON')
+    ElMessage.success(t('analysis.grav.messages.rawCopied'))
   } catch (error) {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('analysis.grav.messages.copyFailed'))
   }
 }
 
@@ -1856,7 +1860,7 @@ function renderTemperatureChart() {
 
   if (selectedSeries.has('pipette')) {
     series.push({
-      name: '移液器温度',
+      name: t('analysis.grav.pipetteTemperature'),
       type: 'line',
       smooth: true,
       data: rows.map(item => normalizeEnvironmentTemp(item.celsius_pipette))
@@ -1865,7 +1869,7 @@ function renderTemperatureChart() {
 
   if (selectedSeries.has('air')) {
     series.push({
-      name: '环境温度',
+      name: t('analysis.grav.airTemperature'),
       type: 'line',
       smooth: true,
       data: rows.map(item => normalizeEnvironmentTemp(item.celsius_air))
@@ -1891,7 +1895,7 @@ function renderHumidityChart() {
 
   if (selectedSeries.has('pipette')) {
     series.push({
-      name: '移液器湿度',
+      name: t('analysis.grav.pipetteHumidity'),
       type: 'line',
       smooth: true,
       data: rows.map(item => item.humidity_pipette)
@@ -1900,7 +1904,7 @@ function renderHumidityChart() {
 
   if (selectedSeries.has('air')) {
     series.push({
-      name: '环境湿度',
+      name: t('analysis.grav.airHumidity'),
       type: 'line',
       smooth: true,
       data: rows.map(item => item.humidity_air)
@@ -2056,7 +2060,7 @@ function initializeFromQuery() {
   }
   if (name) {
     analysisMode.value = 'local'
-    loadMessage.value = `已选择 ${name}，请上传本地原始 CSV 后分析`
+    loadMessage.value = t('analysis.messages.selectedFile', { name })
   }
 }
 

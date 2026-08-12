@@ -1,7 +1,7 @@
 <template>
   <div class="devices-view">
     <div class="page-header">
-      <span class="page-title">设备管理</span>
+      <span class="page-title">{{ t('devices.title') }}</span>
       <div class="header-tools">
         <el-input-number
           v-model="scanPort"
@@ -10,6 +10,7 @@
           :max="65535"
           :controls="false"
           size="small"
+          :aria-label="t('devices.scanPort')"
         />
         <el-button
           type="primary"
@@ -17,7 +18,7 @@
           :icon="Search"
           @click="handleScan"
           :loading="scanning"
-        >刷新设备</el-button>
+        >{{ t('devices.refresh') }}</el-button>
       </div>
     </div>
 
@@ -27,33 +28,33 @@
         class="device-search-input"
         clearable
         :prefix-icon="Search"
-        placeholder="搜索在线设备名称或 IP"
+        :placeholder="t('devices.searchPlaceholder')"
       />
       <el-button type="primary" plain :icon="Plus" @click="gatewayDialogVisible = true">
-        增加网关
+        {{ t('devices.addGateway') }}
       </el-button>
     </section>
 
     <div v-if="scanResult || !gatewaysLoading" class="stats-info">
       <div v-if="scanResult" class="scan-stats">
         <span class="stat-item online">
-          <span class="stat-label">在线:</span>
+          <span class="stat-label">{{ t('devices.stats.online') }}</span>
           <span class="stat-value">{{ scannedDeviceCount }}</span>
         </span>
         <span class="stat-item offline">
-          <span class="stat-label">离线:</span>
+          <span class="stat-label">{{ t('devices.stats.offline') }}</span>
           <span class="stat-value">{{ offlineDeviceCount }}</span>
         </span>
         <span class="stat-item abnormal">
-          <span class="stat-label">异常:</span>
+          <span class="stat-label">{{ t('devices.stats.abnormal') }}</span>
           <span class="stat-value">{{ abnormalDeviceCount }}</span>
         </span>
         <span v-if="scanResult.cached_at" class="stat-item">
-          <span class="stat-label">缓存更新:</span>
+          <span class="stat-label">{{ t('devices.stats.cacheUpdated') }}</span>
           <span class="stat-value cache-time">{{ formatCacheTime(scanResult.cached_at) }}</span>
         </span>
         <span v-if="scanResult.refreshing" class="stat-item">
-          <span class="stat-label">后台扫描中...</span>
+          <span class="stat-label">{{ t('devices.stats.scanning') }}</span>
         </span>
       </div>
       <div class="gateway-list">
@@ -68,7 +69,7 @@
           {{ gateway.gateway }} · {{ gateway.scan_range }}
         </el-tag>
         <span v-if="!gatewaysLoading && scanGateways.length === 0" class="gateway-empty">
-          未配置扫描网关
+          {{ t('devices.gateway.notConfigured') }}
         </span>
       </div>
     </div>
@@ -82,9 +83,9 @@
     >
       <template #title>
         <div class="scan-error-content">
-          <span>设备扫描失败：{{ scanError }}</span>
+          <span>{{ t('devices.scan.failed', { error: scanError }) }}</span>
           <el-button size="small" type="danger" plain :loading="scanning" @click="handleScan">
-            重试扫描
+            {{ t('devices.scan.retry') }}
           </el-button>
         </div>
       </template>
@@ -95,12 +96,12 @@
       class="devices-loading-state"
     >
       <el-icon class="is-loading devices-loading-icon"><Loading /></el-icon>
-      <span>正在扫描设备...</span>
+      <span>{{ t('devices.scan.loading') }}</span>
     </div>
 
     <el-empty
       v-else-if="!scanResult && !scanning && !scanError"
-      description="暂无设备缓存，请点击刷新"
+      :description="t('devices.scan.noCache')"
     />
 
     <div v-else-if="filteredOnlineRobots.length" class="device-list">
@@ -122,11 +123,11 @@
               <span class="service-alert-text">{{ getServiceAlertText(robot) }}</span>
             </div>
           </div>
-          <el-tooltip content="设备信息" placement="top">
+          <el-tooltip :content="t('devices.info')" placement="top">
             <button
               class="device-icon-action"
               type="button"
-              aria-label="设备信息"
+              :aria-label="t('devices.info')"
               @click.stop="handleShowInfo(robot)"
             >
               <el-icon><InfoFilled /></el-icon>
@@ -136,15 +137,15 @@
             <button
               class="device-icon-action"
               type="button"
-              aria-label="设备操作菜单"
+              :aria-label="t('devices.actionMenu')"
               @click.stop
             >
               <el-icon><MoreFilled /></el-icon>
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="info">设备信息</el-dropdown-item>
-                <el-dropdown-item command="control">进入设备操作</el-dropdown-item>
+                <el-dropdown-item command="info">{{ t('devices.info') }}</el-dropdown-item>
+                <el-dropdown-item command="control">{{ t('devices.enterControl') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -156,7 +157,7 @@
 
     <el-dialog
       v-model="gatewayDialogVisible"
-      title="增加扫描网关"
+      :title="t('devices.gateway.dialogTitle')"
       width="420px"
       destroy-on-close
       @closed="resetGatewayForm"
@@ -168,42 +169,42 @@
         label-position="top"
         @submit.prevent
       >
-        <el-form-item label="网关 IP" prop="gateway">
+        <el-form-item :label="t('devices.gateway.ip')" prop="gateway">
           <el-input
             v-model="gatewayForm.gateway"
             clearable
             autofocus
-            placeholder="例如 192.168.6.1"
+            :placeholder="t('devices.gateway.placeholder')"
             @keyup.enter="handleAddGateway"
           />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button :disabled="gatewaySaving" @click="gatewayDialogVisible = false">
-          取消
+          {{ t('common.actions.cancel') }}
         </el-button>
         <el-button type="primary" :loading="gatewaySaving" @click="handleAddGateway">
-          保存
+          {{ t('common.actions.save') }}
         </el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="infoDialogVisible"
-      :title="`设备信息 - ${infoRobot?.ip || ''}`"
+      :title="t('devices.infoTitle', { ip: infoRobot?.ip || '' })"
       width="640px"
     >
       <div v-loading="infoLoading">
         <RobotInfoTable v-if="infoRobot" :robot="infoRobot" />
       </div>
       <template #footer>
-        <el-button @click="infoDialogVisible = false">关闭</el-button>
+        <el-button @click="infoDialogVisible = false">{{ t('common.actions.close') }}</el-button>
         <el-button
           v-if="infoRobot"
           type="primary"
           @click="handleOpenControl(infoRobot)"
         >
-          进入设备操作
+          {{ t('devices.enterControl') }}
         </el-button>
       </template>
     </el-dialog>
@@ -219,12 +220,14 @@ import { InfoFilled, Loading, MoreFilled, Plus, Search, WarningFilled } from '@e
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import RobotInfoTable from '@/views/devices/components/RobotInfoTable.vue'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
+import { useAppLocale } from '@/i18n'
 
 type DeviceMenuCommand = 'info' | 'control'
 
 const router = useRouter()
 const robotScanStore = useRobotScanStore()
 const { scanResult, scanning } = storeToRefs(robotScanStore)
+const { locale, t } = useAppLocale()
 const infoDialogVisible = ref(false)
 const infoLoading = ref(false)
 const infoRobot = ref<RobotInfo | null>(null)
@@ -234,11 +237,11 @@ const deviceSearchQuery = ref('')
 const gatewayDialogVisible = ref(false)
 const gatewayFormRef = ref<FormInstance>()
 const gatewayForm = ref({ gateway: '' })
-const gatewayRules: FormRules = {
+const gatewayRules = computed<FormRules>(() => ({
   gateway: [
-    { required: true, whitespace: true, message: '请输入扫描网关 IP', trigger: ['blur', 'change'] }
+    { required: true, whitespace: true, message: t('devices.gateway.required'), trigger: ['blur', 'change'] }
   ]
-}
+}))
 const gatewaysLoading = ref(true)
 const gatewaySaving = ref(false)
 const initialLoading = ref(true)
@@ -246,12 +249,12 @@ const scanError = ref('')
 
 function displayDeviceName(robot: RobotInfo): string {
   const name = robot.name?.trim()
-  return name || '未命名设备'
+  return name || t('devices.unnamed')
 }
 
 function formatCacheTime(value: string): string {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale.value)
 }
 
 function isServiceAbnormal(robot: RobotInfo): boolean {
@@ -260,11 +263,11 @@ function isServiceAbnormal(robot: RobotInfo): boolean {
 
 function formatServiceStatus(status: RobotInfo['service_status']) {
   const statusMap: Record<RobotInfo['service_status'], string> = {
-    normal: '正常',
-    error: '异常',
-    unknown: '未知'
+    normal: t('common.status.healthy'),
+    error: t('common.status.abnormal'),
+    unknown: t('common.status.unknown')
   }
-  return statusMap[status] || '未知'
+  return statusMap[status] || t('common.status.unknown')
 }
 
 function extractHealthHttpStatus(error: string | undefined): number | null {
@@ -276,9 +279,9 @@ function extractHealthHttpStatus(error: string | undefined): number | null {
 function getServiceAlertText(robot: RobotInfo): string {
   const statusCode = extractHealthHttpStatus(robot.error)
   if (statusCode !== null) {
-    return `Flex server error, getting health Http status ${statusCode}`
+    return t('devices.serviceError', { status: statusCode })
   }
-  return 'Flex server error, getting health Http status unknown'
+  return t('devices.serviceError', { status: t('common.status.unknown') })
 }
 
 function handleDeviceMenu(command: DeviceMenuCommand, robot: RobotInfo) {
@@ -299,7 +302,7 @@ const handleScan = async () => {
       }
     })
     if (result) {
-      ElMessage.success(`刷新完成，发现 ${result.online_robots.length} 台在线设备`)
+      ElMessage.success(t('devices.scan.completed', { count: result.online_robots.length }))
     }
   } catch (error: any) {
     scanError.value = normalizeApiError(error)
@@ -315,7 +318,7 @@ const fetchScanGateways = async () => {
     // MongoDB/gateway lookup failure should not block scanning; backend falls
     // back to the server's current network segment.
     scanGateways.value = []
-    ElMessage.warning('无法读取扫描网关，将使用服务器当前网段扫描: ' + normalizeApiError(error))
+    ElMessage.warning(t('devices.gateway.readFailed', { error: normalizeApiError(error) }))
   } finally {
     gatewaysLoading.value = false
   }
@@ -326,7 +329,7 @@ function normalizeApiError(error: any): string {
     || error?.response?.data?.detail
     || error?.response?.data?.message
     || error?.message
-    || '未知错误'
+    || t('errors.unknown')
 }
 
 const handleAddGateway = async () => {
@@ -342,9 +345,9 @@ const handleAddGateway = async () => {
     await robotApi.addScanGateway(gateway)
     await fetchScanGateways()
     gatewayDialogVisible.value = false
-    ElMessage.success('扫描网关已保存')
+    ElMessage.success(t('devices.gateway.saved'))
   } catch (error: any) {
-    ElMessage.error('保存扫描网关失败: ' + normalizeApiError(error))
+    ElMessage.error(t('devices.gateway.saveFailed', { error: normalizeApiError(error) }))
   } finally {
     gatewaySaving.value = false
   }
@@ -357,10 +360,10 @@ const resetGatewayForm = () => {
 
 const handleDeleteGateway = async (gateway: string) => {
   try {
-    await ElMessageBox.confirm(`删除扫描网关 ${gateway}？`, '删除确认', {
+    await ElMessageBox.confirm(t('devices.gateway.deleteConfirm', { gateway }), t('devices.gateway.deleteTitle'), {
       type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
+      confirmButtonText: t('common.actions.delete'),
+      cancelButtonText: t('common.actions.cancel')
     })
   } catch {
     return
@@ -370,9 +373,9 @@ const handleDeleteGateway = async (gateway: string) => {
   try {
     await robotApi.deleteScanGateway(gateway)
     await fetchScanGateways()
-    ElMessage.success('扫描网关已删除，下次后台扫描或手动刷新时生效')
+    ElMessage.success(t('devices.gateway.deleted'))
   } catch (error: any) {
-    ElMessage.error('删除扫描网关失败: ' + normalizeApiError(error))
+    ElMessage.error(t('devices.gateway.deleteFailed', { error: normalizeApiError(error) }))
   } finally {
     gatewaySaving.value = false
   }
@@ -390,9 +393,9 @@ const handleShowInfo = async (robot: RobotInfo) => {
       ...robot,
       health_fetch_failed: true,
       service_status: 'error',
-      error: error.message || '获取设备信息失败'
+      error: error.message || t('devices.infoLoadFailed')
     }
-    ElMessage.error('获取设备信息失败')
+    ElMessage.error(t('devices.infoLoadFailed'))
   } finally {
     infoLoading.value = false
   }
@@ -415,7 +418,7 @@ const filteredOnlineRobots = computed(() => {
   })
 })
 const emptyDeviceDescription = computed(() => (
-  deviceSearchQuery.value.trim() ? '未找到匹配的在线设备' : '未发现在线设备'
+  deviceSearchQuery.value.trim() ? t('devices.scan.noMatches') : t('devices.scan.noOnline')
 ))
 const offlineDeviceCount = computed(() => {
   if (!scanResult.value) return 0

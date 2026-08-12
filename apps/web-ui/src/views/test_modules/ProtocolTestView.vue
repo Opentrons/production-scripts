@@ -7,22 +7,22 @@
         </div>
         <div>
           <div class="title-line">
-            <h1>Protocol 监控平台</h1>
+            <h1>{{ t('protocolMonitor.title') }}</h1>
           </div>
-          <span class="page-meta">{{ rooms.length }} 个房间 · {{ totalDeviceCount }} 台设备</span>
+          <span class="page-meta">{{ t('protocolMonitor.meta', { rooms: rooms.length, devices: totalDeviceCount }) }}</span>
         </div>
       </div>
       <div class="page-actions">
-        <el-tooltip content="刷新房间" placement="bottom">
+        <el-tooltip :content="t('protocolMonitor.refreshRooms')" placement="bottom">
           <el-button
             :icon="Refresh"
             circle
-            aria-label="刷新房间"
+            :aria-label="t('protocolMonitor.refreshRooms')"
             :loading="loadingRooms"
             @click="loadRooms"
           />
         </el-tooltip>
-        <el-button :icon="Plus" type="primary" @click="openCreateRoom">新建房间</el-button>
+        <el-button :icon="Plus" type="primary" @click="openCreateRoom">{{ t('protocolMonitor.createRoom') }}</el-button>
       </div>
     </header>
 
@@ -50,49 +50,49 @@
             <span class="room-count">{{ room.devices.length }}</span>
           </button>
         </div>
-        <el-empty v-else :image-size="54" description="暂无房间" />
+        <el-empty v-else :image-size="54" :description="t('protocolMonitor.noRooms')" />
       </aside>
 
       <main v-if="selectedRoom" class="device-pane" v-loading="loadingRooms">
         <header class="room-head">
           <div>
             <h2>{{ selectedRoom.name }}</h2>
-            <span>更新于 {{ formatDate(lastCheckedAt || selectedRoom.updated_at) }}</span>
+            <span>{{ t('protocolMonitor.updatedAt', { time: formatDate(lastCheckedAt || selectedRoom.updated_at) }) }}</span>
           </div>
           <div class="room-actions">
-            <el-tooltip content="刷新状态" placement="bottom">
+            <el-tooltip :content="t('protocolMonitor.refreshStatus')" placement="bottom">
               <el-button
                 :icon="Refresh"
                 circle
-                aria-label="刷新状态"
+                :aria-label="t('protocolMonitor.refreshStatus')"
                 :loading="refreshingStatus"
                 @click="refreshStatus()"
               />
             </el-tooltip>
-            <el-tooltip content="重命名房间" placement="bottom">
-              <el-button :icon="EditPen" circle aria-label="重命名房间" @click="openEditRoom" />
+            <el-tooltip :content="t('protocolMonitor.renameRoom')" placement="bottom">
+              <el-button :icon="EditPen" circle :aria-label="t('protocolMonitor.renameRoom')" @click="openEditRoom" />
             </el-tooltip>
-            <el-tooltip content="删除房间" placement="bottom">
-              <el-button :icon="Delete" circle aria-label="删除房间" @click="removeRoom" />
+            <el-tooltip :content="t('protocolMonitor.deleteRoom')" placement="bottom">
+              <el-button :icon="Delete" circle :aria-label="t('protocolMonitor.deleteRoom')" @click="removeRoom" />
             </el-tooltip>
-            <el-button :icon="Plus" type="primary" @click="openCreateDevice">添加设备</el-button>
+            <el-button :icon="Plus" type="primary" @click="openCreateDevice">{{ t('protocolMonitor.addDevice') }}</el-button>
           </div>
         </header>
 
-        <div class="status-summary" aria-label="设备状态统计">
+        <div class="status-summary" :aria-label="t('protocolMonitor.statusSummary')">
           <div class="summary-item">
             <span class="status-dot is-idle"></span>
-            <span>空闲</span>
+            <span>{{ t('protocolMonitor.statuses.idle') }}</span>
             <strong>{{ statusCounts.idle }}</strong>
           </div>
           <div class="summary-item">
             <span class="status-dot is-running"></span>
-            <span>运行</span>
+            <span>{{ t('protocolMonitor.statuses.running') }}</span>
             <strong>{{ statusCounts.running }}</strong>
           </div>
           <div class="summary-item">
             <span class="status-dot is-offline"></span>
-            <span>离线</span>
+            <span>{{ t('protocolMonitor.statuses.offline') }}</span>
             <strong>{{ statusCounts.offline }}</strong>
           </div>
         </div>
@@ -111,13 +111,13 @@
                 placement="bottom-end"
                 @command="handleDeviceCommand($event, device)"
               >
-                <el-button :icon="MoreFilled" circle aria-label="设备操作菜单" />
+                <el-button :icon="MoreFilled" circle :aria-label="t('protocolMonitor.deviceMenu')" />
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="details" :icon="InfoFilled">详细信息</el-dropdown-item>
-                    <el-dropdown-item command="manage" :icon="Setting">设备管理</el-dropdown-item>
-                    <el-dropdown-item command="edit" :icon="EditPen">编辑设备</el-dropdown-item>
-                    <el-dropdown-item command="delete" :icon="Delete" divided>删除设备</el-dropdown-item>
+                    <el-dropdown-item command="details" :icon="InfoFilled">{{ t('protocolMonitor.details') }}</el-dropdown-item>
+                    <el-dropdown-item command="manage" :icon="Setting">{{ t('protocolMonitor.manage') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit" :icon="EditPen">{{ t('protocolMonitor.editDevice') }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" :icon="Delete" divided>{{ t('protocolMonitor.deleteDevice') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -129,15 +129,15 @@
                 <div>
                   <h3>{{ device.name }}</h3>
                   <p :class="{ 'is-empty': !device.description }">
-                    {{ device.description || '暂无设备描述' }}
+                    {{ device.description || t('protocolMonitor.noDescription') }}
                   </p>
                 </div>
               </div>
 
-              <section class="device-info-section" aria-label="基本信息">
-                <div class="section-label"><el-icon><InfoFilled /></el-icon><span>基本信息</span></div>
+              <section class="device-info-section" :aria-label="t('protocolMonitor.basicInfo')">
+                <div class="section-label"><el-icon><InfoFilled /></el-icon><span>{{ t('protocolMonitor.basicInfo') }}</span></div>
                 <div class="info-row">
-                  <span class="info-key"><el-icon><Connection /></el-icon>设备地址</span>
+                  <span class="info-key"><el-icon><Connection /></el-icon>{{ t('protocolMonitor.deviceAddress') }}</span>
                   <code>{{ device.ip }}</code>
                 </div>
                 <div class="info-row">
@@ -146,8 +146,8 @@
                 </div>
               </section>
 
-              <section class="device-info-section" aria-label="运行详情">
-                <div class="section-label"><el-icon><DataLine /></el-icon><span>运行详情</span></div>
+              <section class="device-info-section" :aria-label="t('protocolMonitor.runDetails')">
+                <div class="section-label"><el-icon><DataLine /></el-icon><span>{{ t('protocolMonitor.runDetails') }}</span></div>
                 <div class="info-row">
                   <span class="info-key"><el-icon><Document /></el-icon>Protocol</span>
                   <code
@@ -159,7 +159,7 @@
                   <span v-else class="muted-text">-</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-key"><el-icon><VideoPlay /></el-icon>运行状态</span>
+                  <span class="info-key"><el-icon><VideoPlay /></el-icon>{{ t('protocolMonitor.runStatus') }}</span>
                   <span v-if="deviceStatus(device.id).run_status">
                     {{ deviceStatus(device.id).run_status }}
                   </span>
@@ -173,7 +173,7 @@
                   <span v-else class="muted-text">-</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-key"><el-icon><Clock /></el-icon>查询时间</span>
+                  <span class="info-key"><el-icon><Clock /></el-icon>{{ t('protocolMonitor.checkedAt') }}</span>
                   <span class="checked-time">{{ formatDate(deviceStatus(device.id).checked_at) }}</span>
                 </div>
               </section>
@@ -182,56 +182,56 @@
         </div>
 
         <div v-else class="device-empty">
-          <el-empty :image-size="72" description="当前房间暂无设备">
-            <el-button :icon="Plus" type="primary" @click="openCreateDevice">添加设备</el-button>
+          <el-empty :image-size="72" :description="t('protocolMonitor.noDevices')">
+            <el-button :icon="Plus" type="primary" @click="openCreateDevice">{{ t('protocolMonitor.addDevice') }}</el-button>
           </el-empty>
         </div>
       </main>
 
       <main v-else class="no-room-pane">
-        <el-empty :image-size="84" description="请先新建房间">
-          <el-button :icon="Plus" type="primary" @click="openCreateRoom">新建房间</el-button>
+        <el-empty :image-size="84" :description="t('protocolMonitor.createRoomFirst')">
+          <el-button :icon="Plus" type="primary" @click="openCreateRoom">{{ t('protocolMonitor.createRoom') }}</el-button>
         </el-empty>
       </main>
     </div>
 
     <el-dialog
       v-model="roomDialogVisible"
-      :title="editingRoomId ? '重命名房间' : '新建房间'"
+      :title="t(editingRoomId ? 'protocolMonitor.renameRoom' : 'protocolMonitor.createRoom')"
       width="430px"
       destroy-on-close
     >
       <el-form label-position="top" @submit.prevent="saveRoom">
-        <el-form-item label="房间名称" required>
+        <el-form-item :label="t('protocolMonitor.roomName')" required>
           <el-input
             v-model="roomName"
             maxlength="80"
             show-word-limit
-            placeholder="输入房间名称"
+            :placeholder="t('protocolMonitor.roomNamePlaceholder')"
             @keydown.enter.prevent="saveRoom"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="roomDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingRoom" @click="saveRoom">保存</el-button>
+        <el-button @click="roomDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="savingRoom" @click="saveRoom">{{ t('common.actions.save') }}</el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="deviceDialogVisible"
-      :title="editingDeviceId ? '编辑设备' : '添加设备'"
+      :title="t(editingDeviceId ? 'protocolMonitor.addOrEditDevice.edit' : 'protocolMonitor.addOrEditDevice.add')"
       width="560px"
       destroy-on-close
     >
       <el-form label-position="top" @submit.prevent="saveDevice">
-        <el-form-item label="在线设备">
+        <el-form-item :label="t('protocolMonitor.onlineDevice')">
           <div class="scan-field">
             <el-select
               v-model="selectedRobotKey"
               filterable
               clearable
-              placeholder="选择扫描到的设备"
+              :placeholder="t('protocolMonitor.selectScanned')"
               @change="applyScannedRobot"
             >
               <el-option
@@ -241,11 +241,11 @@
                 :value="robotKey(robot)"
               />
             </el-select>
-            <el-tooltip content="扫描在线设备" placement="bottom">
+            <el-tooltip :content="t('protocolMonitor.scanOnline')" placement="bottom">
               <el-button
                 :icon="Search"
                 circle
-                aria-label="扫描在线设备"
+                :aria-label="t('protocolMonitor.scanOnline')"
                 :loading="scanning"
                 @click="scanOnlineDevices"
               />
@@ -253,23 +253,23 @@
           </div>
         </el-form-item>
         <div class="device-form-grid">
-          <el-form-item label="设备名称" required class="name-field">
-            <el-input v-model="deviceForm.name" maxlength="80" placeholder="输入设备名称" />
+          <el-form-item :label="t('protocolMonitor.deviceName')" required class="name-field">
+            <el-input v-model="deviceForm.name" maxlength="80" :placeholder="t('protocolMonitor.deviceNamePlaceholder')" />
           </el-form-item>
-          <el-form-item label="设备描述" class="description-field">
+          <el-form-item :label="t('protocolMonitor.deviceDescription')" class="description-field">
             <el-input
               v-model="deviceForm.description"
               type="textarea"
               :rows="3"
               maxlength="300"
               show-word-limit
-              placeholder="输入设备用途、位置或备注"
+              :placeholder="t('protocolMonitor.descriptionPlaceholder')"
             />
           </el-form-item>
-          <el-form-item label="IP 地址" required>
+          <el-form-item :label="t('protocolMonitor.ipAddress')" required>
             <el-input v-model="deviceForm.ip" placeholder="192.168.6.11" />
           </el-form-item>
-          <el-form-item label="端口" required>
+          <el-form-item :label="t('protocolMonitor.port')" required>
             <el-input-number
               v-model="deviceForm.port"
               :min="1"
@@ -280,8 +280,8 @@
         </div>
       </el-form>
       <template #footer>
-        <el-button @click="deviceDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingDevice" @click="saveDevice">保存</el-button>
+        <el-button @click="deviceDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="savingDevice" @click="saveDevice">{{ t('common.actions.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -300,13 +300,13 @@
         :show-header="false"
       />
       <template #footer>
-        <el-button @click="detailDrawerVisible = false">关闭</el-button>
+        <el-button @click="detailDrawerVisible = false">{{ t('common.actions.close') }}</el-button>
         <el-button
           type="primary"
           :icon="Refresh"
           :loading="detailRefreshing"
           @click="refreshDeviceDetails"
-        >刷新</el-button>
+        >{{ t('common.actions.refresh') }}</el-button>
       </template>
     </el-drawer>
   </div>
@@ -344,14 +344,18 @@ import {
 } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import DeviceInfoPanel from '@/views/devices/components/DeviceInfoPanel.vue'
+import { useI18n } from 'vue-i18n'
+import { useAppLocale } from '@/i18n'
 
 const STATUS_REFRESH_INTERVAL_MS = 10_000
+const { t } = useI18n()
+const { locale } = useAppLocale()
 const router = useRouter()
-const statusText: Record<ProtocolMonitorStatus, string> = {
-  idle: '空闲',
-  offline: '离线',
-  running: '运行',
-}
+const statusText = computed<Record<ProtocolMonitorStatus, string>>(() => ({
+  idle: t('protocolMonitor.statuses.idle'),
+  offline: t('protocolMonitor.statuses.offline'),
+  running: t('protocolMonitor.statuses.running'),
+}))
 
 const rooms = ref<ProtocolMonitorRoom[]>([])
 const selectedRoomId = ref('')
@@ -390,8 +394,8 @@ const statusCounts = computed(() => {
   return counts
 })
 const detailDrawerTitle = computed(() => {
-  if (!detailDevice.value) return '设备详细信息'
-  return `设备详细信息 - ${detailDevice.value.name}`
+  if (!detailDevice.value) return t('protocolMonitor.detailTitle')
+  return t('protocolMonitor.detailNamed', { name: detailDevice.value.name })
 })
 
 let statusTimer: number | null = null
@@ -407,7 +411,7 @@ function formatDate(value?: string | null) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return date.toLocaleString(locale.value, { hour12: false })
 }
 
 function offlineStatus(deviceId: string): ProtocolMonitorDeviceStatus {
@@ -441,7 +445,7 @@ async function loadRooms() {
     }
     if (selectedRoomId.value) await refreshStatus(true)
   } catch (error) {
-    loadError.value = normalizeError(error, '加载监控房间失败')
+    loadError.value = normalizeError(error, t('protocolMonitor.errors.loadRooms'))
   } finally {
     loadingRooms.value = false
   }
@@ -468,7 +472,7 @@ async function refreshStatus(silent = false) {
     )
     lastCheckedAt.value = response.data.checked_at
   } catch (error) {
-    if (!silent) ElMessage.error(normalizeError(error, '刷新设备状态失败'))
+    if (!silent) ElMessage.error(normalizeError(error, t('protocolMonitor.errors.refreshStatus')))
   } finally {
     if (requestSequence === statusRequestSequence) refreshingStatus.value = false
   }
@@ -490,7 +494,7 @@ function openEditRoom() {
 async function saveRoom() {
   const name = roomName.value.trim()
   if (!name) {
-    ElMessage.warning('请输入房间名称')
+    ElMessage.warning(t('protocolMonitor.enterRoomName'))
     return
   }
   savingRoom.value = true
@@ -501,10 +505,10 @@ async function saveRoom() {
     replaceRoom(response.data)
     selectedRoomId.value = response.data.id
     roomDialogVisible.value = false
-    ElMessage.success(editingRoomId.value ? '房间已更新' : '房间已创建')
+    ElMessage.success(t(editingRoomId.value ? 'protocolMonitor.roomUpdated' : 'protocolMonitor.roomCreated'))
     await refreshStatus(true)
   } catch (error) {
-    ElMessage.error(normalizeError(error, '保存房间失败'))
+    ElMessage.error(normalizeError(error, t('protocolMonitor.errors.saveRoom')))
   } finally {
     savingRoom.value = false
   }
@@ -514,17 +518,17 @@ async function removeRoom() {
   const room = selectedRoom.value
   if (!room) return
   try {
-    await ElMessageBox.confirm(`确认删除房间“${room.name}”？`, '删除房间', { type: 'warning' })
+    await ElMessageBox.confirm(t('protocolMonitor.roomDeleteConfirm', { name: room.name }), t('protocolMonitor.deleteRoom'), { type: 'warning' })
     await protocolMonitorApi.deleteRoom(room.id)
     rooms.value = rooms.value.filter(item => item.id !== room.id)
     selectedRoomId.value = rooms.value[0]?.id ?? ''
     statusByDevice.value = {}
     lastCheckedAt.value = ''
-    ElMessage.success('房间已删除')
+    ElMessage.success(t('protocolMonitor.roomDeleted'))
     if (selectedRoomId.value) await refreshStatus(true)
   } catch (error: any) {
     if (error === 'cancel' || error === 'close') return
-    ElMessage.error(normalizeError(error, '删除房间失败'))
+    ElMessage.error(normalizeError(error, t('protocolMonitor.errors.deleteRoom')))
   }
 }
 
@@ -584,9 +588,9 @@ function applyScannedRobot(key: string) {
 async function scanOnlineDevices() {
   try {
     const result = await robotScanStore.refreshScan({ params: { port: deviceForm.port } })
-    ElMessage.success(`发现 ${result?.online_robots.length ?? 0} 台在线设备`)
+    ElMessage.success(t('protocolMonitor.devicesFound', { count: result?.online_robots.length ?? 0 }))
   } catch (error) {
-    ElMessage.error(normalizeError(error, '扫描设备失败'))
+    ElMessage.error(normalizeError(error, t('protocolMonitor.errors.scan')))
   }
 }
 
@@ -594,7 +598,7 @@ async function saveDevice() {
   const room = selectedRoom.value
   if (!room) return
   if (!deviceForm.name.trim() || !deviceForm.ip.trim()) {
-    ElMessage.warning('请填写设备名称和 IP 地址')
+    ElMessage.warning(t('protocolMonitor.enterDevice'))
     return
   }
   savingDevice.value = true
@@ -610,10 +614,10 @@ async function saveDevice() {
       : await protocolMonitorApi.addDevice(room.id, payload)
     replaceRoom(response.data)
     deviceDialogVisible.value = false
-    ElMessage.success(editingDeviceId.value ? '设备已更新' : '设备已添加')
+    ElMessage.success(t(editingDeviceId.value ? 'protocolMonitor.deviceUpdated' : 'protocolMonitor.deviceAdded'))
     await refreshStatus(true)
   } catch (error) {
-    ElMessage.error(normalizeError(error, '保存设备失败'))
+    ElMessage.error(normalizeError(error, t('protocolMonitor.errors.saveDevice')))
   } finally {
     savingDevice.value = false
   }
@@ -646,16 +650,16 @@ async function removeDevice(device: ProtocolMonitorDevice) {
   const room = selectedRoom.value
   if (!room) return
   try {
-    await ElMessageBox.confirm(`确认删除设备“${device.name}”？`, '删除设备', { type: 'warning' })
+    await ElMessageBox.confirm(t('protocolMonitor.deviceDeleteConfirm', { name: device.name }), t('protocolMonitor.deleteDevice'), { type: 'warning' })
     const response = await protocolMonitorApi.deleteDevice(room.id, device.id)
     replaceRoom(response.data)
     const nextStatuses = { ...statusByDevice.value }
     delete nextStatuses[device.id]
     statusByDevice.value = nextStatuses
-    ElMessage.success('设备已删除')
+    ElMessage.success(t('protocolMonitor.deviceDeleted'))
   } catch (error: any) {
     if (error === 'cancel' || error === 'close') return
-    ElMessage.error(normalizeError(error, '删除设备失败'))
+    ElMessage.error(normalizeError(error, t('protocolMonitor.errors.deleteDevice')))
   }
 }
 

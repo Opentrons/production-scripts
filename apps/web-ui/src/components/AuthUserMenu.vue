@@ -4,7 +4,7 @@
       class="auth-user-trigger"
       type="button"
       :aria-expanded="open"
-      aria-label="账户菜单"
+      :aria-label="t('auth.accountMenu')"
       @click.stop="open = !open"
     >
       <span class="auth-user-avatar"><UserRound :size="15" aria-hidden="true" /></span>
@@ -18,9 +18,13 @@
         <strong>{{ displayName }}</strong>
         <span>{{ authStore.user?.username }} · {{ roleLabel }}</span>
       </div>
+      <div class="auth-user-locale">
+        <span>{{ t('locale.label') }}</span>
+        <LocaleSwitcher variant="surface" />
+      </div>
       <button type="button" role="menuitem" :disabled="loggingOut" @click="logout">
         <LogOut :size="15" aria-hidden="true" />
-        {{ loggingOut ? '正在退出' : '退出登录' }}
+        {{ loggingOut ? t('auth.loggingOut') : t('auth.logout') }}
       </button>
     </div>
   </div>
@@ -31,23 +35,26 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, LogOut, UserRound } from '@lucide/vue'
 import { useAuthStore } from '@/scripts/stores/auth'
+import { useAppLocale } from '@/i18n'
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 
 withDefaults(defineProps<{ variant?: 'light' | 'dark' }>(), { variant: 'light' })
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useAppLocale()
 const menuRoot = ref<HTMLElement | null>(null)
 const open = ref(false)
 const loggingOut = ref(false)
 const displayName = computed(() => authStore.user?.role === 'device_operator'
-  ? '普通用户'
+  ? t('auth.displayName.deviceOperator')
   : authStore.user?.display_name || authStore.user?.username)
 
 const roleLabel = computed(() => ({
-  admin: '管理员',
-  operator: '操作员',
-  viewer: '访客',
-  device_operator: '普通用户',
+  admin: t('auth.roles.admin'),
+  operator: t('auth.roles.operator'),
+  viewer: t('auth.roles.viewer'),
+  device_operator: t('auth.roles.deviceOperator'),
 }[authStore.user?.role || 'viewer']))
 
 function closeOnOutsideClick(event: MouseEvent): void {
@@ -83,6 +90,7 @@ onBeforeUnmount(() => window.removeEventListener('click', closeOnOutsideClick))
 .auth-user-identity { display: grid; gap: 3px; padding: 7px 8px 10px; border-bottom: 1px solid #edf0f2; }
 .auth-user-identity strong { overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 .auth-user-identity span { overflow: hidden; text-overflow: ellipsis; color: #7a858b; font-size: 10px; }
+.auth-user-locale { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 8px 5px; color: #69767d; font-size: 10px; }
 .auth-user-dropdown button { width: 100%; height: 34px; display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: #a53232; font-size: 12px; cursor: pointer; }
 .auth-user-dropdown button:hover { background: #fff1f1; }
 .auth-user-dropdown button:disabled { opacity: .55; cursor: wait; }

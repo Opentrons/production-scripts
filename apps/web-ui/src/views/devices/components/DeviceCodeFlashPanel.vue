@@ -1,17 +1,17 @@
 <template>
   <section class="code-flash-panel">
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请先选择一台设备" />
+      <el-empty :description="t('devices.selectOne')" />
     </div>
 
     <template v-else>
       <div class="flash-intro">
         <div>
-          <div class="section-title">烧录当前设备代码</div>
-          <div class="section-description">服务器在 Opentrons 源码目录执行 make，并将 host 固定为当前设备。</div>
+          <div class="section-title">{{ t('devices.codeFlash.title') }}</div>
+          <div class="section-description">{{ t('devices.codeFlash.description') }}</div>
         </div>
         <el-tag :type="repositoryAvailable ? 'success' : 'danger'" effect="plain">
-          {{ repositoryAvailable ? repositoryPath : '源码目录不可用' }}
+          {{ repositoryAvailable ? repositoryPath : t('devices.codeFlash.repositoryUnavailable') }}
         </el-tag>
       </div>
 
@@ -25,12 +25,12 @@
 
       <div class="flash-form-grid">
         <label class="flash-field branch-field">
-          <span>Git 分支</span>
+          <span>{{ t('devices.codeFlash.branch') }}</span>
           <div class="branch-select-row">
             <el-select
               v-model="selectedBranch"
               filterable
-              placeholder="选择服务器源码分支"
+              :placeholder="t('devices.codeFlash.branchPlaceholder')"
             >
               <el-option
                 v-for="branch in branches"
@@ -40,30 +40,30 @@
               >
                 <div class="branch-option">
                   <strong>{{ branch.name }}</strong>
-                  <el-tag v-if="branch.current" size="small" type="success">当前</el-tag>
-                  <el-tag v-if="branch.local" size="small" type="info">本地</el-tag>
-                  <el-tag v-if="branch.remote" size="small" effect="plain">远程</el-tag>
+                  <el-tag v-if="branch.current" size="small" type="success">{{ t('devices.codeFlash.current') }}</el-tag>
+                  <el-tag v-if="branch.local" size="small" type="info">{{ t('devices.codeFlash.local') }}</el-tag>
+                  <el-tag v-if="branch.remote" size="small" effect="plain">{{ t('devices.codeFlash.remote') }}</el-tag>
                 </div>
               </el-option>
             </el-select>
-            <el-tooltip content="刷新分支与工作区状态" placement="top">
+            <el-tooltip :content="t('devices.codeFlash.refreshRepository')" placement="top">
               <el-button :icon="Refresh" :loading="loadingPresets" circle @click.prevent="loadPresets" />
             </el-tooltip>
           </div>
         </label>
 
         <div class="pull-field">
-          <span>远程同步</span>
-          <el-checkbox v-model="pullBeforeFlash">切换分支后 Pull</el-checkbox>
+          <span>{{ t('devices.codeFlash.remoteSync') }}</span>
+          <el-checkbox v-model="pullBeforeFlash">{{ t('devices.codeFlash.pullAfterSwitch') }}</el-checkbox>
         </div>
 
         <label class="flash-field preset-field">
-          <span>预设命令</span>
+          <span>{{ t('devices.codeFlash.preset') }}</span>
           <el-select
             v-model="selectedPresetId"
             clearable
             filterable
-            placeholder="选择预设，或直接编辑下方 make 命令"
+            :placeholder="t('devices.codeFlash.presetPlaceholder')"
             @change="applyPreset"
           >
             <el-option
@@ -81,7 +81,7 @@
         </label>
 
         <label class="flash-field command-field">
-          <span>Make 命令</span>
+          <span>{{ t('devices.codeFlash.makeCommand') }}</span>
           <el-input
             v-model="makeCommand"
             type="textarea"
@@ -93,7 +93,7 @@
         </label>
 
         <label class="flash-field timeout-field">
-          <span>超时（秒）</span>
+          <span>{{ t('devices.codeFlash.timeout') }}</span>
           <el-input-number
             v-model="timeoutSeconds"
             :min="30"
@@ -104,7 +104,7 @@
         </label>
 
         <div class="target-summary">
-          <span>目标设备</span>
+          <span>{{ t('devices.codeFlash.target') }}</span>
           <strong>{{ ip }}</strong>
         </div>
       </div>
@@ -113,7 +113,7 @@
         v-if="!repositoryClean"
         type="warning"
         :closable="false"
-        title="服务器 Git 工作区当前不干净，任务启动后会停止烧录。"
+        :title="t('devices.codeFlash.dirtyWorkspace')"
         class="flash-alert"
       >
         <template #default>
@@ -130,44 +130,46 @@
           :disabled="!canStart"
           @click="startFlash"
         >
-          开始烧录
+          {{ t('devices.codeFlash.start') }}
         </el-button>
         <span class="command-safety-note">
-          先切换 {{ selectedBranch || '-' }}{{ pullBeforeFlash ? ' 并 Pull' : '' }}，再执行 make；host={{ ip }}
+          {{ pullBeforeFlash
+            ? t('devices.codeFlash.safetyWithPull', { branch: selectedBranch || '-', ip })
+            : t('devices.codeFlash.safetyWithoutPull', { branch: selectedBranch || '-', ip }) }}
         </span>
       </div>
 
       <section v-if="task" class="flash-result" :class="`is-${task.status}`">
         <div class="flash-result-header">
           <div>
-            <div class="section-title">烧录任务</div>
+            <div class="section-title">{{ t('devices.codeFlash.task') }}</div>
             <div class="flash-command">{{ task.command }}</div>
           </div>
           <el-tag :type="statusTagType">{{ statusLabel }}</el-tag>
         </div>
 
         <el-descriptions :column="3" border size="small" class="flash-meta">
-          <el-descriptions-item label="设备">{{ task.ip }}</el-descriptions-item>
-          <el-descriptions-item label="分支">{{ task.branch }}</el-descriptions-item>
-          <el-descriptions-item label="远程同步">{{ task.pull ? 'Pull' : '跳过' }}</el-descriptions-item>
-          <el-descriptions-item label="退出码">{{ task.exit_code ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="耗时">{{ formatDuration(task.duration_ms) }}</el-descriptions-item>
-          <el-descriptions-item label="结果">{{ task.message }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.codeFlash.device')">{{ task.ip }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.codeFlash.branch')">{{ task.branch }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.codeFlash.pull')">{{ task.pull ? 'Pull' : t('devices.codeFlash.skipped') }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.codeFlash.exitCode')">{{ task.exit_code ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.codeFlash.duration')">{{ formatDuration(task.duration_ms) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('devices.codeFlash.result')">{{ task.message }}</el-descriptions-item>
         </el-descriptions>
 
         <el-collapse v-model="expandedSections" class="flash-log-collapse">
           <el-collapse-item name="logs">
             <template #title>
               <span class="flash-log-title">
-                执行 Log
-                <el-tag v-if="isRunning" size="small" type="warning">实时输出</el-tag>
-                <small>{{ task.logs.length }} 行</small>
+                {{ t('devices.codeFlash.executionLog') }}
+                <el-tag v-if="isRunning" size="small" type="warning">{{ t('devices.codeFlash.liveOutput') }}</el-tag>
+                <small>{{ t('devices.codeFlash.lines', { count: task.logs.length }) }}</small>
               </span>
             </template>
             <div ref="logConsoleRef" class="flash-log-console">
-              <pre>{{ task.logs.length ? task.logs.join('\n') : '等待 make 输出...' }}</pre>
+              <pre>{{ task.logs.length ? task.logs.join('\n') : t('devices.codeFlash.waitingOutput') }}</pre>
             </div>
-            <div v-if="task.output_truncated" class="flash-log-truncated">日志已达到平台长度限制，后续输出未显示。</div>
+            <div v-if="task.output_truncated" class="flash-log-truncated">{{ t('devices.codeFlash.logTruncated') }}</div>
           </el-collapse-item>
         </el-collapse>
       </section>
@@ -185,6 +187,9 @@ import {
   type RobotCodeFlashPreset,
   type RobotCodeFlashTask
 } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useAppLocale()
 
 const props = defineProps<{
   ip: string | null
@@ -222,10 +227,10 @@ const canStart = computed(() => Boolean(
 ))
 
 const statusLabel = computed(() => {
-  if (task.value?.status === 'queued') return '等待中'
-  if (task.value?.status === 'running') return '烧录中'
-  if (task.value?.status === 'success') return '烧录成功'
-  return '烧录失败'
+  if (task.value?.status === 'queued') return t('devices.codeFlash.statuses.queued')
+  if (task.value?.status === 'running') return t('devices.codeFlash.statuses.running')
+  if (task.value?.status === 'success') return t('devices.codeFlash.statuses.success')
+  return t('devices.codeFlash.statuses.failed')
 })
 
 const statusTagType = computed(() => {
@@ -240,7 +245,7 @@ function normalizeError(error: any): string {
     || error?.response?.data?.detail
     || error?.response?.data?.message
     || error?.message
-    || '未知错误'
+    || t('errors.unknown')
 }
 
 function applyPreset(presetId: string) {
@@ -266,7 +271,7 @@ async function loadPresets() {
     }
   } catch (error: any) {
     repositoryAvailable.value = false
-    repositoryError.value = '加载烧录配置失败: ' + normalizeError(error)
+    repositoryError.value = t('devices.codeFlash.loadFailed', { error: normalizeError(error) })
   } finally {
     loadingPresets.value = false
   }
@@ -301,7 +306,7 @@ async function pollTask(taskId: string, showError = false) {
       ElMessage.error(response.data.message)
     }
   } catch (error: any) {
-    if (showError) ElMessage.error('读取烧录进度失败: ' + normalizeError(error))
+    if (showError) ElMessage.error(t('devices.codeFlash.progressFailed', { error: normalizeError(error) }))
     pollTimer = setTimeout(() => pollTask(taskId), 3000)
   }
 }
@@ -311,11 +316,16 @@ async function startFlash() {
   if (!ip || !canStart.value) return
   try {
     await ElMessageBox.confirm(
-      `即将在服务器 ${repositoryPath.value} 切换到 ${selectedBranch.value}${pullBeforeFlash.value ? '、拉取远程更新' : ''}，然后为 ${ip} 执行烧录。烧录期间请勿断电或断网。`,
-      '确认烧录代码',
+      t('devices.codeFlash.confirm', {
+        path: repositoryPath.value,
+        branch: selectedBranch.value,
+        pull: pullBeforeFlash.value ? t('devices.codeFlash.pullRemote') : '',
+        ip,
+      }),
+      t('devices.codeFlash.confirmTitle'),
       {
-        confirmButtonText: '开始烧录',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.codeFlash.start'),
+        cancelButtonText: t('common.actions.cancel'),
         type: 'warning'
       }
     )
@@ -335,10 +345,10 @@ async function startFlash() {
       pull: pullBeforeFlash.value
     })
     task.value = response.data
-    ElMessage.success('烧录任务已启动')
+    ElMessage.success(t('devices.codeFlash.started'))
     await pollTask(response.data.task_id, true)
   } catch (error: any) {
-    ElMessage.error('启动烧录失败: ' + normalizeError(error))
+    ElMessage.error(t('devices.codeFlash.startFailed', { error: normalizeError(error) }))
   } finally {
     starting.value = false
   }
@@ -348,8 +358,8 @@ function formatDuration(durationMs: number) {
   if (!durationMs) return '-'
   if (durationMs < 1000) return `${durationMs} ms`
   const seconds = Math.round(durationMs / 1000)
-  if (seconds < 60) return `${seconds} 秒`
-  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
+  if (seconds < 60) return t('devices.codeFlash.seconds', { count: seconds })
+  return t('devices.codeFlash.minutesSeconds', { minutes: Math.floor(seconds / 60), seconds: seconds % 60 })
 }
 
 watch(() => props.ip, () => {

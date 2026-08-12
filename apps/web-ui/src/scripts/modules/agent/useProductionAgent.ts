@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { authenticatedFetch } from '@/scripts/api/http'
+import { i18n } from '@/i18n'
 
 export type AgentChatRole = 'user' | 'assistant'
 
@@ -43,10 +44,12 @@ const AGENT_API_BASE = '/api/agent'
 
 async function responseError(response: Response): Promise<string> {
   try {
-    const payload = await response.json() as { detail?: string; message?: string }
-    return payload.detail || payload.message || `请求失败 (${response.status})`
+    const payload = await response.json() as { detail?: string | { message?: string }; message?: string }
+    return (typeof payload.detail === 'string' ? payload.detail : payload.detail?.message)
+      || payload.message
+      || i18n.global.t('agent.httpFailed', { status: response.status })
   } catch {
-    return `请求失败 (${response.status})`
+    return i18n.global.t('agent.httpFailed', { status: response.status })
   }
 }
 
@@ -83,7 +86,7 @@ export function useProductionAgent() {
       })
 
       if (!response.ok) throw new Error(await responseError(response))
-      if (!response.body) throw new Error('当前浏览器不支持流式响应')
+      if (!response.body) throw new Error(i18n.global.t('agent.streamUnsupported'))
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
@@ -105,7 +108,7 @@ export function useProductionAgent() {
 
         if (event.type === 'chunk') await callbacks.onChunk?.(event.content || '')
         else if (event.type === 'done') await callbacks.onDone?.(event.content || '')
-        else if (event.type === 'error') await callbacks.onError?.(event.content || '生产助手调用失败')
+        else if (event.type === 'error') await callbacks.onError?.(event.content || i18n.global.t('agent.callFailed'))
         else if (event.type === 'tool_start' && event.data) await callbacks.onToolStart?.(event.data)
         else if (event.type === 'tool_result' && event.data) await callbacks.onToolResult?.(event.data)
       }
@@ -128,7 +131,7 @@ export function useProductionAgent() {
       if (tail) await handleEvent(tail)
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        callbacks.onError?.(error instanceof Error ? error.message : '生产助手调用失败')
+        callbacks.onError?.(error instanceof Error ? error.message : i18n.global.t('agent.callFailed'))
       }
     } finally {
       if (abortController.value === controller) {

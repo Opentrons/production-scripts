@@ -62,10 +62,7 @@
               <span>{{ copy.nav.downloads }}</span>
             </a>
           </nav>
-          <div class="language-switcher" role="group" :aria-label="copy.languageLabel">
-            <button type="button" :class="{ 'is-active': locale === 'zh' }" :aria-pressed="locale === 'zh'" @click="setLocale('zh')">中文</button>
-            <button type="button" :class="{ 'is-active': locale === 'en' }" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>
-          </div>
+          <LocaleSwitcher />
           <AuthUserMenu />
         </div>
       </header>
@@ -326,10 +323,7 @@
                 <span>{{ copy.nav.downloads }}</span>
               </a>
             </nav>
-            <div class="language-switcher" role="group" :aria-label="copy.languageLabel">
-              <button type="button" :class="{ 'is-active': locale === 'zh' }" :aria-pressed="locale === 'zh'" @click="setLocale('zh')">中文</button>
-              <button type="button" :class="{ 'is-active': locale === 'en' }" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>
-            </div>
+            <LocaleSwitcher variant="surface" />
             <AuthUserMenu />
           </div>
         </header>
@@ -517,6 +511,7 @@ import {
 import flexImage from '@/assets/dashboard/flex.png'
 import productionsLogo from '@/assets/dashboard/productions-logo.svg'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 import { settingsApi } from '@/scripts/api'
 import {
   authenticatedFetch,
@@ -525,42 +520,19 @@ import {
   refreshSession,
 } from '@/scripts/api/http'
 import {
-  DASHBOARD_LANGUAGE_STORAGE_KEY,
   dashboardMessages,
   type DashboardLocale,
-} from '@/scripts/dashboard/i18n'
+} from '@/i18n/locales/dashboard'
+import { useAppLocale } from '@/i18n'
 import '@/styles/dashboard/dashboard.css'
 
 const props = withDefaults(defineProps<{ mode?: 'dashboard' | 'downloads' }>(), {
   mode: 'dashboard',
 })
 
-function readInitialLocale(): DashboardLocale {
-  if (typeof window === 'undefined') return 'zh'
-  try {
-    return window.localStorage.getItem(DASHBOARD_LANGUAGE_STORAGE_KEY) === 'en' ? 'en' : 'zh'
-  } catch {
-    return 'zh'
-  }
-}
-
-const locale = ref<DashboardLocale>(readInitialLocale())
-const copy = computed(() => dashboardMessages[locale.value])
-
-function applyLocale(nextLocale: DashboardLocale): void {
-  if (typeof document === 'undefined') return
-  document.documentElement.lang = nextLocale === 'zh' ? 'zh-CN' : 'en'
-}
-
-function setLocale(nextLocale: DashboardLocale): void {
-  locale.value = nextLocale
-  try {
-    window.localStorage.setItem(DASHBOARD_LANGUAGE_STORAGE_KEY, nextLocale)
-  } catch {
-    // Language switching should still work when browser storage is unavailable.
-  }
-  applyLocale(nextLocale)
-}
+const { locale } = useAppLocale()
+const dashboardLocale = computed<DashboardLocale>(() => locale.value === 'en-US' ? 'en' : 'zh')
+const copy = computed(() => dashboardMessages[dashboardLocale.value])
 
 const simulatingEnabled = ref(false)
 const simulatingSaving = ref(false)
@@ -707,7 +679,7 @@ function formatBytes(bytes: number): string {
 function formatDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
+  return new Intl.DateTimeFormat(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -935,7 +907,6 @@ async function deleteVersion(resourceVersion: ResourceVersion): Promise<void> {
 }
 
 onMounted(() => {
-  applyLocale(locale.value)
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('keydown', handleKeydown)
   void loadSimulatingStatus()

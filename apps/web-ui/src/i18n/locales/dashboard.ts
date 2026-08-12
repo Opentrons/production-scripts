@@ -1,7 +1,5 @@
 export type DashboardLocale = 'zh' | 'en'
 
-export const DASHBOARD_LANGUAGE_STORAGE_KEY = 'production-platform-dashboard-language'
-
 interface ModuleCopy {
   name: string
   summary: string

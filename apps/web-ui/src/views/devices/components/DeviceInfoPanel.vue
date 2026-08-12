@@ -1,7 +1,7 @@
 <template>
   <div v-loading="loading" class="device-info-content" :class="{ 'is-drawer': inDrawer }">
     <div v-if="showHeader" class="panel-header">
-      <span class="panel-title">设备信息</span>
+      <span class="panel-title">{{ t('devices.info') }}</span>
       <el-button
         link
         type="primary"
@@ -10,26 +10,26 @@
         :disabled="!ip"
         :loading="loading"
         @click="loadSummary"
-      >刷新</el-button>
+      >{{ t('common.actions.refresh') }}</el-button>
     </div>
 
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请选择设备" :image-size="64" />
+      <el-empty :description="t('devices.selectDevice')" :image-size="64" />
     </div>
 
     <template v-else>
       <div class="info-block">
-        <div class="info-subtitle">连接状态</div>
+        <div class="info-subtitle">{{ t('devices.infoPanel.connection') }}</div>
         <div class="info-row">
           <span>HTTP</span>
           <el-tag :type="summary?.http_connected ? 'success' : 'danger'" size="small">
-            {{ summary?.http_connected ? '已连接' : '未连接' }}
+            {{ summary?.http_connected ? t('devices.connected') : t('devices.disconnected') }}
           </el-tag>
         </div>
         <div class="info-row">
           <span>SSH</span>
           <el-tag :type="summary?.ssh_connected ? 'success' : 'danger'" size="small">
-            {{ summary?.ssh_connected ? '已连接' : '未连接' }}
+            {{ summary?.ssh_connected ? t('devices.connected') : t('devices.disconnected') }}
           </el-tag>
         </div>
       </div>
@@ -37,14 +37,14 @@
       <el-divider />
 
       <div class="info-block">
-        <div class="info-subtitle">基本信息</div>
+        <div class="info-subtitle">{{ t('devices.infoPanel.basic') }}</div>
         <div class="info-row"><span>IP</span><span>{{ ip }}</span></div>
-        <div class="info-row"><span>名称</span><span>{{ healthName }}</span></div>
-        <div class="info-row"><span>型号</span><span>{{ healthModel }}</span></div>
-        <div class="info-row"><span>条码 SN</span><span>{{ healthSerial }}</span></div>
-        <div class="info-row"><span>API 版本</span><span>{{ healthApiVersion }}</span></div>
-        <div class="info-row"><span>FW 版本</span><span>{{ healthFwVersion }}</span></div>
-        <div class="info-row"><span>系统版本</span><span>{{ healthSystemVersion }}</span></div>
+        <div class="info-row"><span>{{ t('devices.infoPanel.name') }}</span><span>{{ healthName }}</span></div>
+        <div class="info-row"><span>{{ t('devices.infoPanel.model') }}</span><span>{{ healthModel }}</span></div>
+        <div class="info-row"><span>{{ t('devices.infoPanel.serial') }}</span><span>{{ healthSerial }}</span></div>
+        <div class="info-row"><span>{{ t('devices.infoPanel.apiVersion') }}</span><span>{{ healthApiVersion }}</span></div>
+        <div class="info-row"><span>{{ t('devices.infoPanel.firmwareVersion') }}</span><span>{{ healthFwVersion }}</span></div>
+        <div class="info-row"><span>{{ t('devices.infoPanel.systemVersion') }}</span><span>{{ healthSystemVersion }}</span></div>
       </div>
 
       <el-alert
@@ -103,7 +103,7 @@
                 <div class="raw-popover-header">
                   <span>Raw JSON</span>
                   <button class="raw-copy-button" type="button" @click="copyJson(item.rawJson)">
-                    复制 JSON
+                    {{ t('devices.infoPanel.copyJson') }}
                   </button>
                 </div>
                 <pre>{{ item.rawJson }}</pre>
@@ -111,7 +111,7 @@
             </el-popover>
           </article>
         </div>
-        <div v-else class="resource-empty">暂无加载 Instrument</div>
+        <div v-else class="resource-empty">{{ t('devices.infoPanel.noInstrument') }}</div>
       </div>
 
       <el-divider />
@@ -161,7 +161,7 @@
                 <div class="raw-popover-header">
                   <span>Raw JSON</span>
                   <button class="raw-copy-button" type="button" @click="copyJson(item.rawJson)">
-                    复制 JSON
+                    {{ t('devices.infoPanel.copyJson') }}
                   </button>
                 </div>
                 <pre>{{ item.rawJson }}</pre>
@@ -169,7 +169,7 @@
             </el-popover>
           </article>
         </div>
-        <div v-else class="resource-empty">暂无加载 Module</div>
+        <div v-else class="resource-empty">{{ t('devices.infoPanel.noModule') }}</div>
       </div>
     </template>
   </div>
@@ -180,6 +180,9 @@ import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { robotApi, type RobotControlSummary } from '@/scripts/api'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useAppLocale()
 
 const props = withDefaults(
   defineProps<{
@@ -405,9 +408,9 @@ async function copyJson(text: string) {
       document.execCommand('copy')
       document.body.removeChild(textarea)
     }
-    ElMessage.success('JSON 已复制')
+    ElMessage.success(t('devices.infoPanel.jsonCopied'))
   } catch {
-    ElMessage.error('复制 JSON 失败')
+    ElMessage.error(t('devices.infoPanel.jsonCopyFailed'))
   }
 }
 
@@ -421,7 +424,7 @@ async function loadSummary() {
     const response = await robotApi.getControlSummary(props.ip, props.port)
     summary.value = response.data
   } catch (error: any) {
-    ElMessage.error('加载设备信息失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('devices.infoPanel.loadFailed', { error: error.message || t('errors.unknown') }))
   } finally {
     loading.value = false
   }

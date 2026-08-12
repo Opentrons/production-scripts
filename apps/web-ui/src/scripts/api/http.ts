@@ -4,6 +4,7 @@ import axios, {
   type AxiosInstance,
   type AxiosRequestConfig,
 } from 'axios'
+import { currentLocale } from '@/i18n'
 
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 export const CSRF_COOKIE_NAME = 'production_csrf_token'
@@ -18,6 +19,13 @@ const authTransport = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   withCredentials: true,
+})
+
+authTransport.interceptors.request.use((config) => {
+  const headers = AxiosHeaders.from(config.headers)
+  headers.set('Accept-Language', currentLocale())
+  config.headers = headers
+  return config
 })
 
 let refreshPromise: Promise<void> | null = null
@@ -75,11 +83,12 @@ function installInterceptors(client: AxiosInstance): AxiosInstance {
   client.interceptors.request.use((config) => {
     const method = (config.method || 'get').toLowerCase()
     const token = csrfToken()
+    const headers = AxiosHeaders.from(config.headers)
+    headers.set('Accept-Language', currentLocale())
     if (token && !SAFE_METHODS.has(method)) {
-      const headers = AxiosHeaders.from(config.headers)
       headers.set(CSRF_HEADER_NAME, token)
-      config.headers = headers
     }
+    config.headers = headers
     return config
   })
 
@@ -119,6 +128,7 @@ export async function authenticatedFetch(
 ): Promise<Response> {
   const method = (init.method || 'GET').toUpperCase()
   const headers = new Headers(init.headers)
+  headers.set('Accept-Language', currentLocale())
   const token = csrfToken()
   if (token && !SAFE_METHODS.has(method.toLowerCase())) headers.set(CSRF_HEADER_NAME, token)
   const response = await fetch(input, { ...init, headers, credentials: 'same-origin' })
@@ -130,6 +140,7 @@ export async function authenticatedFetch(
     return response
   }
   const retryHeaders = new Headers(init.headers)
+  retryHeaders.set('Accept-Language', currentLocale())
   const nextToken = csrfToken()
   if (nextToken && !SAFE_METHODS.has(method.toLowerCase())) retryHeaders.set(CSRF_HEADER_NAME, nextToken)
   return fetch(input, { ...init, headers: retryHeaders, credentials: 'same-origin' })

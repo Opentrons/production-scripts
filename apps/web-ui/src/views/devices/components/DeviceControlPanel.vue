@@ -1,15 +1,15 @@
 <template>
   <div class="device-control-panel">
     <div v-if="!ip" class="panel-empty">
-      <el-empty description="请先选择一台设备" />
+      <el-empty :description="t('devices.selectOne')" />
     </div>
 
     <template v-else>
       <section class="control-console">
         <div class="section-header">
           <div>
-            <div class="section-title">设备控制</div>
-            <div class="section-subtitle">常用设备动作</div>
+            <div class="section-title">{{ t('devices.control.title') }}</div>
+            <div class="section-subtitle">{{ t('devices.control.subtitle') }}</div>
           </div>
         </div>
 
@@ -20,13 +20,13 @@
             :disabled="Boolean(jogSessionRunId)"
             @click="handleHome"
           >
-            Home 全部轴
+            {{ t('devices.control.homeAll') }}
           </el-button>
           <div class="reset-control">
             <el-select
               v-model="resetAxis"
               class="reset-axis-select"
-              placeholder="选择复位目标"
+              :placeholder="t('devices.control.resetTarget')"
               :disabled="Boolean(jogSessionRunId)"
             >
               <el-option-group
@@ -47,23 +47,23 @@
               :disabled="Boolean(jogSessionRunId)"
               @click="handleReset"
             >
-              复位
+              {{ t('devices.control.reset') }}
             </el-button>
           </div>
           <el-button type="danger" :loading="actionLoading === 'reboot'" @click="handleReboot">
-            重启
+            {{ t('devices.control.reboot') }}
           </el-button>
         </div>
 
         <div class="jog-console">
           <div class="jog-header">
             <div>
-              <div class="section-title">Jog 设备</div>
-              <div class="section-subtitle">创建 Maintenance Run 后控制 X / Y / Mount Z 轴相对移动</div>
+              <div class="section-title">{{ t('devices.control.jogTitle') }}</div>
+              <div class="section-subtitle">{{ t('devices.control.jogSubtitle') }}</div>
             </div>
             <div class="jog-session-actions">
               <el-tag v-if="jogSessionRunId" size="small" type="success">
-                Jog 已开始
+                {{ t('devices.control.jogStarted') }}
               </el-tag>
               <el-button
                 :type="jogSessionRunId ? 'danger' : 'primary'"
@@ -73,7 +73,7 @@
                   : jogBusy || Boolean(actionLoading)"
                 @click="handleJogSessionToggle"
               >
-                {{ jogSessionRunId ? '释放 Jog' : '开始 Jog' }}
+                {{ jogSessionRunId ? t('devices.control.releaseJog') : t('devices.control.startJog') }}
               </el-button>
             </div>
           </div>
@@ -89,7 +89,7 @@
             </label>
             <div class="jog-shortcut-toggle">
               <el-checkbox v-model="jogShortcutEnabled">
-                启用快捷键
+                {{ t('devices.control.enableShortcuts') }}
               </el-checkbox>
             </div>
             <div
@@ -97,7 +97,7 @@
               :class="{ 'is-single': jogMount === 'gripper' }"
             >
               <label class="jog-step-field">
-                <span class="field-label">XYZ 步进</span>
+                <span class="field-label">{{ t('devices.control.xyzStep') }}</span>
                 <el-input-number
                   v-model="jogStep"
                   :min="0.1"
@@ -110,7 +110,7 @@
                 <span class="jog-step-unit">mm</span>
               </label>
               <label v-if="jogMount !== 'gripper'" class="jog-step-field">
-                <span class="field-label">Plunger 步进</span>
+                <span class="field-label">{{ t('devices.control.plungerStep') }}</span>
                 <el-input-number
                   v-model="jogPlungerStep"
                   :min="0.1"
@@ -126,12 +126,12 @@
           </div>
 
           <div class="jog-body">
-            <div class="jog-pad" aria-label="Jog 方向控制">
+            <div class="jog-pad" :aria-label="t('devices.control.jogPad')">
               <el-button
                 class="jog-button jog-up"
                 :loading="activeJogDirection === 'up'"
                 :disabled="!jogSessionRunId || (jogBusy && activeJogDirection !== 'up')"
-                aria-label="向上移动 Y 正方向"
+                :aria-label="t('devices.control.aria.yPositive')"
                 @click="handleJog('up')"
               >
                 <el-icon><ArrowUp /></el-icon>
@@ -141,7 +141,7 @@
                 class="jog-button jog-left"
                 :loading="activeJogDirection === 'left'"
                 :disabled="!jogSessionRunId || (jogBusy && activeJogDirection !== 'left')"
-                aria-label="向左移动 X 负方向"
+                :aria-label="t('devices.control.aria.xNegative')"
                 @click="handleJog('left')"
               >
                 <el-icon><ArrowLeft /></el-icon>
@@ -152,7 +152,7 @@
                 class="jog-button jog-right"
                 :loading="activeJogDirection === 'right'"
                 :disabled="!jogSessionRunId || (jogBusy && activeJogDirection !== 'right')"
-                aria-label="向右移动 X 正方向"
+                :aria-label="t('devices.control.aria.xPositive')"
                 @click="handleJog('right')"
               >
                 <el-icon><ArrowRight /></el-icon>
@@ -162,7 +162,7 @@
                 class="jog-button jog-down"
                 :loading="activeJogDirection === 'down'"
                 :disabled="!jogSessionRunId || (jogBusy && activeJogDirection !== 'down')"
-                aria-label="向下移动 Y 负方向"
+                :aria-label="t('devices.control.aria.yNegative')"
                 @click="handleJog('down')"
               >
                 <el-icon><ArrowDown /></el-icon>
@@ -176,7 +176,7 @@
                   class="jog-button jog-z-button"
                   :loading="activeJogDirection === 'z_up'"
                   :disabled="!jogSessionRunId || (jogBusy && activeJogDirection !== 'z_up')"
-                  aria-label="Mount Z 正方向移动"
+                  :aria-label="t('devices.control.aria.zPositive')"
                   @click="handleJog('z_up')"
                 >
                   <el-icon><ArrowUp /></el-icon>
@@ -189,7 +189,7 @@
                   class="jog-button jog-z-button"
                   :loading="activeJogDirection === 'z_down'"
                   :disabled="!jogSessionRunId || (jogBusy && activeJogDirection !== 'z_down')"
-                  aria-label="Mount Z 负方向移动"
+                  :aria-label="t('devices.control.aria.zNegative')"
                   @click="handleJog('z_down')"
                 >
                   <el-icon><ArrowDown /></el-icon>
@@ -220,7 +220,7 @@
                   class="jog-button"
                   :loading="activeJogDirection === 'plunger_up'"
                   :disabled="!jogSessionRunId || !selectedJogPipette || (jogBusy && activeJogDirection !== 'plunger_up')"
-                  aria-label="Pipette Plunger 正方向移动"
+                  :aria-label="t('devices.control.aria.plungerPositive')"
                   @click="handleJog('plunger_up')"
                 >
                   <el-icon><ArrowUp /></el-icon>
@@ -233,7 +233,7 @@
                   class="jog-button"
                   :loading="activeJogDirection === 'plunger_down'"
                   :disabled="!jogSessionRunId || !selectedJogPipette || (jogBusy && activeJogDirection !== 'plunger_down')"
-                  aria-label="Pipette Plunger 负方向移动"
+                  :aria-label="t('devices.control.aria.plungerNegative')"
                   @click="handleJog('plunger_down')"
                 >
                   <el-icon><ArrowDown /></el-icon>
@@ -251,21 +251,20 @@
             </div>
 
             <div class="jog-description">
-              <span>XYZ 每次移动 {{ jogStep.toFixed(1) }} mm</span>
-              <span>上 / 下：Y±，左 / 右：X±</span>
+              <span>{{ t('devices.control.xyzMove', { step: jogStep.toFixed(1) }) }}</span>
+              <span>{{ t('devices.control.xyDirections') }}</span>
               <span>Z±：{{ jogZAxis }}</span>
-              <span v-if="jogMount === 'gripper'">夹爪：Grip / Ungrip</span>
-              <span v-else>Plunger±：{{ jogPlungerAxis }} · 每次 {{ jogPlungerStep.toFixed(1) }} mm</span>
+              <span v-if="jogMount === 'gripper'">{{ t('devices.control.gripperActions') }}</span>
+              <span v-else>{{ t('devices.control.plungerMove', { axis: jogPlungerAxis, step: jogPlungerStep.toFixed(1) }) }}</span>
               <span v-if="jogMount !== 'gripper' && selectedJogPipette">
-                Pipette：{{ selectedJogPipette.name }}
+                {{ t('devices.control.currentPipette', { name: selectedJogPipette.name }) }}
               </span>
-              <span v-else-if="jogMount !== 'gripper'">当前 Mount 未加载移液器</span>
+              <span v-else-if="jogMount !== 'gripper'">{{ t('devices.control.noPipette') }}</span>
               <span v-if="jogShortcutEnabled" class="jog-shortcut-hint">
-                快捷键：W/S = Y± · A/D = X± · I/K = Z± ·
-                O/L = {{ jogMount === 'gripper' ? 'Grip/Ungrip' : 'Plunger±' }}
+                {{ t('devices.control.shortcutHint', { action: jogMount === 'gripper' ? 'Grip/Ungrip' : 'Plunger±' }) }}
               </span>
-              <span v-if="jogSessionRunId" class="jog-run-id">Run：{{ jogSessionRunId }}</span>
-              <span v-else>请先点击“开始 Jog”创建 Maintenance Run</span>
+              <span v-if="jogSessionRunId" class="jog-run-id">{{ t('devices.control.runId', { id: jogSessionRunId }) }}</span>
+              <span v-else>{{ t('devices.control.startHint') }}</span>
             </div>
           </div>
         </div>
@@ -279,7 +278,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { robotApi } from '@/scripts/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   ip: string | null
@@ -323,50 +325,50 @@ const jogMountOptions = [
   { label: 'Right', value: 'right' },
   { label: 'Gripper', value: 'gripper' }
 ]
-const jogDirectionLabels: Record<JogDirection, string> = {
-  up: '向上',
-  down: '向下',
-  left: '向左',
-  right: '向右',
-  z_up: 'Z 正方向',
-  z_down: 'Z 负方向',
-  plunger_up: 'Plunger 正方向',
-  plunger_down: 'Plunger 负方向'
-}
-const resetAxisGroups = [
+const jogDirectionLabels = computed<Record<JogDirection, string>>(() => ({
+  up: t('devices.control.directions.up'),
+  down: t('devices.control.directions.down'),
+  left: t('devices.control.directions.left'),
+  right: t('devices.control.directions.right'),
+  z_up: t('devices.control.directions.zUp'),
+  z_down: t('devices.control.directions.zDown'),
+  plunger_up: t('devices.control.directions.plungerUp'),
+  plunger_down: t('devices.control.directions.plungerDown')
+}))
+const resetAxisGroups = computed(() => [
   {
-    label: 'Gantry 轴',
+    label: t('devices.control.axisGroups.gantry'),
     options: [
-      { value: 'x', label: 'X 轴' },
-      { value: 'y', label: 'Y 轴' }
+      { value: 'x', label: t('devices.control.axes.x') },
+      { value: 'y', label: t('devices.control.axes.y') }
     ]
   },
   {
     label: 'Mount',
     options: [
-      { value: 'leftZ', label: '左 Mount Z 轴' },
-      { value: 'rightZ', label: '右 Mount Z 轴' }
+      { value: 'leftZ', label: t('devices.control.axes.leftZ') },
+      { value: 'rightZ', label: t('devices.control.axes.rightZ') }
     ]
   },
   {
     label: 'Pipette Plunger',
     options: [
-      { value: 'leftPlunger', label: '左 Pipette Plunger' },
-      { value: 'rightPlunger', label: '右 Pipette Plunger' }
+      { value: 'leftPlunger', label: t('devices.control.axes.leftPlunger') },
+      { value: 'rightPlunger', label: t('devices.control.axes.rightPlunger') }
     ]
   },
   {
-    label: '扩展轴',
+    label: t('devices.control.axisGroups.extension'),
     options: [
       { value: 'extensionZ', label: 'Gripper Extension Z' },
       { value: 'extensionJaw', label: 'Gripper Jaw' },
       { value: 'axis96ChannelCam', label: '96 Channel Cam' }
     ]
   }
-]
+])
 
 const resetAxisLabel = computed(() => {
-  for (const group of resetAxisGroups) {
+  for (const group of resetAxisGroups.value) {
     const option = group.options.find(item => item.value === resetAxis.value)
     if (option) return option.label
   }
@@ -419,9 +421,9 @@ async function handleHome() {
   actionLoading.value = 'home'
   try {
     await robotApi.homeRobot(props.ip, { target: 'robot' })
-    ElMessage.success('Home 命令已发送')
+    ElMessage.success(t('devices.control.homeSent'))
   } catch (error: any) {
-    ElMessage.error(error.message || 'Home 失败')
+    ElMessage.error(error.message || t('devices.control.homeFailed'))
   } finally {
     actionLoading.value = null
   }
@@ -429,12 +431,12 @@ async function handleHome() {
 
 async function handleJog(direction: JogDirection) {
   if (!props.ip || !jogSessionRunId.value) {
-    ElMessage.warning('请先开始 Jog')
+    ElMessage.warning(t('devices.control.startJogFirst'))
     return
   }
   const isPlungerMove = direction === 'plunger_up' || direction === 'plunger_down'
   if (isPlungerMove && !selectedJogPipette.value) {
-    ElMessage.warning('当前 Mount 未加载移液器')
+    ElMessage.warning(t('devices.control.noPipette'))
     return
   }
   const step = isPlungerMove ? jogPlungerStep.value : jogStep.value
@@ -445,9 +447,9 @@ async function handleJog(direction: JogDirection) {
       step_mm: step,
       mount: jogMount.value
     })
-    ElMessage.success(`${jogDirectionLabels[direction]}移动 ${step.toFixed(1)} mm 完成`)
+    ElMessage.success(t('devices.control.moveCompleted', { direction: jogDirectionLabels.value[direction], step: step.toFixed(1) }))
   } catch (error: any) {
-    ElMessage.error(normalizeError(error, 'Jog 移动失败'))
+    ElMessage.error(normalizeError(error, t('devices.control.moveFailed')))
   } finally {
     activeJogDirection.value = null
   }
@@ -496,28 +498,28 @@ function handleJogShortcut(event: KeyboardEvent) {
 async function handleDropTip() {
   const pipette = selectedJogPipette.value
   if (!props.ip || !jogSessionRunId.value) {
-    ElMessage.warning('请先开始 Jog')
+    ElMessage.warning(t('devices.control.startJogFirst'))
     return
   }
   if (!pipette) {
-    ElMessage.warning('当前 Mount 未加载移液器')
+    ElMessage.warning(t('devices.control.noPipette'))
     return
   }
 
   try {
     await ElMessageBox.confirm(
-      `确认从 ${selectedJogMountLabel.value} Mount 执行 Drop Tip？请确保移液器位于安全的退 Tip 位置。`,
-      'Drop Tip 确认',
+      t('devices.control.dropTipConfirm', { mount: selectedJogMountLabel.value }),
+      t('devices.control.dropTipTitle'),
       {
         type: 'warning',
-        confirmButtonText: '确认 Drop Tip',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.control.confirmDropTip'),
+        cancelButtonText: t('common.actions.cancel'),
         closeOnClickModal: false
       }
     )
   } catch (error: any) {
     if (error !== 'cancel' && error !== 'close') {
-      ElMessage.error(normalizeError(error, '无法确认 Drop Tip'))
+      ElMessage.error(normalizeError(error, t('devices.control.dropTipConfirmFailed')))
     }
     return
   }
@@ -527,9 +529,9 @@ async function handleDropTip() {
     await robotApi.dropJogTip(props.ip, jogSessionRunId.value, {
       pipette_id: pipette.pipette_id
     })
-    ElMessage.success('Drop Tip 完成')
+    ElMessage.success(t('devices.control.dropTipCompleted'))
   } catch (error: any) {
-    ElMessage.error(normalizeError(error, 'Drop Tip 失败'))
+    ElMessage.error(normalizeError(error, t('devices.control.dropTipFailed')))
   } finally {
     activeDropTip.value = false
   }
@@ -537,15 +539,15 @@ async function handleDropTip() {
 
 async function handleGripperAction(action: GripperAction) {
   if (!props.ip || !jogSessionRunId.value) {
-    ElMessage.warning('请先开始 Jog')
+    ElMessage.warning(t('devices.control.startJogFirst'))
     return
   }
   activeGripperAction.value = action
   try {
     await robotApi.controlJogGripper(props.ip, jogSessionRunId.value, { action })
-    ElMessage.success(action === 'grip' ? 'Gripper 已夹紧' : 'Gripper 已松开')
+    ElMessage.success(t(action === 'grip' ? 'devices.control.gripped' : 'devices.control.ungripped'))
   } catch (error: any) {
-    ElMessage.error(normalizeError(error, action === 'grip' ? 'Grip 失败' : 'Ungrip 失败'))
+    ElMessage.error(normalizeError(error, t(action === 'grip' ? 'devices.control.gripFailed' : 'devices.control.ungripFailed')))
   } finally {
     activeGripperAction.value = null
   }
@@ -557,24 +559,24 @@ async function handleStartJog() {
 
   try {
     await ElMessageBox.confirm(
-      '继续 Jog 前需要复位所有轴。确认后将先执行 Home 全部轴，再开始 Jog。是否继续？',
-      '开始 Jog 前复位',
+      t('devices.control.startConfirm'),
+      t('devices.control.startConfirmTitle'),
       {
         type: 'warning',
-        confirmButtonText: '复位并开始 Jog',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.control.homeAndStart'),
+        cancelButtonText: t('common.actions.cancel'),
         closeOnClickModal: false
       }
     )
   } catch (error: any) {
     if (error !== 'cancel' && error !== 'close') {
-      ElMessage.error(normalizeError(error, '无法确认开始 Jog'))
+      ElMessage.error(normalizeError(error, t('devices.control.startConfirmFailed')))
     }
     return
   }
 
   if (props.ip !== ip) {
-    ElMessage.warning('目标设备已变更，请重新开始 Jog')
+    ElMessage.warning(t('devices.control.targetChanged'))
     return
   }
 
@@ -585,7 +587,7 @@ async function handleStartJog() {
     const data = response.data.data
     const runId = data?.run_id
     if (typeof runId !== 'string' || !runId) {
-      throw new Error('创建 Jog Run 后未返回 run_id')
+      throw new Error(t('devices.control.missingRunId'))
     }
     const pipettes = data?.pipettes
     jogPipettes.value = pipettes && typeof pipettes === 'object'
@@ -593,12 +595,12 @@ async function handleStartJog() {
       : {}
     jogSessionRunId.value = runId
     jogSessionIp.value = ip
-    ElMessage.success('全部轴 Home 完成，Jog 已开始')
+    ElMessage.success(t('devices.control.homeAndStarted'))
     if (typeof data?.pipette_load_warning === 'string' && data.pipette_load_warning) {
       ElMessage.warning(data.pipette_load_warning)
     }
   } catch (error: any) {
-    ElMessage.error(normalizeError(error, 'Home 全部轴或开始 Jog 失败'))
+    ElMessage.error(normalizeError(error, t('devices.control.homeOrStartFailed')))
   } finally {
     jogStartLoading.value = false
   }
@@ -616,14 +618,14 @@ async function releaseJogSession(silent = false, clearOnFailure = false) {
       jogSessionIp.value = ''
       jogPipettes.value = {}
     }
-    if (!silent) ElMessage.success('Jog 已释放')
+    if (!silent) ElMessage.success(t('devices.control.released'))
   } catch (error: any) {
     if (clearOnFailure && jogSessionRunId.value === runId) {
       jogSessionRunId.value = ''
       jogSessionIp.value = ''
       jogPipettes.value = {}
     }
-    if (!silent) ElMessage.error(normalizeError(error, '释放 Jog 失败'))
+    if (!silent) ElMessage.error(normalizeError(error, t('devices.control.releaseFailed')))
   } finally {
     jogReleaseLoading.value = false
   }
@@ -641,21 +643,21 @@ async function handleReset() {
   if (!props.ip) return
   try {
     await ElMessageBox.confirm(
-      `确认复位 ${resetAxisLabel.value}？设备对应轴将执行归零动作。`,
-      '复位确认',
+      t('devices.control.resetConfirm', { axis: resetAxisLabel.value }),
+      t('devices.control.resetTitle'),
       {
         type: 'warning',
-        confirmButtonText: '确认复位',
-        cancelButtonText: '取消',
+        confirmButtonText: t('devices.control.confirmReset'),
+        cancelButtonText: t('common.actions.cancel'),
         closeOnClickModal: false
       }
     )
     actionLoading.value = 'reset'
     await robotApi.resetRobot(props.ip, { axes: [resetAxis.value] })
-    ElMessage.success(`${resetAxisLabel.value} 复位完成`)
+    ElMessage.success(t('devices.control.resetCompleted', { axis: resetAxisLabel.value }))
   } catch (error: any) {
     if (error !== 'cancel' && error !== 'close') {
-      ElMessage.error(normalizeError(error, '复位失败'))
+      ElMessage.error(normalizeError(error, t('devices.control.resetFailed')))
     }
   } finally {
     actionLoading.value = null
@@ -665,13 +667,13 @@ async function handleReset() {
 async function handleReboot() {
   if (!props.ip) return
   try {
-    await ElMessageBox.confirm('确认重启设备？', '重启确认', { type: 'warning' })
+    await ElMessageBox.confirm(t('devices.control.rebootConfirm'), t('devices.control.rebootTitle'), { type: 'warning' })
     actionLoading.value = 'reboot'
     await robotApi.rebootRobot(props.ip)
-    ElMessage.success('重启命令已发送')
+    ElMessage.success(t('devices.control.rebootSent'))
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '重启失败')
+      ElMessage.error(error.message || t('devices.control.rebootFailed'))
     }
   } finally {
     actionLoading.value = null

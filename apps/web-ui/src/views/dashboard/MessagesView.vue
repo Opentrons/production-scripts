@@ -3,9 +3,9 @@
     <el-card class="message-card">
       <template #header>
         <div class="card-header">
-          <span class="card-title">消息列表</span>
+          <span class="card-title">{{ t('messages.list.title') }}</span>
           <div class="header-tools">
-            <span class="total-count">共 {{ messageStore.total }} 条消息</span>
+            <span class="total-count">{{ t('messages.list.total', { count: messageStore.total }) }}</span>
             <el-button
               size="small"
               :icon="CircleCheck"
@@ -13,7 +13,7 @@
               :loading="markingAllRead"
               @click="handleMarkAllAsRead"
             >
-              全都已读
+              {{ t('messages.list.markAllRead') }}
             </el-button>
             <el-button
               type="primary"
@@ -21,12 +21,12 @@
               :icon="Refresh"
               @click="handleRefresh"
               :loading="messageStore.loading"
-            >刷新</el-button>
-            <el-tooltip content="关闭消息" placement="bottom">
+            >{{ t('messages.list.refresh') }}</el-button>
+            <el-tooltip :content="t('messages.list.close')" placement="bottom">
               <button
                 class="close-messages-button"
                 type="button"
-                aria-label="关闭消息"
+                :aria-label="t('messages.list.close')"
                 @click="handleClose"
               >
                 <el-icon><Close /></el-icon>
@@ -38,7 +38,7 @@
 
       <div v-if="initialLoading || messageStore.loading" class="messages-loading-state">
         <el-icon class="is-loading messages-loading-icon"><Loading /></el-icon>
-        <span>正在加载消息...</span>
+        <span>{{ t('messages.list.loading') }}</span>
       </div>
 
       <el-alert
@@ -50,9 +50,9 @@
       >
         <template #title>
           <div class="messages-error-content">
-            <span>消息加载失败：{{ messageStore.error }}</span>
+            <span>{{ t('messages.list.loadFailed', { error: messageStore.error }) }}</span>
             <el-button size="small" type="danger" plain :loading="messageStore.loading" @click="handleRefresh">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -60,7 +60,7 @@
 
       <el-empty
         v-else-if="messageStore.messages.length === 0"
-        description="当前消息为空"
+        :description="t('messages.list.empty')"
       />
 
       <el-scrollbar v-else height="calc(100vh - 150px)">
@@ -94,15 +94,17 @@ import { ElMessage } from 'element-plus'
 import { CircleCheck, Close, Loading, Refresh } from '@element-plus/icons-vue'
 import { useMessageStore } from '@/scripts/stores/message'
 import type { MessageItem } from '@/scripts/types'
+import { useAppLocale } from '@/i18n'
 
 const router = useRouter()
 const messageStore = useMessageStore()
+const { locale, t } = useAppLocale()
 const markingAllRead = ref(false)
 const initialLoading = ref(true)
 
 const isErrorMessage = (message: MessageItem) => {
   const text = `${message.title || ''} ${message.content || ''} ${message.error || ''}`.toLowerCase()
-  return text.includes('failed') || text.includes('fail') || text.includes('error') || text.includes('报错') || text.includes('失败')
+  return text.includes('failed') || text.includes('fail') || text.includes('error') || /\u62a5\u9519|\u5931\u8d25/.test(text)
 }
 
 const messageDotClass = (message: MessageItem) => {
@@ -110,13 +112,13 @@ const messageDotClass = (message: MessageItem) => {
 }
 
 const formatTitle = (message: MessageItem) => {
-  if (message.title === 'Upload Successful') return '数据上传成功'
-  if (message.title === 'Upload Failed') return '数据上传失败'
-  return message.title || '无标题'
+  if (message.title === 'Upload Successful') return t('messages.titles.uploadSuccessful')
+  if (message.title === 'Upload Failed') return t('messages.titles.uploadFailed')
+  return message.title || t('messages.list.untitled')
 }
 
 const getContentPreview = (content: string | undefined): string => {
-  if (!content) return '无内容'
+  if (!content) return t('messages.list.noContent')
   const maxLength = 120
   return content.length > maxLength ? `${content.substring(0, maxLength)}...` : content
 }
@@ -125,7 +127,7 @@ const formatTime = (time: string | undefined): string => {
   if (!time) return ''
   const date = new Date(time)
   if (Number.isNaN(date.getTime())) return time
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -142,7 +144,7 @@ const handleMessageClick = (message: MessageItem) => {
 
 const handleRefresh = () => {
   messageStore.fetchMessages()
-  ElMessage.success('消息已刷新')
+  ElMessage.success(t('messages.list.refreshed'))
 }
 
 const handleClose = () => {
@@ -155,16 +157,16 @@ const handleClose = () => {
 
 const handleMarkAllAsRead = async () => {
   if (messageStore.unreadCount === 0) {
-    ElMessage.info('暂无未读消息')
+    ElMessage.info(t('messages.list.noUnread'))
     return
   }
   markingAllRead.value = true
   const success = await messageStore.markAllAsRead()
   markingAllRead.value = false
   if (success) {
-    ElMessage.success('全部消息已标记为已读')
+    ElMessage.success(t('messages.list.markedAllRead'))
   } else {
-    ElMessage.error('全部已读操作失败')
+    ElMessage.error(t('messages.list.markAllReadFailed'))
   }
 }
 

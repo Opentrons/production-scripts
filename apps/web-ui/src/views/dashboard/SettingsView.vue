@@ -2,7 +2,7 @@
   <div class="settings-view">
     <div class="settings-tabs-wrap">
       <el-tabs v-model="activeTab" class="settings-tabs">
-        <el-tab-pane label="数据上传" name="upload">
+        <el-tab-pane :label="t('settings.upload')" name="upload">
           <div v-loading="loading" class="settings-content">
             <el-alert
               v-if="settingsError"
@@ -17,7 +17,7 @@
               <el-select
                 v-model="selectedModel"
                 class="model-select"
-                placeholder="产品"
+                :placeholder="t('settings.product')"
                 filterable
                 :loading="loading"
                 @change="handleModelChange"
@@ -32,7 +32,7 @@
               <el-select
                 v-model="selectedTestType"
                 class="test-select"
-                placeholder="测试"
+                :placeholder="t('settings.test')"
                 filterable
                 :loading="loading"
                 @change="handleTestTypeChange"
@@ -54,14 +54,14 @@
             <section class="setting-panel">
               <div class="setting-main">
                 <div>
-                  <h3>Finished 上传拦截</h3>
-                  <p>控制当前产品和测试上传时，是否必须先通过 CSV finished 检查。</p>
+                  <h3>{{ t('settings.finishedGuard') }}</h3>
+                  <p>{{ t('settings.finishedDescription') }}</p>
                 </div>
                 <el-switch
                   v-model="requireFinished"
                   :disabled="!currentSetting || saving"
-                  active-text="需要 Finished"
-                  inactive-text="直接上传"
+                  :active-text="t('settings.requireFinished')"
+                  :inactive-text="t('settings.directUpload')"
                   @change="saveCurrentSetting"
                 />
               </div>
@@ -73,31 +73,31 @@
                 size="small"
                 class="setting-desc"
               >
-                <el-descriptions-item label="产品">{{ currentSetting.model }}</el-descriptions-item>
-                <el-descriptions-item label="测试">
+                <el-descriptions-item :label="t('settings.product')">{{ currentSetting.model }}</el-descriptions-item>
+                <el-descriptions-item :label="t('settings.test')">
                   {{ formatTestType(currentSetting.test_type, currentSetting.test_display_name) }}
                 </el-descriptions-item>
-                <el-descriptions-item label="配置">{{ currentSetting.config_key }}</el-descriptions-item>
-                <el-descriptions-item label="来源">
+                <el-descriptions-item :label="t('settings.config')">{{ currentSetting.config_key }}</el-descriptions-item>
+                <el-descriptions-item :label="t('settings.source')">
                   <el-tag :type="currentSetting.source === 'database' ? 'success' : 'info'" size="small">
-                    {{ currentSetting.source === 'database' ? '数据库' : '默认兜底' }}
+                    {{ currentSetting.source === 'database' ? t('settings.database') : t('settings.defaultFallback') }}
                   </el-tag>
                 </el-descriptions-item>
               </el-descriptions>
 
-              <el-empty v-else description="请选择产品和测试" />
+              <el-empty v-else :description="t('settings.selectProductTest')" />
             </section>
           </div>
         </el-tab-pane>
       </el-tabs>
       <div class="tabs-actions">
-        <el-tooltip content="刷新" placement="bottom">
+        <el-tooltip :content="t('common.actions.refresh')" placement="bottom">
           <el-button
             :icon="Refresh"
             :loading="loading"
             circle
             size="small"
-            aria-label="刷新上传设置"
+            :aria-label="t('settings.refreshUpload')"
             @click="fetchUploadSettings"
           />
         </el-tooltip>
@@ -116,6 +116,9 @@ import type {
   UploadFinishSettingOption,
 } from '@/scripts/types'
 import { formatTestType } from '@/scripts/utils/testNames'
+import { useAppLocale } from '@/i18n'
+
+const { t } = useAppLocale()
 
 const activeTab = ref('upload')
 const loading = ref(true)
@@ -155,10 +158,10 @@ const fetchUploadSettings = async () => {
     const { data } = await settingsApi.getUploadFinishSettings()
     uploadOptions.value = data.options || []
     uploadSettings.value = data.settings || []
-    settingsError.value = data.database_available ? '' : (data.error || '数据库未连接')
+    settingsError.value = data.database_available ? '' : (data.error || t('settings.databaseDisconnected'))
     ensureSelection()
   } catch (error: any) {
-    settingsError.value = error?.response?.data?.detail?.message || error?.message || '加载上传设置失败'
+    settingsError.value = error?.response?.data?.detail?.message || error?.message || t('settings.loadFailed')
     ElMessage.error(settingsError.value)
   } finally {
     loading.value = false
@@ -204,10 +207,10 @@ const saveCurrentSetting = async () => {
       uploadSettings.value.push(data)
     }
     settingsError.value = ''
-    ElMessage.success('上传设置已保存')
+    ElMessage.success(t('settings.saved'))
   } catch (error: any) {
     requireFinished.value = setting.require_finished
-    const message = error?.response?.data?.detail?.message || error?.message || '保存上传设置失败'
+    const message = error?.response?.data?.detail?.message || error?.message || t('settings.saveFailed')
     ElMessage.error(message)
   } finally {
     saving.value = false

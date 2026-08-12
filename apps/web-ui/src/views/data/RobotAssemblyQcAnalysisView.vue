@@ -2,18 +2,21 @@
   <div class="diagnostic-analysis-view">
     <header class="diagnostic-header">
       <div>
-        <h1>Robot 诊断分析</h1>
+        <h1>{{ t('analysis.robot.title') }}</h1>
         <p>Robot Assembly QC</p>
       </div>
     </header>
 
     <section class="diagnostic-placeholder">
-      <el-empty description="Robot 诊断分析视图已初始化" />
+      <el-empty :description="t('analysis.robot.initialized')" />
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <style scoped>

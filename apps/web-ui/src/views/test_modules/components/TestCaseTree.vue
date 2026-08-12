@@ -3,9 +3,9 @@
     <header class="tree-head">
       <div>
         <p>Collections</p>
-        <h2>测试管理</h2>
+        <h2>{{ t('testTree.title') }}</h2>
       </div>
-      <el-tooltip content="新建产品" placement="bottom">
+      <el-tooltip :content="t('testTree.createProduct')" placement="bottom">
         <button class="icon-button" type="button" @click="$emit('create-product')">
           <el-icon><Plus /></el-icon>
         </button>
@@ -14,7 +14,7 @@
 
     <div v-if="products.length === 0" class="tree-empty">
       <el-icon><FolderOpened /></el-icon>
-      <span>点击右上角创建产品</span>
+      <span>{{ t('testTree.createHint') }}</span>
     </div>
 
     <div v-else class="tree-body">
@@ -35,7 +35,7 @@
               <small>{{ product.product_id }}</small>
             </span>
           </button>
-          <el-tooltip content="新建测试类型" placement="right">
+          <el-tooltip :content="t('testTree.createType')" placement="right">
             <button class="row-action" type="button" @click="$emit('create-type', product)">
               <el-icon><Plus /></el-icon>
             </button>
@@ -43,7 +43,7 @@
         </div>
 
         <template v-if="isProductExpanded(product.product_id)">
-          <div v-if="product.groups.length === 0" class="tree-hint">还没有测试类型</div>
+          <div v-if="product.groups.length === 0" class="tree-hint">{{ t('testTree.noTypes') }}</div>
 
           <section v-for="group in product.groups" :key="group.test_type" class="tree-type">
             <div class="tree-row type-row">
@@ -59,10 +59,10 @@
                 <el-icon><Collection /></el-icon>
                 <span class="row-text">
                   <strong>{{ group.test_type }}</strong>
-                  <small>{{ group.total }} 个用例</small>
+                  <small>{{ t('testTree.caseCount', { count: group.total }) }}</small>
                 </span>
               </button>
-              <el-tooltip content="新建测试用例" placement="right">
+              <el-tooltip :content="t('testTree.createCase')" placement="right">
                 <button class="row-action" type="button" @click="$emit('create-case', product, group.test_type)">
                   <el-icon><Plus /></el-icon>
                 </button>
@@ -70,7 +70,7 @@
             </div>
 
             <template v-if="isTypeExpanded(product.product_id, group.test_type)">
-              <div v-if="group.cases.length === 0" class="tree-hint is-type">还没有用例</div>
+              <div v-if="group.cases.length === 0" class="tree-hint is-type">{{ t('testTree.noCases') }}</div>
               <button
                 v-for="item in group.cases"
                 :key="item.id"
@@ -94,6 +94,9 @@
 import { computed, ref, watch } from 'vue'
 import { ArrowRight, Box, Collection, FolderOpened, Plus } from '@element-plus/icons-vue'
 import type { TestCaseTreeProduct } from '@/scripts/modules/test_modules/testCaseService'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   products: TestCaseTreeProduct[]

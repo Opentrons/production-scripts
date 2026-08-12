@@ -4,16 +4,16 @@
       <template #header>
         <div class="card-header">
           <div class="title-group">
-            <span class="card-title">数据上传</span>
+            <span class="card-title">{{ t('uploadRecords.title') }}</span>
             <span v-if="runningCount > 0" class="running-hint">
               <el-icon class="is-loading"><Loading /></el-icon>
-              {{ runningCount }} 个任务进行中
+              {{ t('uploadRecords.runningTasks', { count: runningCount }) }}
             </span>
           </div>
           <div class="header-tools">
             <el-button type="primary" size="small" @click="openManualUploadDialog">
               <el-icon><Upload /></el-icon>
-              手动上传
+              {{ t('uploadRecords.manualUpload') }}
             </el-button>
             <el-button
               type="primary"
@@ -21,7 +21,7 @@
               :icon="Refresh"
               @click="handleRefresh"
               :loading="loading"
-            >刷新</el-button>
+            >{{ t('common.actions.refresh') }}</el-button>
           </div>
         </div>
       </template>
@@ -35,7 +35,7 @@
         />
         <el-select
           v-model="filters.model"
-          placeholder="产品"
+          :placeholder="t('uploadRecords.product')"
           clearable
           filterable
           size="small"
@@ -52,9 +52,9 @@
         <el-date-picker
           v-model="filters.dateRange"
           type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
+          :range-separator="t('uploadRecords.rangeSeparator')"
+          :start-placeholder="t('uploadRecords.startDate')"
+          :end-placeholder="t('uploadRecords.endDate')"
           value-format="YYYY-MM-DD"
           size="small"
           class="date-filter"
@@ -62,7 +62,7 @@
         />
         <el-input
           v-model="filters.barcode"
-          placeholder="条码 / SN / 文件名"
+          :placeholder="t('uploadRecords.searchPlaceholder')"
           clearable
           size="small"
           class="barcode-filter"
@@ -70,10 +70,10 @@
           @clear="handleFilterChange"
         />
         <el-button size="small" type="primary" plain @click="handleFilterChange" :loading="loading">
-          查询
+          {{ t('common.actions.search') }}
         </el-button>
         <el-button size="small" @click="handleResetFilters" :disabled="!hasActiveFilters">
-          重置
+          {{ t('uploadRecords.reset') }}
         </el-button>
       </div>
 
@@ -86,9 +86,9 @@
       >
         <template #title>
           <div class="load-error-content">
-            <span>上传数据加载失败：{{ loadError }}</span>
+            <span>{{ t('uploadRecords.loadFailed', { error: loadError }) }}</span>
             <el-button size="small" type="danger" plain :loading="loading" @click="retryLoad">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -96,22 +96,22 @@
 
       <div v-if="!loadError && (!loading || records.length > 0)" class="stats-panel">
         <div class="stat-item">
-          <span class="stat-label">总成功率</span>
+          <span class="stat-label">{{ t('uploadRecords.totalSuccessRate') }}</span>
           <strong class="stat-value">{{ formatRate(stats.success_rate) }}</strong>
-          <span class="stat-meta">{{ stats.success }} / {{ stats.finished }} 已完成</span>
+          <span class="stat-meta">{{ t('uploadRecords.completedCount', { success: stats.success, finished: stats.finished }) }}</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">最高成功率产品</span>
+          <span class="stat-label">{{ t('uploadRecords.highestProduct') }}</span>
           <strong class="stat-value">{{ productLabel(stats.highest_product) }}</strong>
           <span class="stat-meta">{{ productMeta(stats.highest_product) }}</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">最低成功率产品</span>
+          <span class="stat-label">{{ t('uploadRecords.lowestProduct') }}</span>
           <strong class="stat-value">{{ productLabel(stats.lowest_product) }}</strong>
           <span class="stat-meta">{{ productMeta(stats.lowest_product) }}</span>
         </div>
         <div class="pie-stat">
-          <span class="pie-title">上传状态</span>
+          <span class="pie-title">{{ t('uploadRecords.uploadStatus') }}</span>
           <div
             class="pie-wrap"
             @mousemove="handleSuccessPieHover"
@@ -135,7 +135,7 @@
           </div>
         </div>
         <div class="pie-stat">
-          <span class="pie-title">平均上传耗时</span>
+          <span class="pie-title">{{ t('uploadRecords.averageDuration') }}</span>
           <div
             class="pie-wrap"
             @mousemove="handleDurationPieHover"
@@ -161,10 +161,10 @@
       </div>
 
       <div v-if="!loadError && (!loading || records.length > 0)" class="table-info">
-        <span class="total-count">上传记录共 {{ total }} 条</span>
+        <span class="total-count">{{ t('uploadRecords.totalRecords', { count: total }) }}</span>
         <span v-if="isAutoRefreshing" class="auto-refresh">
           <el-icon class="is-loading"><Loading /></el-icon>
-          自动刷新中
+          {{ t('uploadRecords.autoRefreshing') }}
         </span>
       </div>
 
@@ -176,13 +176,13 @@
         style="width: 100%"
         :max-height="tableHeight"
       >
-        <el-table-column label="请求开始" min-width="170" fixed="left">
+        <el-table-column :label="t('uploadRecords.columns.startedAt')" min-width="170" fixed="left">
           <template #default="{ row }">
             {{ formatDateTime(row.request_started_at) }}
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" min-width="210" fixed="left">
+        <el-table-column :label="t('uploadRecords.columns.status')" min-width="210" fixed="left">
           <template #default="{ row }">
             <div class="status-cell">
               <div class="status-main">
@@ -200,7 +200,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="文件" min-width="230" show-overflow-tooltip>
+        <el-table-column :label="t('uploadRecords.columns.file')" min-width="230" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="file-cell">
               <span class="file-name">{{ displayValue(row.csv_file?.name) }}</span>
@@ -227,13 +227,13 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="上传" min-width="95">
+        <el-table-column :label="t('uploadRecords.columns.upload')" min-width="95">
           <template #default="{ row }">
             <StepStatus :value="row.upload_success" :running="row.status === 'running' && row.upload_success === null" />
           </template>
         </el-table-column>
 
-        <el-table-column label="写库" min-width="95">
+        <el-table-column :label="t('uploadRecords.columns.database')" min-width="95">
           <template #default="{ row }">
             <StepStatus :value="row.database_success" :running="row.status === 'running' && row.database_success === null" />
           </template>
@@ -245,19 +245,19 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="请求结束" min-width="170">
+        <el-table-column :label="t('uploadRecords.columns.finishedAt')" min-width="170">
           <template #default="{ row }">
             {{ formatDateTime(row.request_finished_at) }}
           </template>
         </el-table-column>
 
-        <el-table-column label="耗时" min-width="100">
+        <el-table-column :label="t('uploadRecords.columns.duration')" min-width="100">
           <template #default="{ row }">
             {{ formatDuration(row.request_started_at, row.request_finished_at) }}
           </template>
         </el-table-column>
 
-        <el-table-column label="单表" min-width="95">
+        <el-table-column :label="t('uploadRecords.columns.sheet')" min-width="95">
           <template #default="{ row }">
             <a
               v-if="getCsvLink(row)"
@@ -266,13 +266,13 @@
               rel="noopener noreferrer"
               class="link-cell"
             >
-              打开
+              {{ t('uploadRecords.open') }}
             </a>
             <span v-else>-</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="总表" min-width="95">
+        <el-table-column :label="t('uploadRecords.columns.masterSheet')" min-width="95">
           <template #default="{ row }">
             <a
               v-if="getUnitTrackerLink(row)"
@@ -281,13 +281,13 @@
               rel="noopener noreferrer"
               class="link-cell"
             >
-              打开
+              {{ t('uploadRecords.open') }}
             </a>
             <span v-else>-</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="原数据" min-width="190" show-overflow-tooltip>
+        <el-table-column :label="t('uploadRecords.columns.rawData')" min-width="190" show-overflow-tooltip>
           <template #default="{ row }">
             <a
               v-if="getRawDataLink(row)"
@@ -296,13 +296,13 @@
               rel="noopener noreferrer"
               class="link-cell"
             >
-              {{ getRawDataName(row) || '打开' }}
+              {{ getRawDataName(row) || t('uploadRecords.open') }}
             </a>
             <span v-else>-</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="错误" min-width="240" show-overflow-tooltip>
+        <el-table-column :label="t('uploadRecords.columns.error')" min-width="240" show-overflow-tooltip>
           <template #default="{ row }">
             <span :class="{ 'error-text': getErrorMessage(row) !== '-' }">
               {{ getErrorMessage(row) }}
@@ -313,10 +313,10 @@
 
       <div v-else-if="loading && !loadError" class="records-loading-state">
         <el-icon class="is-loading records-loading-icon"><Loading /></el-icon>
-        <span>正在加载上传数据...</span>
+        <span>{{ t('uploadRecords.loading') }}</span>
       </div>
 
-      <el-empty v-else-if="!loading && !loadError" description="暂无上传记录" />
+      <el-empty v-else-if="!loading && !loadError" :description="t('uploadRecords.empty')" />
 
       <div class="pagination-container" v-if="!loadError && total > 0">
         <el-pagination
@@ -330,7 +330,7 @@
 
       <el-dialog
         v-model="manualUploadVisible"
-        title="手动上传数据"
+        :title="t('uploadRecords.manualDialog.title')"
         width="720px"
         destroy-on-close
         :close-on-click-modal="!manualDialogBusy"
@@ -339,7 +339,7 @@
         @closed="resetManualUploadState"
       >
         <el-tabs v-model="manualUploadTab" class="manual-upload-tabs">
-          <el-tab-pane label="标准" name="standard">
+          <el-tab-pane :label="t('uploadRecords.tabs.standard')" name="standard">
             <el-form label-position="top">
               <el-form-item>
                 <el-segmented
@@ -351,7 +351,7 @@
               </el-form-item>
 
               <template v-if="standardUploadMode === 'local'">
-                <el-form-item label="上传文件">
+                <el-form-item :label="t('uploadRecords.uploadFile')">
                   <el-upload
                     class="manual-upload"
                     drag
@@ -363,14 +363,14 @@
                     :on-exceed="handleManualFileExceed"
                   >
                     <el-icon class="upload-icon"><UploadFilled /></el-icon>
-                    <div class="upload-text">选择或拖拽 CSV 文件</div>
+                    <div class="upload-text">{{ t('uploadRecords.chooseCsv') }}</div>
                   </el-upload>
                 </el-form-item>
                 <el-form-item>
-                  <el-checkbox v-model="includeSourceZip">上传源文件</el-checkbox>
+                  <el-checkbox v-model="includeSourceZip">{{ t('uploadRecords.includeSource') }}</el-checkbox>
                 </el-form-item>
                 <el-form-item v-if="includeSourceZip">
-                  <el-checkbox v-model="uploadAllFiles">上传文件夹</el-checkbox>
+                  <el-checkbox v-model="uploadAllFiles">{{ t('uploadRecords.uploadFolder') }}</el-checkbox>
                 </el-form-item>
                 <el-alert
                   v-if="includeSourceZip && uploadAllFiles"
@@ -380,8 +380,8 @@
                 >
                   <template #title>
                     <div class="source-warning">
-                      <div>手动上传会先把 CSV 保存到服务器临时目录；勾选后，系统会将这个临时目录打包成 .zip 一起上传。</div>
-                      <div>如果打包后的 .zip 超过 10MB，系统会停止上传。</div>
+                      <div>{{ t('uploadRecords.folderWarning') }}</div>
+                      <div>{{ t('uploadRecords.folderLimit') }}</div>
                     </div>
                   </template>
                 </el-alert>
@@ -391,7 +391,7 @@
                 <div class="standard-robot-toolbar">
                   <el-select
                     v-model="standardRobotIp"
-                    placeholder="选择或输入 Robot IP"
+                    :placeholder="t('uploadRecords.robotPlaceholder')"
                     filterable
                     allow-create
                     default-first-option
@@ -413,7 +413,7 @@
                     :icon="Refresh"
                     :loading="standardRobotScanLoading"
                     @click="refreshStandardRobots"
-                  >刷新设备</el-button>
+                  >{{ t('uploadRecords.refreshDevices') }}</el-button>
                   <el-button
                     size="small"
                     type="primary"
@@ -422,7 +422,7 @@
                     :disabled="!standardRobotIp"
                     :loading="standardRobotLoading"
                     @click="refreshStandardRobotFiles"
-                  >刷新目录</el-button>
+                  >{{ t('uploadRecords.refreshDirectory') }}</el-button>
                 </div>
 
                 <div class="standard-robot-path-row">
@@ -432,7 +432,7 @@
                     :disabled="!canGoUpStandardRobotPath"
                     @click="goUpStandardRobotPath"
                   >
-                    上一级
+                    {{ t('uploadRecords.parentDirectory') }}
                   </el-button>
                   <span class="standard-robot-path">{{ standardRobotPath }}</span>
                 </div>
@@ -446,7 +446,7 @@
                 >
                   <template #title>
                     <div class="load-error-content">
-                      <span>Robot 数据扫描失败：{{ standardRobotError }}</span>
+                      <span>{{ t('uploadRecords.robotScanFailed', { error: standardRobotError }) }}</span>
                       <el-button
                         size="small"
                         type="danger"
@@ -454,7 +454,7 @@
                         :loading="standardRobotLoading || standardRobotScanLoading"
                         @click="retryStandardRobotScan"
                       >
-                        重试
+                        {{ t('common.actions.retry') }}
                       </el-button>
                     </div>
                   </template>
@@ -475,21 +475,21 @@
                     </el-icon>
                     <span class="standard-robot-file-name">{{ entry.name }}</span>
                     <span class="standard-robot-file-path">{{ entry.path }}</span>
-                    <span class="standard-robot-file-size">{{ entry.is_dir ? '目录' : formatFileSize(entry.size) }}</span>
+                    <span class="standard-robot-file-size">{{ entry.is_dir ? t('uploadRecords.directory') : formatFileSize(entry.size) }}</span>
                   </button>
                 </div>
                 <el-empty
                   v-else-if="standardRobotSearched && !standardRobotLoading && !standardRobotError"
-                  description="当前目录暂无文件"
+                  :description="t('uploadRecords.directoryEmpty')"
                 />
               </div>
             </el-form>
           </el-tab-pane>
-          <el-tab-pane label="Z轴数据" name="z_stage">
+          <el-tab-pane :label="t('uploadRecords.tabs.zStage')" name="z_stage">
             <div class="z-stage-panel">
               <div class="z-stage-fields">
                 <label class="field-line">
-                  <span>Z轴工装</span>
+                  <span>{{ t('uploadRecords.zStageFixture') }}</span>
                   <el-input v-model="zStageFixtureIp" placeholder="192.168.6.13" />
                 </label>
                 <label class="field-line">
@@ -515,7 +515,7 @@
                     :disabled="!canSearchZStageRemote"
                     @click="searchZStageRemoteFiles"
                   >
-                    搜索
+                    {{ t('common.actions.search') }}
                   </el-button>
                 </div>
 
@@ -528,9 +528,9 @@
                 >
                   <template #title>
                     <div class="load-error-content">
-                      <span>Z轴 CSV 扫描失败：{{ zStageSearchError }}</span>
+                      <span>{{ t('uploadRecords.zStageScanFailed', { error: zStageSearchError }) }}</span>
                       <el-button size="small" type="danger" plain :loading="zStageSearching" @click="searchZStageRemoteFiles">
-                        重试
+                        {{ t('common.actions.retry') }}
                       </el-button>
                     </div>
                   </template>
@@ -544,7 +544,7 @@
                       :disabled="zStageUploading"
                       @change="toggleAllZStageRemoteFiles"
                     >
-                      已找到 {{ zStageRemoteFiles.length }} 个 CSV
+                      {{ t('uploadRecords.csvFound', { count: zStageRemoteFiles.length }) }}
                     </el-checkbox>
                   </div>
                   <div class="remote-file-list">
@@ -572,7 +572,7 @@
                 </div>
                 <el-empty
                   v-else-if="zStageRemoteSearched && !zStageSearching && !zStageSearchError"
-                  description="没有匹配的 CSV"
+                  :description="t('uploadRecords.noMatchingCsv')"
                 />
               </div>
 
@@ -588,17 +588,17 @@
                   :on-exceed="handleZStageLocalFileExceed"
                 >
                   <el-icon class="upload-icon"><UploadFilled /></el-icon>
-                  <div class="upload-text">选择或拖拽 Z轴 CSV 文件</div>
+                  <div class="upload-text">{{ t('uploadRecords.chooseZStageCsv') }}</div>
                 </el-upload>
               </div>
             </div>
           </el-tab-pane>
-          <el-tab-pane label="移液器光学" name="pipette_optical">
-            <el-empty description="移液器光学上传待配置" />
+          <el-tab-pane :label="t('uploadRecords.tabs.pipetteOptical')" name="pipette_optical">
+            <el-empty :description="t('uploadRecords.pipetteOpticalPending')" />
           </el-tab-pane>
         </el-tabs>
         <template #footer>
-          <el-button @click="manualUploadVisible = false" :disabled="manualDialogBusy">取消</el-button>
+          <el-button @click="manualUploadVisible = false" :disabled="manualDialogBusy">{{ t('common.actions.cancel') }}</el-button>
           <el-button
             v-if="manualUploadTab === 'standard'"
             type="primary"
@@ -606,7 +606,7 @@
             :loading="manualUploading"
             :disabled="!canSubmitManualUpload"
           >
-            提交上传
+            {{ t('uploadRecords.submitUpload') }}
           </el-button>
           <el-button
             v-else-if="manualUploadTab === 'z_stage' && zStageUploadMode === 'remote'"
@@ -615,7 +615,7 @@
             :loading="zStageUploading"
             :disabled="!canSubmitZStageRemote"
           >
-            上传选中文件
+            {{ t('uploadRecords.uploadSelected') }}
           </el-button>
           <el-button
             v-else-if="manualUploadTab === 'z_stage'"
@@ -624,9 +624,9 @@
             :loading="zStageUploading"
             :disabled="!canSubmitZStageLocal"
           >
-            提交上传
+            {{ t('uploadRecords.submitUpload') }}
           </el-button>
-          <el-button v-else type="primary" disabled>提交上传</el-button>
+          <el-button v-else type="primary" disabled>{{ t('uploadRecords.submitUpload') }}</el-button>
         </template>
       </el-dialog>
     </el-card>
@@ -635,6 +635,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElIcon, ElMessage, ElMessageBox, ElTag, ElTooltip } from 'element-plus'
 import type { UploadFile, UploadFiles } from 'element-plus'
 import { Check, Close, Document as DocumentIcon, FolderOpened, Loading, Minus, Refresh, Upload, UploadFilled } from '@element-plus/icons-vue'
@@ -642,6 +643,7 @@ import { robotApi, uploadRecordApi } from '@/scripts/api'
 import type { RobotFileEntry, RobotInfo } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import { formatTestType } from '@/scripts/utils/testNames'
+import { useAppLocale } from '@/i18n'
 import type {
   UploadProductStats,
   UploadRecordItem,
@@ -650,6 +652,8 @@ import type {
 } from '@/scripts/types'
 
 const DURATION_PIE_COLORS = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#9b59b6', '#1abc9c']
+const { t } = useI18n()
+const { locale } = useAppLocale()
 
 interface PieSegment<T> {
   item: T
@@ -816,22 +820,22 @@ const stats = ref<UploadRecordStatsResponse>({
 let refreshTimer: ReturnType<typeof setInterval> | undefined
 let refreshIntervalMs = 0
 
-const statusOptions = [
-  { label: '全部', value: '' },
-  { label: '进行中', value: 'running' },
-  { label: '成功', value: 'success' },
-  { label: '失败', value: 'failed' }
-]
+const statusOptions = computed(() => [
+  { label: t('uploadRecords.status.all'), value: '' },
+  { label: t('common.status.running'), value: 'running' },
+  { label: t('uploadRecords.status.success'), value: 'success' },
+  { label: t('common.status.error'), value: 'failed' }
+])
 
-const standardUploadModeOptions = [
-  { label: '本地文件', value: 'local' },
-  { label: '在线 Robot', value: 'robot' }
-]
+const standardUploadModeOptions = computed(() => [
+  { label: t('uploadRecords.localFile'), value: 'local' },
+  { label: t('uploadRecords.onlineRobot'), value: 'robot' }
+])
 
-const zStageUploadModeOptions = [
-  { label: '工装搜索', value: 'remote' },
-  { label: '本地CSV', value: 'local' }
-]
+const zStageUploadModeOptions = computed(() => [
+  { label: t('uploadRecords.fixtureSearch'), value: 'remote' },
+  { label: t('uploadRecords.localCsv'), value: 'local' }
+])
 
 const onlineRobotOptions = computed<RobotInfo[]>(() => {
   return (robotScanStore.scanResult?.online_robots || [])
@@ -926,7 +930,7 @@ const formatUploadResponseError = (value: unknown) => {
     const detail = value as Record<string, unknown>
     return String(detail.message || detail.error || JSON.stringify(value))
   }
-  return String(value || '未知错误')
+  return String(value || t('errors.unknown'))
 }
 
 const throwOnUploadResponseError = (response: any) => {
@@ -940,7 +944,7 @@ const getCsvRawFile = (file: UploadFile | File | undefined) => {
   const rawFile = file instanceof File ? file : file?.raw
   if (!rawFile) return null
   if (!rawFile.name.toLowerCase().endsWith('.csv')) {
-    ElMessage.error('只能上传 CSV 格式文件')
+    ElMessage.error(t('uploadRecords.messages.csvOnly'))
     return null
   }
   return rawFile
@@ -967,7 +971,7 @@ const handleManualFileExceed = (files: File[], uploadFiles: UploadFiles) => {
     return
   }
   manualFile.value = rawFile
-  ElMessage.warning('已替换为新选择的 CSV 文件')
+  ElMessage.warning(t('uploadRecords.messages.csvReplaced'))
 }
 
 const formatRobotOption = (robot: RobotInfo) => {
@@ -984,9 +988,9 @@ const refreshStandardRobots = async () => {
     if (!standardRobotIp.value && result?.online_robots?.length) {
       standardRobotIp.value = result.online_robots[0].ip
     }
-    ElMessage.success(`发现 ${result?.online_robots?.length || 0} 台在线设备`)
+    ElMessage.success(t('uploadRecords.messages.devicesFound', { count: result?.online_robots?.length || 0 }))
   } catch (error: any) {
-    standardRobotError.value = normalizeUploadError(error) || '未知错误'
+    standardRobotError.value = normalizeUploadError(error) || t('errors.unknown')
   } finally {
     standardRobotScanLoading.value = false
   }
@@ -1016,7 +1020,7 @@ const handleStandardRobotChange = () => {
 
 const refreshStandardRobotFiles = async () => {
   if (!standardRobotIp.value) {
-    ElMessage.warning('请先选择在线 Robot')
+    ElMessage.warning(t('uploadRecords.messages.selectRobot'))
     return
   }
   standardRobotLoading.value = true
@@ -1032,7 +1036,7 @@ const refreshStandardRobotFiles = async () => {
   } catch (error: any) {
     standardRobotSearched.value = true
     standardRobotFiles.value = []
-    standardRobotError.value = normalizeUploadError(error) || '未知错误'
+    standardRobotError.value = normalizeUploadError(error) || t('errors.unknown')
   } finally {
     standardRobotLoading.value = false
   }
@@ -1053,7 +1057,7 @@ const handleStandardRobotEntryClick = (entry: RobotFileEntry) => {
     return
   }
   if (!entry.name.toLowerCase().endsWith('.csv')) {
-    ElMessage.warning('请选择 CSV 文件')
+    ElMessage.warning(t('uploadRecords.messages.selectCsv'))
     return
   }
   standardSelectedRobotFile.value = entry
@@ -1095,7 +1099,7 @@ const handleZStageLocalFileExceed = (files: File[], uploadFiles: UploadFiles) =>
     return
   }
   zStageLocalFile.value = rawFile
-  ElMessage.warning('已替换为新选择的 CSV 文件')
+  ElMessage.warning(t('uploadRecords.messages.csvReplaced'))
 }
 
 const getZStageMeta = () => {
@@ -1109,10 +1113,10 @@ const getZStageMeta = () => {
 }
 
 const getZStageFileStatusLabel = (status: ZStageRemoteFileStatus) => {
-  if (status === 'uploading') return '上传中'
-  if (status === 'success') return '成功'
-  if (status === 'failed') return '失败'
-  return '待上传'
+  if (status === 'uploading') return t('uploadRecords.status.uploading')
+  if (status === 'success') return t('uploadRecords.status.success')
+  if (status === 'failed') return t('common.status.error')
+  return t('uploadRecords.status.pending')
 }
 
 const normalizeRemotePath = (path: string) => {
@@ -1155,14 +1159,14 @@ const searchRemoteCsvFiles = async (
   }
 
   if (queue.length) {
-    ElMessage.warning(`目录较多，已扫描前 ${maxDirectories} 个目录`)
+    ElMessage.warning(t('uploadRecords.messages.directoryLimit', { count: maxDirectories }))
   }
   return Array.from(matched.values()).sort((a, b) => a.path.localeCompare(b.path))
 }
 
 const searchZStageRemoteFiles = async () => {
   if (!canSearchZStageRemote.value) {
-    ElMessage.warning('请填写 Z轴工装 IP 和 Robot SN')
+    ElMessage.warning(t('uploadRecords.messages.fillZStageIdentity'))
     return
   }
 
@@ -1178,11 +1182,11 @@ const searchZStageRemoteFiles = async () => {
     )
     zStageRemoteSearched.value = true
     if (zStageRemoteFiles.value.length) {
-      ElMessage.success(`找到 ${zStageRemoteFiles.value.length} 个 CSV`)
+      ElMessage.success(t('uploadRecords.messages.csvFound', { count: zStageRemoteFiles.value.length }))
     }
   } catch (error: any) {
     zStageRemoteSearched.value = true
-    zStageSearchError.value = normalizeUploadError(error) || '未知错误'
+    zStageSearchError.value = normalizeUploadError(error) || t('errors.unknown')
   } finally {
     zStageSearching.value = false
   }
@@ -1235,19 +1239,19 @@ const StepStatus = defineComponent({
       if (props.running) {
         return h('span', { class: 'step-status pending' }, [
           h(ElIcon, { class: 'is-loading' }, () => h(Loading)),
-          h('span', '进行中')
+          h('span', t('common.status.running'))
         ])
       }
       if (props.value === true) {
         return h(ElTag, { type: 'success', size: 'small', effect: 'light' }, () => [
           h(ElIcon, null, () => h(Check)),
-          h('span', '成功')
+          h('span', t('uploadRecords.status.success'))
         ])
       }
       if (props.value === false) {
         return h(ElTag, { type: 'danger', size: 'small', effect: 'light' }, () => [
           h(ElIcon, null, () => h(Close)),
-          h('span', '失败')
+          h('span', t('common.status.error'))
         ])
       }
       return h(ElTag, { type: 'info', size: 'small', effect: 'plain' }, () => [
@@ -1289,9 +1293,9 @@ const durationPieTooltip = ref({
 
 const successPieItems = computed<SuccessPieItem[]>(() => {
   return [
-    { key: 'success', label: '成功', count: stats.value.success, color: '#67c23a' },
-    { key: 'failed', label: '失败', count: stats.value.failed, color: '#f56c6c' },
-    { key: 'running', label: '进行中', count: stats.value.running, color: '#e6a23c' }
+    { key: 'success', label: t('uploadRecords.status.success'), count: stats.value.success, color: '#67c23a' },
+    { key: 'failed', label: t('common.status.error'), count: stats.value.failed, color: '#f56c6c' },
+    { key: 'running', label: t('common.status.running'), count: stats.value.running, color: '#e6a23c' }
   ].filter((item) => item.count > 0)
 })
 
@@ -1413,9 +1417,9 @@ const getFilterParams = () => {
 
 const statusText = (status: string) => {
   const statusMap: Record<string, string> = {
-    running: '进行中',
-    success: '成功',
-    failed: '失败'
+    running: t('common.status.running'),
+    success: t('uploadRecords.status.success'),
+    failed: t('common.status.error')
   }
   return statusMap[status] || status || '-'
 }
@@ -1431,7 +1435,7 @@ const formatDateTime = (value?: string | null) => {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -1508,7 +1512,7 @@ const productLabel = (product?: UploadProductStats | null) => {
 }
 
 const productMeta = (product?: UploadProductStats | null) => {
-  if (!product) return '暂无数据'
+  if (!product) return t('common.empty')
   return `${formatRate(product.success_rate)} · ${product.success}/${product.finished}`
 }
 
@@ -1523,7 +1527,7 @@ const fetchFilterOptions = async () => {
     return true
   } catch (e: any) {
     filterOptions.value = { models: [], statuses: [] }
-    loadError.value = normalizeUploadError(e) || '未知错误'
+    loadError.value = normalizeUploadError(e) || t('errors.unknown')
     return false
   }
 }
@@ -1535,7 +1539,7 @@ const fetchStats = async () => {
     stats.value = response.data
     return true
   } catch (e: any) {
-    loadError.value = normalizeUploadError(e) || '未知错误'
+    loadError.value = normalizeUploadError(e) || t('errors.unknown')
     return false
   }
 }
@@ -1579,7 +1583,7 @@ const fetchRecords = async (silent = false) => {
       loadError.value = ''
     }
   } catch (e: any) {
-    loadError.value = normalizeUploadError(e) || '未知错误'
+    loadError.value = normalizeUploadError(e) || t('errors.unknown')
   } finally {
     syncAutoRefresh()
     if (!silent) loading.value = false
@@ -1615,7 +1619,7 @@ const mergeWatchedRecord = async () => {
       watchedRecordId.value = ''
     }
   } catch (e: any) {
-    loadError.value = normalizeUploadError(e) || '未知错误'
+    loadError.value = normalizeUploadError(e) || t('errors.unknown')
   }
 }
 
@@ -1669,18 +1673,18 @@ const submitManualUpload = async () => {
   }
 
   if (!manualFile.value) {
-    ElMessage.warning('请选择 CSV 文件')
+    ElMessage.warning(t('uploadRecords.messages.selectCsv'))
     return
   }
 
   if (includeSourceZip.value && uploadAllFiles.value) {
     try {
       await ElMessageBox.confirm(
-        '系统会将本次上传 CSV 所在的服务器临时目录打包成 .zip 一起上传；如果打包后的 .zip 超过 10MB，系统会停止上传。',
-        '确认上传文件夹',
+        t('uploadRecords.folderConfirmBody'),
+        t('uploadRecords.folderConfirmTitle'),
         {
-          confirmButtonText: '继续上传',
-          cancelButtonText: '取消',
+          confirmButtonText: t('uploadRecords.continueUpload'),
+          cancelButtonText: t('common.actions.cancel'),
           type: 'warning'
         }
       )
@@ -1696,12 +1700,12 @@ const submitManualUpload = async () => {
       includeSourceZip.value,
       uploadAllFiles.value
     )
-    ElMessage.success('已提交上传')
+    ElMessage.success(t('uploadRecords.messages.submitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(response.data.record_id)
   } catch (e: any) {
     const message = normalizeUploadError(e)
-    ElMessage.error(message ? `手动上传失败: ${message}` : '手动上传失败')
+    ElMessage.error(message ? t('uploadRecords.messages.manualFailedWithReason', { error: message }) : t('uploadRecords.messages.manualFailed'))
   } finally {
     manualUploading.value = false
   }
@@ -1709,7 +1713,7 @@ const submitManualUpload = async () => {
 
 const submitStandardRobotUpload = async () => {
   if (!standardRobotIp.value || !standardSelectedRobotFile.value) {
-    ElMessage.warning('请选择 Robot 上的 CSV 文件')
+    ElMessage.warning(t('uploadRecords.messages.selectRobotCsv'))
     return
   }
 
@@ -1718,12 +1722,12 @@ const submitStandardRobotUpload = async () => {
     const response = await robotApi.downloadFile(standardRobotIp.value, standardSelectedRobotFile.value.path)
     const csvFile = blobToCsvFile(response.data, standardSelectedRobotFile.value.name)
     const uploadResponse = await uploadRecordApi.uploadManualData(csvFile, false, false)
-    ElMessage.success('已提交上传')
+    ElMessage.success(t('uploadRecords.messages.submitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(uploadResponse.data.record_id)
   } catch (error: any) {
     const message = normalizeUploadError(error)
-    ElMessage.error(message ? `在线 Robot 上传失败: ${message}` : '在线 Robot 上传失败')
+    ElMessage.error(message ? t('uploadRecords.messages.robotFailedWithReason', { error: message }) : t('uploadRecords.messages.robotFailed'))
   } finally {
     manualUploading.value = false
   }
@@ -1731,23 +1735,23 @@ const submitStandardRobotUpload = async () => {
 
 const submitZStageLocalUpload = async () => {
   if (!zStageRobotSn.value.trim()) {
-    ElMessage.warning('请填写 Robot SN')
+    ElMessage.warning(t('uploadRecords.messages.fillRobotSn'))
     return
   }
   if (!zStageLocalFile.value) {
-    ElMessage.warning('请选择 CSV 文件')
+    ElMessage.warning(t('uploadRecords.messages.selectCsv'))
     return
   }
 
   zStageUploading.value = true
   try {
     const response = await uploadZStageFile(zStageLocalFile.value)
-    ElMessage.success('Z轴数据已提交上传')
+    ElMessage.success(t('uploadRecords.messages.zStageSubmitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(response.data.record_id)
   } catch (error: any) {
     const message = normalizeUploadError(error)
-    ElMessage.error(message ? `Z轴数据上传失败: ${message}` : 'Z轴数据上传失败')
+    ElMessage.error(message ? t('uploadRecords.messages.zStageFailedWithReason', { error: message }) : t('uploadRecords.messages.zStageFailed'))
   } finally {
     zStageUploading.value = false
   }
@@ -1755,7 +1759,7 @@ const submitZStageLocalUpload = async () => {
 
 const submitZStageRemoteUpload = async () => {
   if (!canSubmitZStageRemote.value) {
-    ElMessage.warning('请选择要上传的 CSV')
+    ElMessage.warning(t('uploadRecords.messages.selectCsvToUpload'))
     return
   }
 
@@ -1783,10 +1787,12 @@ const submitZStageRemoteUpload = async () => {
 
   zStageUploading.value = false
   if (successCount > 0) {
-    ElMessage.success(`Z轴数据已提交 ${successCount} 个${failedCount ? `，失败 ${failedCount} 个` : ''}`)
+    ElMessage.success(failedCount
+      ? t('uploadRecords.messages.zStageBatchPartial', { success: successCount, failed: failedCount })
+      : t('uploadRecords.messages.zStageBatchSuccess', { count: successCount }))
     await afterUploadSubmitted(lastRecordId)
   } else {
-    ElMessage.error('Z轴数据上传失败')
+    ElMessage.error(t('uploadRecords.messages.zStageFailed'))
   }
 }
 

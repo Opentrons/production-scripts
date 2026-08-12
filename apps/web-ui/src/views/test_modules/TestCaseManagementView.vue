@@ -14,7 +14,7 @@
     <button
       class="tree-resizer"
       type="button"
-      aria-label="调整测试管理树宽度"
+      :aria-label="t('testManagement.resizeTree')"
       @pointerdown="startResize"
     ></button>
 
@@ -28,9 +28,9 @@
       >
         <template #title>
           <div class="load-error-content">
-            <span>测试管理数据加载失败：{{ loadError }}</span>
+            <span>{{ t('testManagement.loadFailed', { error: loadError }) }}</span>
             <el-button size="small" type="danger" plain :loading="loading" @click="loadAll">
-              重试
+              {{ t('common.actions.retry') }}
             </el-button>
           </div>
         </template>
@@ -45,9 +45,9 @@
       >
         <template #title>
           <div class="load-error-content">
-            <span>设备扫描失败：{{ deviceScanError }}</span>
+            <span>{{ t('testManagement.deviceScanFailed', { error: deviceScanError }) }}</span>
             <el-button size="small" type="warning" plain :loading="refreshingDevices" @click="refreshDeviceList">
-              重试扫描
+              {{ t('testManagement.retryScan') }}
             </el-button>
           </div>
         </template>
@@ -60,24 +60,24 @@
         </div>
         <div class="head-metrics">
           <div>
-            <span>运行</span>
+            <span>{{ t('testManagement.metrics.runs') }}</span>
             <strong>{{ selectedCase.run_count }}</strong>
           </div>
           <div>
-            <span>成功</span>
+            <span>{{ t('testManagement.metrics.success') }}</span>
             <strong>{{ selectedCase.success_count }}</strong>
           </div>
           <div>
-            <span>失败</span>
+            <span>{{ t('testManagement.metrics.failed') }}</span>
             <strong>{{ selectedCase.failed_count }}</strong>
           </div>
           <div>
-            <span>超时</span>
+            <span>{{ t('testManagement.metrics.timeout') }}</span>
             <strong>{{ selectedCase.timeout_seconds }}s</strong>
           </div>
         </div>
         <div class="head-actions">
-          <el-tooltip content="保存" placement="bottom">
+          <el-tooltip :content="t('testManagement.save')" placement="bottom">
             <el-button
               :icon="Check"
               circle
@@ -87,7 +87,7 @@
               @click="saveCase"
             />
           </el-tooltip>
-          <el-tooltip content="归档" placement="bottom">
+          <el-tooltip :content="t('testManagement.archive')" placement="bottom">
             <el-button
               :icon="Delete"
               circle
@@ -95,7 +95,7 @@
               @click="archiveCase"
             />
           </el-tooltip>
-          <el-tooltip content="刷新" placement="bottom">
+          <el-tooltip :content="t('testManagement.refresh')" placement="bottom">
             <el-button :icon="Refresh" circle :loading="loading" @click="loadAll" />
           </el-tooltip>
         </div>
@@ -106,35 +106,35 @@
           <section class="case-editor-section">
             <div class="section-title">
               <div class="title-with-toggle">
-                <el-tooltip :content="isCaseInfoCollapsed ? '展开用例信息' : '折叠用例信息'" placement="right">
+                <el-tooltip :content="t(isCaseInfoCollapsed ? 'testManagement.expandInfo' : 'testManagement.collapseInfo')" placement="right">
                   <button
                     class="section-toggle"
                     type="button"
-                    :aria-label="isCaseInfoCollapsed ? '展开用例信息' : '折叠用例信息'"
+                    :aria-label="t(isCaseInfoCollapsed ? 'testManagement.expandInfo' : 'testManagement.collapseInfo')"
                     @click="isCaseInfoCollapsed = !isCaseInfoCollapsed"
                   >
                     <span>{{ isCaseInfoCollapsed ? '›' : '˅' }}</span>
                   </button>
                 </el-tooltip>
-                <span>用例信息</span>
+                <span>{{ t('testManagement.caseInfo') }}</span>
               </div>
-              <small v-if="hasCaseChanges">未保存</small>
+              <small v-if="hasCaseChanges">{{ t('testManagement.unsaved') }}</small>
             </div>
             <div v-show="!isCaseInfoCollapsed" class="editor-grid">
               <label class="edit-field is-wide">
-                <span>用例名称</span>
-                <el-input v-model="caseDraft.name" placeholder="测试用例名称" />
+                <span>{{ t('testManagement.caseName') }}</span>
+                <el-input v-model="caseDraft.name" :placeholder="t('testManagement.caseNamePlaceholder')" />
               </label>
               <label class="edit-field">
-                <span>状态</span>
+                <span>{{ t('testManagement.status') }}</span>
                 <el-select v-model="caseDraft.status">
-                  <el-option label="草稿" value="draft" />
-                  <el-option label="启用" value="active" />
-                  <el-option label="归档" value="archived" />
+                  <el-option :label="t('testManagement.statuses.draft')" value="draft" />
+                  <el-option :label="t('testManagement.statuses.active')" value="active" />
+                  <el-option :label="t('testManagement.statuses.archived')" value="archived" />
                 </el-select>
               </label>
               <label class="edit-field">
-                <span>超时</span>
+                <span>{{ t('testManagement.metrics.timeout') }}</span>
                 <el-input-number
                   v-model="caseDraft.timeout_seconds"
                   :min="1"
@@ -144,16 +144,16 @@
                 />
               </label>
               <label class="edit-field is-full">
-                <span>运行命令</span>
+                <span>{{ t('testManagement.runCommand') }}</span>
                 <el-input v-model="caseDraft.command" placeholder="python -m s.ssssss.fsss" />
               </label>
               <label class="edit-field is-full">
-                <span>描述</span>
+                <span>{{ t('testManagement.description') }}</span>
                 <el-input
                   v-model="caseDraft.description"
                   type="textarea"
                   :autosize="{ minRows: 4, maxRows: 8 }"
-                  placeholder="记录测试目标、前置条件或风险点"
+                  :placeholder="t('testManagement.descriptionPlaceholder')"
                 />
               </label>
             </div>
@@ -161,19 +161,19 @@
 
           <section class="flow-section">
             <div class="section-title">
-              <span>节点画布</span>
+              <span>{{ t('testManagement.canvas') }}</span>
               <div class="flow-actions">
                 <el-select
                   v-model="selectedDeviceIp"
                   class="device-select"
-                  placeholder="选择设备"
+                  :placeholder="t('testManagement.selectDevice')"
                   clearable
                   filterable
                   size="small"
                 >
                   <el-option
                     v-if="availableRobots.length === 0"
-                    label="暂无缓存设备，请刷新"
+                    :label="t('testManagement.noCachedDevice')"
                     value=""
                     disabled
                   />
@@ -184,7 +184,7 @@
                     :value="robot.ip"
                   />
                 </el-select>
-                <el-tooltip content="刷新设备列表" placement="bottom">
+                <el-tooltip :content="t('testManagement.refreshDevices')" placement="bottom">
                   <el-button
                     :icon="Refresh"
                     :loading="refreshingDevices"
@@ -193,11 +193,11 @@
                     @click="refreshDeviceList"
                   />
                 </el-tooltip>
-                <el-checkbox v-model="isPreviewMode">预览</el-checkbox>
-                <el-tooltip content="运行日志" placement="bottom">
+                <el-checkbox v-model="isPreviewMode">{{ t('testManagement.preview') }}</el-checkbox>
+                <el-tooltip :content="t('testManagement.runLogs')" placement="bottom">
                   <el-button :icon="Document" circle size="small" @click="logDialogVisible = true" />
                 </el-tooltip>
-                <el-button :icon="Plus" @click="addNode">节点</el-button>
+                <el-button :icon="Plus" @click="addNode">{{ t('testManagement.node') }}</el-button>
                 <el-button
                   v-if="canStopExecution"
                   :icon="Close"
@@ -205,7 +205,7 @@
                   :loading="stoppingExecution"
                   @click="stopActiveExecution"
                 >
-                  结束运行
+                  {{ t('testManagement.stopRun') }}
                 </el-button>
                 <el-button
                   v-else
@@ -214,7 +214,7 @@
                   :loading="isFlowPreviewRunning"
                   @click="runFlowPreview"
                 >
-                  运行
+                  {{ t('testManagement.run') }}
                 </el-button>
               </div>
             </div>
@@ -308,7 +308,7 @@
                     <button
                       class="node-tool-button"
                       type="button"
-                      aria-label="编辑节点属性"
+                      :aria-label="t('testManagement.editNode')"
                       @click.stop="openNodeDrawer(node.id)"
                       @pointerdown.stop
                     >
@@ -325,13 +325,13 @@
                   @click.stop
                   @pointerdown.stop
                 >
-                  <div class="node-input-title">等待输入</div>
+                  <div class="node-input-title">{{ t('testManagement.waitingInput') }}</div>
                   <div v-if="node.input_kind === 'boolean'" class="runtime-choice-grid">
                     <el-button class="runtime-option-button" @click="submitRuntimeInput(node.input_options[0]?.value ?? 'y')">
-                      是
+                      {{ t('testManagement.yes') }}
                     </el-button>
                     <el-button class="runtime-option-button" @click="submitRuntimeInput(node.input_options[1]?.value ?? 'n')">
-                      否
+                      {{ t('testManagement.no') }}
                     </el-button>
                   </div>
                   <div v-else-if="node.input_kind === 'radio'" class="runtime-option-list">
@@ -341,17 +341,17 @@
                       class="runtime-option-button"
                       @click="submitRuntimeInput(option.value)"
                     >
-                      {{ option.value || `选项 ${index + 1}` }}
+                      {{ option.value || t('testManagement.option', { index: index + 1 }) }}
                     </el-button>
                   </div>
                   <div v-else class="runtime-text-input">
                     <el-input
                       v-model="runtimeInputValue"
-                      placeholder="输入后发送到脚本"
+                      :placeholder="t('testManagement.inputPlaceholder')"
                       @keydown.enter.stop.prevent="submitRuntimeInput(runtimeInputValue)"
                     />
                     <el-button type="primary" @click="submitRuntimeInput(runtimeInputValue)">
-                      确认
+                      {{ t('common.actions.confirm') }}
                     </el-button>
                   </div>
                 </div>
@@ -388,7 +388,7 @@
         <aside v-if="selectedNode && !isNodeDrawerPinnedClosed" class="node-drawer">
           <section class="status-block">
             <div class="block-title">
-              <span>节点属性</span>
+              <span>{{ t('testManagement.nodeProperties') }}</span>
               <div class="drawer-actions">
                 <el-button
                   :icon="Delete"
@@ -397,16 +397,16 @@
                   :disabled="selectedNode.kind !== 'expect'"
                   @click="deleteSelectedNode"
                 />
-                <button class="drawer-close" type="button" aria-label="关闭节点属性" @click="closeNodeDrawer">×</button>
+                <button class="drawer-close" type="button" :aria-label="t('testManagement.closeNode')" @click="closeNodeDrawer">×</button>
               </div>
             </div>
             <div class="node-form">
               <label>
-                <span>节点名</span>
+                <span>{{ t('testManagement.nodeName') }}</span>
                 <el-input v-model="selectedNode.name" />
               </label>
               <label>
-                <span>节点类型</span>
+                <span>{{ t('testManagement.nodeType') }}</span>
                 <el-input :model-value="nodeKindText[selectedNode.kind]" disabled />
               </label>
               <template v-if="selectedNode.kind === 'expect'">
@@ -420,38 +420,38 @@
                   />
                 </label>
                 <label>
-                  <span>输入方式</span>
+                  <span>{{ t('testManagement.inputMode') }}</span>
                   <el-select
                     :model-value="selectedNode.input_kind"
                     @change="updateSelectedNodeInputKind"
                   >
-                    <el-option label="无需输入" value="none" />
-                    <el-option label="是/否" value="boolean" />
-                    <el-option label="字符串" value="text" />
-                    <el-option label="单选项" value="radio" />
+                    <el-option :label="t('testManagement.inputKinds.none')" value="none" />
+                    <el-option :label="t('testManagement.inputKinds.boolean')" value="boolean" />
+                    <el-option :label="t('testManagement.inputKinds.text')" value="text" />
+                    <el-option :label="t('testManagement.inputKinds.radio')" value="radio" />
                   </el-select>
                 </label>
                 <div v-if="selectedNode.input_kind === 'boolean'" class="boolean-grid">
                   <label>
-                    <span>是</span>
+                    <span>{{ t('testManagement.yes') }}</span>
                     <el-input v-model="selectedBooleanYesValue" />
                   </label>
                   <label>
-                    <span>否</span>
+                    <span>{{ t('testManagement.no') }}</span>
                     <el-input v-model="selectedBooleanNoValue" />
                   </label>
                 </div>
                 <div v-if="selectedNode.input_kind === 'radio'" class="radio-options">
                   <div class="option-list-title">
-                    <span>字符串选项</span>
-                    <el-button :icon="Plus" size="small" text @click="addSelectedRadioOption">添加</el-button>
+                    <span>{{ t('testManagement.stringOptions') }}</span>
+                    <el-button :icon="Plus" size="small" text @click="addSelectedRadioOption">{{ t('common.actions.add') }}</el-button>
                   </div>
                   <div
                     v-for="(option, index) in selectedNode.input_options"
                     :key="index"
                     class="radio-option-row"
                   >
-                    <el-input v-model="option.value" :placeholder="`选项 ${index + 1}`" />
+                    <el-input v-model="option.value" :placeholder="t('testManagement.option', { index: index + 1 })" />
                     <el-button
                       :icon="Delete"
                       size="small"
@@ -462,7 +462,7 @@
                   </div>
                 </div>
               </template>
-              <p v-else class="muted-copy">开始和结束节点是流程边界，不支持删除。</p>
+              <p v-else class="muted-copy">{{ t('testManagement.boundaryNode') }}</p>
             </div>
           </section>
         </aside>
@@ -471,101 +471,101 @@
       <section v-else-if="loading" class="empty-editor loading-panel">
         <div>
           <el-icon class="loading-state-icon is-loading"><Refresh /></el-icon>
-          <h2>正在加载测试管理数据</h2>
-          <p>正在读取测试用例和执行状态，请稍候。</p>
+          <h2>{{ t('testManagement.loading') }}</h2>
+          <p>{{ t('testManagement.loadingHint') }}</p>
         </div>
       </section>
 
       <section v-else-if="loadError" class="empty-editor load-error-panel">
         <div>
           <el-icon class="load-error-icon"><WarningFilled /></el-icon>
-          <h2>暂时无法加载测试管理数据</h2>
-          <p>请检查数据库连接或后端服务状态，然后点击“重试”。</p>
-          <el-button type="primary" :loading="loading" @click="loadAll">重试</el-button>
+          <h2>{{ t('testManagement.unavailable') }}</h2>
+          <p>{{ t('testManagement.unavailableHint') }}</p>
+          <el-button type="primary" :loading="loading" @click="loadAll">{{ t('common.actions.retry') }}</el-button>
         </div>
       </section>
 
       <section v-else class="empty-editor">
-        <el-empty description="请选择测试用例" />
+        <el-empty :description="t('testManagement.selectCase')" />
       </section>
     </main>
 
     <footer class="test-footer">
       <span>SSH</span>
-      <span>{{ executionStatus?.active_ssh_sessions ?? 0 }}/{{ executionStatus?.max_sessions ?? 20 }} 连接</span>
-      <span>可用 {{ executionStatus?.available_sessions ?? 20 }}</span>
-      <span>运行 {{ executionStatus?.running_tests ?? 0 }}</span>
-      <span>等待输入 {{ executionStatus?.waiting_input_tests ?? 0 }}</span>
-      <span>队列 {{ executionStatus?.queued_tests ?? 0 }}</span>
+      <span>{{ t('testManagement.footer.connections', { active: executionStatus?.active_ssh_sessions ?? 0, max: executionStatus?.max_sessions ?? 20 }) }}</span>
+      <span>{{ t('testManagement.footer.available', { count: executionStatus?.available_sessions ?? 20 }) }}</span>
+      <span>{{ t('testManagement.footer.running', { count: executionStatus?.running_tests ?? 0 }) }}</span>
+      <span>{{ t('testManagement.footer.waiting', { count: executionStatus?.waiting_input_tests ?? 0 }) }}</span>
+      <span>{{ t('testManagement.footer.queued', { count: executionStatus?.queued_tests ?? 0 }) }}</span>
     </footer>
 
-    <el-dialog v-model="productDialogVisible" title="新建产品" width="460px">
+    <el-dialog v-model="productDialogVisible" :title="t('testManagement.dialogs.createProduct')" width="460px">
       <div class="dialog-form">
         <label>
-          <span>产品 ID</span>
-          <el-input v-model="productForm.product_id" placeholder="如：flex" />
+          <span>{{ t('testManagement.dialogs.productId') }}</span>
+          <el-input v-model="productForm.product_id" :placeholder="t('testManagement.dialogs.productIdPlaceholder')" />
         </label>
         <label>
-          <span>产品名称</span>
-          <el-input v-model="productForm.product_name" placeholder="如：Flex" />
+          <span>{{ t('testManagement.dialogs.productName') }}</span>
+          <el-input v-model="productForm.product_name" :placeholder="t('testManagement.dialogs.productNamePlaceholder')" />
         </label>
       </div>
       <template #footer>
-        <el-button @click="productDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="createProduct">创建</el-button>
+        <el-button @click="productDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="createProduct">{{ t('testManagement.dialogs.create') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="typeDialogVisible" title="新建测试类型" width="460px">
+    <el-dialog v-model="typeDialogVisible" :title="t('testManagement.dialogs.createType')" width="460px">
       <div class="dialog-form">
         <label>
-          <span>所属产品</span>
+          <span>{{ t('testManagement.dialogs.parentProduct') }}</span>
           <el-input :model-value="activeProduct?.product_name || ''" disabled />
         </label>
         <label>
-          <span>测试类型</span>
-          <el-input v-model="typeForm.test_type" placeholder="如：smoke / regression / calibration" />
+          <span>{{ t('testManagement.dialogs.testType') }}</span>
+          <el-input v-model="typeForm.test_type" :placeholder="t('testManagement.dialogs.typePlaceholder')" />
         </label>
       </div>
       <template #footer>
-        <el-button @click="typeDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="createType">创建</el-button>
+        <el-button @click="typeDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="createType">{{ t('testManagement.dialogs.create') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="caseDialogVisible" title="新建测试用例" width="520px">
+    <el-dialog v-model="caseDialogVisible" :title="t('testManagement.dialogs.createCase')" width="520px">
       <div class="dialog-form">
         <label>
-          <span>所属产品</span>
+          <span>{{ t('testManagement.dialogs.parentProduct') }}</span>
           <el-input :model-value="activeProduct?.product_name || ''" disabled />
         </label>
         <label>
-          <span>测试类型</span>
+          <span>{{ t('testManagement.dialogs.testType') }}</span>
           <el-input v-model="caseForm.test_type" disabled />
         </label>
         <label>
-          <span>用例名称</span>
-          <el-input v-model="caseForm.name" placeholder="如：Flex gripper smoke test" />
+          <span>{{ t('testManagement.caseName') }}</span>
+          <el-input v-model="caseForm.name" :placeholder="t('testManagement.dialogs.casePlaceholder')" />
         </label>
         <label>
-          <span>运行命令</span>
+          <span>{{ t('testManagement.runCommand') }}</span>
           <el-input v-model="caseForm.command" placeholder="python -m s.ssssss.fsss" />
         </label>
       </div>
       <template #footer>
-        <el-button @click="caseDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="createCase">创建</el-button>
+        <el-button @click="caseDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="createCase">{{ t('testManagement.dialogs.create') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="logDialogVisible" title="运行日志" width="860px" class="execution-log-dialog">
+    <el-dialog v-model="logDialogVisible" :title="t('testManagement.log.title')" width="860px" class="execution-log-dialog">
       <div class="log-dialog-meta">
-        <span>{{ isPreviewMode ? '预览模式' : '正式执行' }}</span>
-        <span>设备 {{ selectedDeviceIp || '-' }}</span>
+        <span>{{ t(isPreviewMode ? 'testManagement.log.preview' : 'testManagement.log.execution') }}</span>
+        <span>{{ t('testManagement.log.device', { ip: selectedDeviceIp || '-' }) }}</span>
         <span>Run {{ activeExecutionRun?.id || '-' }}</span>
       </div>
       <div ref="logPanelRef" class="execution-log-panel">
-        <div v-if="executionLogs.length === 0" class="log-empty">暂无运行日志</div>
+        <div v-if="executionLogs.length === 0" class="log-empty">{{ t('testManagement.log.empty') }}</div>
         <div
           v-for="entry in executionLogs"
           :key="entry.id"
@@ -585,10 +585,10 @@
           :loading="stoppingExecution"
           @click="stopActiveExecution"
         >
-          结束运行
+          {{ t('testManagement.stopRun') }}
         </el-button>
-        <el-button @click="clearExecutionLogs">清空</el-button>
-        <el-button type="primary" @click="logDialogVisible = false">关闭</el-button>
+        <el-button @click="clearExecutionLogs">{{ t('testManagement.log.clear') }}</el-button>
+        <el-button type="primary" @click="logDialogVisible = false">{{ t('common.actions.close') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -597,6 +597,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useAppLocale } from '@/i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Close, Delete, Document, EditPen, Plus, Refresh, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { type RobotInfo } from '@/scripts/api'
@@ -616,6 +618,8 @@ import {
   type TestCaseTreeResponse
 } from '@/scripts/modules/test_modules/testCaseService'
 
+const { t } = useI18n()
+const { locale } = useAppLocale()
 const route = useRoute()
 const robotScanStore = useRobotScanStore()
 
@@ -728,12 +732,12 @@ const nodeKindText: Record<TestCaseNode['kind'], string> = {
   end: 'End'
 }
 
-const inputKindText: Record<TestCaseNode['input_kind'], string> = {
-  none: '无需输入',
-  boolean: '是/否输入',
-  text: '字符串输入',
-  radio: '单选项'
-}
+const inputKindText = computed<Record<TestCaseNode['input_kind'], string>>(() => ({
+  none: t('testManagement.inputKinds.none'),
+  boolean: t('testManagement.inputKinds.boolean'),
+  text: t('testManagement.inputKinds.text'),
+  radio: t('testManagement.inputKinds.radio')
+}))
 
 const hasCaseChanges = computed(() => {
   if (!selectedCase.value) return false
@@ -857,7 +861,7 @@ async function refreshDeviceList() {
     } else {
       selectedDeviceIp.value = availableRobots.value[0]?.ip ?? null
     }
-    ElMessage.success(`设备列表已刷新，发现 ${availableRobots.value.length} 台在线设备`)
+    ElMessage.success(t('testManagement.messages.devicesRefreshed', { count: availableRobots.value.length }))
   } catch (error: any) {
     deviceScanError.value = normalizeTestManagementError(error)
   } finally {
@@ -879,7 +883,7 @@ async function selectCase(caseId: string) {
 
 function normalizeTestManagementError(error: any) {
   const detail = error?.response?.data?.detail
-  return detail?.message || detail?.error || detail || error?.message || '未知错误'
+  return detail?.message || detail?.error || detail || error?.message || t('errors.unknown')
 }
 
 function syncCaseDraft(testCase: TestCase) {
@@ -919,7 +923,7 @@ function openCaseDialog(product: TestCaseTreeProduct, testType: string) {
 
 async function createProduct() {
   if (!productForm.product_id || !productForm.product_name) {
-    ElMessage.warning('请填写产品 ID 和产品名称')
+    ElMessage.warning(t('testManagement.messages.fillProduct'))
     return
   }
 
@@ -928,10 +932,10 @@ async function createProduct() {
     await testCaseService.createProduct({ ...productForm })
     productDialogVisible.value = false
     await loadAll()
-    ElMessage.success('产品已创建')
+    ElMessage.success(t('testManagement.messages.productCreated'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('产品创建失败')
+    ElMessage.error(t('testManagement.messages.productCreateFailed'))
   } finally {
     submitting.value = false
   }
@@ -939,7 +943,7 @@ async function createProduct() {
 
 async function createType() {
   if (!activeProduct.value || !typeForm.test_type) {
-    ElMessage.warning('请填写测试类型')
+    ElMessage.warning(t('testManagement.messages.fillType'))
     return
   }
 
@@ -948,10 +952,10 @@ async function createType() {
     await testCaseService.createType(activeProduct.value.product_id, { ...typeForm })
     typeDialogVisible.value = false
     await loadAll()
-    ElMessage.success('测试类型已创建')
+    ElMessage.success(t('testManagement.messages.typeCreated'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('测试类型创建失败')
+    ElMessage.error(t('testManagement.messages.typeCreateFailed'))
   } finally {
     submitting.value = false
   }
@@ -959,7 +963,7 @@ async function createType() {
 
 async function createCase() {
   if (!activeProduct.value || !caseForm.name || !caseForm.test_type || !caseForm.command) {
-    ElMessage.warning('请补全用例名称和运行命令')
+    ElMessage.warning(t('testManagement.messages.fillCase'))
     return
   }
 
@@ -978,10 +982,10 @@ async function createCase() {
     syncCaseDraft(response.data)
     caseDialogVisible.value = false
     await loadAll()
-    ElMessage.success('测试用例已创建')
+    ElMessage.success(t('testManagement.messages.caseCreated'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('测试用例创建失败')
+    ElMessage.error(t('testManagement.messages.caseCreateFailed'))
   } finally {
     submitting.value = false
   }
@@ -990,7 +994,7 @@ async function createCase() {
 async function saveCase() {
   if (!selectedCase.value) return
   if (!caseDraft.name || !caseDraft.command) {
-    ElMessage.warning('请填写用例名称和运行命令')
+    ElMessage.warning(t('testManagement.messages.fillCaseEdit'))
     return
   }
 
@@ -1008,10 +1012,10 @@ async function saveCase() {
     selectedCase.value = response.data
     syncCaseDraft(response.data)
     await loadAll()
-    ElMessage.success('测试用例已保存')
+    ElMessage.success(t('testManagement.messages.caseSaved'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('测试用例保存失败')
+    ElMessage.error(t('testManagement.messages.caseSaveFailed'))
   } finally {
     saving.value = false
   }
@@ -1022,11 +1026,11 @@ async function archiveCase() {
 
   try {
     await ElMessageBox.confirm(
-      `确认归档“${selectedCase.value.name}”？`,
-      '归档测试用例',
+      t('testManagement.messages.archiveConfirm', { name: selectedCase.value.name }),
+      t('testManagement.messages.archiveTitle'),
       {
-        confirmButtonText: '归档',
-        cancelButtonText: '取消',
+        confirmButtonText: t('testManagement.archive'),
+        cancelButtonText: t('common.actions.cancel'),
         type: 'warning'
       }
     )
@@ -1040,10 +1044,10 @@ async function archiveCase() {
     selectedCase.value = null
     resetCaseDraft()
     await loadAll()
-    ElMessage.success('测试用例已归档')
+    ElMessage.success(t('testManagement.messages.caseArchived'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('测试用例归档失败')
+    ElMessage.error(t('testManagement.messages.caseArchiveFailed'))
   } finally {
     archiving.value = false
   }
@@ -1077,7 +1081,7 @@ function cloneEdges(edges: TestCaseEdge[]): TestCaseEdge[] {
 }
 
 function logTimestamp(date = new Date()) {
-  return date.toLocaleTimeString('zh-CN', { hour12: false })
+  return date.toLocaleTimeString(locale.value, { hour12: false })
 }
 
 function appendExecutionLog(level: ExecutionLogEntry['level'], message: string) {
@@ -1125,26 +1129,8 @@ function runEventLevel(type: string): ExecutionLogEntry['level'] {
 }
 
 function runEventText(type: string) {
-  const textMap: Record<string, string> = {
-    started: '运行已启动',
-    ssh_connecting: '正在连接 SSH',
-    ssh_connected: 'SSH 已连接',
-    command_started: '命令已启动',
-    ssh_output: '脚本输出',
-    expect_matched: 'Expect 已命中',
-    node_running: '节点开始执行',
-    waiting_input: '等待用户输入',
-    input_submitted: '用户输入已提交',
-    ssh_stdin_sent: '输入已写入 SSH',
-    ssh_session_stopped: 'SSH session 已停止',
-    execution_error: '执行异常',
-    stopped: '运行已停止',
-    failed: '运行失败',
-    timeout: '运行超时',
-    error: '运行异常',
-    completed: '运行结束'
-  }
-  return textMap[type] ?? type
+  const knownTypes = ['started', 'ssh_connecting', 'ssh_connected', 'command_started', 'ssh_output', 'expect_matched', 'node_running', 'waiting_input', 'input_submitted', 'ssh_stdin_sent', 'ssh_session_stopped', 'execution_error', 'stopped', 'failed', 'timeout', 'error', 'completed']
+  return knownTypes.includes(type) ? t(`testManagement.events.${type}`) : type
 }
 
 function createId(prefix: string) {
@@ -1255,9 +1241,9 @@ async function runFlowPreview() {
   isCaseInfoCollapsed.value = true
   resetFlowPreview()
   executionLogs.value = []
-  appendExecutionLog('info', '预览运行启动')
-  appendExecutionLog('info', `运行命令: ${caseDraft.command || '-'}`)
-  appendExecutionLog('info', `目标设备: ${selectedDeviceIp.value || '-'}`)
+  appendExecutionLog('info', t('testManagement.log.previewStarted'))
+  appendExecutionLog('info', t('testManagement.log.command', { command: caseDraft.command || '-' }))
+  appendExecutionLog('info', t('testManagement.log.target', { ip: selectedDeviceIp.value || '-' }))
   runtimeFlowNodes.value = previewNodes
   runtimeStepIndex.value = 0
   isFlowPreviewRunning.value = true
@@ -1267,15 +1253,15 @@ async function runFlowPreview() {
 async function runBackendExecution() {
   if (!selectedCase.value) return
   if (!isPreviewMode.value && !selectedDeviceIp.value) {
-    ElMessage.warning('请选择执行设备')
+    ElMessage.warning(t('testManagement.messages.chooseDevice'))
     return
   }
   isCaseInfoCollapsed.value = true
   resetFlowPreview()
   executionLogs.value = []
-  appendExecutionLog('info', '正式运行启动')
-  appendExecutionLog('info', `运行命令: ${caseDraft.command || '-'}`)
-  appendExecutionLog('info', `目标设备: ${selectedDeviceIp.value || '-'}`)
+  appendExecutionLog('info', t('testManagement.log.executionStarted'))
+  appendExecutionLog('info', t('testManagement.log.command', { command: caseDraft.command || '-' }))
+  appendExecutionLog('info', t('testManagement.log.target', { ip: selectedDeviceIp.value || '-' }))
   runtimeFlowNodes.value = resolveFlowPreviewNodes()
   runtimeStepIndex.value = 0
   isFlowPreviewRunning.value = true
@@ -1292,21 +1278,21 @@ async function runBackendExecution() {
   } catch (error) {
     console.error(error)
     resetFlowPreview()
-    ElMessage.error('测试运行启动失败')
+    ElMessage.error(t('testManagement.messages.runStartFailed'))
   }
 }
 
 async function runNextFlowStep() {
   const node = runtimeFlowNodes.value[runtimeStepIndex.value]
   if (!node) {
-    await completeActiveExecution('passed', '流程执行完成')
+    await completeActiveExecution('passed', t('testManagement.log.flowCompleted'))
     return
   }
 
   runningNodeId.value = node.id
   selectedNodeId.value = node.id
   selectedEdgeId.value = null
-  appendExecutionLog('info', `节点开始: ${node.name}`)
+  appendExecutionLog('info', t('testManagement.log.nodeStarted', { name: node.name }))
 
   const duration = node.kind === 'expect' ? 700 : 500
   flowPreviewTimer = window.setTimeout(() => {
@@ -1318,7 +1304,7 @@ async function handleRuntimeNodeReady(node: TestCaseNode) {
   if (needsRuntimeInput(node)) {
     waitingInputNode.value = node
     runtimeInputValue.value = defaultRuntimeInputValue(node)
-    appendExecutionLog('warn', `命中 Expect: ${node.expect || node.name}，等待用户输入`)
+    appendExecutionLog('warn', t('testManagement.log.expectWaiting', { expect: node.expect || node.name }))
     return
   }
 
@@ -1359,7 +1345,7 @@ async function pollExecutionRun(runId = activeExecutionRun.value?.id) {
     console.error(error)
     stopExecutionPolling()
     isFlowPreviewRunning.value = false
-    ElMessage.error('运行状态同步失败')
+    ElMessage.error(t('testManagement.messages.syncFailed'))
   }
 }
 
@@ -1417,7 +1403,7 @@ async function submitRuntimeInput(value: string) {
       activeExecutionRun.value = response.data
       syncRunLogs(response.data)
     }
-    appendExecutionLog('input', `用户输入: ${value || '(空字符串)'}`)
+    appendExecutionLog('input', t('testManagement.log.userInput', { value: value || t('testManagement.log.emptyValue') }))
     waitingInputNode.value = null
     runtimeInputValue.value = ''
     if (!isPreviewMode.value) {
@@ -1430,7 +1416,7 @@ async function submitRuntimeInput(value: string) {
     await runNextFlowStep()
   } catch (error) {
     console.error(error)
-    ElMessage.error('输入发送失败')
+    ElMessage.error(t('testManagement.messages.inputFailed'))
   }
 }
 
@@ -1440,15 +1426,15 @@ async function stopActiveExecution() {
 
   stoppingExecution.value = true
   try {
-    appendExecutionLog('warn', '正在停止 SSH session')
+    appendExecutionLog('warn', t('testManagement.log.stopping'))
     const response = await testCaseService.stopExecution(run.id)
     activeExecutionRun.value = response.data
     applyBackendRunState(response.data)
     await refreshExecutionStatus()
-    ElMessage.success('测试已停止')
+    ElMessage.success(t('testManagement.messages.stopped'))
   } catch (error) {
     console.error(error)
-    ElMessage.error('停止测试失败')
+    ElMessage.error(t('testManagement.messages.stopFailed'))
   } finally {
     stoppingExecution.value = false
   }
@@ -1458,7 +1444,7 @@ function completeRuntimeNode(node: TestCaseNode) {
   if (!completedNodeIds.value.includes(node.id)) {
     completedNodeIds.value = [...completedNodeIds.value, node.id]
   }
-  appendExecutionLog('success', `节点完成: ${node.name}`)
+  appendExecutionLog('success', t('testManagement.log.nodeCompleted', { name: node.name }))
 }
 
 async function completeActiveExecution(
@@ -1504,11 +1490,11 @@ function addNode() {
 
   const node: TestCaseNode = {
     id: createId('expect'),
-    name: `等待输出 ${expectNodes.length + 1}`,
+    name: t('testManagement.defaults.waitOutput', { index: expectNodes.length + 1 }),
     kind: 'expect',
     expect: '',
     input_kind: 'text',
-    input_options: [{ label: '输入字符串', value: '' }],
+    input_options: [{ label: t('testManagement.defaults.inputString'), value: '' }],
     position: {
       x: Math.max(24, insertX),
       y: Math.max(24, insertY)
@@ -1544,7 +1530,7 @@ function updateSelectedNodeInputKind(value: TestInputKind) {
   if (value === 'boolean') {
     ensureBooleanOptions(selectedNode.value)
   } else if (value === 'text') {
-    selectedNode.value.input_options = [{ label: '输入字符串', value: '' }]
+    selectedNode.value.input_options = [{ label: t('testManagement.defaults.inputString'), value: '' }]
   } else if (value === 'radio') {
     ensureRadioOptions(selectedNode.value)
   } else {
@@ -1556,21 +1542,21 @@ function ensureBooleanOptions(node: TestCaseNode) {
   const options: TestCaseInputOption[] = node.input_options.length >= 2
     ? node.input_options
     : [
-        { label: '是', value: 'y' },
-        { label: '否', value: 'n' }
+        { label: t('testManagement.yes'), value: 'y' },
+        { label: t('testManagement.no'), value: 'n' }
       ]
-  options[0] = { label: '是', value: options[0]?.value ?? 'y' }
-  options[1] = { label: '否', value: options[1]?.value ?? 'n' }
+  options[0] = { label: t('testManagement.yes'), value: options[0]?.value ?? 'y' }
+  options[1] = { label: t('testManagement.no'), value: options[1]?.value ?? 'n' }
   node.input_options = options.slice(0, 2)
 }
 
 function ensureRadioOptions(node: TestCaseNode) {
   const options = node.input_options.length > 0
     ? node.input_options
-    : [{ label: '选项 1', value: '' }]
+    : [{ label: t('testManagement.option', { index: 1 }), value: '' }]
 
   node.input_options = options.map((option, index) => ({
-    label: `选项 ${index + 1}`,
+    label: t('testManagement.option', { index: index + 1 }),
     value: option.value ?? ''
   }))
 }
@@ -1579,7 +1565,7 @@ function addSelectedRadioOption() {
   if (!selectedNode.value) return
   ensureRadioOptions(selectedNode.value)
   selectedNode.value.input_options.push({
-    label: `选项 ${selectedNode.value.input_options.length + 1}`,
+    label: t('testManagement.option', { index: selectedNode.value.input_options.length + 1 }),
     value: ''
   })
 }
