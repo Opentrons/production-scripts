@@ -45,6 +45,29 @@ def test_agent_delegates_conversation_and_context_to_llm() -> None:
     assert "当前页面：上传记录" in llm.system_prompt
     assert "Python Protocol API 与 Robot Server HTTP API" in llm.system_prompt
     assert "源码相对路径、行号和 Git revision" in llm.system_prompt
+    assert "用户最新一条真实输入的主要自然语言" in llm.system_prompt
+    assert "工具证据使用中文而切换回答语言" in llm.system_prompt
+
+
+def test_agent_prompt_follows_latest_real_user_message_language() -> None:
+    llm = FakeLLM()
+    service = ProductionAgentService(llm)  # type: ignore[arg-type]
+    request = AgentChatRequest(
+        messages=[
+            AgentChatMessage(role="user", content="请检查设备状态"),
+            AgentChatMessage(role="assistant", content="请提供设备地址。"),
+            AgentChatMessage(role="user", content="Please check 192.168.6.36 and answer in English."),
+        ],
+        context="当前页面：设备管理",
+    )
+
+    async def collect() -> list[str]:
+        return [chunk async for chunk in service.stream_chat(request)]
+
+    asyncio.run(collect())
+
+    assert "英文输入用英文" in llm.system_prompt
+    assert "用户明确指定回答语言时以其指定为准" in llm.system_prompt
 
 
 def test_agent_sse_stream_emits_chunks_and_done_event() -> None:
@@ -180,6 +203,7 @@ def test_agent_uses_clean_evidence_context_for_forced_final_answer() -> None:
     assert all(message.get("role") != "tool" for message in llm.final_messages)
     assert "工具 lookup" in llm.final_messages[-1]["content"]
     assert "不得继续调用工具" in llm.final_prompt
+    assert "用户最新一条真实输入所使用的语言" in llm.final_prompt
 
 
 def test_agent_blocks_repeated_identical_tool_calls() -> None:
