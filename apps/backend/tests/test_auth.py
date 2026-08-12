@@ -10,6 +10,7 @@ from modules.auth.dependencies import (
     CSRF_COOKIE_NAME,
     get_auth_service,
     require_authenticated_user,
+    require_platform_access,
 )
 from modules.auth.routes import router as auth_router
 from modules.auth.service import AuthService, AuthenticationError
@@ -145,3 +146,74 @@ def test_auth_routes_protect_api_and_require_csrf(tmp_path: Path) -> None:
     )
     assert logout.status_code == 200
     assert client.get("/api/protected").status_code == 401
+
+
+def test_device_operator_can_use_platform_but_not_device_control(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.create_user(
+        username="device-control",
+        password="device-control-password",
+        display_name="设备操作员",
+        role="device_operator",
+    )
+    app = FastAPI()
+    protected = APIRouter(dependencies=[Depends(require_platform_access)])
+
+    @protected.get("/health")
+    def health():
+        return {"success": True}
+
+    @protected.get("/robots")
+    def robots():
+        return {"success": True}
+
+    @protected.post("/robots/commands")
+    def robot_command():
+        return {"success": True}
+
+    @protected.get("/robots/{ip}/control/summary")
+    def robot_control_summary(ip: str):
+        return {"success": True, "ip": ip}
+
+    @protected.post("/robots/{ip}/control/home")
+    def robot_control_home(ip: str):
+        return {"success": True, "ip": ip}
+
+    @protected.get("/data")
+    def data():
+        return {"success": True}
+
+    @protected.get("/robots-private")
+    def robots_private():
+        return {"success": True}
+
+    app.include_router(auth_router, prefix="/api")
+    app.include_router(protected, prefix="/api")
+    app.dependency_overrides[get_auth_service] = lambda: service
+    client = TestClient(app)
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "device-control", "password": "device-control-password"},
+    )
+    assert login.status_code == 200
+    assert login.json()["user"]["role"] == "device_operator"
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/api/robots").status_code == 200
+    assert client.get("/api/data").status_code == 200
+    assert client.get("/api/robots-private").status_code == 200
+    assert client.get("/api/robots/192.168.1.10/control/summary").status_code == 403
+
+    csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
+    assert csrf_token
+    command = client.post(
+        "/api/robots/commands",
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    assert command.status_code == 200
+    control = client.post(
+        "/api/robots/192.168.1.10/control/home",
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    assert control.status_code == 403
+    assert control.json()["detail"] == "当前账号无设备控制权限"

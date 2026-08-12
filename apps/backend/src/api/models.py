@@ -329,6 +329,20 @@ class RobotSshCommandBatchExecuteRequest(BaseModel):
     concurrency: int = Field(default=8, ge=1, le=20)
 
 
+class RobotSshKeyInstallRequest(BaseModel):
+    ips: list[str] = Field(min_length=1, max_length=100)
+    timeout: int = Field(default=30, ge=1, le=300)
+    concurrency: int = Field(default=4, ge=1, le=10)
+
+
+class RobotCodeFlashRequest(BaseModel):
+    ip: str = Field(min_length=1, max_length=64)
+    command: str = Field(min_length=1, max_length=1000)
+    timeout: int = Field(default=1800, ge=30, le=7200)
+    branch: str = Field(min_length=1, max_length=255)
+    pull: bool = False
+
+
 class RobotSshCommandCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     command: str = Field(min_length=1, max_length=20000)

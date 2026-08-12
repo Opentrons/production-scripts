@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class AgentChatMessage(BaseModel):
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=20000)
+    content: str = Field(min_length=1, max_length=100000)
 
 
 class AgentChatRequest(BaseModel):
@@ -16,3 +16,6 @@ class AgentChatRequest(BaseModel):
 class AgentStatusResponse(BaseModel):
     configured: bool
     model: str
+    tool_count: int = 0
+    knowledge_count: int = 0
+    max_tool_rounds: int = 0

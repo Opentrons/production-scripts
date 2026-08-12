@@ -69,6 +69,72 @@ def test_stream_chat_parses_openai_compatible_sse(monkeypatch) -> None:
     }
 
 
+def test_stream_tool_round_reassembles_fragmented_tool_calls(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        async def aiter_lines(self):
+            yield 'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_","function":{"name":"query_","arguments":"{\\"page\\":"}}]}}]}'
+            yield 'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"1","function":{"name":"products","arguments":"1}"}}]}}]}'
+            yield "data: [DONE]"
+
+    class FakeClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, method, url, **kwargs):
+            captured.update(method=method, url=url, **kwargs)
+            return FakeResponse()
+
+    monkeypatch.setattr("modules.agent.llm.service.httpx.AsyncClient", FakeClient)
+    service = LLMService()
+    service.api_key = "test-key"
+    tools = [{"type": "function", "function": {"name": "query_products", "parameters": {"type": "object"}}}]
+
+    async def collect():
+        return [event async for event in service.stream_tool_round(
+            [{"role": "user", "content": "查询"}],
+            system_prompt="系统提示",
+            tools=tools,
+        )]
+
+    events = asyncio.run(collect())
+
+    assert events == [
+        {
+            "type": "round_done",
+            "message": {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "query_products", "arguments": '{"page":1}'},
+                    }
+                ],
+            },
+        }
+    ]
+    assert captured["json"]["tools"] == tools  # type: ignore[index]
+    assert captured["json"]["tool_choice"] == "auto"  # type: ignore[index]
+
+
 def test_parse_json_repairs_trailing_commas_and_empty_values() -> None:
     parsed = LLMService._parse_json(
         '{"materials":[{"part_number":"467-00004","name":"卡簧",'

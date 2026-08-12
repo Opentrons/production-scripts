@@ -3,6 +3,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from api.models import HealthResponse, MarkMessageReadResponse, MessageListResponse
+from modules.system import app_version as app_version_service
 from modules.system import health as health_service
 from modules.system import messages as message_service
 from modules.system import simulating as simulating_service
@@ -25,6 +26,12 @@ class SimulatingUpdateRequest(BaseModel):
     simulating: bool = Field(description="启用后 Mongo 业务默认改走 SQLite")
 
 
+class AppVersionResponse(BaseModel):
+    version: str
+    updated_at: str | None = None
+    commit: str | None = None
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     return await run_in_threadpool(health_service.get_health_status)
@@ -33,6 +40,11 @@ async def health_check():
 @router.get("/system/simulating", response_model=SimulatingStatusResponse)
 async def get_simulating_status():
     return await run_in_threadpool(simulating_service.get_status)
+
+
+@router.get("/system/version", response_model=AppVersionResponse)
+async def get_app_version():
+    return await run_in_threadpool(app_version_service.load_app_version)
 
 
 @router.put("/system/simulating", response_model=SimulatingStatusResponse)

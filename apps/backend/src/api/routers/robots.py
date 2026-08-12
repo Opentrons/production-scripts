@@ -7,6 +7,7 @@ import core.config as setting
 from api.models import (
     RobotActionResponse,
     RobotBatchCommandResponse,
+    RobotCodeFlashRequest,
     RobotCommandRequest,
     RobotInfo,
     RobotScanGateway,
@@ -16,11 +17,14 @@ from api.models import (
     RobotSshCommandCreateRequest,
     RobotSshCommandExecuteRequest,
     RobotSshCommandUpdateRequest,
+    RobotSshKeyInstallRequest,
     RobotVersionCaptureRequest,
     RobotsScanResponse,
 )
 from modules.robots import robots as robot_service
 from modules.robots import ssh_commands as ssh_command_service
+from modules.robots import code_flash
+from modules.robots import ssh_key_setup
 from modules.robots import version_records as version_record_service
 
 
@@ -200,6 +204,53 @@ async def execute_robot_ssh_commands_batch(request: RobotSshCommandBatchExecuteR
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail={"message": f"批量 SSH 命令执行失败: {exc}"}) from exc
+
+
+@router.post("/robots/ssh-keys/install")
+async def install_robot_ssh_keys(request: RobotSshKeyInstallRequest):
+    try:
+        return await run_in_threadpool(
+            ssh_key_setup.install_ssh_keys_batch,
+            ips=request.ips,
+            timeout=request.timeout,
+            concurrency=request.concurrency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"message": f"批量安装 SSH 密钥失败: {exc}"}) from exc
+
+
+@router.get("/robots/code-flash/presets")
+async def list_robot_code_flash_presets():
+    return code_flash.list_flash_presets()
+
+
+@router.post("/robots/code-flash/tasks", status_code=202)
+async def create_robot_code_flash_task(request: RobotCodeFlashRequest):
+    try:
+        return await run_in_threadpool(
+            code_flash.create_flash_task,
+            ip=request.ip,
+            command=request.command,
+            timeout=request.timeout,
+            branch=request.branch,
+            pull=request.pull,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.get("/robots/code-flash/tasks/{task_id}")
+async def get_robot_code_flash_task(task_id: str):
+    try:
+        return await run_in_threadpool(code_flash.get_flash_task, task_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": "烧录任务不存在"}) from exc
 
 
 @router.post("/robots/ssh-commands")

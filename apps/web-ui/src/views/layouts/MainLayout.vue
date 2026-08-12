@@ -2,10 +2,10 @@
   <div class="app-container">
     <header class="app-header">
       <div class="header-left">
-        <RouterLink class="header-brand" to="/" aria-label="返回生产测试首页">
-          <img src="@/assets/logo.png" alt="Productions testing" class="header-logo" />
-          <span class="header-brand-text">Productions testing</span>
-        </RouterLink>
+        <div class="header-brand" aria-label="Productions Testing">
+          <span class="header-brand-mark" aria-hidden="true">T</span>
+          <span class="header-brand-text">Productions Testing</span>
+        </div>
       </div>
       <div class="header-right">
         <div class="health-status">
@@ -126,7 +126,7 @@ const sidebarCollapsed = ref(false)
 const HEALTH_REFRESH_INTERVAL_MS = 10 * 60 * 1000
 const MESSAGE_REFRESH_INTERVAL_MS = 30 * 1000
 
-const menuItems = ref([
+const allMenuItems = [
   {
     id: 'menu-devices',
     name: '设备管理',
@@ -164,7 +164,9 @@ const menuItems = ref([
     icon: Setting,
     path: '/settings'
   }
-])
+]
+
+const menuItems = computed(() => allMenuItems)
 
 const activeMenu = computed(() => {
   const path = route.path
@@ -325,23 +327,20 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   color: inherit;
-  text-decoration: none;
 }
 
-.header-brand:focus-visible {
-  outline: 2px solid rgba(140, 199, 255, 0.75);
-  outline-offset: 4px;
-  border-radius: 6px;
-}
-
-.header-brand:hover .header-brand-text {
-  color: #ffffff;
-}
-
-.header-logo {
-  width: 30px;
-  height: 34px;
-  object-fit: contain;
+.header-brand-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 8px;
+  background: #409eff;
+  color: #071525;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .header-brand-text {

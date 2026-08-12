@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from modules.agent.routes import router as agent_router
-from modules.auth.dependencies import require_authenticated_user
+from modules.auth.dependencies import require_platform_access
 from modules.auth.routes import router as auth_router
 from modules.protocol_monitor.routes import router as protocol_monitor_router
 
@@ -23,7 +23,7 @@ from api.routers import (
 
 
 router = APIRouter()
-protected_router = APIRouter(dependencies=[Depends(require_authenticated_user)])
+protected_router = APIRouter(dependencies=[Depends(require_platform_access)])
 
 router.include_router(auth_router)
 protected_router.include_router(agent_router)

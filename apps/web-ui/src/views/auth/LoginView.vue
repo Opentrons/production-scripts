@@ -99,8 +99,9 @@ const submitting = ref(false)
 const errorMessage = ref('')
 
 function safeRedirect(value: unknown): string {
-  const path = typeof value === 'string' ? value : '/'
-  return path.startsWith('/') && !path.startsWith('//') && path !== '/login' ? path : '/'
+  const defaultPath = '/'
+  const path = typeof value === 'string' ? value : defaultPath
+  return path.startsWith('/') && !path.startsWith('//') && path !== '/login' ? path : defaultPath
 }
 
 async function submit(): Promise<void> {

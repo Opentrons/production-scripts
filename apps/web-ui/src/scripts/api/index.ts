@@ -195,6 +195,74 @@ export interface RobotSshCommandBatchExecuteResponse {
   concurrency: number
 }
 
+export interface RobotSshKeyInstallResult {
+  ip: string
+  success: boolean
+  message: string
+  exit_code: number | null
+  stdout: string
+  stderr: string
+  output_truncated: boolean
+  started_at: string
+  finished_at: string
+  duration_ms: number
+}
+
+export interface RobotSshKeyInstallResponse {
+  results: RobotSshKeyInstallResult[]
+  total: number
+  success_count: number
+  failed_count: number
+  concurrency: number
+}
+
+export interface RobotCodeFlashPreset {
+  id: string
+  name: string
+  description: string
+  command: string
+}
+
+export interface RobotCodeFlashBranch {
+  name: string
+  current: boolean
+  local: boolean
+  remote: boolean
+}
+
+export interface RobotCodeFlashPresetsResponse {
+  presets: RobotCodeFlashPreset[]
+  workdir: string
+  available: boolean
+  error?: string | null
+  current_branch: string
+  branches: RobotCodeFlashBranch[]
+  clean: boolean
+  dirty_files: string[]
+}
+
+export type RobotCodeFlashStatus = 'queued' | 'running' | 'success' | 'failed'
+
+export interface RobotCodeFlashTask {
+  task_id: string
+  ip: string
+  status: RobotCodeFlashStatus
+  success: boolean | null
+  message: string
+  command: string
+  workdir: string
+  branch: string
+  pull: boolean
+  timeout: number
+  logs: string[]
+  output_truncated: boolean
+  exit_code: number | null
+  created_at: string
+  started_at?: string | null
+  finished_at?: string | null
+  duration_ms: number
+}
+
 export interface RobotScanResponse {
   total: number
   online_count: number
@@ -387,6 +455,7 @@ export interface RobotLogDownloadRecord {
   cleanup_finished_at?: string | null
   command_logs: RobotLogCommandEntry[]
   file_available: boolean
+  file_unavailable_reason?: string | null
   file_deleted_at?: string | null
 }
 
@@ -487,6 +556,23 @@ export const robotApi = {
     timeout?: number
     concurrency?: number
   }) => api.post<RobotSshCommandBatchExecuteResponse>('/robots/ssh-commands/batch-execute', payload, { timeout: 0 }),
+  installSshKeys: (payload: {
+    ips: string[]
+    timeout?: number
+    concurrency?: number
+  }) => api.post<RobotSshKeyInstallResponse>('/robots/ssh-keys/install', payload, { timeout: 0 }),
+  getCodeFlashPresets: () =>
+    api.get<RobotCodeFlashPresetsResponse>('/robots/code-flash/presets'),
+  createCodeFlashTask: (payload: {
+    ip: string
+    command: string
+    timeout?: number
+    branch: string
+    pull: boolean
+  }) =>
+    api.post<RobotCodeFlashTask>('/robots/code-flash/tasks', payload, { timeout: 30000 }),
+  getCodeFlashTask: (taskId: string) =>
+    api.get<RobotCodeFlashTask>(`/robots/code-flash/tasks/${encodeURIComponent(taskId)}`),
   createSshCommand: (payload: {
     name: string
     command: string
@@ -512,9 +598,9 @@ export const robotApi = {
   }) => api.post<RobotLogDownloadTask>('/robots/log-downloads/tasks', payload, { timeout: 30000 }),
   getLogDownloadTask: (taskId: string) =>
     api.get<RobotLogDownloadTask>(`/robots/log-downloads/tasks/${encodeURIComponent(taskId)}`),
-  getLogDownloadRecords: (params?: { page?: number; pageSize?: number }) =>
+  getLogDownloadRecords: (params?: { page?: number; pageSize?: number; robotIp?: string }) =>
     api.get<RobotLogDownloadRecordsResponse>('/robots/log-downloads/records', {
-      params: { page: params?.page, page_size: params?.pageSize }
+      params: { page: params?.page, page_size: params?.pageSize, robot_ip: params?.robotIp }
     }),
   getServerLogDownloadUrl: (recordId: string) =>
     `/api/robots/log-downloads/records/${encodeURIComponent(recordId)}/file`,

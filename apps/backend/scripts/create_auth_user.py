@@ -12,7 +12,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a Production Platform login user.")
     parser.add_argument("--username", required=True)
     parser.add_argument("--display-name", default="")
-    parser.add_argument("--role", choices=("admin", "operator", "viewer"), default="admin")
+    parser.add_argument(
+        "--role",
+        choices=("admin", "operator", "viewer", "device_operator"),
+        default="admin",
+    )
     return parser.parse_args()
 
 

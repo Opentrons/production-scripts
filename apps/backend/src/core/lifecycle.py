@@ -16,6 +16,7 @@ from modules.duro.runtime import (
 from modules.auth.dependencies import get_auth_service
 from modules.system.simulating_seed import ensure_simulating_seed
 from modules.robots.diagnostic_logs import (
+    fail_interrupted_diagnostic_log_downloads,
     resume_pending_diagnostic_log_cleanups,
     shutdown_diagnostic_log_service,
 )
@@ -47,6 +48,7 @@ async def lifespan(_: FastAPI):
     if is_simulating():
         ensure_simulating_seed()
     mongodb.connect()
+    fail_interrupted_diagnostic_log_downloads()
     resume_pending_diagnostic_log_cleanups()
     start_robot_scan_scheduler()
     google_proxy_manager.start()

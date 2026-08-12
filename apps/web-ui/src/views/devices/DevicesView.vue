@@ -21,24 +21,40 @@
       </div>
     </div>
 
-    <section class="gateway-config">
-      <div class="gateway-editor">
-        <el-input
-          v-model="newGateway"
-          class="gateway-input"
-          clearable
-          size="small"
-          placeholder="扫描网关，如 192.168.6.1"
-          @keyup.enter="handleAddGateway"
-        />
-        <el-button
-          size="small"
-          :loading="gatewaySaving"
-          :disabled="!newGateway.trim()"
-          @click="handleAddGateway"
-        >
-          添加网关
-        </el-button>
+    <section class="device-toolbar">
+      <el-input
+        v-model="deviceSearchQuery"
+        class="device-search-input"
+        clearable
+        :prefix-icon="Search"
+        placeholder="搜索在线设备名称或 IP"
+      />
+      <el-button type="primary" plain :icon="Plus" @click="gatewayDialogVisible = true">
+        增加网关
+      </el-button>
+    </section>
+
+    <div v-if="scanResult || !gatewaysLoading" class="stats-info">
+      <div v-if="scanResult" class="scan-stats">
+        <span class="stat-item online">
+          <span class="stat-label">在线:</span>
+          <span class="stat-value">{{ scannedDeviceCount }}</span>
+        </span>
+        <span class="stat-item offline">
+          <span class="stat-label">离线:</span>
+          <span class="stat-value">{{ offlineDeviceCount }}</span>
+        </span>
+        <span class="stat-item abnormal">
+          <span class="stat-label">异常:</span>
+          <span class="stat-value">{{ abnormalDeviceCount }}</span>
+        </span>
+        <span v-if="scanResult.cached_at" class="stat-item">
+          <span class="stat-label">缓存更新:</span>
+          <span class="stat-value cache-time">{{ formatCacheTime(scanResult.cached_at) }}</span>
+        </span>
+        <span v-if="scanResult.refreshing" class="stat-item">
+          <span class="stat-label">后台扫描中...</span>
+        </span>
       </div>
       <div class="gateway-list">
         <el-tag
@@ -52,43 +68,9 @@
           {{ gateway.gateway }} · {{ gateway.scan_range }}
         </el-tag>
         <span v-if="!gatewaysLoading && scanGateways.length === 0" class="gateway-empty">
-          未配置或无法读取扫描网关时，使用服务器当前网段
+          未配置扫描网关
         </span>
       </div>
-    </section>
-
-    <div class="stats-info" v-if="scanResult">
-      <span class="stat-item">
-        <span class="stat-label">扫描网段:</span>
-        <span class="stat-value">{{ scanResult.scan_network }}</span>
-      </span>
-      <span v-if="scanResult.scan_gateways?.length" class="stat-item">
-        <span class="stat-label">扫描网关:</span>
-        <span class="stat-value">{{ scanResult.scan_gateways.join(', ') }}</span>
-      </span>
-      <span class="stat-item">
-        <span class="stat-label">服务器:</span>
-        <span class="stat-value">{{ scanResult.server_ip || scanResult.gateway }}</span>
-      </span>
-      <span class="stat-item online">
-        <span class="stat-label">在线:</span>
-        <span class="stat-value">{{ scannedDeviceCount }}</span>
-      </span>
-      <span class="stat-item offline">
-        <span class="stat-label">离线:</span>
-        <span class="stat-value">{{ offlineDeviceCount }}</span>
-      </span>
-      <span class="stat-item abnormal">
-        <span class="stat-label">异常:</span>
-        <span class="stat-value">{{ abnormalDeviceCount }}</span>
-      </span>
-      <span v-if="scanResult.cached_at" class="stat-item">
-        <span class="stat-label">缓存更新:</span>
-        <span class="stat-value cache-time">{{ formatCacheTime(scanResult.cached_at) }}</span>
-      </span>
-      <span v-if="scanResult.refreshing" class="stat-item">
-        <span class="stat-label">后台扫描中...</span>
-      </span>
     </div>
 
     <el-alert
@@ -121,8 +103,8 @@
       description="暂无设备缓存，请点击刷新"
     />
 
-    <div v-else-if="scanResult?.online_robots.length" class="device-list">
-      <template v-for="robot in scanResult.online_robots" :key="robot.ip">
+    <div v-else-if="filteredOnlineRobots.length" class="device-list">
+      <template v-for="robot in filteredOnlineRobots" :key="robot.ip">
         <div class="device-row" @click="handleOpenControl(robot)">
           <div class="device-thumb">
             <img src="@/assets/FLEX-MDypp_Sf.png" alt="Robot" />
@@ -170,10 +152,41 @@
       </template>
     </div>
 
-    <el-empty
-      v-else-if="scanResult && scanResult.online_robots.length === 0"
-      description="未发现在线设备"
-    />
+    <el-empty v-else-if="scanResult" :description="emptyDeviceDescription" />
+
+    <el-dialog
+      v-model="gatewayDialogVisible"
+      title="增加扫描网关"
+      width="420px"
+      destroy-on-close
+      @closed="resetGatewayForm"
+    >
+      <el-form
+        ref="gatewayFormRef"
+        :model="gatewayForm"
+        :rules="gatewayRules"
+        label-position="top"
+        @submit.prevent
+      >
+        <el-form-item label="网关 IP" prop="gateway">
+          <el-input
+            v-model="gatewayForm.gateway"
+            clearable
+            autofocus
+            placeholder="例如 192.168.6.1"
+            @keyup.enter="handleAddGateway"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="gatewaySaving" @click="gatewayDialogVisible = false">
+          取消
+        </el-button>
+        <el-button type="primary" :loading="gatewaySaving" @click="handleAddGateway">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="infoDialogVisible"
@@ -202,8 +215,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { robotApi, type RobotInfo, type RobotScanGateway } from '@/scripts/api'
-import { InfoFilled, Loading, MoreFilled, Search, WarningFilled } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { InfoFilled, Loading, MoreFilled, Plus, Search, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import RobotInfoTable from '@/views/devices/components/RobotInfoTable.vue'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 
@@ -217,7 +230,15 @@ const infoLoading = ref(false)
 const infoRobot = ref<RobotInfo | null>(null)
 const scanPort = ref(31950)
 const scanGateways = ref<RobotScanGateway[]>([])
-const newGateway = ref('')
+const deviceSearchQuery = ref('')
+const gatewayDialogVisible = ref(false)
+const gatewayFormRef = ref<FormInstance>()
+const gatewayForm = ref({ gateway: '' })
+const gatewayRules: FormRules = {
+  gateway: [
+    { required: true, whitespace: true, message: '请输入扫描网关 IP', trigger: ['blur', 'change'] }
+  ]
+}
 const gatewaysLoading = ref(true)
 const gatewaySaving = ref(false)
 const initialLoading = ref(true)
@@ -309,20 +330,29 @@ function normalizeApiError(error: any): string {
 }
 
 const handleAddGateway = async () => {
-  const gateway = newGateway.value.trim()
-  if (!gateway) return
+  if (!gatewayFormRef.value || gatewaySaving.value) return
+
+  const valid = await gatewayFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  const gateway = gatewayForm.value.gateway.trim()
 
   gatewaySaving.value = true
   try {
     await robotApi.addScanGateway(gateway)
-    newGateway.value = ''
     await fetchScanGateways()
+    gatewayDialogVisible.value = false
     ElMessage.success('扫描网关已保存')
   } catch (error: any) {
     ElMessage.error('保存扫描网关失败: ' + normalizeApiError(error))
   } finally {
     gatewaySaving.value = false
   }
+}
+
+const resetGatewayForm = () => {
+  gatewayForm.value.gateway = ''
+  gatewayFormRef.value?.clearValidate()
 }
 
 const handleDeleteGateway = async (gateway: string) => {
@@ -374,6 +404,19 @@ const handleOpenControl = (robot: RobotInfo) => {
 }
 
 const scannedDeviceCount = computed(() => scanResult.value?.online_robots.length ?? 0)
+const filteredOnlineRobots = computed(() => {
+  const robots = scanResult.value?.online_robots ?? []
+  const query = deviceSearchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return robots
+
+  return robots.filter((robot) => {
+    const name = robot.name?.trim().toLocaleLowerCase() ?? ''
+    return robot.ip.toLocaleLowerCase().includes(query) || name.includes(query)
+  })
+})
+const emptyDeviceDescription = computed(() => (
+  deviceSearchQuery.value.trim() ? '未找到匹配的在线设备' : '未发现在线设备'
+))
 const offlineDeviceCount = computed(() => {
   if (!scanResult.value) return 0
   return scanResult.value.offline_count
@@ -463,29 +506,25 @@ onMounted(async () => {
   width: 86px;
 }
 
-.gateway-config {
+.device-toolbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 14px;
   margin-top: 14px;
-  padding: 12px 0;
+  padding-top: 12px;
   border-top: 1px solid var(--console-border);
 }
 
-.gateway-editor {
-  display: flex;
-  flex: 0 0 340px;
-  gap: 8px;
-}
-
-.gateway-input {
-  min-width: 0;
+.device-search-input {
+  width: min(360px, 100%);
 }
 
 .gateway-list {
   display: flex;
   flex: 1;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   min-height: 28px;
 }
@@ -502,11 +541,20 @@ onMounted(async () => {
 
 .stats-info {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 18px;
-  margin: 0;
+  margin-top: 10px;
   padding: 12px 0;
   border-bottom: 1px solid var(--console-border);
+}
+
+.scan-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
 }
 
 .stat-item {
@@ -668,18 +716,13 @@ onMounted(async () => {
 @media (max-width: 760px) {
   .page-header,
   .header-tools,
-  .gateway-config,
-  .gateway-editor {
+  .device-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .gateway-editor {
-    flex-basis: auto;
-  }
-
   .scan-port-input,
-  .gateway-input {
+  .device-search-input {
     width: 100%;
   }
 

@@ -2,7 +2,7 @@
   <div class="agent-page">
     <header class="agent-header">
       <a class="agent-title-block" href="/" aria-label="生产助手，返回生产测试首页">
-        <span class="agent-title-icon"><Bot :size="20" aria-hidden="true" /></span>
+        <span class="agent-title-icon"><Bot :size="24" :stroke-width="2.2" aria-hidden="true" /></span>
         <div>
           <h1>生产助手</h1>
           <p class="agent-model-line">
@@ -34,8 +34,15 @@
           <h2>快捷任务</h2>
         </div>
         <div class="agent-shortcuts">
-          <button v-for="prompt in quickPrompts" :key="prompt" type="button" @click="selectPrompt(prompt)">
-            <span>{{ prompt }}</span>
+          <button
+            v-for="prompt in quickPrompts"
+            :key="prompt"
+            type="button"
+            :title="prompt"
+            :disabled="streaming || connectionState === 'unconfigured'"
+            @click="sendMessage(prompt)"
+          >
+            <span>{{ truncatePrompt(prompt) }}</span>
             <ArrowUpRight :size="15" aria-hidden="true" />
           </button>
         </div>
@@ -70,10 +77,71 @@
                   <time>{{ formatTime(item.createdAt) }}</time>
                 </header>
 
-                <div v-if="item.pending && !item.content" class="agent-thinking" aria-label="正在生成">
+                <details
+                  v-if="item.toolActivities?.length"
+                  class="agent-think"
+                  :class="{ 'has-error': hasFailedTool(item.toolActivities) }"
+                >
+                  <summary>
+                    <LoaderCircle
+                      v-if="hasRunningTool(item.toolActivities)"
+                      :size="14"
+                      class="is-spinning"
+                      aria-hidden="true"
+                    />
+                    <CircleAlert
+                      v-else-if="hasFailedTool(item.toolActivities)"
+                      :size="14"
+                      aria-hidden="true"
+                    />
+                    <CircleCheck v-else :size="14" aria-hidden="true" />
+                    <strong>Thinking</strong>
+                    <span>{{ toolSummary(item.toolActivities) }}</span>
+                    <ChevronDown :size="14" class="agent-think-chevron" aria-hidden="true" />
+                  </summary>
+                  <div class="agent-tool-list" aria-label="工具执行记录">
+                    <div
+                      v-for="activity in item.toolActivities"
+                      :key="activity.id"
+                      class="agent-tool-item"
+                      :class="`is-${activity.status}`"
+                    >
+                      <LoaderCircle v-if="activity.status === 'running'" :size="14" class="is-spinning" aria-hidden="true" />
+                      <CircleCheck v-else-if="activity.status === 'success'" :size="14" aria-hidden="true" />
+                      <CircleAlert v-else :size="14" aria-hidden="true" />
+                      <span class="agent-tool-name">
+                        <span>{{ toolDisplayName(activity.name) }}</span>
+                        <code>{{ activity.name }}</code>
+                      </span>
+                      <small v-if="activity.status === 'running'">执行中</small>
+                      <small v-else-if="activity.status === 'success'">{{ activity.durationMs ? `${activity.durationMs} ms` : '完成' }}</small>
+                      <small v-else :title="activity.error">失败</small>
+                    </div>
+                  </div>
+                </details>
+
+                <div
+                  v-if="item.pending && !item.content && !item.toolActivities?.length"
+                  class="agent-thinking"
+                  aria-label="正在生成"
+                >
                   <i></i><i></i><i></i>
                 </div>
-                <p v-else-if="item.role === 'user'" class="agent-user-text">{{ item.content }}</p>
+                <template v-else-if="item.role === 'user'">
+                  <p class="agent-user-text">{{ item.displayContent || item.content }}</p>
+                  <div v-if="item.attachments?.length" class="agent-message-attachments">
+                    <span
+                      v-for="file in item.attachments"
+                      :key="`${item.id}-${file.name}`"
+                      class="agent-attachment-chip"
+                      :title="file.truncated ? `${file.name}（内容已截断）` : file.name"
+                    >
+                      <Paperclip :size="13" aria-hidden="true" />
+                      <span>{{ file.name }}</span>
+                      <small>{{ formatBytes(file.size) }}</small>
+                    </span>
+                  </div>
+                </template>
                 <div v-else class="agent-markdown" v-html="renderMarkdown(item.content)"></div>
 
                 <footer v-if="item.role === 'assistant' && item.content && !item.pending">
@@ -94,22 +162,69 @@
             <CircleAlert :size="15" aria-hidden="true" />
             <span>{{ composerNotice }}</span>
           </div>
-          <div class="agent-composer" :class="{ 'is-focused': composerFocused }">
+          <div
+            class="agent-composer"
+            :class="{ 'is-focused': composerFocused, 'is-dragging': isDraggingFiles }"
+            @dragenter.prevent="onComposerDragEnter"
+            @dragover.prevent="onComposerDragOver"
+            @dragleave.prevent="onComposerDragLeave"
+            @drop.prevent="onComposerDrop"
+          >
+            <div v-if="pendingAttachments.length" class="agent-pending-attachments">
+              <span
+                v-for="file in pendingAttachments"
+                :key="file.id"
+                class="agent-attachment-chip is-pending"
+              >
+                <Paperclip :size="13" aria-hidden="true" />
+                <span>{{ file.name }}</span>
+                <small>{{ formatBytes(file.size) }}</small>
+                <button
+                  type="button"
+                  :aria-label="`移除 ${file.name}`"
+                  :disabled="streaming"
+                  @click="removePendingAttachment(file.id)"
+                >
+                  <X :size="13" aria-hidden="true" />
+                </button>
+              </span>
+            </div>
             <textarea
               ref="composer"
               v-model="draft"
               rows="3"
               maxlength="20000"
-              placeholder="输入生产问题..."
+              placeholder="输入生产问题，或上传 CSV / 文本文件…"
               :disabled="streaming"
               @focus="composerFocused = true"
               @blur="composerFocused = false"
-              @keydown.enter.exact.prevent="sendMessage"
-              @keydown.meta.enter.prevent="sendMessage"
-              @keydown.ctrl.enter.prevent="sendMessage"
+              @paste="onComposerPaste"
+              @keydown.enter.exact.prevent="sendMessage()"
+              @keydown.meta.enter.prevent="sendMessage()"
+              @keydown.ctrl.enter.prevent="sendMessage()"
             ></textarea>
             <div class="agent-composer-actions">
-              <span>Shift + Enter 换行</span>
+              <div class="agent-composer-tools">
+                <input
+                  ref="fileInput"
+                  class="agent-file-input"
+                  type="file"
+                  multiple
+                  :accept="ATTACHMENT_ACCEPT"
+                  @change="onFileInputChange"
+                />
+                <button
+                  class="agent-attach-button"
+                  type="button"
+                  title="上传文件"
+                  aria-label="上传文件"
+                  :disabled="streaming || connectionState === 'unconfigured'"
+                  @click="openFilePicker"
+                >
+                  <Paperclip :size="16" aria-hidden="true" />
+                </button>
+                <span>支持 CSV / TXT / JSON 等文本，Shift + Enter 换行</span>
+              </div>
               <button
                 v-if="streaming"
                 class="agent-stop-button"
@@ -127,7 +242,7 @@
                 title="发送消息"
                 aria-label="发送消息"
                 :disabled="!canSend"
-                @click="sendMessage"
+                @click="sendMessage()"
               >
                 <Send :size="18" aria-hidden="true" />
               </button>
@@ -149,17 +264,22 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
+  CircleCheck,
   Copy,
+  LoaderCircle,
+  Paperclip,
   Send,
   Sparkles,
   Square,
   Trash2,
   User,
+  X,
 } from '@lucide/vue'
 import {
   useProductionAgent,
   type AgentChatMessage,
   type AgentChatRole,
+  type AgentToolEventData,
 } from '@/scripts/modules/agent/useProductionAgent'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
 
@@ -167,35 +287,117 @@ interface ConversationMessage {
   id: string
   role: AgentChatRole
   content: string
+  displayContent?: string
   createdAt: string
   pending?: boolean
   stopped?: boolean
   welcome?: boolean
+  toolActivities?: ToolActivity[]
+  attachments?: MessageAttachment[]
+}
+
+interface MessageAttachment {
+  name: string
+  size: number
+  truncated?: boolean
+}
+
+interface PendingAttachment extends MessageAttachment {
+  id: string
+  text: string
+}
+
+interface ToolActivity {
+  id: string
+  name: string
+  status: 'running' | 'success' | 'error'
+  durationMs?: number
+  error?: string
 }
 
 const STORAGE_KEY = 'production-agent-conversation-v1'
 const MAX_STORED_MESSAGES = 30
+const TYPEWRITER_INTERVAL_MS = 24
+const MAX_ATTACHMENTS = 5
+const MAX_ATTACHMENT_BYTES = 512 * 1024
+const MAX_ATTACHMENT_CHARS = 24_000
+const MAX_MESSAGE_CHARS = 100_000
+const ATTACHMENT_EXTENSIONS = new Set([
+  'csv', 'tsv', 'txt', 'log', 'json', 'md', 'markdown', 'xml', 'yaml', 'yml', 'ini', 'cfg', 'conf',
+])
+const ATTACHMENT_ACCEPT = [...ATTACHMENT_EXTENSIONS].map(ext => `.${ext}`).join(',')
+
 const quickPrompts = [
-  '排查数据上传失败',
-  '梳理机器人连接故障',
-  '分析 SOP 与 BOM 差异',
-  '制定测试异常检查清单',
+  '汇总今天的数据上传成功率和主要失败原因',
+  '查询当前在线设备并总结异常状态',
+  '分析最近的产品测试数据和质量风险',
+  '从知识库检索 SOP 与 BOM 核对方法，并说明常用检查步骤',
+  '帮我检查谷歌表格数据：请先让我提供表格链接或工作表范围；读取后核对空值、重复项、格式异常和明显错误，并给出修正建议。写入前先说明影响并等待确认。',
+  '帮我编辑谷歌表格数据：请先确认表格链接、目标工作表和要修改的内容；先读取现状，说明具体变更范围，确认后再执行写入。',
+  '请根据我上传的 CSV/文本附件检查字段完整性、重复条码、异常结果和常见格式问题，并总结风险与建议。若还没上传附件，先提醒我上传。',
 ]
+
+const QUICK_PROMPT_DISPLAY_LIMIT = 30
+
+function truncatePrompt(prompt: string): string {
+  const text = prompt.trim()
+  if (text.length <= QUICK_PROMPT_DISPLAY_LIMIT) return text
+  return `${text.slice(0, QUICK_PROMPT_DISPLAY_LIMIT)}...`
+}
+
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  get_current_time: '读取当前时间',
+  get_platform_overview: '查询平台概览',
+  query_upload_records: '查询上传记录',
+  analyze_upload_records: '分析上传数据',
+  query_products: '查询产品数据',
+  query_unit_tracker: '查询 Unit Tracker',
+  list_data_links: '读取数据链接',
+  list_test_data_collections: '读取测试数据集合',
+  query_test_data: '查询测试数据',
+  query_devices: '查询设备',
+  query_version_history: '查询版本',
+  query_protocol_monitor: '查询 Protocol 监控',
+  query_workflows: '查询工作流',
+  query_test_cases: '查询测试用例',
+  search_sop_catalog: '检索 SOP',
+  query_platform_messages: '查询平台消息',
+  query_platform_database: '读取数据库',
+  aggregate_platform_database: '分析数据库',
+  get_spreadsheet_info: '读取表格信息',
+  read_sheet_range: '读取表格',
+  create_spreadsheet: '新建表格',
+  add_sheet: '新增工作表',
+  update_sheet_range: '更新表格',
+  append_sheet_rows: '追加表格数据',
+  clear_sheet_range: '清空表格区域',
+  copy_sheet: '复制工作表',
+  search_knowledge: '检索知识库',
+  list_knowledge: '读取知识库',
+  save_knowledge: '保存知识',
+  delete_knowledge: '删除知识',
+}
 
 marked.setOptions({ breaks: true, gfm: true })
 
 const { chat, getStatus, stop, streaming } = useProductionAgent()
 const messages = ref<ConversationMessage[]>(loadConversation())
 const draft = ref('')
+const pendingAttachments = ref<PendingAttachment[]>([])
 const messageList = ref<HTMLElement | null>(null)
 const composer = ref<HTMLTextAreaElement | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 const composerFocused = ref(false)
+const isDraggingFiles = ref(false)
+const attachmentError = ref('')
 const modelName = ref('')
 const selectedModel = ref('deepseek')
 const connectionState = ref<'loading' | 'ready' | 'unconfigured' | 'unavailable'>('loading')
 const copiedMessageId = ref('')
 let copyResetTimer: ReturnType<typeof setTimeout> | undefined
 let activeAssistantMessage: ConversationMessage | null = null
+let cancelActiveTypewriter: (() => void) | null = null
+let dragDepth = 0
 
 const connectionLabel = computed(() => {
   if (connectionState.value === 'ready') return modelName.value || '已连接'
@@ -205,13 +407,14 @@ const connectionLabel = computed(() => {
 })
 
 const composerNotice = computed(() => {
+  if (attachmentError.value) return attachmentError.value
   if (connectionState.value === 'unconfigured') return '后端未配置 PRODUCTION_PLATFORM_LLM_API_KEY'
   if (connectionState.value === 'unavailable') return '暂时无法读取助手状态，仍可尝试发送消息'
   return ''
 })
 
 const canSend = computed(() => (
-  Boolean(draft.value.trim())
+  Boolean(draft.value.trim() || pendingAttachments.value.length)
   && !streaming.value
   && connectionState.value !== 'unconfigured'
 ))
@@ -220,7 +423,7 @@ function createWelcomeMessage(): ConversationMessage {
   return {
     id: 'welcome',
     role: 'assistant',
-    content: '你好，我是小创同学。今天需要处理哪项生产问题？',
+    content: '你好，我是小创同学。今天需要处理哪项生产问题？可直接提问，或上传 CSV / 文本后一起分析。',
     createdAt: new Date().toISOString(),
     welcome: true,
   }
@@ -247,10 +450,136 @@ function persistConversation(): void {
     const stored = messages.value
       .filter(item => !item.welcome && !item.pending && item.content.trim())
       .slice(-MAX_STORED_MESSAGES)
+      .map(item => ({
+        id: item.id,
+        role: item.role,
+        content: item.content,
+        displayContent: item.displayContent,
+        createdAt: item.createdAt,
+        stopped: item.stopped,
+        attachments: item.attachments,
+      }))
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
   } catch {
     // Conversation remains usable when browser storage is unavailable.
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB']
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** unitIndex
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
+}
+
+function fileExtension(name: string): string {
+  const parts = name.toLowerCase().split('.')
+  return parts.length > 1 ? parts.at(-1) || '' : ''
+}
+
+function isSupportedAttachment(file: File): boolean {
+  if (ATTACHMENT_EXTENSIONS.has(fileExtension(file.name))) return true
+  return Boolean(file.type && (file.type.startsWith('text/') || file.type === 'application/json'))
+}
+
+function buildMessageContent(text: string, attachments: PendingAttachment[]): string {
+  const sections: string[] = []
+  if (text.trim()) sections.push(text.trim())
+  for (const file of attachments) {
+    const note = file.truncated ? '（内容已截断）' : ''
+    sections.push(`附件: ${file.name}${note}\n\`\`\`\n${file.text}\n\`\`\``)
+  }
+  return sections.join('\n\n').slice(0, MAX_MESSAGE_CHARS)
+}
+
+function setComposerFeedback(message: string): void {
+  attachmentError.value = message
+  if (!message) return
+  window.setTimeout(() => {
+    if (attachmentError.value === message) attachmentError.value = ''
+  }, 4200)
+}
+
+async function readAttachment(file: File): Promise<PendingAttachment> {
+  if (!isSupportedAttachment(file)) {
+    throw new Error(`暂不支持 ${file.name}，请上传 CSV / TXT / JSON 等文本文件`)
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    throw new Error(`${file.name} 超过 ${formatBytes(MAX_ATTACHMENT_BYTES)} 限制`)
+  }
+  const raw = await file.text()
+  const truncated = raw.length > MAX_ATTACHMENT_CHARS
+  return {
+    id: messageId(),
+    name: file.name,
+    size: file.size,
+    truncated,
+    text: truncated ? `${raw.slice(0, MAX_ATTACHMENT_CHARS)}\n…` : raw,
+  }
+}
+
+async function addFiles(fileList: FileList | File[]): Promise<void> {
+  const files = Array.from(fileList)
+  if (!files.length) return
+  const remaining = MAX_ATTACHMENTS - pendingAttachments.value.length
+  if (remaining <= 0) {
+    setComposerFeedback(`最多上传 ${MAX_ATTACHMENTS} 个附件`)
+    return
+  }
+  const selected = files.slice(0, remaining)
+  try {
+    const next = await Promise.all(selected.map(readAttachment))
+    pendingAttachments.value = [...pendingAttachments.value, ...next]
+    if (files.length > remaining) {
+      setComposerFeedback(`最多上传 ${MAX_ATTACHMENTS} 个附件，已忽略多余文件`)
+    }
+  } catch (error) {
+    setComposerFeedback(error instanceof Error ? error.message : '读取附件失败')
+  }
+}
+
+function removePendingAttachment(id: string): void {
+  pendingAttachments.value = pendingAttachments.value.filter(item => item.id !== id)
+}
+
+function openFilePicker(): void {
+  fileInput.value?.click()
+}
+
+async function onFileInputChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  await addFiles(input.files || [])
+  input.value = ''
+}
+
+async function onComposerPaste(event: ClipboardEvent): Promise<void> {
+  const files = Array.from(event.clipboardData?.files || [])
+  if (!files.length) return
+  event.preventDefault()
+  await addFiles(files)
+}
+
+function onComposerDragEnter(event: DragEvent): void {
+  if (!event.dataTransfer?.types.includes('Files')) return
+  dragDepth += 1
+  isDraggingFiles.value = true
+}
+
+function onComposerDragOver(event: DragEvent): void {
+  if (!event.dataTransfer?.types.includes('Files')) return
+  isDraggingFiles.value = true
+}
+
+function onComposerDragLeave(): void {
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (dragDepth === 0) isDraggingFiles.value = false
+}
+
+async function onComposerDrop(event: DragEvent): Promise<void> {
+  dragDepth = 0
+  isDraggingFiles.value = false
+  await addFiles(event.dataTransfer?.files || [])
 }
 
 function messageId(): string {
@@ -284,19 +613,80 @@ async function scrollToBottom(behavior: ScrollBehavior = 'smooth'): Promise<void
   element.scrollTo({ top: element.scrollHeight, behavior })
 }
 
-function waitNextFrame(): Promise<void> {
-  return new Promise(resolve => requestAnimationFrame(() => resolve()))
+function toolDisplayName(name: string): string {
+  return TOOL_DISPLAY_NAMES[name] || name
 }
 
-function selectPrompt(prompt: string): void {
-  draft.value = prompt
-  void nextTick(() => composer.value?.focus())
+function hasRunningTool(activities: ToolActivity[]): boolean {
+  return activities.some(activity => activity.status === 'running')
+}
+
+function hasFailedTool(activities: ToolActivity[]): boolean {
+  return activities.some(activity => activity.status === 'error')
+}
+
+function toolSummary(activities: ToolActivity[]): string {
+  const running = [...activities].reverse().find(activity => activity.status === 'running')
+  if (running) return `正在调用 ${toolDisplayName(running.name)}`
+  const failures = activities.filter(activity => activity.status === 'error').length
+  if (failures) return `${activities.length} 次调用，${failures} 次失败`
+  return `${activities.length} 次工具调用`
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+function createTypewriter(message: ConversationMessage) {
+  const queue: string[] = []
+  let cancelled = false
+  let pumpPromise: Promise<void> | null = null
+  let renderCount = 0
+
+  async function pump(): Promise<void> {
+    while (!cancelled && queue.length) {
+      const batchSize = queue.length > 480 ? 6 : queue.length > 240 ? 4 : queue.length > 80 ? 2 : 1
+      message.content += queue.splice(0, batchSize).join('')
+      renderCount += 1
+      await nextTick()
+      if (renderCount % 2 === 0 || queue.length === 0) await scrollToBottom('auto')
+      await wait(TYPEWRITER_INTERVAL_MS)
+    }
+  }
+
+  function start(): void {
+    if (cancelled || pumpPromise || queue.length === 0) return
+    pumpPromise = pump().finally(() => {
+      pumpPromise = null
+      if (!cancelled && queue.length) start()
+    })
+  }
+
+  return {
+    enqueue(content: string): void {
+      if (!content || cancelled) return
+      queue.push(...Array.from(content))
+      start()
+    },
+    async drain(): Promise<void> {
+      while (!cancelled && (pumpPromise || queue.length)) {
+        start()
+        if (pumpPromise) await pumpPromise
+      }
+    },
+    cancel(): void {
+      cancelled = true
+      queue.length = 0
+    },
+  }
 }
 
 function clearConversation(): void {
   if (streaming.value) stopGeneration()
   messages.value = [createWelcomeMessage()]
   draft.value = ''
+  pendingAttachments.value = []
+  attachmentError.value = ''
   persistConversation()
 }
 
@@ -313,6 +703,8 @@ async function copyMessage(item: ConversationMessage): Promise<void> {
 
 function stopGeneration(): void {
   stop()
+  cancelActiveTypewriter?.()
+  cancelActiveTypewriter = null
   if (activeAssistantMessage) {
     activeAssistantMessage.pending = false
     activeAssistantMessage.stopped = true
@@ -321,30 +713,44 @@ function stopGeneration(): void {
   persistConversation()
 }
 
-async function sendMessage(): Promise<void> {
-  const content = draft.value.trim()
-  if (!content || !canSend.value) return
+async function sendMessage(quickPrompt?: string): Promise<void> {
+  const typed = (quickPrompt ?? draft.value).trim()
+  const attachments = [...pendingAttachments.value]
+  if ((!typed && !attachments.length) || streaming.value || connectionState.value === 'unconfigured') return
 
+  const displayContent = typed || (attachments.length ? '请根据附件内容分析' : '')
+  const content = buildMessageContent(displayContent, attachments)
   messages.value.push({
     id: messageId(),
     role: 'user',
     content,
+    displayContent,
     createdAt: new Date().toISOString(),
+    attachments: attachments.map(file => ({
+      name: file.name,
+      size: file.size,
+      truncated: file.truncated,
+    })),
   })
-  draft.value = ''
+  if (quickPrompt === undefined) draft.value = ''
+  pendingAttachments.value = []
+  attachmentError.value = ''
 
-  const assistantMessage: ConversationMessage = {
+  messages.value.push({
     id: messageId(),
     role: 'assistant',
     content: '',
     createdAt: new Date().toISOString(),
     pending: true,
-  }
-  messages.value.push(assistantMessage)
+    toolActivities: [],
+  })
+  const assistantMessage = messages.value[messages.value.length - 1]
   activeAssistantMessage = assistantMessage
+  const typewriter = createTypewriter(assistantMessage)
+  cancelActiveTypewriter = typewriter.cancel
   await scrollToBottom()
 
-  let streamingText = ''
+  let receivedText = ''
   let finalContent = ''
   let streamError = ''
   await chat(
@@ -352,36 +758,58 @@ async function sendMessage(): Promise<void> {
     '当前页面：生产助手',
     {
       async onChunk(chunk) {
-        streamingText += chunk
-        assistantMessage.content = streamingText
-        await nextTick()
-        await waitNextFrame()
-        await scrollToBottom('auto')
+        receivedText += chunk
+        typewriter.enqueue(chunk)
       },
       async onDone(content) {
-        finalContent = content || streamingText
-        if (!assistantMessage.stopped && finalContent) {
-          assistantMessage.content = finalContent
-          assistantMessage.pending = false
-          await nextTick()
-          await waitNextFrame()
-          await scrollToBottom('auto')
+        finalContent = content || receivedText
+        if (!assistantMessage.stopped && finalContent.startsWith(receivedText)) {
+          typewriter.enqueue(finalContent.slice(receivedText.length))
         }
+        await typewriter.drain()
+        if (!assistantMessage.stopped && finalContent && assistantMessage.content !== finalContent) {
+          assistantMessage.content = finalContent
+        }
+        assistantMessage.pending = false
+        await scrollToBottom('auto')
       },
       onError(message) {
         streamError = message
       },
+      async onToolStart(data: AgentToolEventData) {
+        const activities = assistantMessage.toolActivities || (assistantMessage.toolActivities = [])
+        activities.push({ id: data.call_id, name: data.name, status: 'running' })
+        await nextTick()
+        await scrollToBottom('auto')
+      },
+      async onToolResult(data: AgentToolEventData) {
+        const activities = assistantMessage.toolActivities || (assistantMessage.toolActivities = [])
+        let activity = activities.find(item => item.id === data.call_id)
+        if (!activity) {
+          activity = { id: data.call_id, name: data.name, status: data.ok ? 'success' : 'error' }
+          activities.push(activity)
+        }
+        if (activity) {
+          activity.status = data.ok ? 'success' : 'error'
+          activity.durationMs = data.duration_ms
+          activity.error = data.error
+        }
+        await nextTick()
+        await scrollToBottom('auto')
+      },
     },
   )
 
+  await typewriter.drain()
   if (streamError) {
     assistantMessage.content = assistantMessage.content
       ? `${assistantMessage.content}\n\n> 请求中断：${streamError}`
       : `请求失败：${streamError}`
   } else if (!assistantMessage.stopped) {
-    assistantMessage.content = finalContent || streamingText
+    assistantMessage.content = finalContent || receivedText
   }
 
+  if (cancelActiveTypewriter === typewriter.cancel) cancelActiveTypewriter = null
   if (activeAssistantMessage === assistantMessage) activeAssistantMessage = null
   assistantMessage.pending = false
   if (!assistantMessage.content) assistantMessage.content = '模型未返回内容。'
@@ -407,6 +835,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (streaming.value) stop()
+  cancelActiveTypewriter?.()
   if (copyResetTimer) clearTimeout(copyResetTimer)
 })
 </script>
@@ -450,13 +879,13 @@ onBeforeUnmount(() => {
 
 .agent-title-icon {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   place-items: center;
-  border: 1px solid #acd0c7;
   border-radius: 8px;
-  color: var(--agent-green);
-  background: #e3f0ec;
+  color: #155e52;
+  background: #c8f0e4;
 }
 
 .agent-title-block h1 {
@@ -558,6 +987,8 @@ onBeforeUnmount(() => {
 .agent-shortcuts {
   display: grid;
   gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .agent-shortcuts button {
@@ -586,7 +1017,87 @@ onBeforeUnmount(() => {
   background: #ffffff;
 }
 
+.agent-shortcuts button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .agent-shortcuts button svg { color: #87938f; }
+
+.agent-think {
+  width: min(100%, 520px);
+  margin: 2px 0 10px;
+  border: 1px solid #d7e1dc;
+  border-radius: 6px;
+  color: #53615d;
+  background: #f7faf8;
+}
+
+.agent-think summary {
+  display: grid;
+  min-height: 34px;
+  grid-template-columns: 16px auto minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.agent-think summary::-webkit-details-marker { display: none; }
+.agent-think summary:hover { background: #eef5f1; }
+.agent-think summary:focus-visible { outline: 2px solid #6ba89b; outline-offset: 2px; }
+.agent-think summary strong { color: #34433f; font-size: 12px; letter-spacing: 0; }
+.agent-think summary span { min-width: 0; overflow: hidden; color: #74817d; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.agent-think summary > svg:first-child { color: var(--agent-green); }
+.agent-think.has-error summary > svg:first-child { color: #a43f3f; }
+
+.agent-think-chevron {
+  color: #87938f;
+  transition: transform 160ms ease;
+}
+
+.agent-think[open] .agent-think-chevron { transform: rotate(180deg); }
+
+.agent-tool-list {
+  display: grid;
+  padding: 2px 9px 7px 32px;
+  border-top: 1px solid #e2e9e5;
+}
+
+.agent-tool-item {
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 0;
+  border-bottom: 1px solid #e4ebe7;
+  color: #53615d;
+  font-size: 12px;
+}
+
+.agent-tool-item:last-child { border-bottom: 0; }
+.agent-tool-item.is-success > svg { color: #176b5f; }
+.agent-tool-item.is-error > svg { color: #a43f3f; }
+.agent-tool-item small { color: #87938f; font-size: 10px; white-space: nowrap; }
+
+.agent-tool-name {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.agent-tool-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-tool-name code { overflow: hidden; color: #8b9692; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+
+.is-spinning { animation: agent-spin 0.9s linear infinite; }
+
+@keyframes agent-spin {
+  to { transform: rotate(360deg); }
+}
 
 .agent-rail-status {
   display: grid;
@@ -712,19 +1223,74 @@ onBeforeUnmount(() => {
 .agent-markdown,
 .agent-user-text {
   margin: 0;
-  color: #25302d;
-  font-size: 14px;
-  line-height: 1.75;
-  letter-spacing: 0;
-}
-
-.agent-user-text {
   padding: 11px 14px;
   border: 1px solid #cad9df;
   border-radius: 8px 2px 8px 8px;
   color: #26363c;
   background: #e8f0f3;
+  font-size: 14px;
+  line-height: 1.75;
+  letter-spacing: 0;
   white-space: pre-wrap;
+}
+
+.agent-message-attachments,
+.agent-pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agent-message-attachments {
+  margin-top: 8px;
+}
+
+.agent-pending-attachments {
+  padding: 10px 12px 0;
+}
+
+.agent-attachment-chip {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid #c9d8d2;
+  border-radius: 6px;
+  color: #35534c;
+  background: #f3f8f6;
+  font-size: 12px;
+}
+
+.agent-attachment-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-attachment-chip small {
+  color: #7d8b86;
+  white-space: nowrap;
+}
+
+.agent-attachment-chip.is-pending button {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 4px;
+  color: #6d7a76;
+  background: transparent;
+  cursor: pointer;
+}
+
+.agent-attachment-chip.is-pending button:hover {
+  color: #a43f3f;
+  background: #f4e4e4;
 }
 
 .agent-markdown :deep(h1),
@@ -828,7 +1394,7 @@ onBeforeUnmount(() => {
 .agent-composer {
   display: grid;
   min-height: 104px;
-  grid-template-rows: minmax(58px, auto) 34px;
+  grid-template-rows: auto minmax(58px, auto) 34px;
   border: 1px solid #cbd7d1;
   border-radius: 8px;
   background: #ffffff;
@@ -838,6 +1404,12 @@ onBeforeUnmount(() => {
 .agent-composer.is-focused {
   border-color: #6ba89b;
   box-shadow: 0 0 0 3px rgba(23, 107, 95, 0.09), 0 8px 24px rgba(29, 48, 42, 0.08);
+}
+
+.agent-composer.is-dragging {
+  border-color: #6ba89b;
+  background: #f4fbf8;
+  box-shadow: 0 0 0 3px rgba(23, 107, 95, 0.12), 0 8px 24px rgba(29, 48, 42, 0.08);
 }
 
 .agent-composer textarea {
@@ -862,10 +1434,53 @@ onBeforeUnmount(() => {
   min-height: 34px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 7px 7px 14px;
+  gap: 10px;
+  padding: 0 7px 7px 8px;
 }
 
-.agent-composer-actions > span { color: #929c99; font-size: 10px; }
+.agent-composer-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-composer-tools > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #929c99;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-file-input {
+  display: none;
+}
+
+.agent-attach-button {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 1px solid #d2ddd8;
+  border-radius: 6px;
+  color: #5f6f6a;
+  background: #f7faf8;
+  cursor: pointer;
+}
+
+.agent-attach-button:hover {
+  color: var(--agent-green);
+  border-color: #9fc4bb;
+  background: #eef7f4;
+}
+
+.agent-attach-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
 .agent-send-button,
 .agent-stop-button {
@@ -899,7 +1514,7 @@ onBeforeUnmount(() => {
   }
 
   .agent-title-block { justify-self: start; }
-  .agent-title-icon { width: 34px; height: 34px; }
+  .agent-title-icon { width: 36px; height: 36px; flex-basis: 36px; }
   .agent-model-line span { max-width: 205px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .agent-icon-button { display: none; }
 
@@ -933,8 +1548,8 @@ onBeforeUnmount(() => {
   .agent-message.is-user { width: 94%; }
   .agent-composer-shell { padding: 9px 10px 12px; }
   .agent-composer { min-height: 94px; }
-  .agent-composer-actions > span { display: none; }
-  .agent-composer-actions { justify-content: flex-end; }
+  .agent-composer-tools > span { display: none; }
+  .agent-composer-actions { justify-content: space-between; }
   .agent-markdown, .agent-user-text { font-size: 13px; }
 }
 </style>

@@ -18,7 +18,7 @@ from modules.auth.store import AuthSession, AuthStore, AuthUser, utc_now
 JWT_ALGORITHM = "HS256"
 PASSWORD_HASH = PasswordHash.recommended()
 DUMMY_PASSWORD_HASH = PASSWORD_HASH.hash("production-platform-invalid-password")
-VALID_ROLES = {"admin", "operator", "viewer"}
+VALID_ROLES = {"admin", "operator", "viewer", "device_operator"}
 
 
 class AuthenticationError(Exception):

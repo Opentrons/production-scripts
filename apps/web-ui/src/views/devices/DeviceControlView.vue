@@ -64,8 +64,13 @@
     </div>
 
     <section v-else class="workbench">
-      <el-tabs v-model="activeTab" class="workbench-tabs" @tab-change="handleTabChange">
-        <el-tab-pane label="设备控制" name="control">
+      <el-tabs
+        v-model="activeTab"
+        class="workbench-tabs"
+        :before-leave="beforeTabLeave"
+        @tab-change="handleTabChange"
+      >
+        <el-tab-pane label="设备控制" name="control" lazy>
           <DeviceControlPanel :ip="selectedIp" />
         </el-tab-pane>
 
@@ -514,6 +519,237 @@
           </el-tabs>
         </el-tab-pane>
 
+        <el-tab-pane label="烧录代码" name="code-flash" lazy>
+          <DeviceCodeFlashPanel :ip="selectedIp" />
+        </el-tab-pane>
+
+        <el-tab-pane label="下载 Log" name="device-logs">
+          <section class="single-operation-panel">
+            <div v-if="!selectedIp" class="panel-empty">
+              <el-empty description="请先选择一台设备" />
+            </div>
+
+            <template v-else>
+              <el-tabs v-model="singleLogViewTab" class="log-view-tabs">
+                <el-tab-pane label="选择下载" name="select">
+              <div class="log-download-intro">
+                <div>
+                  <div class="log-section-title">下载当前设备诊断 Log</div>
+                  <div class="log-section-description">
+                    按 flex_diagnostics.sh 的收集方式在设备端打包，再保存到服务器目录。
+                  </div>
+                </div>
+                <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
+              </div>
+
+              <div v-loading="logOptionsLoading" class="log-option-section">
+                <div class="log-option-heading">
+                  <span>选择 Log 文件夹</span>
+                  <el-button size="small" text @click="toggleAllLogFolders">
+                    {{ areAllLogFoldersSelected ? '取消全选' : '全选' }}
+                  </el-button>
+                </div>
+                <el-checkbox-group v-model="selectedLogFolderKeys" class="log-folder-grid">
+                  <el-checkbox
+                    v-for="folder in logFolderOptions"
+                    :key="`single-log-${folder.key}`"
+                    :value="folder.key"
+                    class="log-folder-option"
+                  >
+                    <span class="log-folder-copy">
+                      <strong>{{ folder.label }}</strong>
+                      <small>{{ folder.description }}</small>
+                    </span>
+                  </el-checkbox>
+                </el-checkbox-group>
+              </div>
+
+              <div class="log-run-settings">
+                <div class="log-thread-summary">
+                  <span>{{ currentDeviceName }}</span>
+                  <span>{{ selectedIp }}</span>
+                </div>
+                <el-button
+                  type="primary"
+                  :loading="singleLogTaskStarting"
+                  :disabled="!canStartSingleLogDownload"
+                  @click="startSingleLogDownload"
+                >
+                  开始下载 Log
+                </el-button>
+              </div>
+
+              <section v-if="singleActiveLogTask" class="log-progress-panel">
+                <div class="log-progress-header">
+                  <div>
+                    <div class="log-section-title">下载进度</div>
+                    <div class="log-section-description">
+                      {{ singleActiveLogTask.completed_devices }} / {{ singleActiveLogTask.total_devices }} 台完成
+                    </div>
+                  </div>
+                  <el-tag :type="getLogStatusTagType(singleActiveLogTask.status)">
+                    {{ getLogStatusLabel(singleActiveLogTask.status) }}
+                  </el-tag>
+                </div>
+                <el-progress
+                  :percentage="singleActiveLogTask.progress"
+                  :status="getLogTaskProgressStatus(singleActiveLogTask)"
+                  :stroke-width="12"
+                />
+                <div class="log-task-stats">
+                  <span>成功 {{ singleActiveLogTask.successful_devices }}</span>
+                  <span>警告 {{ singleActiveLogTask.warning_devices || 0 }}</span>
+                  <span>失败 {{ singleActiveLogTask.failed_devices }}</span>
+                </div>
+
+                <div class="log-device-progress-list">
+                  <article
+                    v-for="device in singleActiveLogTask.devices"
+                    :key="`single-${device._id}`"
+                    class="log-device-progress-item"
+                  >
+                    <div class="log-device-progress-head">
+                      <div>
+                        <strong>{{ device.device_name }}</strong>
+                        <small>{{ device.robot_ip }}</small>
+                      </div>
+                      <el-tag size="small" :type="getLogStatusTagType(device.status)">
+                        {{ getLogStatusLabel(device.status) }}
+                      </el-tag>
+                    </div>
+                    <el-progress
+                      :percentage="device.progress"
+                      :status="getRecordProgressStatus(device)"
+                      :stroke-width="8"
+                    />
+                    <div
+                      class="log-device-step"
+                      :class="{
+                        'is-error': device.status === 'failed',
+                        'is-warning': device.status === 'warning'
+                      }"
+                    >
+                      {{ device.error || device.cleanup_error || device.current_step }}
+                    </div>
+                    <div v-if="device.command_logs?.length" class="log-command-console">
+                      <div class="log-command-console-title">实时执行命令</div>
+                      <article
+                        v-for="commandLog in getDisplayCommandLogs(device.command_logs)"
+                        :key="`single-${commandLog.id}`"
+                        class="log-command-entry"
+                      >
+                        <div class="log-command-meta">
+                          <span>{{ formatCommandTime(commandLog.started_at) }} · {{ commandLog.label }}</span>
+                          <el-tag size="small" :type="getCommandStatusTagType(commandLog.status)">
+                            {{ getCommandStatusLabel(commandLog.status) }}
+                          </el-tag>
+                        </div>
+                        <pre class="log-command-content">{{ commandLog.command }}</pre>
+                        <pre v-if="commandLog.output" class="log-command-output">{{ commandLog.output }}</pre>
+                        <pre v-if="commandLog.error" class="log-command-output is-error">{{ commandLog.error }}</pre>
+                      </article>
+                    </div>
+                  </article>
+                </div>
+              </section>
+                </el-tab-pane>
+
+                <el-tab-pane label="下载记录" name="records" lazy>
+                  <DeviceLogHistoryPanel :robot-ip="selectedIp" />
+                </el-tab-pane>
+              </el-tabs>
+            </template>
+          </section>
+        </el-tab-pane>
+
+        <el-tab-pane label="安装密钥" name="ssh-keys">
+          <section class="single-operation-panel">
+            <div v-if="!selectedIp" class="panel-empty">
+              <el-empty description="请先选择一台设备" />
+            </div>
+
+            <template v-else>
+              <div class="ssh-key-install-intro">
+                <div>
+                  <div class="log-section-title">安装当前设备 Flex SSH 密钥</div>
+                  <div class="log-section-description">
+                    服务器将对 {{ selectedIp }} 执行固定的 setup_ssh_keys.sh -flex 命令。
+                  </div>
+                </div>
+                <el-tag type="warning" effect="plain">设备需插入密钥 U 盘</el-tag>
+              </div>
+
+              <div class="ssh-key-install-settings is-single">
+                <label class="batch-field">
+                  <span>超时（秒）</span>
+                  <el-input-number
+                    v-model="singleSshKeyInstallTimeout"
+                    :min="1"
+                    :max="300"
+                    controls-position="right"
+                  />
+                </label>
+                <div class="ssh-key-install-summary">
+                  <strong>{{ currentDeviceName }}</strong>
+                  <span>{{ selectedIp }}</span>
+                </div>
+              </div>
+
+              <div class="batch-actions-row">
+                <el-button
+                  type="primary"
+                  :loading="singleSshKeyInstallRunning"
+                  :disabled="!canInstallSingleSshKey"
+                  @click="runSingleSshKeyInstall"
+                >
+                  安装密钥
+                </el-button>
+                <el-button
+                  v-if="singleSshKeyInstallResult"
+                  :disabled="singleSshKeyInstallRunning"
+                  @click="singleSshKeyInstallResult = null"
+                >
+                  清空结果
+                </el-button>
+              </div>
+
+              <article
+                v-if="singleSshKeyInstallResult"
+                class="command-result batch-ssh-result single-ssh-key-result"
+                :class="{ 'is-error': !singleSshKeyInstallResult.success }"
+              >
+                <div class="command-result-header">
+                  <div class="batch-ssh-device-heading">
+                    <span>{{ getRobotDisplayName(singleSshKeyInstallResult.ip) }}</span>
+                    <span>{{ singleSshKeyInstallResult.ip }}</span>
+                  </div>
+                  <el-tag size="small" :type="singleSshKeyInstallResult.success ? 'success' : 'danger'">
+                    {{ singleSshKeyInstallResult.success ? '安装成功' : '安装失败' }}
+                  </el-tag>
+                </div>
+                <div
+                  class="ssh-key-result-message"
+                  :class="{ 'is-error': !singleSshKeyInstallResult.success }"
+                >
+                  {{ singleSshKeyInstallResult.message }}
+                </div>
+                <div class="ssh-result-meta">
+                  <span>退出码：{{ singleSshKeyInstallResult.exit_code ?? '-' }}</span>
+                  <span>耗时：{{ singleSshKeyInstallResult.duration_ms }} ms</span>
+                </div>
+                <div v-if="singleSshKeyInstallResult.stdout" class="ssh-output-section">
+                  <div class="ssh-output-title">脚本输出</div>
+                  <pre class="command-result-body">{{ singleSshKeyInstallResult.stdout }}</pre>
+                </div>
+                <div v-if="singleSshKeyInstallResult.stderr" class="ssh-output-section is-stderr">
+                  <div class="ssh-output-title">错误输出</div>
+                  <pre class="command-result-body">{{ singleSshKeyInstallResult.stderr }}</pre>
+                </div>
+              </article>
+            </template>
+          </section>
+        </el-tab-pane>
+
         <el-tab-pane label="批量处理" name="batch">
           <div class="batch-workspace">
             <aside class="batch-device-panel">
@@ -662,7 +898,7 @@
                 </el-tab-pane>
 
                 <el-tab-pane label="下载 Log" name="logs">
-                  <el-tabs v-model="logViewTab" class="log-view-tabs" @tab-change="handleLogViewChange">
+                  <el-tabs v-model="logViewTab" class="log-view-tabs">
                     <el-tab-pane label="选择下载" name="select">
                       <div class="log-download-intro">
                         <div>
@@ -797,159 +1033,8 @@
                       </section>
                     </el-tab-pane>
 
-                    <el-tab-pane label="下载记录" name="records">
-                      <div class="log-record-toolbar">
-                        <div>
-                          <div class="log-section-title">服务器下载记录</div>
-                          <div class="log-section-description">记录保存正在下载和已经下载的Logs记录。</div>
-                        </div>
-                        <el-button :icon="Refresh" :loading="logRecordsLoading" @click="loadLogRecords">
-                          刷新
-                        </el-button>
-                      </div>
-
-                      <el-table
-                        v-loading="logRecordsLoading"
-                        :data="logRecords"
-                        :cell-style="getLogRecordTableCellStyle"
-                        :header-cell-style="getLogRecordTableCellStyle"
-                        class="log-record-table"
-                        empty-text="暂无下载记录"
-                      >
-                        <el-table-column type="expand" width="48">
-                          <template #default="scope">
-                            <div class="log-record-command-detail">
-                              <div class="log-section-title">执行命令记录</div>
-                              <div v-if="scope.row.command_logs?.length" class="log-command-console is-record">
-                                <article
-                                  v-for="commandLog in getDisplayCommandLogs(scope.row.command_logs)"
-                                  :key="commandLog.id"
-                                  class="log-command-entry"
-                                >
-                                  <div class="log-command-meta">
-                                    <span>{{ formatCommandTime(commandLog.started_at) }} · {{ commandLog.label }}</span>
-                                    <el-tag size="small" :type="getCommandStatusTagType(commandLog.status)">
-                                      {{ getCommandStatusLabel(commandLog.status) }}
-                                    </el-tag>
-                                  </div>
-                                  <pre class="log-command-content">{{ commandLog.command }}</pre>
-                                  <pre v-if="commandLog.output" class="log-command-output">{{ commandLog.output }}</pre>
-                                  <pre v-if="commandLog.error" class="log-command-output is-error">{{ commandLog.error }}</pre>
-                                </article>
-                              </div>
-                              <el-empty v-else description="暂无命令记录" :image-size="48" />
-                            </div>
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="设备名" prop="device_name" min-width="150" />
-                        <el-table-column label="IP" prop="robot_ip" width="132" />
-                        <el-table-column label="Log 文件夹" min-width="220" align="left" header-align="left">
-                          <template #default="scope">
-                            <el-tooltip placement="top" :show-after="300">
-                              <template #content>
-                                <div class="log-record-folder-tooltip">
-                                  <el-tag
-                                    v-for="folder in scope.row.selected_folders"
-                                    :key="`${scope.row._id}-tooltip-${folder.key}`"
-                                    size="small"
-                                    type="info"
-                                  >
-                                    {{ folder.label }}
-                                  </el-tag>
-                                </div>
-                              </template>
-                              <div class="log-record-folders">
-                                <el-tag
-                                  v-for="folder in scope.row.selected_folders"
-                                  :key="`${scope.row._id}-${folder.key}`"
-                                  size="small"
-                                  type="info"
-                                >
-                                  {{ folder.label }}
-                                </el-tag>
-                              </div>
-                            </el-tooltip>
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="服务器文件目录" min-width="320">
-                          <template #default="scope">
-                            <el-tooltip :content="scope.row.archive_path || scope.row.server_directory" placement="top">
-                              <span class="log-record-path">{{ scope.row.archive_path || scope.row.server_directory }}</span>
-                            </el-tooltip>
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="文件大小" width="110">
-                          <template #default="scope">{{ formatBytes(scope.row.archive_size) }}</template>
-                        </el-table-column>
-                        <el-table-column label="进度" width="150">
-                          <template #default="scope">
-                            <el-progress
-                              :percentage="scope.row.progress"
-                              :status="getRecordProgressStatus(scope.row)"
-                              :stroke-width="16"
-                              :text-inside="true"
-                            />
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="状态" width="100">
-                          <template #default="scope">
-                            <el-tag v-if="scope.row.file_deleted_at" size="small" type="info">已删除</el-tag>
-                            <el-tooltip
-                              v-else-if="scope.row.status === 'warning'"
-                              :content="scope.row.cleanup_error || scope.row.current_step"
-                              placement="top"
-                            >
-                              <el-tag size="small" type="warning">清理警告</el-tag>
-                            </el-tooltip>
-                            <el-tooltip v-else-if="scope.row.error" :content="scope.row.error" placement="top">
-                              <el-tag size="small" :type="getLogStatusTagType(scope.row.status)">
-                                {{ getLogStatusLabel(scope.row.status) }}
-                              </el-tag>
-                            </el-tooltip>
-                            <el-tag v-else size="small" :type="getLogStatusTagType(scope.row.status)">
-                              {{ getLogStatusLabel(scope.row.status) }}
-                            </el-tag>
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="下载时间" width="180">
-                          <template #default="scope">
-                            {{ formatLogDate(scope.row.downloaded_at || scope.row.finished_at || scope.row.started_at) }}
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="操作" width="128" fixed="right">
-                          <template #default="scope">
-                            <div class="log-record-actions">
-                              <el-button
-                                type="primary"
-                                link
-                                :disabled="!scope.row.file_available"
-                                @click="downloadServerLog(scope.row)"
-                              >
-                                下载
-                              </el-button>
-                              <el-button
-                                type="danger"
-                                link
-                                :loading="deletingLogRecordId === scope.row._id"
-                                :disabled="!scope.row.file_available"
-                                @click="deleteServerLog(scope.row)"
-                              >
-                                删除
-                              </el-button>
-                            </div>
-                          </template>
-                        </el-table-column>
-                      </el-table>
-
-                      <el-pagination
-                        v-if="logRecordTotal > logRecordPageSize"
-                        v-model:current-page="logRecordPage"
-                        :page-size="logRecordPageSize"
-                        :total="logRecordTotal"
-                        layout="prev, pager, next, total"
-                        class="log-record-pagination"
-                        @current-change="loadLogRecords"
-                      />
+                    <el-tab-pane label="下载记录" name="records" lazy>
+                      <DeviceLogHistoryPanel />
                     </el-tab-pane>
                   </el-tabs>
                 </el-tab-pane>
@@ -1157,10 +1242,105 @@
                     </el-tab-pane>
                   </el-tabs>
                 </el-tab-pane>
+
+                <el-tab-pane label="安装密钥" name="ssh-keys">
+                  <div class="ssh-key-install-intro">
+                    <div>
+                      <div class="log-section-title">批量安装 Flex SSH 密钥</div>
+                      <div class="log-section-description">
+                        服务器将对每台设备执行固定的 setup_ssh_keys.sh -flex 命令。
+                      </div>
+                    </div>
+                    <el-tag type="warning" effect="plain">设备需插入密钥 U 盘</el-tag>
+                  </div>
+
+                  <div class="ssh-key-install-settings">
+                    <label class="batch-field">
+                      <span>超时（秒）</span>
+                      <el-input-number
+                        v-model="sshKeyInstallTimeout"
+                        :min="1"
+                        :max="300"
+                        controls-position="right"
+                      />
+                    </label>
+                    <label class="batch-field">
+                      <span>并发设备数</span>
+                      <el-input-number
+                        v-model="sshKeyInstallConcurrency"
+                        :min="1"
+                        :max="10"
+                        controls-position="right"
+                      />
+                    </label>
+                    <div class="ssh-key-install-summary">
+                      <strong>{{ selectedIps.length }}</strong>
+                      <span>台设备待安装</span>
+                    </div>
+                  </div>
+
+                  <div class="batch-actions-row">
+                    <el-button
+                      type="primary"
+                      :loading="sshKeyInstallRunning"
+                      :disabled="!canInstallSshKeys"
+                      @click="runSshKeyInstall"
+                    >
+                      安装密钥
+                    </el-button>
+                    <el-button
+                      v-if="sshKeyInstallResults.length"
+                      :disabled="sshKeyInstallRunning"
+                      @click="sshKeyInstallResults = []"
+                    >
+                      清空结果
+                    </el-button>
+                  </div>
+
+                  <div v-if="sshKeyInstallResults.length" class="batch-ssh-results">
+                    <div class="batch-ssh-result-summary">
+                      <span>共 {{ sshKeyInstallResults.length }} 台</span>
+                      <span class="is-success">成功 {{ sshKeyInstallSuccessCount }} 台</span>
+                      <span class="is-failed">失败 {{ sshKeyInstallFailedCount }} 台</span>
+                    </div>
+
+                    <article
+                      v-for="result in sshKeyInstallResults"
+                      :key="`ssh-key-${result.ip}`"
+                      class="command-result batch-ssh-result"
+                      :class="{ 'is-error': !result.success }"
+                    >
+                      <div class="command-result-header">
+                        <div class="batch-ssh-device-heading">
+                          <span>{{ getRobotDisplayName(result.ip) }}</span>
+                          <span>{{ result.ip }}</span>
+                        </div>
+                        <el-tag size="small" :type="result.success ? 'success' : 'danger'">
+                          {{ result.success ? '安装成功' : '安装失败' }}
+                        </el-tag>
+                      </div>
+                      <div class="ssh-key-result-message" :class="{ 'is-error': !result.success }">
+                        {{ result.message }}
+                      </div>
+                      <div class="ssh-result-meta">
+                        <span>退出码：{{ result.exit_code ?? '-' }}</span>
+                        <span>耗时：{{ result.duration_ms }} ms</span>
+                      </div>
+                      <div v-if="result.stdout" class="ssh-output-section">
+                        <div class="ssh-output-title">脚本输出</div>
+                        <pre class="command-result-body">{{ result.stdout }}</pre>
+                      </div>
+                      <div v-if="result.stderr" class="ssh-output-section is-stderr">
+                        <div class="ssh-output-title">错误输出</div>
+                        <pre class="command-result-body">{{ result.stderr }}</pre>
+                      </div>
+                    </article>
+                  </div>
+                </el-tab-pane>
               </el-tabs>
 
               <div
-                v-if="batchResults.length && !(batchActionTab === 'command' && batchCommandMode === 'ssh')"
+                v-if="batchResults.length && batchActionTab !== 'ssh-keys' && !(batchActionTab === 'command' && batchCommandMode === 'ssh')"
                 class="batch-result-list"
               >
                 <article
@@ -1346,12 +1526,12 @@ import {
   robotApi,
   type RobotInfo,
   type RobotLogCommandEntry,
-  type RobotLogDownloadRecord,
   type RobotLogDownloadStatus,
   type RobotLogDownloadTask,
   type RobotLogFolderOption,
   type RobotSshCommand,
   type RobotSshCommandExecuteResult,
+  type RobotSshKeyInstallResult,
   type RobotVersionCaptureResponse,
   type RobotVersionHistoryRecord,
   type RobotVersionProduct,
@@ -1359,18 +1539,23 @@ import {
   type RobotVersionTestEntry
 } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
+import { useAuthStore } from '@/scripts/stores/auth'
 import DeviceControlPanel from '@/views/devices/components/DeviceControlPanel.vue'
 import DeviceBarcodeProvisionPanel from '@/views/devices/components/DeviceBarcodeProvisionPanel.vue'
 import DeviceProtocolsPanel from '@/views/devices/components/DeviceProtocolsPanel.vue'
 import DeviceFilesPanel from '@/views/devices/components/DeviceFilesPanel.vue'
 import DeviceTestingDataPanel from '@/views/devices/components/DeviceTestingDataPanel.vue'
 import DeviceInfoPanel from '@/views/devices/components/DeviceInfoPanel.vue'
+import DeviceLogHistoryPanel from '@/views/devices/components/DeviceLogHistoryPanel.vue'
+import DeviceCodeFlashPanel from '@/views/devices/components/DeviceCodeFlashPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
 const robotScanStore = useRobotScanStore()
+const authStore = useAuthStore()
 
-const activeTab = ref('control')
+const isDeviceOperator = computed(() => authStore.user?.role === 'device_operator')
+const activeTab = ref(isDeviceOperator.value ? 'barcode' : 'control')
 const versionQueryTab = ref('subsystems')
 const manualIpInput = ref('')
 const selectedIp = ref<string | null>(null)
@@ -1401,8 +1586,16 @@ const batchSshTimeout = ref(30)
 const batchSshConcurrency = ref(8)
 const batchSshRunning = ref(false)
 const batchSshResults = ref<RobotSshCommandExecuteResult[]>([])
+const sshKeyInstallTimeout = ref(30)
+const sshKeyInstallConcurrency = ref(4)
+const sshKeyInstallRunning = ref(false)
+const sshKeyInstallResults = ref<RobotSshKeyInstallResult[]>([])
+const singleSshKeyInstallTimeout = ref(30)
+const singleSshKeyInstallRunning = ref(false)
+const singleSshKeyInstallResult = ref<RobotSshKeyInstallResult | null>(null)
 const batchResults = ref<BatchOperationResult[]>([])
 const logViewTab = ref('select')
+const singleLogViewTab = ref('select')
 const logFolderOptions = ref<RobotLogFolderOption[]>([])
 const selectedLogFolderKeys = ref<string[]>([])
 const logOptionsLoading = ref(false)
@@ -1411,14 +1604,10 @@ const logMaxConcurrency = ref(8)
 const logConcurrency = ref(4)
 const logTaskStarting = ref(false)
 const activeLogTask = ref<RobotLogDownloadTask | null>(null)
-const logRecords = ref<RobotLogDownloadRecord[]>([])
-const logRecordsLoading = ref(false)
-const logRecordPage = ref(1)
-const logRecordPageSize = 20
-const logRecordTotal = ref(0)
-const deletingLogRecordId = ref('')
+const singleLogTaskStarting = ref(false)
+const singleActiveLogTask = ref<RobotLogDownloadTask | null>(null)
 let logPollTimer: ReturnType<typeof setTimeout> | null = null
-let logRecordPollTimer: ReturnType<typeof setTimeout> | null = null
+let singleLogPollTimer: ReturnType<typeof setTimeout> | null = null
 const singleHttpCommandPresetId = ref('')
 const singleCommandMethod = ref('GET')
 const singleCommandPath = ref('/health')
@@ -1627,6 +1816,10 @@ const canRunBatchSshCommand = computed(() => (
 ))
 const batchSshSuccessCount = computed(() => batchSshResults.value.filter(result => result.success).length)
 const batchSshFailedCount = computed(() => batchSshResults.value.length - batchSshSuccessCount.value)
+const canInstallSshKeys = computed(() => selectedIps.value.length > 0 && !sshKeyInstallRunning.value)
+const canInstallSingleSshKey = computed(() => Boolean(selectedIp.value && !singleSshKeyInstallRunning.value))
+const sshKeyInstallSuccessCount = computed(() => sshKeyInstallResults.value.filter(result => result.success).length)
+const sshKeyInstallFailedCount = computed(() => sshKeyInstallResults.value.length - sshKeyInstallSuccessCount.value)
 const canStartLogDownload = computed(() => (
   selectedIps.value.length > 0
   && selectedLogFolderKeys.value.length > 0
@@ -1639,6 +1832,13 @@ const areAllLogFoldersSelected = computed(() => (
 ))
 const effectiveLogConcurrency = computed(() => Math.min(logConcurrency.value, Math.max(1, selectedIps.value.length)))
 const isLogTaskRunning = computed(() => ['queued', 'running'].includes(activeLogTask.value?.status || ''))
+const isSingleLogTaskRunning = computed(() => ['queued', 'running'].includes(singleActiveLogTask.value?.status || ''))
+const canStartSingleLogDownload = computed(() => Boolean(
+  selectedIp.value
+  && selectedLogFolderKeys.value.length > 0
+  && !isSingleLogTaskRunning.value
+  && !singleLogTaskStarting.value
+))
 const canRunSingleCommand = computed(() => Boolean(selectedIp.value && singleCommandMethod.value && singleCommandPath.value.trim()))
 const canRunSshCommand = computed(() => Boolean(selectedIp.value && sshCommandText.value.trim()))
 
@@ -1890,16 +2090,7 @@ function formatLogDate(value?: string | null) {
   }).format(date)
 }
 
-function formatBytes(value?: number | null) {
-  const bytes = Number(value || 0)
-  if (!bytes) return '-'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-  const amount = bytes / Math.pow(1024, unitIndex)
-  return `${amount.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
-}
-
-function getRecordProgressStatus(record: RobotLogDownloadRecord) {
+function getRecordProgressStatus(record: { status: RobotLogDownloadStatus }) {
   if (record.status === 'failed') return 'exception'
   if (record.status === 'warning') return 'warning'
   if (record.status === 'success') return 'success'
@@ -1911,10 +2102,6 @@ function getLogTaskProgressStatus(task: RobotLogDownloadTask) {
   if (task.warning_devices) return 'warning'
   if (task.status === 'completed') return 'success'
   return undefined
-}
-
-function getLogRecordTableCellStyle({ column }: { column: { label?: string } }) {
-  return { textAlign: column.label === 'Log 文件夹' ? 'left' : 'center' }
 }
 
 function formatCommandTime(value?: string | null) {
@@ -1977,12 +2164,18 @@ function clearLogPollTimer() {
   }
 }
 
+function clearSingleLogPollTimer() {
+  if (singleLogPollTimer) {
+    clearTimeout(singleLogPollTimer)
+    singleLogPollTimer = null
+  }
+}
+
 async function pollLogTask(taskId: string, showError = false) {
   clearLogPollTimer()
   try {
     const response = await robotApi.getLogDownloadTask(taskId)
     activeLogTask.value = response.data
-    mergeLogTaskIntoRecords(response.data)
     if (['queued', 'running'].includes(response.data.status)) {
       logPollTimer = setTimeout(() => pollLogTask(taskId), 1000)
       return
@@ -2024,125 +2217,47 @@ async function startLogDownload() {
   }
 }
 
-async function loadLogRecords() {
-  if (logRecordsLoading.value) return
-  clearLogRecordPollTimer()
-  logRecordsLoading.value = true
+async function pollSingleLogTask(taskId: string, showError = false) {
+  clearSingleLogPollTimer()
   try {
-    const response = await robotApi.getLogDownloadRecords({
-      page: logRecordPage.value,
-      pageSize: logRecordPageSize
-    })
-    logRecords.value = response.data.records
-    logRecordTotal.value = response.data.total
-  } catch (error: any) {
-    ElMessage.error('加载 Log 下载记录失败: ' + normalizeError(error))
-  } finally {
-    logRecordsLoading.value = false
-    scheduleLogRecordPolling()
-  }
-}
-
-async function handleLogViewChange(tabName: string | number) {
-  if (tabName === 'records') {
-    await loadLogRecords()
-    return
-  }
-  clearLogRecordPollTimer()
-}
-
-function clearLogRecordPollTimer() {
-  if (logRecordPollTimer) {
-    clearTimeout(logRecordPollTimer)
-    logRecordPollTimer = null
-  }
-}
-
-function scheduleLogRecordPolling() {
-  clearLogRecordPollTimer()
-  if (batchActionTab.value !== 'logs' || logViewTab.value !== 'records') return
-
-  const activeTaskId = ['queued', 'running'].includes(activeLogTask.value?.status || '')
-    ? activeLogTask.value?.task_id
-    : ''
-  const hasIndependentRunningTask = logRecords.value.some(record => (
-    ['queued', 'running'].includes(record.status) && record.task_id !== activeTaskId
-  ))
-  if (hasIndependentRunningTask) {
-    logRecordPollTimer = setTimeout(() => pollVisibleLogRecordTasks(), 1000)
-  }
-}
-
-function mergeLogTaskIntoRecords(task: RobotLogDownloadTask) {
-  const recordsById = new Map(logRecords.value.map(record => [record._id, record]))
-  for (const device of task.devices) {
-    const existingRecord = recordsById.get(device._id)
-    if (existingRecord) Object.assign(existingRecord, device)
-  }
-}
-
-async function pollVisibleLogRecordTasks() {
-  clearLogRecordPollTimer()
-  if (batchActionTab.value !== 'logs' || logViewTab.value !== 'records') return
-
-  const activeTaskId = ['queued', 'running'].includes(activeLogTask.value?.status || '')
-    ? activeLogTask.value?.task_id
-    : ''
-  const taskIds = Array.from(new Set(
-    logRecords.value
-      .filter(record => ['queued', 'running'].includes(record.status) && record.task_id !== activeTaskId)
-      .map(record => record.task_id)
-  ))
-  if (!taskIds.length) return
-
-  const results = await Promise.allSettled(taskIds.map(taskId => robotApi.getLogDownloadTask(taskId)))
-  for (const result of results) {
-    if (result.status === 'fulfilled') mergeLogTaskIntoRecords(result.value.data)
-  }
-  scheduleLogRecordPolling()
-}
-
-function downloadServerLog(record: RobotLogDownloadRecord) {
-  if (!record.file_available) return
-  const anchor = document.createElement('a')
-  anchor.href = robotApi.getServerLogDownloadUrl(record._id)
-  anchor.download = record.archive_name || 'diagnostics.tar.gz'
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-}
-
-async function deleteServerLog(record: RobotLogDownloadRecord) {
-  if (!record.file_available) return
-  try {
-    await ElMessageBox.confirm(
-      `确认删除服务器上的 ${record.archive_name || 'Log 文件'}？下载记录会保留。`,
-      '删除服务器 Log',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-  } catch {
-    return
-  }
-
-  deletingLogRecordId.value = record._id
-  try {
-    const response = await robotApi.deleteServerLog(record._id)
-    record.file_available = false
-    record.file_deleted_at = response.data.file_deleted_at
-    const activeRecord = activeLogTask.value?.devices.find(device => device._id === record._id)
-    if (activeRecord) {
-      activeRecord.file_available = false
-      activeRecord.file_deleted_at = response.data.file_deleted_at
+    const response = await robotApi.getLogDownloadTask(taskId)
+    singleActiveLogTask.value = response.data
+    if (['queued', 'running'].includes(response.data.status)) {
+      singleLogPollTimer = setTimeout(() => pollSingleLogTask(taskId), 1000)
+      return
     }
-    ElMessage.success('服务器 Log 已删除，下载记录已保留')
+    if (response.data.failed_devices > 0) {
+      ElMessage.error('当前设备 Log 下载失败')
+    } else if (response.data.warning_devices > 0) {
+      ElMessage.warning('当前设备 Log 下载完成，设备端清理存在警告')
+    } else {
+      ElMessage.success('当前设备 Log 下载完成')
+    }
   } catch (error: any) {
-    ElMessage.error('删除服务器 Log 失败: ' + normalizeError(error))
+    if (showError) ElMessage.error('获取 Log 下载进度失败: ' + normalizeError(error))
+    singleLogPollTimer = setTimeout(() => pollSingleLogTask(taskId), 3000)
+  }
+}
+
+async function startSingleLogDownload() {
+  const ip = selectedIp.value
+  if (!ip || !canStartSingleLogDownload.value) return
+  const deviceName = currentDevice.value?.name?.trim() || ip
+
+  singleLogTaskStarting.value = true
+  try {
+    const response = await robotApi.createLogDownloadTask({
+      devices: [{ ip, name: deviceName }],
+      folder_keys: selectedLogFolderKeys.value,
+      concurrency: 1
+    })
+    singleActiveLogTask.value = response.data
+    ElMessage.success(`已启动 ${ip} 的 Log 下载任务`)
+    await pollSingleLogTask(response.data.task_id, true)
+  } catch (error: any) {
+    ElMessage.error('启动 Log 下载失败: ' + normalizeError(error))
   } finally {
-    deletingLogRecordId.value = ''
+    singleLogTaskStarting.value = false
   }
 }
 
@@ -2602,6 +2717,83 @@ async function runBatchSshCommand() {
   }
 }
 
+async function runSshKeyInstall() {
+  if (!canInstallSshKeys.value) return
+  try {
+    await ElMessageBox.confirm(
+      `将为 ${selectedIps.value.length} 台 Flex 安装 SSH 密钥。请确认每台设备均已插入包含公钥的 U 盘。`,
+      '确认安装密钥',
+      {
+        confirmButtonText: '开始安装',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  sshKeyInstallRunning.value = true
+  sshKeyInstallResults.value = []
+  try {
+    const response = await robotApi.installSshKeys({
+      ips: [...selectedIps.value],
+      timeout: sshKeyInstallTimeout.value,
+      concurrency: sshKeyInstallConcurrency.value
+    })
+    sshKeyInstallResults.value = response.data.results || []
+    if (response.data.failed_count > 0) {
+      ElMessage.warning(`密钥安装完成：成功 ${response.data.success_count} 台，失败 ${response.data.failed_count} 台`)
+    } else {
+      ElMessage.success(`密钥安装成功：${response.data.success_count} 台设备`)
+    }
+  } catch (error: any) {
+    ElMessage.error('安装密钥失败: ' + normalizeError(error))
+  } finally {
+    sshKeyInstallRunning.value = false
+  }
+}
+
+async function runSingleSshKeyInstall() {
+  const ip = selectedIp.value
+  if (!ip || !canInstallSingleSshKey.value) return
+  try {
+    await ElMessageBox.confirm(
+      `将为 ${currentDeviceName.value}（${ip}）安装 Flex SSH 密钥。请确认设备已插入包含公钥的 U 盘。`,
+      '确认安装密钥',
+      {
+        confirmButtonText: '开始安装',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  singleSshKeyInstallRunning.value = true
+  singleSshKeyInstallResult.value = null
+  try {
+    const response = await robotApi.installSshKeys({
+      ips: [ip],
+      timeout: singleSshKeyInstallTimeout.value,
+      concurrency: 1
+    })
+    const result = response.data.results?.[0]
+    if (!result) throw new Error('服务器未返回安装结果')
+    singleSshKeyInstallResult.value = result
+    if (result.success) {
+      ElMessage.success(`${ip} 密钥安装成功`)
+    } else {
+      ElMessage.error(`${ip} 密钥安装失败：${result.message}`)
+    }
+  } catch (error: any) {
+    ElMessage.error('安装密钥失败: ' + normalizeError(error))
+  } finally {
+    singleSshKeyInstallRunning.value = false
+  }
+}
+
 async function refreshRobots() {
   refreshing.value = true
   try {
@@ -2622,6 +2814,21 @@ function returnToDeviceList() {
 function openInfoDrawer() {
   if (!selectedIp.value) return
   infoDrawerVisible.value = true
+}
+
+function beforeTabLeave(nextTab: string | number): boolean {
+  if (nextTab !== 'control' || !isDeviceOperator.value) return true
+  void ElMessageBox.alert(
+    '当前账号无设备控制权限。',
+    '权限受控',
+    {
+      confirmButtonText: '我知道了',
+      type: 'warning',
+      closeOnClickModal: false,
+      showClose: false,
+    },
+  )
+  return false
 }
 
 async function refreshDeviceInfo() {
@@ -2647,6 +2854,10 @@ async function handleTabChange(tabName: string | number) {
 
   if (!selectedIp.value) {
     selectedIp.value = selectedIps.value[0] ?? availableRobots.value[0]?.ip ?? null
+  }
+
+  if (tabName === 'device-logs') {
+    await loadLogFolderOptions()
   }
 
   if (tabName === 'versions') {
@@ -2700,12 +2911,8 @@ watch(versionCaptureProductType, () => {
 })
 
 watch(batchActionTab, async (tabName) => {
-  if (tabName !== 'logs') {
-    clearLogRecordPollTimer()
-  }
   if (tabName === 'logs') {
     await loadLogFolderOptions()
-    if (logViewTab.value === 'records') await loadLogRecords()
   }
   if (tabName === 'command' && batchCommandMode.value === 'ssh') {
     if (builtinSshCommands.value.length === 0) await loadSshCommands()
@@ -2715,7 +2922,7 @@ watch(batchActionTab, async (tabName) => {
 
 onBeforeUnmount(() => {
   clearLogPollTimer()
-  clearLogRecordPollTimer()
+  clearSingleLogPollTimer()
 })
 
 onMounted(async () => {
@@ -3542,6 +3749,75 @@ onMounted(async () => {
   max-height: 260px;
 }
 
+.ssh-key-install-intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ssh-key-install-settings {
+  display: grid;
+  grid-template-columns: 180px 180px minmax(180px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.ssh-key-install-settings :deep(.el-input-number) {
+  width: 100%;
+}
+
+.ssh-key-install-settings.is-single {
+  grid-template-columns: 180px minmax(220px, 1fr);
+}
+
+.ssh-key-install-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 1px solid var(--console-border);
+  border-radius: 6px;
+  background: var(--console-soft);
+  color: var(--console-muted);
+  font-size: 12px;
+}
+
+.ssh-key-install-summary strong {
+  color: var(--console-text);
+  font-size: 18px;
+}
+
+.ssh-key-install-settings.is-single .ssh-key-install-summary strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.single-operation-panel {
+  min-height: 320px;
+  padding: 8px 2px 24px;
+}
+
+.single-ssh-key-result {
+  margin-top: 18px;
+}
+
+.ssh-key-result-message {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--console-border);
+  color: #2f855a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ssh-key-result-message.is-error {
+  color: #b42318;
+}
+
 .batch-editor {
   margin-top: 8px;
 }
@@ -3961,6 +4237,10 @@ onMounted(async () => {
   }
 
   .batch-ssh-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .ssh-key-install-settings {
     grid-template-columns: 1fr;
   }
 

@@ -8,7 +8,6 @@
         <div>
           <div class="title-line">
             <h1>Protocol 监控平台</h1>
-            <span v-if="storage" class="storage-label">{{ storage === 'sqlite' ? 'SQLite' : 'MongoDB' }}</span>
           </div>
           <span class="page-meta">{{ rooms.length }} 个房间 · {{ totalDeviceCount }} 台设备</span>
         </div>
@@ -38,10 +37,6 @@
 
     <div class="monitor-workspace">
       <aside class="room-pane">
-        <div class="pane-heading">
-          <span>房间</span>
-          <strong>{{ rooms.length }}</strong>
-        </div>
         <div v-if="rooms.length" class="room-list">
           <button
             v-for="room in rooms"
@@ -690,7 +685,6 @@ onUnmounted(() => {
 
 .page-head,
 .room-head,
-.pane-heading,
 .title-line,
 .page-title-group,
 .page-actions,
@@ -765,12 +759,6 @@ h3 {
   font-size: 12px;
 }
 
-.storage-label {
-  color: #68747c;
-  font-size: 11px;
-  font-weight: 650;
-}
-
 .page-actions,
 .room-actions {
   flex-shrink: 0;
@@ -792,21 +780,6 @@ h3 {
   min-width: 0;
   border-right: 1px solid var(--monitor-border);
   background: #fbfcfb;
-}
-
-.pane-heading {
-  min-height: 46px;
-  justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--monitor-border);
-  color: #4d5960;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.pane-heading strong {
-  color: #7a858b;
-  font-size: 12px;
 }
 
 .room-list {

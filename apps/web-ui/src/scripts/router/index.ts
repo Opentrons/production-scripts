@@ -4,10 +4,12 @@ import { pinia } from '@/scripts/stores'
 import { useAuthStore } from '@/scripts/stores/auth'
 
 const DEFAULT_FAVICON = '/favicon.png'
+const AGENT_FAVICON = '/agent-favicon.svg'
+const TESTING_FAVICON = '/testing-favicon.svg'
 const VERSION_FAVICON = '/versions-favicon.svg'
 const productionTestingMeta = {
   title: 'Productions Testing',
-  favicon: DEFAULT_FAVICON,
+  favicon: TESTING_FAVICON,
 }
 
 const routes: RouteRecordRaw[] = [
@@ -41,7 +43,7 @@ const routes: RouteRecordRaw[] = [
     path: '/agent',
     name: 'ProductionAgent',
     component: () => import('@/views/agent/ProductionAgentView.vue'),
-    meta: { standalone: true, title: 'Production Agent', favicon: DEFAULT_FAVICON },
+    meta: { standalone: true, title: 'Production Agent', favicon: AGENT_FAVICON },
   },
   {
     path: '/home',
@@ -140,13 +142,18 @@ const router = createRouter({
   routes,
 })
 
+function defaultAuthenticatedPath(): string {
+  return '/'
+}
+
 router.beforeEach(async (to) => {
   const authStore = useAuthStore(pinia)
   await authStore.restore()
   if (to.meta.public) {
     if (to.name === 'Login' && authStore.authenticated) {
-      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/'
-      return redirect.startsWith('/') && !redirect.startsWith('//') && redirect !== '/login' ? redirect : '/'
+      const defaultPath = defaultAuthenticatedPath()
+      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : defaultPath
+      return redirect.startsWith('/') && !redirect.startsWith('//') && redirect !== '/login' ? redirect : defaultPath
     }
     return true
   }

@@ -43,6 +43,36 @@ class FakeCoordinatorExecutor:
         return None
 
 
+class FakeListCursor(list):
+    def sort(self, key: str, direction: int):
+        reverse = direction < 0
+        return FakeListCursor(sorted(self, key=lambda item: item.get(key) or "", reverse=reverse))
+
+    def skip(self, count: int):
+        return FakeListCursor(self[count:])
+
+    def limit(self, count: int):
+        return FakeListCursor(self[:count])
+
+
+class FakeListCollection:
+    def __init__(self, documents: list[dict]) -> None:
+        self.documents = deepcopy(documents)
+
+    def _matched(self, query: dict) -> list[dict]:
+        return [
+            deepcopy(document)
+            for document in self.documents
+            if all(document.get(key) == value for key, value in query.items())
+        ]
+
+    def count_documents(self, query: dict) -> int:
+        return len(self._matched(query))
+
+    def find(self, query: dict):
+        return FakeListCursor(self._matched(query))
+
+
 class FakeChannel:
     def recv_exit_status(self) -> int:
         return 0
@@ -307,6 +337,49 @@ def test_create_task_persists_one_mongo_record_per_device(
     diagnostic_logs._TASKS.clear()
 
 
+def test_list_download_records_filters_by_robot_ip_before_pagination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    collection = FakeListCollection(
+        [
+            {
+                "_id": "record-a-new",
+                "robot_ip": "192.168.1.101",
+                "started_at": "2026-08-12T02:00:00+00:00",
+                "archive_path": None,
+            },
+            {
+                "_id": "record-b",
+                "robot_ip": "192.168.1.102",
+                "started_at": "2026-08-12T03:00:00+00:00",
+                "archive_path": None,
+            },
+            {
+                "_id": "record-a-old",
+                "robot_ip": "192.168.1.101",
+                "started_at": "2026-08-12T01:00:00+00:00",
+                "archive_path": None,
+            },
+        ]
+    )
+    monkeypatch.setattr(diagnostic_logs, "_get_collection", lambda: collection)
+
+    first_page = diagnostic_logs.list_download_records(
+        page=1,
+        page_size=1,
+        robot_ip=" 192.168.1.101 ",
+    )
+    second_page = diagnostic_logs.list_download_records(
+        page=2,
+        page_size=1,
+        robot_ip="192.168.1.101",
+    )
+
+    assert first_page["total"] == 2
+    assert [record["_id"] for record in first_page["records"]] == ["record-a-new"]
+    assert [record["_id"] for record in second_page["records"]] == ["record-a-old"]
+
+
 def test_server_log_can_be_resolved_and_deleted(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -339,3 +412,129 @@ def test_server_log_can_be_resolved_and_deleted(
     assert archive_path.exists() is False
     assert collection.record["file_available"] is False
     assert collection.record["file_deleted_at"] is not None
+
+
+def test_fail_interrupted_downloads_marks_running_record_and_command_log(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now_running = {
+        "_id": "record-running",
+        "task_id": "task-1",
+        "robot_ip": "192.168.1.101",
+        "status": "running",
+        "progress": 14,
+        "current_step": "收集服务数据",
+        "remote_diag_path": "/data/.flex-diagnostics-abc",
+        "remote_archive_path": "/data/.flex-diagnostics-abc.tar.gz",
+        "cleanup_status": "not_started",
+        "command_logs": [
+            {
+                "id": "cmd-1",
+                "label": "初始化诊断目录",
+                "command": "mkdir",
+                "status": "success",
+                "started_at": "2026-08-05T07:35:15+00:00",
+                "finished_at": "2026-08-05T07:35:16+00:00",
+                "output": "",
+                "error": None,
+            },
+            {
+                "id": "cmd-2",
+                "label": "收集服务数据",
+                "command": "cp -r",
+                "status": "running",
+                "started_at": "2026-08-05T07:39:41+00:00",
+                "finished_at": None,
+                "output": "",
+                "error": None,
+            },
+        ],
+    }
+    queued = {
+        "_id": "record-queued",
+        "task_id": "task-2",
+        "robot_ip": "192.168.1.102",
+        "status": "queued",
+        "progress": 0,
+        "current_step": "等待下载",
+        "remote_diag_path": None,
+        "remote_archive_path": None,
+        "cleanup_status": "not_started",
+        "command_logs": [],
+    }
+
+    class InterruptCollection:
+        def __init__(self) -> None:
+            self.documents = {
+                now_running["_id"]: deepcopy(now_running),
+                queued["_id"]: deepcopy(queued),
+            }
+            self.scheduled: list[dict] = []
+
+        def find(self, query: dict):
+            statuses = set((query.get("status") or {}).get("$in") or [])
+            return [
+                deepcopy(document)
+                for document in self.documents.values()
+                if document.get("status") in statuses
+            ]
+
+        def update_one(self, query: dict, update: dict) -> None:
+            document = self.documents.get(query.get("_id"))
+            if document is not None:
+                document.update(deepcopy(update.get("$set", {})))
+
+    collection = InterruptCollection()
+    monkeypatch.setattr(diagnostic_logs, "_get_collection", lambda: collection)
+    monkeypatch.setattr(
+        diagnostic_logs,
+        "_schedule_pending_cleanup",
+        lambda record, **_kwargs: collection.scheduled.append(deepcopy(record)) or True,
+    )
+
+    marked = diagnostic_logs.fail_interrupted_diagnostic_log_downloads()
+
+    assert marked == 2
+    running = collection.documents["record-running"]
+    assert running["status"] == "failed"
+    assert running["error"] == diagnostic_logs.INTERRUPTED_BY_RESTART_MESSAGE
+    assert running["cleanup_status"] == "pending"
+    assert running["current_step"] == "下载失败，设备残留待清理"
+    assert running["command_logs"][1]["status"] == "failed"
+    assert running["command_logs"][1]["error"] == diagnostic_logs.INTERRUPTED_BY_RESTART_MESSAGE
+    assert len(collection.scheduled) == 1
+    assert collection.scheduled[0]["_id"] == "record-running"
+
+    waiting = collection.documents["record-queued"]
+    assert waiting["status"] == "failed"
+    assert waiting["error"] == diagnostic_logs.INTERRUPTED_BY_RESTART_MESSAGE
+    assert waiting["command_logs"][-1]["label"] == "任务中断"
+    assert waiting["command_logs"][-1]["error"] == diagnostic_logs.INTERRUPTED_BY_RESTART_MESSAGE
+    assert waiting["cleanup_status"] == "not_started"
+
+
+def test_legacy_absolute_archive_path_remaps_to_current_download_root(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    download_root = tmp_path / "robot_logs"
+    relative = Path("2026-08-06/GRAV1_192.168.6.123_ac890e01/diag.tar.gz")
+    archive_path = download_root / relative
+    archive_path.parent.mkdir(parents=True)
+    archive_path.write_bytes(b"archive")
+
+    record = {
+        "_id": "record-legacy",
+        "archive_path": f"/data/temp/robot_logs/{relative.as_posix()}",
+        "archive_name": "diag.tar.gz",
+        "server_directory": f"/data/temp/robot_logs/{relative.parent.as_posix()}",
+        "file_deleted_at": None,
+    }
+    monkeypatch.setattr(diagnostic_logs.setting, "ROBOT_LOG_DOWNLOAD_DIR", str(download_root))
+
+    resolved = diagnostic_logs._resolve_record_archive_path(record)
+    serialized = diagnostic_logs._serialize_record(record)
+
+    assert resolved == archive_path.resolve()
+    assert serialized["file_available"] is True
+    assert serialized["file_unavailable_reason"] is None

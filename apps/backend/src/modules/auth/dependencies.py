@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import secrets
 from dataclasses import dataclass
 from functools import lru_cache
@@ -21,6 +22,8 @@ REFRESH_COOKIE_NAME = "production_refresh_token"
 CSRF_COOKIE_NAME = "production_csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+DEVICE_OPERATOR_ROLE = "device_operator"
+DEVICE_CONTROL_PATH_PATTERN = re.compile(r"^/api/robots/[^/]+/control(?:/|$)")
 
 
 @dataclass(frozen=True)
@@ -103,3 +106,20 @@ def require_authenticated_user(
     context: AuthContext = Depends(require_auth_context),
 ) -> AuthUser:
     return context.user
+
+
+def require_platform_access(
+    request: Request,
+    context: AuthContext = Depends(require_auth_context),
+) -> AuthUser:
+    user = context.user
+    if user.role != DEVICE_OPERATOR_ROLE:
+        return user
+
+    path = request.url.path.rstrip("/") or "/"
+    if DEVICE_CONTROL_PATH_PATTERN.match(path):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="当前账号无设备控制权限",
+        )
+    return user

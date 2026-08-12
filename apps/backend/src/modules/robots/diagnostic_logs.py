@@ -121,30 +121,125 @@ def _serialize(value: Any) -> Any:
     return value
 
 
-def _resolve_record_archive_path(record: dict[str, Any]) -> Path:
+def _download_root() -> Path:
+    return Path(setting.ROBOT_LOG_DOWNLOAD_DIR).resolve()
+
+
+def _path_under_download_root(path: Path, download_root: Path | None = None) -> bool:
+    root = download_root or _download_root()
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    return resolved != root and root in resolved.parents
+
+
+def _relative_parts_after_marker(path_value: str, marker: str = "robot_logs") -> tuple[str, ...] | None:
+    parts = Path(path_value).parts
+    for index, part in enumerate(parts):
+        if part == marker and index + 1 < len(parts):
+            return tuple(parts[index + 1 :])
+    return None
+
+
+def _archive_path_candidates(record: dict[str, Any]) -> list[Path]:
+    download_root = _download_root()
+    candidates: list[Path] = []
+    seen: set[str] = set()
+
+    def add_candidate(path: Path) -> None:
+        key = str(path)
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append(path)
+
     archive_path = str(record.get("archive_path") or "").strip()
-    if not archive_path:
+    archive_name = str(record.get("archive_name") or "").strip()
+    server_directory = str(record.get("server_directory") or "").strip()
+
+    if archive_path:
+        raw = Path(archive_path)
+        if raw.is_absolute():
+            add_candidate(raw)
+            relative_parts = _relative_parts_after_marker(archive_path)
+            if relative_parts:
+                add_candidate(download_root.joinpath(*relative_parts))
+        else:
+            add_candidate(download_root / raw)
+
+    if server_directory and archive_name:
+        relative_parts = _relative_parts_after_marker(server_directory)
+        if relative_parts:
+            add_candidate(download_root.joinpath(*relative_parts, archive_name))
+        server_dir = Path(server_directory)
+        if server_dir.is_absolute():
+            add_candidate(server_dir / archive_name)
+        else:
+            add_candidate(download_root / server_dir / archive_name)
+    elif archive_name:
+        add_candidate(download_root / archive_name)
+
+    return candidates
+
+
+def _to_stored_archive_path(path: Path) -> str:
+    """Persist portable paths relative to the configured download root when possible."""
+    download_root = _download_root()
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(download_root))
+    except ValueError:
+        return str(resolved)
+
+
+def _resolve_record_archive_path(record: dict[str, Any]) -> Path:
+    candidates = _archive_path_candidates(record)
+    if not candidates:
         raise FileNotFoundError("该记录没有可下载的服务器 Log 文件")
-    download_root = Path(setting.ROBOT_LOG_DOWNLOAD_DIR).resolve()
-    resolved_path = Path(archive_path).resolve()
-    if resolved_path == download_root or download_root not in resolved_path.parents:
-        raise ValueError("Log 文件路径不在允许的服务器目录内")
-    return resolved_path
+
+    download_root = _download_root()
+    allowed_missing: Path | None = None
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if not _path_under_download_root(resolved, download_root):
+            continue
+        if resolved.is_file():
+            return resolved
+        if allowed_missing is None:
+            allowed_missing = resolved
+
+    if allowed_missing is not None:
+        return allowed_missing
+    raise ValueError("Log 文件路径不在允许的服务器目录内")
+
+
+def _record_file_unavailable_reason(record: dict[str, Any]) -> str | None:
+    if record.get("file_deleted_at"):
+        return "服务器文件已删除"
+    try:
+        archive_path = _resolve_record_archive_path(record)
+    except FileNotFoundError:
+        return "记录未关联服务器文件"
+    except ValueError:
+        return "文件路径无效或不在允许目录"
+    if archive_path.is_file():
+        return None
+    return "服务器文件不存在（可能已清理或下载目录已变更）"
 
 
 def _record_file_available(record: dict[str, Any]) -> bool:
-    if record.get("file_deleted_at"):
-        return False
-    try:
-        archive_path = _resolve_record_archive_path(record)
-    except (FileNotFoundError, ValueError):
-        return False
-    return archive_path.is_file()
+    return _record_file_unavailable_reason(record) is None
 
 
 def _serialize_record(record: dict[str, Any]) -> dict[str, Any]:
     serialized = _serialize(record)
-    serialized["file_available"] = _record_file_available(record)
+    unavailable_reason = _record_file_unavailable_reason(record)
+    serialized["file_available"] = unavailable_reason is None
+    serialized["file_unavailable_reason"] = unavailable_reason
     return serialized
 
 
@@ -384,13 +479,19 @@ def get_download_task(task_id: str) -> dict[str, Any]:
     )
 
 
-def list_download_records(*, page: int = 1, page_size: int = 20) -> dict[str, Any]:
+def list_download_records(
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    robot_ip: str | None = None,
+) -> dict[str, Any]:
     collection = _get_collection()
     normalized_page = max(1, int(page))
     normalized_page_size = max(1, min(100, int(page_size)))
-    total = collection.count_documents({})
+    query = {"robot_ip": robot_ip.strip()} if robot_ip and robot_ip.strip() else {}
+    total = collection.count_documents(query)
     cursor = (
-        collection.find({})
+        collection.find(query)
         .sort("started_at", -1)
         .skip((normalized_page - 1) * normalized_page_size)
         .limit(normalized_page_size)
@@ -759,6 +860,103 @@ def _schedule_pending_cleanup(record: dict[str, Any], *, immediate: bool = False
     return True
 
 
+INTERRUPTED_BY_RESTART_MESSAGE = "后端服务重启，下载任务已中断"
+
+
+def _mark_record_interrupted_by_restart(record: dict[str, Any]) -> dict[str, Any]:
+    """Persist a queued/running download as failed after process restart."""
+    now = _utc_now()
+    reason = INTERRUPTED_BY_RESTART_MESSAGE
+    command_logs = deepcopy(record.get("command_logs") or [])
+    closed_running = False
+    for entry in command_logs:
+        if entry.get("status") != "running":
+            continue
+        entry.update(
+            {
+                "status": "failed",
+                "finished_at": now,
+                "error": reason,
+            }
+        )
+        closed_running = True
+    if not closed_running:
+        command_logs.append(
+            {
+                "id": uuid4().hex,
+                "label": "任务中断",
+                "command": "",
+                "status": "failed",
+                "started_at": now,
+                "finished_at": now,
+                "output": "",
+                "error": reason,
+            }
+        )
+
+    updates: dict[str, Any] = {
+        "status": "failed",
+        "progress": 100,
+        "current_step": "下载失败（后端重启）",
+        "error": reason,
+        "finished_at": now,
+        "updated_at": now,
+        "command_logs": command_logs,
+    }
+    has_remote_artifacts = bool(record.get("remote_diag_path") and record.get("remote_archive_path"))
+    if has_remote_artifacts and record.get("cleanup_status") in {
+        None,
+        "not_started",
+        "running",
+        "pending",
+    }:
+        updates["cleanup_status"] = "pending"
+        updates["cleanup_error"] = "下载中断后待清理设备残留"
+        updates["current_step"] = "下载失败，设备残留待清理"
+
+    collection = _get_collection()
+    collection.update_one({"_id": record["_id"]}, {"$set": deepcopy(updates)})
+    return {**deepcopy(record), **updates}
+
+
+def fail_interrupted_diagnostic_log_downloads() -> int:
+    """Mark orphaned queued/running downloads as failed after backend restart."""
+    try:
+        collection = _get_collection()
+        records = list(collection.find({"status": {"$in": ["queued", "running"]}}))
+    except Exception as exc:
+        logger.warning("Unable to fail interrupted robot log downloads: %s", exc)
+        return 0
+
+    failed = 0
+    for record in records:
+        try:
+            refreshed = _mark_record_interrupted_by_restart(record)
+            failed += 1
+            if (
+                refreshed.get("cleanup_status") == "pending"
+                and refreshed.get("remote_diag_path")
+                and refreshed.get("remote_archive_path")
+            ):
+                try:
+                    _schedule_pending_cleanup(refreshed, immediate=True)
+                except Exception as schedule_exc:
+                    logger.warning(
+                        "Unable to schedule cleanup for interrupted download %s: %s",
+                        record.get("_id"),
+                        schedule_exc,
+                    )
+        except Exception as exc:
+            logger.warning(
+                "Unable to mark interrupted robot log download %s as failed: %s",
+                record.get("_id"),
+                exc,
+            )
+    if failed:
+        logger.info("Marked %s interrupted robot log download(s) as failed after restart", failed)
+    return failed
+
+
 def resume_pending_diagnostic_log_cleanups() -> int:
     try:
         collection = _get_collection()
@@ -987,7 +1185,7 @@ def _download_device(
                     else "下载失败，设备残留已清理"
                 )
             ),
-            archive_path=str(final_path) if final_path and final_path.is_file() else None,
+            archive_path=_to_stored_archive_path(final_path) if final_path and final_path.is_file() else None,
             archive_name=archive_name if final_path and final_path.is_file() else None,
             archive_size=final_path.stat().st_size if final_path and final_path.is_file() else 0,
             file_available=bool(final_path and final_path.is_file()),
@@ -1021,7 +1219,7 @@ def _download_device(
         progress=100,
         current_step="下载完成，设备残留已清理",
         completed_steps=total_steps,
-        archive_path=str(final_path),
+        archive_path=_to_stored_archive_path(final_path),
         archive_name=archive_name,
         archive_size=final_path.stat().st_size,
         file_available=True,
@@ -1097,10 +1295,19 @@ def delete_server_log(record_id: str) -> dict[str, Any]:
     server_directory = str(record.get("server_directory") or "").strip()
     if server_directory:
         try:
-            directory = Path(server_directory).resolve()
-            download_root = Path(setting.ROBOT_LOG_DOWNLOAD_DIR).resolve()
-            if download_root in directory.parents:
-                directory.rmdir()
+            download_root = _download_root()
+            directory_candidates = [Path(server_directory)]
+            relative_parts = _relative_parts_after_marker(server_directory)
+            if relative_parts:
+                directory_candidates.append(download_root.joinpath(*relative_parts))
+            for candidate in directory_candidates:
+                try:
+                    directory = candidate.resolve()
+                except OSError:
+                    continue
+                if _path_under_download_root(directory, download_root):
+                    directory.rmdir()
+                    break
         except OSError:
             pass
 

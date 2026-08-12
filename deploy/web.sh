@@ -9,10 +9,13 @@ API_PORT="${API_PORT:-8090}"
 WEB_HTTP_PORT="${WEB_HTTP_PORT:-80}"
 WEB_HTTPS_PORT="${WEB_HTTPS_PORT:-443}"
 WEB_ENABLE_HTTPS="${WEB_ENABLE_HTTPS:-true}"
+WEB_SKIP_BUILD="${WEB_SKIP_BUILD:-false}"
 SERVER_NAME="${SERVER_NAME:-_}"
 SSL_CERTIFICATE="${SSL_CERTIFICATE:-}"
 SSL_CERTIFICATE_KEY="${SSL_CERTIFICATE_KEY:-}"
 SITE_NAME="production-web-ui"
+VERSION_SOURCE="$REPOSITORY_ROOT/apps/version.json"
+VERSION_FILE="$REPOSITORY_ROOT/apps/backend/data/app-version.json"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "web.sh must run as root"
@@ -31,8 +34,16 @@ if [ "$WEB_ENABLE_HTTPS" = "true" ]; then
 fi
 
 cd "$WEB_ROOT"
-npm ci
-npm run build
+if [ "$WEB_SKIP_BUILD" = "true" ]; then
+    if [ ! -f "$WEB_ROOT/dist/index.html" ]; then
+        echo "WEB_SKIP_BUILD=true requires a prebuilt dist/index.html"
+        exit 1
+    fi
+    echo "Using prebuilt web assets from $WEB_ROOT/dist"
+else
+    npm ci
+    npm run build
+fi
 
 if [ -d /etc/nginx/sites-available ]; then
     SITE_FILE="/etc/nginx/sites-available/$SITE_NAME"
@@ -124,7 +135,7 @@ EOF
         try_files \$uri =404;
     }
 
-    location ~ ^/(favicon\.png|versions-favicon\.svg|icons\.svg)$ {
+    location ~ ^/(favicon\.png|agent-favicon\.svg|testing-favicon\.svg|versions-favicon\.svg|icons\.svg)$ {
         try_files \$uri =404;
     }
 
@@ -141,7 +152,10 @@ EOF
 EOF
     } > "$SITE_FILE"
 else
-    cat > "$SITE_FILE" <<EOF
+    {
+        cat <<EOF
+limit_req_zone \$binary_remote_addr zone=production_auth_login:10m rate=5r/m;
+
 server {
     listen $WEB_HTTP_PORT;
     server_name $SERVER_NAME;
@@ -149,22 +163,61 @@ server {
     index index.html;
     client_max_body_size 200m;
 
+    location = /_auth {
+        internal;
+        proxy_pass http://127.0.0.1:$API_PORT/api/auth/verify;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+EOF
+        write_proxy_headers
+        cat <<EOF
+    }
+
+    location = /api/auth/login {
+        limit_req zone=production_auth_login burst=5 nodelay;
+        proxy_pass http://127.0.0.1:$API_PORT;
+EOF
+        write_proxy_headers
+        cat <<EOF
+    }
+
     location /api/ {
         proxy_pass http://127.0.0.1:$API_PORT;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 300s;
-        proxy_buffering off;
+EOF
+        write_proxy_headers
+        cat <<EOF
+    }
+
+    location = /login {
+        try_files /index.html =404;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-store";
+    }
+
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
+
+    location ~ ^/(favicon\.png|agent-favicon\.svg|testing-favicon\.svg|versions-favicon\.svg|icons\.svg)$ {
+        try_files \$uri =404;
+    }
+
+    location @login_redirect {
+        return 302 /login?redirect=\$uri;
     }
 
     location / {
+        auth_request /_auth;
+        error_page 401 = @login_redirect;
         try_files \$uri \$uri/ /index.html;
     }
 }
 EOF
+    } > "$SITE_FILE"
 fi
 
 if [ -n "$ENABLED_FILE" ]; then
@@ -173,6 +226,7 @@ fi
 
 nginx -t
 systemctl reload nginx
+python3 "$SCRIPT_DIR/update_version.py" --path "$VERSION_FILE" --source "$VERSION_SOURCE" --repository "$REPOSITORY_ROOT"
 if [ "$WEB_ENABLE_HTTPS" = "true" ]; then
     echo "Web deployed at https://$SERVER_NAME:$WEB_HTTPS_PORT"
 else

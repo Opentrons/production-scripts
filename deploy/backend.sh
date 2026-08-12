@@ -10,13 +10,16 @@ API_PORT="${API_PORT:-8090}"
 UV_BIN="${UV_BIN:-$(command -v uv)}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 AUTH_ENV_FILE="${AUTH_ENV_FILE:-/etc/production-platform.env}"
+AUTH_COOKIE_SECURE="${AUTH_COOKIE_SECURE:-true}"
+VERSION_SOURCE="$REPOSITORY_ROOT/apps/version.json"
+VERSION_FILE="$API_ROOT/data/app-version.json"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "backend.sh must run as root"
     exit 1
 fi
 
-mkdir -p "$API_ROOT/data" "$API_ROOT/auth" "$API_ROOT/db-storage/auth"
+mkdir -p "$API_ROOT/data" "$API_ROOT/auth-files" "$API_ROOT/db-storage/auth"
 
 touch "$AUTH_ENV_FILE"
 chmod 600 "$AUTH_ENV_FILE"
@@ -43,8 +46,9 @@ User=root
 WorkingDirectory=$REPOSITORY_ROOT
 Environment=PRODUCTION_PLATFORM_RUN_ENV=server
 Environment=PRODUCTION_PLATFORM_DATA_DIR=$API_ROOT/data
-Environment=PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=true
+Environment=PRODUCTION_PLATFORM_REFRESH_PROXY_ON_STARTUP=false
 EnvironmentFile=$AUTH_ENV_FILE
+Environment=PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=$AUTH_COOKIE_SECURE
 Environment=PYTHONUNBUFFERED=1
 ExecStart=$UV_BIN run --package production-backend uvicorn app:app --host 127.0.0.1 --port $API_PORT
 Restart=always
@@ -58,6 +62,7 @@ systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
 systemctl --no-pager status "$SERVICE_NAME"
+python3 "$SCRIPT_DIR/update_version.py" --path "$VERSION_FILE" --source "$VERSION_SOURCE" --repository "$REPOSITORY_ROOT"
 
 echo "Backend deployed on port $API_PORT"
 echo "SQLite data preserved in $API_ROOT/data"

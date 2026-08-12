@@ -46,12 +46,14 @@ async def get_robot_log_download_task(task_id: str):
 async def list_robot_log_download_records(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    robot_ip: str | None = Query(None),
 ):
     try:
         return await run_in_threadpool(
             diagnostic_log_service.list_download_records,
             page=page,
             page_size=page_size,
+            robot_ip=robot_ip,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc

@@ -22,6 +22,16 @@
               @click="handleRefresh"
               :loading="messageStore.loading"
             >刷新</el-button>
+            <el-tooltip content="关闭消息" placement="bottom">
+              <button
+                class="close-messages-button"
+                type="button"
+                aria-label="关闭消息"
+                @click="handleClose"
+              >
+                <el-icon><Close /></el-icon>
+              </button>
+            </el-tooltip>
           </div>
         </div>
       </template>
@@ -81,7 +91,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { CircleCheck, Loading, Refresh } from '@element-plus/icons-vue'
+import { CircleCheck, Close, Loading, Refresh } from '@element-plus/icons-vue'
 import { useMessageStore } from '@/scripts/stores/message'
 import type { MessageItem } from '@/scripts/types'
 
@@ -133,6 +143,14 @@ const handleMessageClick = (message: MessageItem) => {
 const handleRefresh = () => {
   messageStore.fetchMessages()
   ElMessage.success('消息已刷新')
+}
+
+const handleClose = () => {
+  if (window.history.state?.back) {
+    router.back()
+    return
+  }
+  router.push('/')
 }
 
 const handleMarkAllAsRead = async () => {
@@ -194,6 +212,26 @@ onMounted(async () => {
 
 .header-tools {
   gap: 12px;
+}
+
+.close-messages-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #606266;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.close-messages-button:hover {
+  background: #f2f3f5;
+  color: #303133;
 }
 
 .total-count {

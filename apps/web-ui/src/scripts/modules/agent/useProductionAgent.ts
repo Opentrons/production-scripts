@@ -11,17 +11,32 @@ export interface AgentChatMessage {
 export interface AgentStatus {
   configured: boolean
   model: string
+  tool_count: number
+  knowledge_count: number
+  max_tool_rounds: number
+}
+
+export interface AgentToolEventData {
+  call_id: string
+  name: string
+  arguments?: Record<string, unknown>
+  ok?: boolean
+  duration_ms?: number
+  error?: string
 }
 
 interface AgentStreamEvent {
-  type: 'chunk' | 'done' | 'error'
+  type: 'chunk' | 'done' | 'error' | 'tool_start' | 'tool_result'
   content?: string
+  data?: AgentToolEventData
 }
 
 interface ChatCallbacks {
   onChunk?: (content: string) => void | Promise<void>
   onDone?: (content: string) => void | Promise<void>
   onError?: (message: string) => void | Promise<void>
+  onToolStart?: (data: AgentToolEventData) => void | Promise<void>
+  onToolResult?: (data: AgentToolEventData) => void | Promise<void>
 }
 
 const AGENT_API_BASE = '/api/agent'
@@ -91,6 +106,8 @@ export function useProductionAgent() {
         if (event.type === 'chunk') await callbacks.onChunk?.(event.content || '')
         else if (event.type === 'done') await callbacks.onDone?.(event.content || '')
         else if (event.type === 'error') await callbacks.onError?.(event.content || '生产助手调用失败')
+        else if (event.type === 'tool_start' && event.data) await callbacks.onToolStart?.(event.data)
+        else if (event.type === 'tool_result' && event.data) await callbacks.onToolResult?.(event.data)
       }
 
       while (true) {

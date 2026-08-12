@@ -13,7 +13,16 @@ sudo "$(command -v uv)" run --package production-backend python apps/backend/scr
   --role admin
 ```
 
-The command prompts for a password and requires at least 12 characters. Available roles are `admin`, `operator`, and `viewer`.
+The command prompts for a password and requires at least 12 characters. Available roles are `admin`, `operator`, `viewer`, and `device_operator`.
+
+`device_operator` is the standard production-floor role. It can use the dashboard and all platform modules except the device control page. The web application blocks `/devices/control` with a permission-controlled dialog. The API independently returns HTTP 403 for `/api/robots/{ip}/control/*` while allowing other authenticated platform endpoints.
+
+```bash
+sudo "$(command -v uv)" run --package production-backend python apps/backend/scripts/create_auth_user.py \
+  --username device_control \
+  --display-name '普通用户' \
+  --role device_operator
+```
 
 Configure a domain or fixed-IP certificate before deploying Nginx:
 

@@ -14,7 +14,7 @@
                 :aria-expanded="openNavigationMenu === 'product-tests'"
                 @click.stop="toggleNavigationMenu('product-tests')"
               >
-                <Factory class="top-menu-icon" :size="16" aria-hidden="true" />
+                <img class="top-menu-logo" src="/testing-favicon.svg" alt="" aria-hidden="true" />
                 <span>{{ copy.nav.productLineTests }}</span>
                 <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
               </button>
@@ -22,11 +22,12 @@
                 <a href="/data/uploads" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.dataAutomationUpload }}
                 </a>
-                <div class="top-dropdown-dual" role="group" :aria-label="copy.nav.deviceAndTestManagement">
-                  <a href="/devices" target="_blank" rel="noopener noreferrer" @click="closeNavigationMenu">{{ copy.nav.deviceManagement }}</a>
-                  <span>&amp;</span>
-                  <a href="/test-cases" target="_blank" rel="noopener noreferrer" @click="closeNavigationMenu">{{ copy.nav.testManagement }}</a>
-                </div>
+                <a href="/devices" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.deviceManagement }}
+                </a>
+                <a href="/test-cases" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.testManagement }}
+                </a>
                 <a href="/data" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.dataManagement }}
                 </a>
@@ -39,7 +40,7 @@
                 :aria-expanded="openNavigationMenu === 'version-checks'"
                 @click.stop="toggleNavigationMenu('version-checks')"
               >
-                <PackageCheck class="top-menu-icon" :size="16" aria-hidden="true" />
+                <img class="top-menu-logo" src="/versions-favicon.svg" alt="" aria-hidden="true" />
                 <span>{{ copy.nav.versionChecks }}</span>
                 <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
               </button>
@@ -53,7 +54,7 @@
               </div>
             </div>
             <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
-              <Bot class="top-menu-icon" :size="16" aria-hidden="true" />
+              <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
               <span>{{ copy.nav.productionAgent }}</span>
             </a>
             <a class="top-link is-active" href="/downloads">
@@ -277,7 +278,7 @@
                   :aria-expanded="openNavigationMenu === 'product-tests'"
                   @click.stop="toggleNavigationMenu('product-tests')"
                 >
-                  <Factory class="top-menu-icon" :size="16" aria-hidden="true" />
+                  <img class="top-menu-logo" src="/testing-favicon.svg" alt="" aria-hidden="true" />
                   <span>{{ copy.nav.productLineTests }}</span>
                   <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
                 </button>
@@ -285,11 +286,12 @@
                   <a href="/data/uploads" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.dataAutomationUpload }}
                   </a>
-                  <div class="top-dropdown-dual" role="group" :aria-label="copy.nav.deviceAndTestManagement">
-                    <a href="/devices" target="_blank" rel="noopener noreferrer" @click="closeNavigationMenu">{{ copy.nav.deviceManagement }}</a>
-                    <span>&amp;</span>
-                    <a href="/test-cases" target="_blank" rel="noopener noreferrer" @click="closeNavigationMenu">{{ copy.nav.testManagement }}</a>
-                  </div>
+                  <a href="/devices" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.deviceManagement }}
+                  </a>
+                  <a href="/test-cases" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.testManagement }}
+                  </a>
                   <a href="/data" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.dataManagement }}
                   </a>
@@ -302,7 +304,7 @@
                   :aria-expanded="openNavigationMenu === 'version-checks'"
                   @click.stop="toggleNavigationMenu('version-checks')"
                 >
-                  <PackageCheck class="top-menu-icon" :size="16" aria-hidden="true" />
+                  <img class="top-menu-logo" src="/versions-favicon.svg" alt="" aria-hidden="true" />
                   <span>{{ copy.nav.versionChecks }}</span>
                   <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
                 </button>
@@ -316,7 +318,7 @@
                 </div>
               </div>
               <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
-                <Bot class="top-menu-icon" :size="16" aria-hidden="true" />
+                <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
                 <span>{{ copy.nav.productionAgent }}</span>
               </a>
               <a class="top-link" href="/downloads">
@@ -370,8 +372,15 @@
             class="module-card"
             :class="{ 'is-muted': module.statusClass === 'status-planned' }"
           >
-            <div class="module-icon">
-              <component :is="module.icon" :size="22" aria-hidden="true" />
+            <div class="module-icon" :class="{ 'is-logo': Boolean(module.iconSrc) }">
+              <img
+                v-if="module.iconSrc"
+                class="module-logo"
+                :src="module.iconSrc"
+                alt=""
+                aria-hidden="true"
+              />
+              <component v-else :is="module.icon" :size="22" aria-hidden="true" />
             </div>
             <div class="module-body">
               <div class="module-title-row">
@@ -454,6 +463,21 @@
             <span>{{ simulatingEnabled ? copy.simulatingOn : copy.simulatingOff }}</span>
           </button>
         </div>
+        <div class="developer-option">
+          <div class="developer-option-name">
+            <span class="developer-option-icon" aria-hidden="true">
+              <Package :size="19" />
+            </span>
+            <div>
+              <h3>{{ copy.dashboard.currentVersion }}</h3>
+              <p>{{ copy.dashboard.lastUpdated }}：{{ formatAppVersionDate(appVersion.updated_at) }}</p>
+            </div>
+          </div>
+          <div class="developer-version-value" :aria-label="copy.dashboard.currentVersion">
+            <strong>{{ appVersion.version }}</strong>
+            <code v-if="appVersion.commit">{{ appVersion.commit }}</code>
+          </div>
+        </div>
       </section>
     </template>
   </main>
@@ -464,14 +488,12 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import {
   ArrowRight,
   BarChart3,
-  Bot,
   Boxes,
   ChevronDown,
   CircleAlert,
   Database,
   Download,
   ExternalLink,
-  Factory,
   FileArchive,
   Folder,
   FolderKanban,
@@ -543,6 +565,7 @@ function setLocale(nextLocale: DashboardLocale): void {
 const simulatingEnabled = ref(false)
 const simulatingSaving = ref(false)
 const simulatingHint = ref('')
+const appVersion = reactive<AppVersion>({ version: 'N/A', updated_at: null, commit: null })
 
 async function loadSimulatingStatus(): Promise<void> {
   try {
@@ -569,6 +592,19 @@ async function toggleSimulating(): Promise<void> {
   }
 }
 
+async function loadAppVersion(): Promise<void> {
+  try {
+    const response = await authenticatedFetch(`${apiBaseUrl}/system/version`, { cache: 'no-store' })
+    if (!response.ok) return
+    const payload = await response.json() as Partial<AppVersion>
+    appVersion.version = String(payload.version || 'N/A')
+    appVersion.updated_at = payload.updated_at || null
+    appVersion.commit = payload.commit || null
+  } catch {
+    // Version metadata is informative and must not block the dashboard.
+  }
+}
+
 interface ResourceVersion {
   id: string
   project_id: string
@@ -592,6 +628,12 @@ interface ResourceProject {
   versions: ResourceVersion[]
 }
 
+interface AppVersion {
+  version: string
+  updated_at: string | null
+  commit: string | null
+}
+
 const operationsBaseUrl = withTrailingSlash(
   import.meta.env.VITE_OPERATIONS_URL || '/home',
 )
@@ -603,7 +645,7 @@ const projects = ref<ResourceProject[]>([])
 const expandedProjectIds = ref(new Set<string>())
 const openMenuVersionId = ref('')
 const openNavigationMenu = ref<'' | 'product-tests' | 'version-checks'>('')
-const isLoading = ref(true)
+const isLoading = ref(false)
 const isFormOpen = ref(false)
 const isSubmitting = ref(false)
 const formMode = ref<'upload' | 'edit'>('upload')
@@ -672,6 +714,10 @@ function formatDate(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
+}
+
+function formatAppVersionDate(value: string | null): string {
+  return value ? formatDate(value) : 'N/A'
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -893,6 +939,7 @@ onMounted(() => {
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('keydown', handleKeydown)
   void loadSimulatingStatus()
+  if (!isDownloadsView.value) void loadAppVersion()
   if (isDownloadsView.value) void loadProjects()
 })
 
@@ -901,14 +948,25 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
-const modules = computed(() => [
+type DashboardModule = {
+  name: string
+  summary: string
+  status: string
+  statusClass: string
+  href: string
+  openInNewTab: boolean
+  icon?: typeof Download
+  iconSrc?: string
+}
+
+const modules = computed<DashboardModule[]>(() => [
   {
     ...copy.value.dashboard.modules.operations,
     status: copy.value.status.active,
     statusClass: 'status-active',
     href: operationsBaseUrl,
     openInNewTab: true,
-    icon: Factory,
+    iconSrc: '/testing-favicon.svg',
   },
   {
     ...copy.value.dashboard.modules.versions,
@@ -916,7 +974,7 @@ const modules = computed(() => [
     statusClass: 'status-active',
     href: '/versions',
     openInNewTab: true,
-    icon: Package,
+    iconSrc: '/versions-favicon.svg',
   },
   {
     ...copy.value.dashboard.modules.downloads,
@@ -932,7 +990,7 @@ const modules = computed(() => [
     statusClass: 'status-active',
     href: productionAgentBaseUrl,
     openInNewTab: true,
-    icon: Bot,
+    iconSrc: '/agent-favicon.svg',
   },
 ])
 

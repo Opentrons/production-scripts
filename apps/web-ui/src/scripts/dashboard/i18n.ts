@@ -20,7 +20,6 @@ interface DashboardMessages {
   nav: {
     productLineTests: string
     dataAutomationUpload: string
-    deviceAndTestManagement: string
     deviceManagement: string
     testManagement: string
     dataManagement: string
@@ -47,6 +46,8 @@ interface DashboardMessages {
     operationsTitle: string
     developerEyebrow: string
     developerTitle: string
+    currentVersion: string
+    lastUpdated: string
     openModule: (name: string) => string
     comingSoon: string
     modules: {
@@ -140,7 +141,6 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
     nav: {
       productLineTests: '产品线测试',
       dataAutomationUpload: '数据自动化上传',
-      deviceAndTestManagement: '设备管理与测试管理',
       deviceManagement: '设备管理',
       testManagement: '测试管理',
       dataManagement: '数据管理',
@@ -167,6 +167,8 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       operationsTitle: '生产操作',
       developerEyebrow: '开发工具',
       developerTitle: '开发者选项',
+      currentVersion: '当前版本',
+      lastUpdated: '最后更新时间',
       openModule: (name) => `打开${name}`,
       comingSoon: '即将推出',
       modules: {
@@ -270,7 +272,6 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
     nav: {
       productLineTests: 'Product Line Tests',
       dataAutomationUpload: 'Automated Data Upload',
-      deviceAndTestManagement: 'Device & Test Management',
       deviceManagement: 'Device Management',
       testManagement: 'Test Management',
       dataManagement: 'Data Management',
@@ -297,6 +298,8 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       operationsTitle: 'Production Operations',
       developerEyebrow: 'DEVELOPMENT',
       developerTitle: 'Developer Options',
+      currentVersion: 'Current Version',
+      lastUpdated: 'Last Updated',
       openModule: (name) => `Open ${name}`,
       comingSoon: 'Coming soon',
       modules: {

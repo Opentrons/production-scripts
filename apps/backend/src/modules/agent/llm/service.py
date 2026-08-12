@@ -179,6 +179,89 @@ class LLMService:
         except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
             raise RuntimeError(f"LLM 对话失败：{exc}") from exc
 
+    async def stream_tool_round(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        system_prompt: str,
+        tools: list[dict[str, Any]],
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Run one streamed model round and return its complete assistant message."""
+        if not self.api_key:
+            raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "temperature": 0.2,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                *messages,
+            ],
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        content_parts: list[str] = []
+        tool_calls: dict[int, dict[str, Any]] = {}
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        raw_data = line[5:].strip()
+                        if not raw_data or raw_data == "[DONE]":
+                            continue
+                        data = json.loads(raw_data)
+                        delta = data["choices"][0].get("delta") or {}
+                        content = delta.get("content")
+                        if content:
+                            text = str(content)
+                            content_parts.append(text)
+                            yield {"type": "chunk", "content": text}
+                        for fragment in delta.get("tool_calls") or []:
+                            index = int(fragment.get("index", 0))
+                            current = tool_calls.setdefault(
+                                index,
+                                {
+                                    "id": "",
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""},
+                                },
+                            )
+                            if fragment.get("id"):
+                                current["id"] += str(fragment["id"])
+                            function = fragment.get("function") or {}
+                            if function.get("name"):
+                                current["function"]["name"] += str(function["name"])
+                            if function.get("arguments"):
+                                current["function"]["arguments"] += str(function["arguments"])
+        except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"LLM 工具调用失败：{exc}") from exc
+
+        normalized_calls = []
+        for index, call in sorted(tool_calls.items()):
+            call["id"] = call["id"] or f"tool_call_{index}"
+            normalized_calls.append(call)
+        message: dict[str, Any] = {
+            "role": "assistant",
+            "content": "".join(content_parts) or None,
+        }
+        if normalized_calls:
+            message["tool_calls"] = normalized_calls
+        yield {"type": "round_done", "message": message}
+
     def extract_sop_materials(self, request: SopTextChunkRequest) -> list[SopTextMaterial]:
         if not self.api_key:
             raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")

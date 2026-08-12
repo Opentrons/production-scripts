@@ -9,13 +9,13 @@
     >
       <span class="auth-user-avatar"><UserRound :size="15" aria-hidden="true" /></span>
       <span class="auth-user-copy">
-        <strong>{{ authStore.user?.display_name || authStore.user?.username }}</strong>
+        <strong>{{ displayName }}</strong>
       </span>
       <ChevronDown :size="14" aria-hidden="true" />
     </button>
     <div v-if="open" class="auth-user-dropdown" role="menu">
       <div class="auth-user-identity">
-        <strong>{{ authStore.user?.display_name || authStore.user?.username }}</strong>
+        <strong>{{ displayName }}</strong>
         <span>{{ authStore.user?.username }} · {{ roleLabel }}</span>
       </div>
       <button type="button" role="menuitem" :disabled="loggingOut" @click="logout">
@@ -39,11 +39,15 @@ const authStore = useAuthStore()
 const menuRoot = ref<HTMLElement | null>(null)
 const open = ref(false)
 const loggingOut = ref(false)
+const displayName = computed(() => authStore.user?.role === 'device_operator'
+  ? '普通用户'
+  : authStore.user?.display_name || authStore.user?.username)
 
 const roleLabel = computed(() => ({
   admin: '管理员',
   operator: '操作员',
   viewer: '访客',
+  device_operator: '普通用户',
 }[authStore.user?.role || 'viewer']))
 
 function closeOnOutsideClick(event: MouseEvent): void {
