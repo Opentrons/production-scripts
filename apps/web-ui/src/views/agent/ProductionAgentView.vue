@@ -1210,8 +1210,15 @@ onBeforeUnmount(() => {
   color: #26363c;
   background: #e8f0f3;
   font-size: 14px;
-  line-height: 1.75;
+  line-height: 1.58;
   letter-spacing: 0;
+}
+
+.agent-markdown {
+  white-space: normal;
+}
+
+.agent-user-text {
   white-space: pre-wrap;
 }
 
@@ -1277,25 +1284,29 @@ onBeforeUnmount(() => {
 .agent-markdown :deep(h1),
 .agent-markdown :deep(h2),
 .agent-markdown :deep(h3) {
-  margin: 16px 0 8px;
+  margin: 12px 0 5px;
   color: #17211e;
   font-weight: 760;
+  line-height: 1.35;
   letter-spacing: 0;
 }
 
+.agent-markdown :deep(:first-child) { margin-top: 0; }
+.agent-markdown :deep(:last-child) { margin-bottom: 0; }
 .agent-markdown :deep(h1) { font-size: 20px; }
 .agent-markdown :deep(h2) { font-size: 17px; }
 .agent-markdown :deep(h3) { font-size: 15px; }
-.agent-markdown :deep(p) { margin: 0 0 10px; }
-.agent-markdown :deep(ul), .agent-markdown :deep(ol) { margin: 8px 0 12px; padding-left: 22px; }
-.agent-markdown :deep(li) { margin-bottom: 4px; }
+.agent-markdown :deep(p) { margin: 0 0 5px; }
+.agent-markdown :deep(ul), .agent-markdown :deep(ol) { margin: 4px 0 7px; padding-left: 22px; }
+.agent-markdown :deep(li) { margin-bottom: 2px; }
+.agent-markdown :deep(li:last-child) { margin-bottom: 0; }
 .agent-markdown :deep(a) { color: #0f6d83; }
 .agent-markdown :deep(strong) { color: #17211e; }
 .agent-markdown :deep(code) { padding: 2px 5px; border-radius: 4px; color: #934c16; background: #f5e9dc; font-size: 0.92em; }
-.agent-markdown :deep(pre) { overflow-x: auto; margin: 10px 0; padding: 12px; border-radius: 6px; color: #eaf0ed; background: #202a31; }
+.agent-markdown :deep(pre) { overflow-x: auto; margin: 7px 0; padding: 10px 12px; border-radius: 6px; color: #eaf0ed; background: #202a31; line-height: 1.5; }
 .agent-markdown :deep(pre code) { padding: 0; color: inherit; background: transparent; }
-.agent-markdown :deep(blockquote) { margin: 10px 0; padding: 7px 12px; border-left: 3px solid #d59a4d; color: #5d6865; background: #fbf6ec; }
-.agent-markdown :deep(table) { width: 100%; margin: 10px 0; border-collapse: collapse; }
+.agent-markdown :deep(blockquote) { margin: 7px 0; padding: 6px 11px; border-left: 3px solid #d59a4d; color: #5d6865; background: #fbf6ec; }
+.agent-markdown :deep(table) { width: 100%; margin: 7px 0; border-collapse: collapse; }
 .agent-markdown :deep(th), .agent-markdown :deep(td) { padding: 8px 10px; border: 1px solid #d6dfda; text-align: left; vertical-align: top; }
 .agent-markdown :deep(th) { background: #eaf0ed; }
 
