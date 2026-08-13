@@ -1,6 +1,6 @@
 export default {
   locale: {
-    label: 'Interface language',
+    label: 'Language',
     chinese: '中文',
     english: 'English',
   },

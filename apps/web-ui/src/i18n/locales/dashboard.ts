@@ -258,7 +258,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
     },
   },
   en: {
-    languageLabel: 'Interface language',
+    languageLabel: 'Language',
     simulatingLabel: 'Simulating',
     simulatingOn: 'On',
     simulatingOff: 'Off',
