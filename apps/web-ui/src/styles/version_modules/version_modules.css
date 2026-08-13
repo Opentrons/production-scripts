@@ -116,7 +116,7 @@ textarea {
 }
 
 .sidebar-note {
-  margin-top: auto;
+  margin-top: 14px;
   padding: 14px 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -161,7 +161,8 @@ textarea {
 }
 
 .versions-auth-menu {
-  margin-top: 10px;
+  margin-top: auto;
+  padding-top: 10px;
 }
 
 .versions-auth-menu .auth-user-menu,
@@ -1893,13 +1894,33 @@ textarea {
 }
 
 .difference-status {
+  max-width: 100%;
   display: inline-flex;
+  overflow: hidden;
   padding: 3px 7px;
   border-radius: 9px;
   background: #edf1f3;
   color: #697781;
   font-size: 9px;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-history-data-table .el-table__header .cell,
+.run-history-data-table .el-table__body .cell,
+.history-table-header-text,
+.history-table-cell-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-table-header-text,
+.history-table-cell-text {
+  display: block;
+  max-width: 100%;
 }
 
 .difference-status.is-missing_in_duro {
@@ -2376,10 +2397,17 @@ textarea {
 }
 
 .difference-part-number {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 7px;
   white-space: nowrap;
+}
+
+.difference-part-number > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .difference-ignored-tag {

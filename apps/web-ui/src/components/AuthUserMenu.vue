@@ -1,5 +1,9 @@
 <template>
-  <div ref="menuRoot" class="auth-user-menu" :class="`is-${variant}`">
+  <div
+    ref="menuRoot"
+    class="auth-user-menu"
+    :class="[`is-${variant}`, `is-${dropdownPlacement}`]"
+  >
     <button
       class="auth-user-trigger"
       type="button"
@@ -38,7 +42,13 @@ import { useAuthStore } from '@/scripts/stores/auth'
 import { useAppLocale } from '@/i18n'
 import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 
-withDefaults(defineProps<{ variant?: 'light' | 'dark' }>(), { variant: 'light' })
+withDefaults(defineProps<{
+  variant?: 'light' | 'dark'
+  dropdownPlacement?: 'top' | 'bottom'
+}>(), {
+  variant: 'light',
+  dropdownPlacement: 'bottom'
+})
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -87,6 +97,9 @@ onBeforeUnmount(() => window.removeEventListener('click', closeOnOutsideClick))
 .auth-user-copy { min-width: 0; display: flex; align-items: center; text-align: left; }
 .auth-user-copy strong { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 700; }
 .auth-user-dropdown { position: absolute; z-index: 1200; top: calc(100% + 7px); right: 0; width: 190px; padding: 7px; border: 1px solid #d9e0e4; border-radius: 6px; background: #fff; box-shadow: 0 14px 34px rgba(24,38,46,.14); }
+.auth-user-menu.is-top .auth-user-dropdown { top: auto; bottom: calc(100% + 7px); box-shadow: 0 -14px 34px rgba(24,38,46,.14); }
+.auth-user-menu.is-top .auth-user-trigger > svg { transform: rotate(180deg); }
+.auth-user-menu.is-top .auth-user-trigger[aria-expanded="true"] > svg { transform: rotate(0); }
 .auth-user-identity { display: grid; gap: 3px; padding: 7px 8px 10px; border-bottom: 1px solid #edf0f2; }
 .auth-user-identity strong { overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 .auth-user-identity span { overflow: hidden; text-overflow: ellipsis; color: #7a858b; font-size: 10px; }

@@ -9,6 +9,14 @@
         </div>
       </div>
 
+      <div class="sidebar-note">
+        <div class="sidebar-note-title">
+          <span class="status-dot" :class="dataSourceStatusClass"></span>
+          <strong>{{ dataSourceStatusTitle }}</strong>
+        </div>
+        <span class="sidebar-note-detail" :title="dataSourceErrorDetail">{{ dataSourceStatusDetail }}</span>
+      </div>
+
       <nav class="main-nav" :aria-label="w('mainNavigation')">
         <button
           class="nav-item"
@@ -39,15 +47,8 @@
         </button>
       </nav>
 
-      <div class="sidebar-note">
-        <div class="sidebar-note-title">
-          <span class="status-dot" :class="dataSourceStatusClass"></span>
-          <strong>{{ dataSourceStatusTitle }}</strong>
-        </div>
-        <span class="sidebar-note-detail" :title="dataSourceErrorDetail">{{ dataSourceStatusDetail }}</span>
-      </div>
       <div class="versions-auth-menu">
-        <AuthUserMenu variant="dark" />
+        <AuthUserMenu variant="dark" dropdown-placement="top" />
       </div>
     </aside>
 
@@ -735,11 +736,13 @@
                     <template v-if="reportView(run.id) === 'differences'">
                     <el-table
                       :ref="setDifferenceTableRef.bind(null, run.id)"
+                      class="run-history-data-table"
                       :data="filteredReportDifferences(run)"
                       :row-class-name="differenceRowClassName"
                       row-key="part_number"
                       height="520"
                       border
+                      show-overflow-tooltip
                       :empty-text="w('bomMatched')"
                       @row-click="handleDifferenceRowClick(run.id, $event)"
                       @row-contextmenu="handleDifferenceRowContextMenu.bind(null, run)"
@@ -842,14 +845,24 @@
                           </div>
                         </template>
                       </el-table-column>
-                      <el-table-column :label="w('differenceType')" width="125">
+                      <el-table-column
+                        :label="w('differenceType')"
+                        :render-header="historyTableHeader('Diff. Type')"
+                        width="125"
+                      >
                         <template #default="{ row }">
-                          <span class="difference-status" :class="`is-${row.status}`">
-                            {{ differenceLabel(row.status) }}
-                          </span>
+                          <el-tooltip :content="differenceLabel(row.status)" placement="top" :show-after="300">
+                            <span class="difference-status" :class="`is-${row.status}`">
+                              {{ compactDifferenceLabel(row.status) }}
+                            </span>
+                          </el-tooltip>
                         </template>
                       </el-table-column>
-                      <el-table-column :label="w('partNumber')" width="170">
+                      <el-table-column
+                        :label="w('partNumber')"
+                        :render-header="historyTableHeader('Part No.')"
+                        width="170"
+                      >
                         <template #default="{ row }">
                           <div class="difference-part-number">
                             <span>{{ row.part_number }}</span>
@@ -857,32 +870,34 @@
                           </div>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="name" :label="w('materialName')" min-width="260" show-overflow-tooltip />
-                      <el-table-column :label="w('duroSubmenu')" min-width="150" show-overflow-tooltip>
+                      <el-table-column prop="name" :label="w('materialName')" :render-header="historyTableHeader('Material')" min-width="260" />
+                      <el-table-column :label="w('duroSubmenu')" :render-header="historyTableHeader('Duro Menu')" min-width="150">
                         <template #default="{ row }">{{ row.duro_submenu_labels.join(', ') || '—' }}</template>
                       </el-table-column>
-                      <el-table-column :label="w('sopQuantity')" width="100" align="right">
+                      <el-table-column :label="w('sopQuantity')" :render-header="historyTableHeader('SOP Qty')" width="100" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.sop_quantity) }}</template>
                       </el-table-column>
-                      <el-table-column :label="w('duroQuantity')" width="100" align="right">
+                      <el-table-column :label="w('duroQuantity')" :render-header="historyTableHeader('Duro Qty')" width="100" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.duro_quantity) }}</template>
                       </el-table-column>
-                      <el-table-column :label="w('delta')" width="90" align="right">
+                      <el-table-column :label="w('delta')" :render-header="historyTableHeader('Delta')" width="90" align="right">
                         <template #default="{ row }">{{ formatReportQuantity(row.quantity_delta) }}</template>
                       </el-table-column>
-                      <el-table-column :label="w('sopLocation')" min-width="260" show-overflow-tooltip>
+                      <el-table-column :label="w('sopLocation')" :render-header="historyTableHeader('SOP Location')" min-width="260">
                         <template #default="{ row }">{{ row.sop_locations.join('; ') || '—' }}</template>
                       </el-table-column>
-                      <el-table-column :label="w('duroPath')" min-width="300" show-overflow-tooltip>
+                      <el-table-column :label="w('duroPath')" :render-header="historyTableHeader('Duro Path')" min-width="300">
                         <template #default="{ row }">{{ row.duro_paths.join('; ') || '—' }}</template>
                       </el-table-column>
                     </el-table>
                     </template>
                     <template v-else>
                         <el-table
+                          class="run-history-data-table"
                           :data="filteredReportIgnoredItems(run)"
                           border
                           height="520"
+                          show-overflow-tooltip
                           :empty-text="w('noIgnoredData')"
                           @row-contextmenu="handleIgnoredRowContextMenu.bind(null, run)"
                         >
@@ -911,27 +926,47 @@
                               </div>
                             </template>
                           </el-table-column>
-                          <el-table-column :label="w('originalDifference')" width="120">
+                          <el-table-column
+                            :label="w('originalDifference')"
+                            :render-header="historyTableHeader('Orig. Diff.')"
+                            width="120"
+                          >
                             <template #default="{ row }">
-                              <span v-if="row.ignore_type === 'part_number_cleanup'" class="difference-status is-cleanup">{{ w('materialCleanup') }}</span>
-                              <span v-else class="difference-status" :class="`is-${row.status}`">{{ differenceLabel(row.status) }}</span>
+                              <el-tooltip :content="ignoredDifferenceLabel(row)" placement="top" :show-after="300">
+                                <span
+                                  class="difference-status"
+                                  :class="row.ignore_type === 'part_number_cleanup' ? 'is-cleanup' : `is-${row.status}`"
+                                >
+                                  {{ compactIgnoredDifferenceLabel(row) }}
+                                </span>
+                              </el-tooltip>
                             </template>
                           </el-table-column>
-                          <el-table-column prop="part_number" :label="w('originalPartNumber')" width="140" />
-                          <el-table-column prop="name" :label="w('materialName')" min-width="180" show-overflow-tooltip />
-                          <el-table-column :label="w('duroSubmenu')" min-width="150" show-overflow-tooltip>
+                          <el-table-column prop="part_number" :label="w('originalPartNumber')" :render-header="historyTableHeader('Orig. Part No.')" width="140" />
+                          <el-table-column prop="name" :label="w('materialName')" :render-header="historyTableHeader('Material')" min-width="180" />
+                          <el-table-column :label="w('duroSubmenu')" :render-header="historyTableHeader('Duro Menu')" min-width="150">
                             <template #default="{ row }">{{ row.duro_submenu_labels.join(', ') || '—' }}</template>
                           </el-table-column>
-                          <el-table-column :label="w('ignoreType')" width="130">
+                          <el-table-column :label="w('ignoreType')" :render-header="historyTableHeader('Ignore Type')" width="130">
                             <template #default="{ row }">
-                              {{ row.ignore_type === 'part_number_cleanup' ? w('defaultPartCleanup') : row.ignore_type === 'part_number' ? w('ignoredPart') : w('sopProductKeyword') }}
+                              <el-tooltip :content="ignoredTypeLabel(row.ignore_type)" placement="top" :show-after="300">
+                                <span class="history-table-cell-text">{{ compactIgnoredTypeLabel(row.ignore_type) }}</span>
+                              </el-tooltip>
                             </template>
                           </el-table-column>
-                          <el-table-column prop="ignore_value" :label="w('matchedRule')" width="140" show-overflow-tooltip />
-                          <el-table-column prop="ignore_reason" :label="w('ignoreReason')" min-width="220" show-overflow-tooltip />
-                          <el-table-column :label="w('ignoredSince')" width="170">
+                          <el-table-column prop="ignore_value" :label="w('matchedRule')" :render-header="historyTableHeader('Matched Rule')" width="140" />
+                          <el-table-column prop="ignore_reason" :label="w('ignoreReason')" :render-header="historyTableHeader('Reason')" min-width="220" />
+                          <el-table-column :label="w('ignoredSince')" :render-header="historyTableHeader('Ignored Since')" width="170">
                             <template #default="{ row }">
-                              {{ row.ignored_at ? formatDate(row.ignored_at) : w('legacyConfiguration') }}
+                              <el-tooltip
+                                :content="row.ignored_at ? formatDate(row.ignored_at) : w('legacyConfiguration')"
+                                placement="top"
+                                :show-after="300"
+                              >
+                                <span class="history-table-cell-text">
+                                  {{ row.ignored_at ? formatDate(row.ignored_at) : compactEnglishText(w('legacyConfiguration'), 'Legacy Config.') }}
+                                </span>
+                              </el-tooltip>
                             </template>
                           </el-table-column>
                         </el-table>
@@ -1086,10 +1121,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus'
+import { ElMessage, ElMessageBox, ElTooltip, type TableInstance } from 'element-plus'
 import {
   ArrowDown,
   ArrowUp,
@@ -2353,6 +2388,54 @@ function formatReportQuantity(value: number | null) {
 
 function differenceLabel(status: string) {
   return differenceStatusText.value[status as WorkflowBomDifferenceStatus] || status
+}
+
+function compactEnglishText(fullText: string, abbreviatedText: string) {
+  return locale.value.toLowerCase().startsWith('en') ? abbreviatedText : fullText
+}
+
+function historyTableHeader(abbreviatedText: string) {
+  return ({ column }: { column: { label: string } }) => h(
+    ElTooltip,
+    { content: column.label, placement: 'top', showAfter: 300 },
+    { default: () => h('span', { class: 'history-table-header-text' }, compactEnglishText(column.label, abbreviatedText)) }
+  )
+}
+
+function compactDifferenceLabel(status: string) {
+  const abbreviatedLabels: Record<WorkflowBomDifferenceStatus, string> = {
+    missing_in_duro: 'Missing',
+    extra_in_duro: 'Extra',
+    quantity_mismatch: 'Qty Mismatch',
+    quantity_unknown: 'Qty Unknown'
+  }
+  return compactEnglishText(
+    differenceLabel(status),
+    abbreviatedLabels[status as WorkflowBomDifferenceStatus] || status
+  )
+}
+
+function ignoredDifferenceLabel(row: WorkflowBomIgnoredItem) {
+  return row.ignore_type === 'part_number_cleanup' ? w('materialCleanup') : differenceLabel(row.status)
+}
+
+function compactIgnoredDifferenceLabel(row: WorkflowBomIgnoredItem) {
+  return row.ignore_type === 'part_number_cleanup'
+    ? compactEnglishText(w('materialCleanup'), 'Cleanup')
+    : compactDifferenceLabel(row.status)
+}
+
+function ignoredTypeLabel(ignoreType: string) {
+  if (ignoreType === 'part_number_cleanup') return w('defaultPartCleanup')
+  if (ignoreType === 'part_number') return w('ignoredPart')
+  return w('sopProductKeyword')
+}
+
+function compactIgnoredTypeLabel(ignoreType: string) {
+  const abbreviatedText = ignoreType === 'part_number_cleanup'
+    ? 'Part Cleanup'
+    : ignoreType === 'part_number' ? 'Part No.' : 'SOP Keyword'
+  return compactEnglishText(ignoredTypeLabel(ignoreType), abbreviatedText)
 }
 
 function differenceOccurrenceSteps(row: WorkflowBomDifference): WorkflowSopOccurrenceStep[] {
