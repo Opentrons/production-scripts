@@ -67,6 +67,7 @@ export default {
       submit: '登录',
       tooManyAttempts: '登录尝试过多，请稍后再试',
       serviceUnavailable: '登录服务尚未完成安全配置',
+      backendUnreachable: '无法连接后端，请确认已启动 make backend-dev（端口 8090）',
       invalidCredentials: '账号或密码错误',
     },
   },

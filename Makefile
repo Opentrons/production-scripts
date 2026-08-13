@@ -16,6 +16,8 @@ REMOTE_ROOT ?= /opt/production-platform
 REMOTE_UV_BIN ?= /root/.local/bin/uv
 REMOTE_SSL_CERTIFICATE ?= /etc/ssl/production-platform/production-platform.crt
 REMOTE_SSL_CERTIFICATE_KEY ?= /etc/ssl/production-platform/production-platform.key
+DURO_API_KEY_PATH ?= $(CURDIR)/apps/backend/auth-files/duro-api-key.txt
+REMOTE_DURO_API_KEY_PATH ?= /configs/duro-api-key.txt
 
 .PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build remote-chrome deploy-backend deploy-web deploy-remote
 
@@ -121,4 +123,6 @@ deploy-remote: web-build
 	SERVER_NAME="$(SERVER_NAME)" \
 	SSL_CERTIFICATE="$(REMOTE_SSL_CERTIFICATE)" \
 	SSL_CERTIFICATE_KEY="$(REMOTE_SSL_CERTIFICATE_KEY)" \
+	DURO_API_KEY_PATH="$(DURO_API_KEY_PATH)" \
+	REMOTE_DURO_API_KEY_PATH="$(REMOTE_DURO_API_KEY_PATH)" \
 	bash deploy/remote.sh

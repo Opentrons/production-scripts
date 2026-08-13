@@ -58,11 +58,16 @@ async def lifespan(_: FastAPI):
     workflow_service.initialize()
     workflow_scheduler.start()
 
+    # Do not block API readiness on proxy probing; login and other routes must
+    # stay available while the optional Google proxy refresh runs in background.
     if runtime_config.USE_PROXY and should_refresh_proxy_on_startup():
-        try:
-            await asyncio.to_thread(refresh_best_proxy_config)
-        except Exception as exc:
-            logger.warning("Startup proxy refresh failed: %s", exc)
+        async def _refresh_proxy_in_background() -> None:
+            try:
+                await asyncio.to_thread(refresh_best_proxy_config)
+            except Exception as exc:
+                logger.warning("Startup proxy refresh failed: %s", exc)
+
+        asyncio.create_task(_refresh_proxy_in_background())
 
     try:
         yield

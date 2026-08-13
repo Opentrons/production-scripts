@@ -16,6 +16,8 @@ WEB_HTTPS_PORT="${WEB_HTTPS_PORT:-443}"
 SERVER_NAME="${SERVER_NAME:-_}"
 SSL_CERTIFICATE="${SSL_CERTIFICATE:-/etc/ssl/production-platform/production-platform.crt}"
 SSL_CERTIFICATE_KEY="${SSL_CERTIFICATE_KEY:-/etc/ssl/production-platform/production-platform.key}"
+DURO_API_KEY_PATH="${DURO_API_KEY_PATH:-$REPOSITORY_ROOT/apps/backend/auth-files/duro-api-key.txt}"
+REMOTE_DURO_API_KEY_PATH="${REMOTE_DURO_API_KEY_PATH:-/configs/duro-api-key.txt}"
 
 for command_name in ssh rsync mktemp npm; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -35,6 +37,20 @@ fi
 case "$REMOTE_ROOT" in
     /|*/../*|*/..|*//*)
         echo "Error: REMOTE_ROOT must identify a dedicated deployment directory"
+        exit 1
+        ;;
+esac
+if [ ! -s "$DURO_API_KEY_PATH" ]; then
+    echo "Error: Duro API Key file is missing or empty: $DURO_API_KEY_PATH"
+    exit 1
+fi
+if [[ ! "$REMOTE_DURO_API_KEY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
+    echo "Error: REMOTE_DURO_API_KEY_PATH must be an absolute path without spaces"
+    exit 1
+fi
+case "$REMOTE_DURO_API_KEY_PATH" in
+    /|*/../*|*/..|*//*|*/)
+        echo "Error: REMOTE_DURO_API_KEY_PATH must identify a file"
         exit 1
         ;;
 esac
@@ -60,6 +76,17 @@ trap cleanup EXIT
 echo "Connecting to $REMOTE_TARGET..."
 ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
     "mkdir -p '$REMOTE_ROOT/apps/backend' '$REMOTE_ROOT/apps/web-ui' '$REMOTE_ROOT/deploy'"
+
+echo "Installing Duro API Key..."
+remote_duro_key_dir="${REMOTE_DURO_API_KEY_PATH%/*}"
+remote_duro_key_temp="${REMOTE_DURO_API_KEY_PATH}.deploying"
+ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+    "install -d -o root -g root -m 700 '$remote_duro_key_dir'"
+rsync -az -e "$RSYNC_SSH" \
+    "$DURO_API_KEY_PATH" \
+    "$REMOTE_TARGET:$remote_duro_key_temp"
+ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+    "chown root:root '$remote_duro_key_temp' && chmod 600 '$remote_duro_key_temp' && mv -f '$remote_duro_key_temp' '$REMOTE_DURO_API_KEY_PATH'"
 
 echo "Syncing backend code..."
 rsync -az --delete \

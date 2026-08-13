@@ -67,6 +67,7 @@ export default {
       submit: 'Sign in',
       tooManyAttempts: 'Too many sign-in attempts. Try again later.',
       serviceUnavailable: 'The sign-in service has not been securely configured.',
+      backendUnreachable: 'Cannot reach the backend. Start make backend-dev on port 8090.',
       invalidCredentials: 'Incorrect account or password',
     },
   },
