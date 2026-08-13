@@ -36,21 +36,22 @@ const { locale, setLocale, t } = useAppLocale()
   gap: 2px;
   padding: 2px;
   border: 1px solid #d9e0e4;
-  border-radius: 5px;
+  border-radius: 999px;
   background: #f4f7f8;
 }
 
 .locale-switcher button {
-  min-width: 38px;
-  height: 25px;
-  padding: 0 7px;
+  min-width: 40px;
+  height: 26px;
+  padding: 0 9px;
   border: 0;
-  border-radius: 3px;
+  border-radius: 999px;
   background: transparent;
   color: #66737a;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: background-color .16s, color .16s, box-shadow .16s;
 }
 
 .locale-switcher button:hover {
