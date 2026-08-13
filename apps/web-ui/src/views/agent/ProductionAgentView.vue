@@ -33,13 +33,20 @@
           <Sparkles :size="17" aria-hidden="true" />
           <h2>{{ t('agent.quickTasks') }}</h2>
         </div>
-        <div class="agent-shortcuts">
+        <div
+          class="agent-shortcuts"
+          @scroll="hideShortcutTooltip"
+        >
           <button
             v-for="prompt in quickPrompts"
             :key="prompt"
             type="button"
-            :title="prompt"
+            :aria-label="prompt"
             :disabled="streaming || connectionState === 'unconfigured'"
+            @mouseenter="showShortcutTooltip($event, prompt)"
+            @mouseleave="hideShortcutTooltip"
+            @focus="showShortcutTooltip($event, prompt)"
+            @blur="hideShortcutTooltip"
             @click="sendMessage(prompt)"
           >
             <span>{{ truncatePrompt(prompt) }}</span>
@@ -256,6 +263,14 @@
         </footer>
       </main>
     </div>
+    <div
+      v-if="shortcutTooltip.visible"
+      class="agent-shortcut-tooltip"
+      role="tooltip"
+      :style="{ left: `${shortcutTooltip.x}px`, top: `${shortcutTooltip.y}px` }"
+    >
+      {{ shortcutTooltip.text }}
+    </div>
   </div>
 </template>
 
@@ -342,6 +357,7 @@ const quickPrompts = computed(() => [
   t('agent.prompts.checkSheet'), t('agent.prompts.editSheet'), t('agent.prompts.attachment'),
   t('agent.prompts.gripperZSpeed'), t('agent.prompts.modulesCount'),
   t('agent.prompts.flexPipettes'), t('agent.prompts.protocolLoadModule'),
+  t('agent.prompts.p50mProtocol'),
 ])
 
 const QUICK_PROMPT_DISPLAY_LIMIT = 30
@@ -350,6 +366,26 @@ function truncatePrompt(prompt: string): string {
   const text = prompt.trim()
   if (text.length <= QUICK_PROMPT_DISPLAY_LIMIT) return text
   return `${text.slice(0, QUICK_PROMPT_DISPLAY_LIMIT)}...`
+}
+
+const shortcutTooltip = ref({ visible: false, text: '', x: 0, y: 0 })
+
+function showShortcutTooltip(event: FocusEvent | MouseEvent, prompt: string): void {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target || streaming.value || connectionState.value === 'unconfigured') {
+    hideShortcutTooltip()
+    return
+  }
+  const rect = target.getBoundingClientRect()
+  const tooltipWidth = Math.min(360, window.innerWidth * 0.42)
+  const left = Math.min(rect.right + 10, window.innerWidth - tooltipWidth - 12)
+  const top = Math.min(Math.max(rect.top + rect.height / 2, 24), window.innerHeight - 24)
+  shortcutTooltip.value = { visible: true, text: prompt, x: left, y: top }
+}
+
+function hideShortcutTooltip(): void {
+  if (!shortcutTooltip.value.visible) return
+  shortcutTooltip.value = { visible: false, text: '', x: 0, y: 0 }
 }
 
 const TOOL_NAMES = [
@@ -867,6 +903,7 @@ watch(locale, () => {
 })
 
 onBeforeUnmount(() => {
+  hideShortcutTooltip()
   if (streaming.value) stop()
   cancelActiveTypewriter?.()
   if (copyResetTimer) clearTimeout(copyResetTimer)
@@ -1032,6 +1069,7 @@ onBeforeUnmount(() => {
 }
 
 .agent-shortcuts button {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 16px;
   align-items: center;
@@ -1057,6 +1095,25 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-shortcut-tooltip {
+  position: fixed;
+  z-index: 1200;
+  width: max-content;
+  max-width: min(360px, 42vw);
+  padding: 8px 10px;
+  border: 1px solid #c5d4ce;
+  border-radius: 8px;
+  color: #24332f;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(24, 40, 34, 0.16);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: normal;
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 .agent-shortcuts button:hover,

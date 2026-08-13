@@ -9,8 +9,15 @@ SERVER_NAME ?= _
 SSL_CERTIFICATE ?=
 SSL_CERTIFICATE_KEY ?=
 REMOTE_CHROME_PORT ?= 9222
+REMOTE_HOST ?= 192.168.6.55
+REMOTE_USER ?= root
+REMOTE_SSH_PORT ?= 22
+REMOTE_ROOT ?= /opt/production-platform
+REMOTE_UV_BIN ?= /root/.local/bin/uv
+REMOTE_SSL_CERTIFICATE ?= /etc/ssl/production-platform/production-platform.crt
+REMOTE_SSL_CERTIFICATE_KEY ?= /etc/ssl/production-platform/production-platform.key
 
-.PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build remote-chrome deploy-backend deploy-web
+.PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build remote-chrome deploy-backend deploy-web deploy-remote
 
 help:
 	@echo "Production Scripts targets:"
@@ -32,6 +39,7 @@ help:
 	@echo "  make remote-chrome    Start the Duro Chrome CDP profile"
 	@echo "  make deploy-backend   Install/restart the backend service"
 	@echo "  make deploy-web       Build/configure the nginx site"
+	@echo "  make deploy-remote    Build and deploy web/backend to $(REMOTE_HOST)"
 
 sync:
 	uv sync --all-packages
@@ -100,3 +108,17 @@ deploy-backend:
 
 deploy-web:
 	sudo API_PORT=$(API_PORT) WEB_HTTP_PORT=$(WEB_HTTP_PORT) WEB_HTTPS_PORT=$(WEB_HTTPS_PORT) SERVER_NAME=$(SERVER_NAME) SSL_CERTIFICATE=$(SSL_CERTIFICATE) SSL_CERTIFICATE_KEY=$(SSL_CERTIFICATE_KEY) bash deploy/web.sh
+
+deploy-remote: web-build
+	REMOTE_HOST="$(REMOTE_HOST)" \
+	REMOTE_USER="$(REMOTE_USER)" \
+	REMOTE_SSH_PORT="$(REMOTE_SSH_PORT)" \
+	REMOTE_ROOT="$(REMOTE_ROOT)" \
+	REMOTE_UV_BIN="$(REMOTE_UV_BIN)" \
+	API_PORT="$(API_PORT)" \
+	WEB_HTTP_PORT="$(WEB_HTTP_PORT)" \
+	WEB_HTTPS_PORT="$(WEB_HTTPS_PORT)" \
+	SERVER_NAME="$(SERVER_NAME)" \
+	SSL_CERTIFICATE="$(REMOTE_SSL_CERTIFICATE)" \
+	SSL_CERTIFICATE_KEY="$(REMOTE_SSL_CERTIFICATE_KEY)" \
+	bash deploy/remote.sh

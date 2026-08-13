@@ -731,6 +731,7 @@ export default {
       modulesCount: 'How many Opentrons modules are currently supported? List their names and whether they work on OT-2 or Flex.',
       flexPipettes: 'Which pipette models and channel configurations does Opentrons Flex support? Base the answer on official product or docs pages.',
       protocolLoadModule: 'How do I use load_module in the Python Protocol API? Explain common module names, deck slots, and key caveats.',
+      p50mProtocol: 'Help me write a simple Opentrons Flex Protocol using a P50M pipette, including load_labware, load_instrument, and a basic aspirate/dispense example. Note the apiLevel and any caveats.',
     },
     tools: {
       get_current_time: 'Read Current Time', get_platform_overview: 'Query Platform Overview', query_upload_records: 'Query Upload Records',

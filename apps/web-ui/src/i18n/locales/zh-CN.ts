@@ -731,6 +731,7 @@ export default {
       modulesCount: 'Opentrons 目前支持多少种 modules？请列出名称并说明适用 OT-2 还是 Flex。',
       flexPipettes: 'Opentrons Flex 支持哪些 pipette 型号和通道配置？请按官方产品或文档说明。',
       protocolLoadModule: '在 Python Protocol API 里如何 load_module？请说明常用模块名称、deck 位置和注意事项。',
+      p50mProtocol: '帮我写一个 Opentrons Flex 的简单 Protocol：使用 P50M 移液器，包含 load_labware、load_instrument 和一次基础 aspirate/dispense 示例，并注明 apiLevel 与注意事项。',
     },
     tools: {
       get_current_time: '读取当前时间', get_platform_overview: '查询平台概览', query_upload_records: '查询上传记录',
