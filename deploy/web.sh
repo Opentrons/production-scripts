@@ -80,6 +80,7 @@ server {
 server {
     listen $WEB_HTTPS_PORT ssl;
     server_name $SERVER_NAME;
+    absolute_redirect off;
     root $WEB_ROOT/dist;
     index index.html;
     client_max_body_size 200m;
@@ -159,6 +160,7 @@ limit_req_zone \$binary_remote_addr zone=production_auth_login:10m rate=5r/m;
 server {
     listen $WEB_HTTP_PORT;
     server_name $SERVER_NAME;
+    absolute_redirect off;
     root $WEB_ROOT/dist;
     index index.html;
     client_max_body_size 200m;
