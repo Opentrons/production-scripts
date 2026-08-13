@@ -142,7 +142,12 @@
                     </span>
                   </div>
                 </template>
-                <div v-else class="agent-markdown" v-html="renderMarkdown(item.content)"></div>
+                <div
+                  v-else
+                  class="agent-markdown"
+                  v-html="renderMarkdown(item.content)"
+                  @click="onMarkdownClick"
+                ></div>
 
                 <footer v-if="item.role === 'assistant' && item.content && !item.pending">
                   <button type="button" :title="t(copiedMessageId === item.id ? 'agent.copied' : 'agent.copyAnswer')" @click="copyMessage(item)">
@@ -335,6 +340,8 @@ const ATTACHMENT_ACCEPT = [...ATTACHMENT_EXTENSIONS].map(ext => `.${ext}`).join(
 const quickPrompts = computed(() => [
   t('agent.prompts.uploads'), t('agent.prompts.devices'), t('agent.prompts.quality'), t('agent.prompts.sop'),
   t('agent.prompts.checkSheet'), t('agent.prompts.editSheet'), t('agent.prompts.attachment'),
+  t('agent.prompts.gripperZSpeed'), t('agent.prompts.modulesCount'),
+  t('agent.prompts.flexPipettes'), t('agent.prompts.protocolLoadModule'),
 ])
 
 const QUICK_PROMPT_DISPLAY_LIMIT = 30
@@ -351,10 +358,34 @@ const TOOL_NAMES = [
   'query_version_history', 'query_protocol_monitor', 'query_workflows', 'query_test_cases', 'search_sop_catalog',
   'query_platform_messages', 'query_platform_database', 'aggregate_platform_database', 'get_spreadsheet_info',
   'read_sheet_range', 'create_spreadsheet', 'add_sheet', 'update_sheet_range', 'append_sheet_rows',
-  'clear_sheet_range', 'copy_sheet', 'search_knowledge', 'list_knowledge', 'save_knowledge', 'delete_knowledge',
+  'clear_sheet_range', 'copy_sheet', 'get_opentrons_knowledge_status', 'search_opentrons_official_docs',
+  'read_opentrons_official_doc', 'search_opentrons_source', 'read_opentrons_source',
+  'search_knowledge', 'list_knowledge', 'save_knowledge', 'delete_knowledge',
 ] as const
 
 marked.setOptions({ breaks: true, gfm: true })
+
+const COPY_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
+const CHECK_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
+const MARKDOWN_SANITIZE = {
+  ADD_TAGS: ['button', 'svg', 'path', 'rect'],
+  ADD_ATTR: ['target', 'rel', 'class', 'type', 'aria-label', 'title', 'aria-hidden', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'width', 'height', 'x', 'y', 'rx', 'ry', 'd'],
+}
+
+function enhanceCodeBlocks(html: string): string {
+  const copyLabel = t('agent.copyCode')
+  return html.replace(/<pre(\b[^>]*)>([\s\S]*?)<\/pre>/gi, (_match, attrs: string, inner: string) => (
+    `<div class="agent-code-block">`
+    + `<button type="button" class="agent-code-copy" title="${copyLabel}" aria-label="${copyLabel}">${COPY_ICON_SVG}</button>`
+    + `<pre${attrs}>${inner}</pre>`
+    + `</div>`
+  ))
+}
+
+function renderMarkdown(content: string): string {
+  if (!content) return ''
+  return DOMPurify.sanitize(enhanceCodeBlocks(marked.parse(content) as string), MARKDOWN_SANITIZE)
+}
 
 const { chat, getStatus, stop, streaming } = useProductionAgent()
 const messages = ref<ConversationMessage[]>(loadConversation())
@@ -571,11 +602,6 @@ function buildHistory(): AgentChatMessage[] {
     .map(item => ({ role: item.role, content: item.content }))
 }
 
-function renderMarkdown(content: string): string {
-  if (!content) return ''
-  return DOMPurify.sanitize(marked.parse(content) as string)
-}
-
 function formatTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
@@ -674,6 +700,32 @@ async function copyMessage(item: ConversationMessage): Promise<void> {
     copyResetTimer = setTimeout(() => { copiedMessageId.value = '' }, 1600)
   } catch {
     copiedMessageId.value = ''
+  }
+}
+
+async function onMarkdownClick(event: MouseEvent): Promise<void> {
+  const target = event.target as HTMLElement | null
+  const button = target?.closest('.agent-code-copy') as HTMLButtonElement | null
+  if (!button) return
+  event.preventDefault()
+  const block = button.closest('.agent-code-block')
+  const code = block?.querySelector('pre')?.textContent || ''
+  if (!code) return
+  try {
+    await navigator.clipboard.writeText(code)
+    button.classList.add('is-copied')
+    button.innerHTML = CHECK_ICON_SVG
+    button.title = t('agent.codeCopied')
+    button.setAttribute('aria-label', t('agent.codeCopied'))
+    window.setTimeout(() => {
+      if (!button.isConnected) return
+      button.classList.remove('is-copied')
+      button.innerHTML = COPY_ICON_SVG
+      button.title = t('agent.copyCode')
+      button.setAttribute('aria-label', t('agent.copyCode'))
+    }, 1600)
+  } catch {
+    // Clipboard can be unavailable in insecure contexts; keep the UI quiet.
   }
 }
 
@@ -951,6 +1003,7 @@ onBeforeUnmount(() => {
 
 .agent-rail-heading {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
   padding: 0 8px 12px;
@@ -966,10 +1019,16 @@ onBeforeUnmount(() => {
 }
 
 .agent-shortcuts {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  padding-right: 2px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .agent-shortcuts button {
@@ -977,17 +1036,27 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 1fr) 16px;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
-  padding: 9px 10px 9px 12px;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  flex: 0 0 36px;
+  padding: 0 8px 0 10px;
   border: 1px solid transparent;
   border-radius: 6px;
   color: #3d4b47;
   background: transparent;
   font: inherit;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.25;
   text-align: left;
   cursor: pointer;
+}
+
+.agent-shortcuts button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-shortcuts button:hover,
@@ -1082,6 +1151,7 @@ onBeforeUnmount(() => {
 
 .agent-rail-status {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: 6px minmax(0, 1fr);
   align-items: center;
   column-gap: 6px;
@@ -1234,7 +1304,11 @@ onBeforeUnmount(() => {
 }
 
 .agent-pending-attachments {
-  padding: 10px 12px 0;
+  padding: 8px 12px 0;
+}
+
+.agent-composer:has(.agent-pending-attachments) textarea {
+  padding-top: 6px;
 }
 
 .agent-attachment-chip {
@@ -1303,8 +1377,46 @@ onBeforeUnmount(() => {
 .agent-markdown :deep(a) { color: #0f6d83; }
 .agent-markdown :deep(strong) { color: #17211e; }
 .agent-markdown :deep(code) { padding: 2px 5px; border-radius: 4px; color: #934c16; background: #f5e9dc; font-size: 0.92em; }
-.agent-markdown :deep(pre) { overflow-x: auto; margin: 7px 0; padding: 10px 12px; border-radius: 6px; color: #eaf0ed; background: #202a31; line-height: 1.5; }
+.agent-markdown :deep(.agent-code-block) {
+  position: relative;
+  margin: 7px 0;
+}
+.agent-markdown :deep(pre) {
+  overflow-x: auto;
+  margin: 0;
+  padding: 12px 40px 12px 12px;
+  border-radius: 6px;
+  color: #eaf0ed;
+  background: #202a31;
+  line-height: 1.5;
+}
 .agent-markdown :deep(pre code) { padding: 0; color: inherit; background: transparent; }
+.agent-markdown :deep(.agent-code-copy) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(234, 240, 237, 0.16);
+  border-radius: 6px;
+  color: #c5d0cb;
+  background: rgba(20, 28, 33, 0.72);
+  cursor: pointer;
+}
+.agent-markdown :deep(.agent-code-copy:hover),
+.agent-markdown :deep(.agent-code-copy:focus-visible) {
+  color: #ffffff;
+  border-color: rgba(234, 240, 237, 0.28);
+  background: rgba(36, 48, 55, 0.92);
+  outline: none;
+}
+.agent-markdown :deep(.agent-code-copy.is-copied) {
+  color: #7ddea8;
+  border-color: rgba(125, 222, 168, 0.35);
+}
 .agent-markdown :deep(blockquote) { margin: 7px 0; padding: 6px 11px; border-left: 3px solid #d59a4d; color: #5d6865; background: #fbf6ec; }
 .agent-markdown :deep(table) { width: 100%; margin: 7px 0; border-collapse: collapse; }
 .agent-markdown :deep(th), .agent-markdown :deep(td) { padding: 8px 10px; border: 1px solid #d6dfda; text-align: left; vertical-align: top; }
@@ -1384,9 +1496,9 @@ onBeforeUnmount(() => {
 }
 
 .agent-composer {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   min-height: 104px;
-  grid-template-rows: auto minmax(58px, auto) 34px;
   border: 1px solid #cbd7d1;
   border-radius: 8px;
   background: #ffffff;
@@ -1407,6 +1519,7 @@ onBeforeUnmount(() => {
 .agent-composer textarea {
   width: 100%;
   min-height: 58px;
+  flex: 1 1 auto;
   resize: none;
   padding: 13px 14px 5px;
   border: 0;
@@ -1423,6 +1536,7 @@ onBeforeUnmount(() => {
 
 .agent-composer-actions {
   display: flex;
+  flex: 0 0 auto;
   min-height: 34px;
   align-items: center;
   justify-content: space-between;
@@ -1526,15 +1640,29 @@ onBeforeUnmount(() => {
 
   .agent-shortcuts {
     display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
     min-width: 0;
     max-width: 100%;
     gap: 7px;
     overflow-x: auto;
+    overflow-y: hidden;
+    padding-right: 0;
     scrollbar-width: none;
   }
 
   .agent-shortcuts::-webkit-scrollbar { display: none; }
-  .agent-shortcuts button { min-width: 190px; min-height: 38px; padding: 7px 9px 7px 11px; background: #ffffff; }
+  .agent-shortcuts button {
+    width: 190px;
+    min-width: 190px;
+    max-width: 190px;
+    height: 34px;
+    min-height: 34px;
+    max-height: 34px;
+    flex: 0 0 190px;
+    padding: 0 9px 0 11px;
+    background: #ffffff;
+  }
   .agent-messages { padding: 20px 14px 18px; }
   .agent-message-list { gap: 20px; }
   .agent-message.is-user { width: 94%; }
