@@ -424,7 +424,15 @@ async function loadSummary() {
     const response = await robotApi.getControlSummary(props.ip, props.port)
     summary.value = response.data
   } catch (error: any) {
-    ElMessage.error(t('devices.infoPanel.loadFailed', { error: error.message || t('errors.unknown') }))
+    const status = error?.response?.status
+    const detail = error?.response?.data?.detail
+    const detailMessage = typeof detail === 'string' ? detail : detail?.message
+    const message = detailMessage || error?.message || t('errors.unknown')
+    if (status === 403) {
+      ElMessage.error(t('devices.workbench.permissionMessage'))
+    } else {
+      ElMessage.error(t('devices.infoPanel.loadFailed', { error: message }))
+    }
   } finally {
     loading.value = false
   }

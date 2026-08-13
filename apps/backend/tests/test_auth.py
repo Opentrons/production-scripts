@@ -202,7 +202,7 @@ def test_device_operator_can_use_platform_but_not_device_control(tmp_path: Path)
     assert client.get("/api/robots").status_code == 200
     assert client.get("/api/data").status_code == 200
     assert client.get("/api/robots-private").status_code == 200
-    assert client.get("/api/robots/192.168.1.10/control/summary").status_code == 403
+    assert client.get("/api/robots/192.168.1.10/control/summary").status_code == 200
 
     csrf_token = client.cookies.get(CSRF_COOKIE_NAME)
     assert csrf_token

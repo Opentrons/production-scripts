@@ -25,6 +25,8 @@ CSRF_HEADER_NAME = "X-CSRF-Token"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 DEVICE_OPERATOR_ROLE = "device_operator"
 DEVICE_CONTROL_PATH_PATTERN = re.compile(r"^/api/robots/[^/]+/control(?:/|$)")
+# Read-only device info used by the info drawer; operators may view it.
+DEVICE_CONTROL_READ_PATH_PATTERN = re.compile(r"^/api/robots/[^/]+/control/summary$")
 
 
 @dataclass(frozen=True)
@@ -132,7 +134,7 @@ def require_platform_access(
         return user
 
     path = request.url.path.rstrip("/") or "/"
-    if DEVICE_CONTROL_PATH_PATTERN.match(path):
+    if DEVICE_CONTROL_PATH_PATTERN.match(path) and not DEVICE_CONTROL_READ_PATH_PATTERN.match(path):
         raise api_error(
             status.HTTP_403_FORBIDDEN,
             "auth.permission_denied",
