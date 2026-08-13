@@ -49,7 +49,7 @@ class DuroService:
                 return cached[1].model_copy(update={"cached": True})
         if not refresh:
             disk_cached = self._get_disk_cached(
-                f"products:{cache_key}", DuroProductSearchResponse
+                f"products:graphql-v2:{cache_key}", DuroProductSearchResponse
             )
             if disk_cached is not None:
                 with self._lock:
@@ -59,7 +59,7 @@ class DuroService:
         response = self.client.search_products(payload)
         with self._lock:
             self._search_cache[cache_key] = (time.monotonic(), response)
-        self._set_disk_cached(f"products:{cache_key}", response)
+        self._set_disk_cached(f"products:graphql-v2:{cache_key}", response)
         return response
 
     def list_products(self, refresh: bool = False) -> DuroProductSearchResponse:
@@ -67,7 +67,7 @@ class DuroService:
 
     def get_product_bom(self, product_id: str, refresh: bool = False) -> DuroProductBomResponse:
         normalized_id = product_id.strip()
-        disk_key = f"product-bom:{normalized_id}"
+        disk_key = f"product-bom:graphql-v1:{normalized_id}"
         cached = self._get_cached(self._product_bom_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
@@ -90,7 +90,7 @@ class DuroService:
             product_id=normalized_id,
             root=root,
             direct_child_count=len(children),
-            source_url=f"{self.client.base_url}/product/view/{normalized_id}",
+            source_url=f"{getattr(self.client, 'app_url', self.client.base_url)}/product/view/{normalized_id}",
         )
         self._set_cached(self._product_bom_cache, normalized_id, response)
         self._set_disk_cached(disk_key, response)
@@ -102,7 +102,7 @@ class DuroService:
         refresh: bool = False,
     ) -> DuroComponentChildrenResponse:
         normalized_id = component_id.strip()
-        disk_key = f"component:{normalized_id}"
+        disk_key = f"component:graphql-v1:{normalized_id}"
         cached = self._get_cached(self._component_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
@@ -285,7 +285,8 @@ class DuroService:
                 "unitOfMeasure",
                 "unit_of_measure",
                 "uom",
-            ),
+            )
+            or self._value(entity, "unitOfMeasure", "unit_of_measure", "uom"),
             has_children=has_children,
             children=children or [],
         )

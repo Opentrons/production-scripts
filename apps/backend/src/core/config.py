@@ -225,7 +225,16 @@ SOP_PDF_MAX_TEXT_CHARS = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_MAX_TEXT_CHA
 SOP_PDF_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_CACHE_SECONDS", "1800"))
 
 DURO_BASE_URL = os.getenv("PRODUCTION_PLATFORM_DURO_BASE_URL", "https://mfgapi.duro.app").rstrip("/")
-DURO_API_KEY = os.getenv("PRODUCTION_PLATFORM_DURO_API_KEY", "").strip()
+DURO_GRAPHQL_URL = os.getenv(
+    "PRODUCTION_PLATFORM_DURO_GRAPHQL_URL",
+    "https://mfg-core-api.duro.app/graphql",
+).rstrip("/")
+DURO_API_KEY_PATH = Path(
+    os.getenv(
+        "PRODUCTION_PLATFORM_DURO_API_KEY_PATH",
+        Path(GOOGLE_AUTH_DIR) / "duro-api-key.txt",
+    )
+)
 DURO_TOKEN_PATH = Path(
     os.getenv("PRODUCTION_PLATFORM_DURO_TOKEN_PATH", Path(GOOGLE_AUTH_DIR) / "duro_token.txt")
 )

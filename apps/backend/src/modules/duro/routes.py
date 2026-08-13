@@ -10,8 +10,21 @@ from modules.duro.models import (
 )
 from modules.duro.runtime import duro_client, duro_service
 
+# Duro credential failures are upstream/dependency problems, not platform session
+# expiry. Returning 401 here previously made the SPA auth interceptor bounce to
+# /login while the user was still authenticated, causing a refresh loop.
+DURO_AUTH_STATUS_CODE = 503
+
 
 router = APIRouter(prefix="/duro", tags=["duro"])
+
+
+def _http_exception_for_duro(exc: Exception) -> HTTPException:
+    if isinstance(exc, DuroAuthenticationError):
+        return HTTPException(status_code=DURO_AUTH_STATUS_CODE, detail=str(exc))
+    if isinstance(exc, DuroApiError):
+        return HTTPException(status_code=502, detail=str(exc))
+    raise exc
 
 
 @router.get("/status", response_model=DuroConnectionStatus)
@@ -41,10 +54,8 @@ def get_duro_product_bom(
 ) -> DuroProductBomResponse:
     try:
         return duro_service.get_product_bom(product_id, refresh=refresh)
-    except DuroAuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    except DuroApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except (DuroAuthenticationError, DuroApiError) as exc:
+        raise _http_exception_for_duro(exc) from exc
 
 
 @router.get("/products/{product_id}/bom/search", response_model=DuroProductBomResponse)
@@ -54,10 +65,8 @@ def search_duro_product_bom(
 ) -> DuroProductBomResponse:
     try:
         return duro_service.search_product_bom(product_id, q)
-    except DuroAuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    except DuroApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except (DuroAuthenticationError, DuroApiError) as exc:
+        raise _http_exception_for_duro(exc) from exc
 
 
 @router.get("/components/{component_id}/children", response_model=DuroComponentChildrenResponse)
@@ -67,10 +76,8 @@ def get_duro_component_children(
 ) -> DuroComponentChildrenResponse:
     try:
         return duro_service.get_component_children(component_id, refresh=refresh)
-    except DuroAuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    except DuroApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except (DuroAuthenticationError, DuroApiError) as exc:
+        raise _http_exception_for_duro(exc) from exc
 
 
 def _handle_product_search(
@@ -79,7 +86,5 @@ def _handle_product_search(
 ) -> DuroProductSearchResponse:
     try:
         return duro_service.search_products(payload, refresh=refresh)
-    except DuroAuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    except DuroApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except (DuroAuthenticationError, DuroApiError) as exc:
+        raise _http_exception_for_duro(exc) from exc

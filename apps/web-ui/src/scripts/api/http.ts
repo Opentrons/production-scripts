@@ -103,11 +103,13 @@ function installInterceptors(client: AxiosInstance): AxiosInstance {
       request._authRetry = true
       try {
         await refreshSession()
-        return await client.request(request)
       } catch {
+        // Only treat platform session refresh failure as logout. A retried
+        // business 401 (for example Duro credentials) must not bounce to /login.
         redirectToLogin()
         return Promise.reject(error)
       }
+      return client.request(request)
     },
   )
   return client

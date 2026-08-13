@@ -68,6 +68,7 @@ apps/backend/ghelper-test/skill_config.json
 **/auth-files/token.json
 **/auth-files/sheettoken.json
 **/auth-files/slack.yaml
+**/auth-files/duro-api*.txt
 **/auth-files/robot_key
 **/auth-files/duro-chrome-profile/
 **/auth-files/cookies*.txt

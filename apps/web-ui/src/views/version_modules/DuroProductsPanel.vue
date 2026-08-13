@@ -27,7 +27,7 @@
     </el-alert>
 
     <el-alert
-      v-if="connectionStatus?.remote_chrome_configured && connectionStatus.remote_chrome_error"
+      v-if="connectionStatus?.remote_chrome_configured && !connectionStatus.token_valid && connectionStatus.remote_chrome_error"
       class="token-alert"
       type="warning"
       :closable="false"
@@ -421,7 +421,7 @@ async function loadProducts(refresh = false) {
   } catch (error: any) {
     console.error(error)
     loadError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.duro.loadFailed')
-    if (error?.response?.status === 401 && connectionStatus.value) {
+    if ([401, 503].includes(error?.response?.status) && connectionStatus.value) {
       connectionStatus.value = { ...connectionStatus.value, token_valid: false }
     }
   } finally {

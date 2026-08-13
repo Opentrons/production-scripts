@@ -57,6 +57,85 @@ class FakeSession:
         return self.get_response
 
 
+class FakeGraphqlResponse(FakeResponse):
+    def __init__(self, body: dict[str, object], status_code: int = 200) -> None:
+        self.body = body
+        self.status_code = status_code
+
+    def json(self):
+        return self.body
+
+
+class FakeGraphqlSession(FakeSession):
+    def post(self, url: str, **kwargs):
+        self.calls.append({"url": url, **kwargs})
+        query = kwargs.get("json", {}).get("query", "")
+        if "productsByIds" in query:
+            return FakeGraphqlResponse(
+                {
+                    "data": {
+                        "productsByIds": [
+                            {
+                                "id": "product-id",
+                                "name": "FLEX GRIPPER",
+                                "revisionValue": "C1.2",
+                                "cpn": {"displayValue": "999-00001", "variant": "00"},
+                                "children": [
+                                    {
+                                        "quantity": 2,
+                                        "component": {
+                                            "id": "component-id",
+                                            "name": "Jaw",
+                                            "revisionValue": "A1.0",
+                                            "cpn": {
+                                                "displayValue": "123-00001",
+                                                "variant": "01",
+                                            },
+                                            "children": [{"component": {"id": "leaf-id"}}],
+                                        },
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            )
+        return FakeGraphqlResponse(
+            {
+                "data": {
+                    "products": {
+                        "connection": {
+                            "totalCount": 1,
+                            "pageInfo": {"hasNextPage": False, "endCursor": "cursor"},
+                            "edges": [
+                                {
+                                    "node": {
+                                        "id": "product-id",
+                                        "name": "FLEX GRIPPER",
+                                        "revisionValue": "C1.2",
+                                        "status": "PRODUCTION",
+                                        "lastModified": "2026-06-11T00:00:00.000Z",
+                                        "cpn": {
+                                            "displayValue": "999-00001",
+                                            "variant": "00",
+                                        },
+                                        "images": [
+                                            {
+                                                "id": "image-id",
+                                                "src": "https://example.test/product.png",
+                                                "archived": False,
+                                            }
+                                        ],
+                                    }
+                                }
+                            ],
+                        }
+                    }
+                }
+            }
+        )
+
+
 class FakeProductBomResponse(FakeResponse):
     def json(self):
         return {
@@ -96,35 +175,6 @@ class UnauthorizedSession(FakeSession):
         return FakeUnauthorizedResponse()
 
 
-class FakeRefreshResponse(FakeResponse):
-    def __init__(self, token: str) -> None:
-        self.token = token
-
-    def json(self):
-        return {
-            "access_token": self.token,
-            "expires_at_seconds": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
-        }
-
-
-class CookieRetrySession(FakeSession):
-    def __init__(self, api_key: str, refreshed_token: str) -> None:
-        super().__init__()
-        self.api_key = api_key
-        self.refreshed_token = refreshed_token
-
-    def post(self, url: str, **kwargs):
-        self.calls.append({"url": url, **kwargs})
-        authorization = kwargs.get("headers", {}).get("authorization")
-        if authorization == f"Bearer {self.api_key}":
-            return FakeUnauthorizedResponse()
-        return FakeResponse()
-
-    def get(self, url: str, **kwargs):
-        self.calls.append({"url": url, **kwargs})
-        return FakeRefreshResponse(self.refreshed_token)
-
-
 class TokenFallbackSession(FakeSession):
     def __init__(self, rejected_token: str) -> None:
         super().__init__()
@@ -157,6 +207,7 @@ def test_search_products_sends_bearer_token_and_browser_payload(
     monkeypatch.setenv("PRODUCTION_PLATFORM_DURO_TOKEN", token)
     session = FakeSession()
     client = DuroClient(
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
@@ -191,6 +242,7 @@ def test_expired_token_is_rejected_before_network_request(
     )
     session = FakeSession()
     client = DuroClient(
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
@@ -215,6 +267,7 @@ def test_expired_explicit_token_falls_back_to_remote_chrome(
     provider = FakeBrowserTokenProvider(browser_token)
     session = FakeSession()
     client = DuroClient(
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         browser_token_provider=provider,  # type: ignore[arg-type]
@@ -239,6 +292,7 @@ def test_rejected_explicit_token_retries_with_remote_chrome(
     provider = FakeBrowserTokenProvider(browser_token)
     session = TokenFallbackSession(explicit_token)
     client = DuroClient(
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         browser_token_provider=provider,  # type: ignore[arg-type]
@@ -263,6 +317,7 @@ def test_get_product_requests_lean_children(
     monkeypatch.setenv("PRODUCTION_PLATFORM_DURO_TOKEN", token)
     session = FakeSession(FakeProductBomResponse())
     client = DuroClient(
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
@@ -277,27 +332,38 @@ def test_get_product_requests_lean_children(
     assert call["headers"]["authorization"] == f"Bearer {token}"  # type: ignore[index]
 
 
-def test_api_key_is_used_when_no_temporary_access_token_is_exported(
+def test_api_key_uses_graphql_api_token_and_maps_product_fields(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_TOKEN", raising=False)
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_API_KEY", raising=False)
     api_key = make_token(datetime.now(timezone.utc) + timedelta(days=30))
-    session = FakeSession()
+    session = FakeGraphqlSession()
     client = DuroClient(
         api_key=api_key,
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
     )
 
-    client.search_products(DuroProductSearchRequest())
+    response = client.search_products(DuroProductSearchRequest())
 
-    assert session.calls[0]["headers"]["authorization"] == f"Bearer {api_key}"  # type: ignore[index]
+    assert response.count == 1
+    assert response.products[0].id == "product-id"
+    assert response.products[0].cpn == "999-00001"
+    assert response.products[0].cpn_variant == "00"
+    assert response.products[0].revision == "C1.2"
+    assert response.products[0].images[0]["_id"] == "image-id"
+    call = session.calls[0]
+    assert call["url"] == "https://mfg-core-api.duro.app/graphql"
+    assert call["headers"]["apiToken"] == api_key  # type: ignore[index]
+    assert "authorization" not in call["headers"]  # type: ignore[operator]
+    assert call["json"]["variables"] == {"first": 100, "after": None}  # type: ignore[index]
 
 
-def test_explicit_access_token_overrides_api_key(
+def test_api_key_takes_precedence_over_legacy_access_token(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -305,9 +371,10 @@ def test_explicit_access_token_overrides_api_key(
     access_token = make_token(datetime.now(timezone.utc) + timedelta(hours=1))
     monkeypatch.setenv("PRODUCTION_PLATFORM_DURO_TOKEN", access_token)
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_API_KEY", raising=False)
-    session = FakeSession()
+    session = FakeGraphqlSession()
     client = DuroClient(
         api_key=api_key,
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
@@ -315,19 +382,20 @@ def test_explicit_access_token_overrides_api_key(
 
     client.search_products(DuroProductSearchRequest())
 
-    assert session.calls[0]["headers"]["authorization"] == f"Bearer {access_token}"  # type: ignore[index]
+    assert session.calls[0]["headers"]["apiToken"] == api_key  # type: ignore[index]
 
 
-def test_gateway_500_unauthorized_is_reported_as_authentication_error(
+def test_graphql_500_unauthorized_is_reported_as_authentication_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv(
-        "PRODUCTION_PLATFORM_DURO_TOKEN",
-        make_token(datetime.now(timezone.utc) + timedelta(hours=1)),
+        "PRODUCTION_PLATFORM_DURO_API_KEY",
+        make_token(datetime.now(timezone.utc) + timedelta(days=30)),
     )
     session = UnauthorizedSession()
     client = DuroClient(
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
@@ -337,54 +405,35 @@ def test_gateway_500_unauthorized_is_reported_as_authentication_error(
         client.search_products(DuroProductSearchRequest())
 
 
-def test_rejected_api_key_retries_with_access_token_refreshed_from_cookies(
+def test_api_key_file_is_used_for_graphql_product_bom(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_TOKEN", raising=False)
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_API_KEY", raising=False)
     api_key = make_token(datetime.now(timezone.utc) + timedelta(days=30))
-    refreshed_token = make_token(datetime.now(timezone.utc) + timedelta(hours=1))
-    cookies_path = tmp_path / "cookies.txt"
-    cookies_path.write_text(
-        json.dumps(
-            [
-                {
-                    "name": "auth_session",
-                    "value": "session-value",
-                    "domain": "auth.duro.app",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": True,
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
-    session = CookieRetrySession(api_key, refreshed_token)
+    api_key_path = tmp_path / "duro-api-key.txt"
+    api_key_path.write_text(api_key, encoding="utf-8")
+    session = FakeGraphqlSession()
     client = DuroClient(
-        api_key=api_key,
+        api_key_path=api_key_path,
         token_path=tmp_path / "missing",
-        cookies_path=cookies_path,
+        cookies_path=tmp_path / "missing-cookies",
         session=session,  # type: ignore[arg-type]
     )
 
-    response = client.search_products(DuroProductSearchRequest())
-    second_response = client.search_products(DuroProductSearchRequest())
+    product = client.get_product("product-id")
 
-    assert response.count == 1
-    assert second_response.count == 1
-    assert [call["url"] for call in session.calls] == [
-        "https://mfgapi.duro.app/v1/search/products",
-        "https://auth.duro.app/api/v1/refresh_token",
-        "https://mfgapi.duro.app/v1/search/products",
-        "https://mfgapi.duro.app/v1/search/products",
-    ]
-    assert session.calls[2]["headers"]["authorization"] == f"Bearer {refreshed_token}"  # type: ignore[index]
-    assert session.calls[3]["headers"]["authorization"] == f"Bearer {refreshed_token}"  # type: ignore[index]
+    assert product["_id"] == "product-id"
+    assert product["revision"] == "C1.2"
+    child = product["children"][0]["component"]
+    assert child["_id"] == "component-id"
+    assert child["cpn"] == "123-00001"
+    assert child["children"][0]["component"]["_id"] == "leaf-id"
+    assert session.calls[0]["headers"]["apiToken"] == api_key  # type: ignore[index]
 
 
-def test_remote_chrome_access_token_is_preferred_over_api_key(
+def test_api_key_is_preferred_over_remote_chrome(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -393,9 +442,10 @@ def test_remote_chrome_access_token_is_preferred_over_api_key(
     api_key = make_token(datetime.now(timezone.utc) + timedelta(days=30))
     browser_token = make_token(datetime.now(timezone.utc) + timedelta(hours=1))
     provider = FakeBrowserTokenProvider(browser_token)
-    session = FakeSession()
+    session = FakeGraphqlSession()
     client = DuroClient(
         api_key=api_key,
+        api_key_path=tmp_path / "missing-api-key",
         token_path=tmp_path / "missing",
         cookies_path=tmp_path / "missing-cookies",
         browser_token_provider=provider,  # type: ignore[arg-type]
@@ -405,5 +455,5 @@ def test_remote_chrome_access_token_is_preferred_over_api_key(
     response = client.search_products(DuroProductSearchRequest())
 
     assert response.count == 1
-    assert provider.calls == [False]
-    assert session.calls[0]["headers"]["authorization"] == f"Bearer {browser_token}"  # type: ignore[index]
+    assert provider.calls == []
+    assert session.calls[0]["headers"]["apiToken"] == api_key  # type: ignore[index]
