@@ -43,24 +43,110 @@ production-scripts/
 - 移液器、模块、水平校准、称重和高压等测试工具。
 - PyInstaller 可执行文件构建。
 
-## 本地开发
+## 安装与运行
 
-环境要求：Python 3.10、[`uv`](https://docs.astral.sh/uv/)、Node.js / npm。硬件应用要求 Python `>=3.10,<3.11`。
+### 1. 准备环境
+
+- Git、Make 和 `lsof`。
+- Python 3.10。硬件应用要求 Python `>=3.10,<3.11`，因此建议整个项目统一使用 3.10。
+- [`uv`](https://docs.astral.sh/uv/)。
+- Node.js 20 LTS 或更高版本，以及 npm。
+- MongoDB 6.0 或更高版本。完整的非仿真模式需要 MongoDB；仅体验界面时可以使用下文的仿真模式。
+
+确认主要工具已安装：
 
 ```bash
-# 安装 Python workspace 和前端依赖
+python3 --version
+uv --version
+node --version
+npm --version
+make --version
+```
+
+### 2. 获取源码并安装依赖
+
+```bash
+git clone git@github.com:Opentrons/production-scripts.git
+cd production-scripts
+
+# 安装后端和硬件 Python workspace 依赖
 make sync
+
+# 严格按照 package-lock.json 安装前端依赖
 make web-install
+```
 
-# 同时启动后端和前端；默认端口为 8090 / 8091
+### 3. 配置后端
+
+复制本地配置文件，并生成至少 32 个字符的 JWT Secret：
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+openssl rand -hex 32
+```
+
+将 `openssl` 输出写入 `apps/backend/.env`，并确保本地 HTTP 开发配置至少包含以下内容：
+
+```dotenv
+PRODUCTION_PLATFORM_RUN_ENV=dev
+PRODUCTION_PLATFORM_AUTH_JWT_SECRET=<openssl rand -hex 32 的输出>
+PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=20
+PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=168
+PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=false
+PRODUCTION_PLATFORM_MONGO_URI=mongodb://127.0.0.1:27017
+```
+
+`apps/backend/.env` 已被 Git 忽略，不得提交。Duro、Google Drive、Slack 和 LLM 等外部服务的配置可以暂时留空，对应功能会显示为未连接。
+
+### 4. 准备数据存储和管理员
+
+完整运行时，先启动 MongoDB，并确认 `mongodb://127.0.0.1:27017` 可访问。项目会使用 `ProductionsMessage` 数据库，然后创建首个管理员账号：
+
+```bash
+uv run --package production-backend \
+  python apps/backend/scripts/create_auth_user.py \
+  --username admin --display-name "Administrator" --role admin
+```
+
+命令会交互式要求输入并确认至少 12 个字符的密码。
+
+没有 MongoDB 时，可以先启用本地 SQLite 仿真模式，再执行同一条管理员创建命令：
+
+```bash
+mkdir -p apps/backend/db-storage
+printf '{"simulating": true}\n' > apps/backend/db-storage/mode.json
+
+uv run --package production-backend \
+  python apps/backend/scripts/create_auth_user.py \
+  --username admin --display-name "Administrator" --role admin
+```
+
+### 5. 启动并访问
+
+```bash
+# 同时启动 FastAPI 和 Vue 开发服务器
 make dev
+```
 
-# 分别启动
+- Web 界面：`http://127.0.0.1:8091`
+- 后端 API：`http://127.0.0.1:8090`
+- OpenAPI 文档：`http://127.0.0.1:8090/docs`
+- 健康检查：`make backend-health`
+
+`make dev` 会先停止占用 8090 和 8091 端口的进程。使用 `Ctrl+C` 可以停止两个开发服务；也可以覆盖默认端口：
+
+```bash
+make dev API_PORT=8092 WEB_PORT=8093
+```
+
+需要单独调试时，可以在不同终端分别运行：
+
+```bash
 make backend-dev
 make web-dev
 ```
 
-常用验证命令：
+### 6. 测试与构建
 
 ```bash
 make backend-test
