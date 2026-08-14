@@ -23,8 +23,8 @@ def make_service(tmp_path: Path) -> AuthService:
         jwt_secret="test-secret-" * 4,
         issuer="test-production-platform",
         audience="test-production-web",
-        access_token_minutes=20,
-        refresh_token_hours=24 * 7,
+        access_token_minutes=5,
+        refresh_token_hours=1,
     )
     service.initialize()
     return service

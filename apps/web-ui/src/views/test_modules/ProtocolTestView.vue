@@ -13,6 +13,21 @@
         </div>
       </div>
       <div class="page-actions">
+        <el-select
+          v-if="rooms.length"
+          :model-value="selectedRoomId"
+          class="room-select"
+          filterable
+          :placeholder="t('protocolMonitor.selectRoomPlaceholder')"
+          @change="selectRoom"
+        >
+          <el-option
+            v-for="room in rooms"
+            :key="room.id"
+            :label="room.name"
+            :value="room.id"
+          />
+        </el-select>
         <el-tooltip :content="t('protocolMonitor.refreshRooms')" placement="bottom">
           <el-button
             :icon="Refresh"
@@ -36,28 +51,10 @@
     />
 
     <div class="monitor-workspace">
-      <aside class="room-pane">
-        <div v-if="rooms.length" class="room-list">
-          <button
-            v-for="room in rooms"
-            :key="room.id"
-            class="room-row"
-            :class="{ 'is-active': room.id === selectedRoomId }"
-            type="button"
-            @click="selectRoom(room.id)"
-          >
-            <span class="room-name">{{ room.name }}</span>
-            <span class="room-count">{{ room.devices.length }}</span>
-          </button>
-        </div>
-        <el-empty v-else :image-size="54" :description="t('protocolMonitor.noRooms')" />
-      </aside>
-
       <main v-if="selectedRoom" class="device-pane" v-loading="loadingRooms">
         <header class="room-head">
-          <div>
-            <h2>{{ selectedRoom.name }}</h2>
-            <span>{{ t('protocolMonitor.updatedAt', { time: formatDate(lastCheckedAt || selectedRoom.updated_at) }) }}</span>
+          <div class="room-head-main">
+            <span class="room-updated">{{ t('protocolMonitor.updatedAt', { time: formatDate(lastCheckedAt || selectedRoom.updated_at) }) }}</span>
           </div>
           <div class="room-actions">
             <el-tooltip :content="t('protocolMonitor.refreshStatus')" placement="bottom">
@@ -80,24 +77,48 @@
         </header>
 
         <div class="status-summary" :aria-label="t('protocolMonitor.statusSummary')">
-          <div class="summary-item">
-            <span class="status-dot is-idle"></span>
-            <span>{{ t('protocolMonitor.statuses.idle') }}</span>
-            <strong>{{ statusCounts.idle }}</strong>
+          <div class="summary-stats">
+            <div class="summary-item">
+              <span class="status-dot is-idle"></span>
+              <span>{{ t('protocolMonitor.statuses.idle') }}</span>
+              <strong>{{ statusCounts.idle }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="status-dot is-running"></span>
+              <span>{{ t('protocolMonitor.statuses.running') }}</span>
+              <strong>{{ statusCounts.running }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="status-dot is-offline"></span>
+              <span>{{ t('protocolMonitor.statuses.offline') }}</span>
+              <strong>{{ statusCounts.offline }}</strong>
+            </div>
           </div>
-          <div class="summary-item">
-            <span class="status-dot is-running"></span>
-            <span>{{ t('protocolMonitor.statuses.running') }}</span>
-            <strong>{{ statusCounts.running }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="status-dot is-offline"></span>
-            <span>{{ t('protocolMonitor.statuses.offline') }}</span>
-            <strong>{{ statusCounts.offline }}</strong>
+          <div class="view-toggle" role="group" :aria-label="t('protocolMonitor.viewMode')">
+            <el-tooltip :content="t('protocolMonitor.viewCard')" placement="bottom">
+              <el-button
+                :type="deviceViewMode === 'card' ? 'primary' : 'default'"
+                :icon="Grid"
+                circle
+                :aria-pressed="deviceViewMode === 'card'"
+                :aria-label="t('protocolMonitor.viewCard')"
+                @click="setDeviceViewMode('card')"
+              />
+            </el-tooltip>
+            <el-tooltip :content="t('protocolMonitor.viewList')" placement="bottom">
+              <el-button
+                :type="deviceViewMode === 'list' ? 'primary' : 'default'"
+                :icon="List"
+                circle
+                :aria-pressed="deviceViewMode === 'list'"
+                :aria-label="t('protocolMonitor.viewList')"
+                @click="setDeviceViewMode('list')"
+              />
+            </el-tooltip>
           </div>
         </div>
 
-        <div v-if="selectedRoom.devices.length" class="device-grid">
+        <div v-if="selectedRoom.devices.length && deviceViewMode === 'card'" class="device-grid">
           <article v-for="device in selectedRoom.devices" :key="device.id" class="device-card">
             <div class="device-card-visual">
               <DeviceCameraMedia
@@ -185,6 +206,70 @@
                 </div>
               </section>
             </div>
+          </article>
+        </div>
+
+        <div v-else-if="selectedRoom.devices.length" class="device-list">
+          <div class="device-list-head" aria-hidden="true">
+            <span>{{ t('protocolMonitor.statusColumn') }}</span>
+            <span>{{ t('protocolMonitor.deviceName') }}</span>
+            <span>{{ t('protocolMonitor.deviceAddress') }}</span>
+            <span>Protocol</span>
+            <span>{{ t('protocolMonitor.checkedAt') }}</span>
+            <span></span>
+          </div>
+          <article
+            v-for="device in selectedRoom.devices"
+            :key="device.id"
+            class="device-list-row"
+          >
+            <span class="device-status is-inline" :class="`is-${deviceStatus(device.id).status}`">
+              <span class="status-dot" :class="`is-${deviceStatus(device.id).status}`"></span>
+              {{ statusText[deviceStatus(device.id).status] }}
+            </span>
+            <div class="device-list-name">
+              <strong>{{ device.name }}</strong>
+              <small :class="{ 'is-empty': !device.description }">
+                {{ device.description || t('protocolMonitor.noDescription') }}
+              </small>
+            </div>
+            <code class="device-list-ip">{{ device.ip }}</code>
+            <div class="device-list-protocol">
+              <span
+                v-if="deviceStatus(device.id).protocol_name"
+                class="protocol-text"
+                :title="deviceStatus(device.id).protocol_name || ''"
+              >
+                {{ deviceStatus(device.id).protocol_name }}
+              </span>
+              <span v-else-if="deviceStatus(device.id).run_status">{{ deviceStatus(device.id).run_status }}</span>
+              <span
+                v-else-if="deviceStatus(device.id).error"
+                class="error-text"
+                :title="deviceStatus(device.id).error || ''"
+              >
+                {{ deviceStatus(device.id).error }}
+              </span>
+              <span v-else class="muted-text">-</span>
+            </div>
+            <span class="checked-time">{{ formatDate(deviceStatus(device.id).checked_at) }}</span>
+            <el-dropdown
+              class="device-list-menu"
+              trigger="click"
+              placement="bottom-end"
+              @command="handleDeviceCommand($event, device)"
+            >
+              <el-button :icon="MoreFilled" circle :aria-label="t('protocolMonitor.deviceMenu')" />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="details" :icon="InfoFilled">{{ t('protocolMonitor.details') }}</el-dropdown-item>
+                  <el-dropdown-item command="manage" :icon="Setting">{{ t('protocolMonitor.manage') }}</el-dropdown-item>
+                  <el-dropdown-item command="connect-odd" :icon="Monitor">{{ t('protocolMonitor.openConnectOdd') }}</el-dropdown-item>
+                  <el-dropdown-item command="edit" :icon="EditPen">{{ t('protocolMonitor.editDevice') }}</el-dropdown-item>
+                  <el-dropdown-item command="delete" :icon="Delete" divided>{{ t('protocolMonitor.deleteDevice') }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </article>
         </div>
 
@@ -320,7 +405,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -331,7 +416,9 @@ import {
   Delete,
   Document,
   EditPen,
+  Grid,
   InfoFilled,
+  List,
   Monitor,
   MoreFilled,
   Plus,
@@ -355,7 +442,18 @@ import DeviceCameraMedia from '@/views/test_modules/components/DeviceCameraMedia
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'
 
-const STATUS_REFRESH_INTERVAL_MS = 10_000
+const DEVICE_VIEW_MODE_KEY = 'protocol-monitor-device-view-mode'
+type DeviceViewMode = 'card' | 'list'
+
+function readDeviceViewMode(): DeviceViewMode {
+  try {
+    const value = localStorage.getItem(DEVICE_VIEW_MODE_KEY)
+    return value === 'list' ? 'list' : 'card'
+  } catch {
+    return 'card'
+  }
+}
+
 const { t } = useI18n()
 const { locale } = useAppLocale()
 const router = useRouter()
@@ -373,7 +471,16 @@ const refreshingStatus = ref(false)
 const loadError = ref('')
 const lastCheckedAt = ref('')
 const statusByDevice = ref<Record<string, ProtocolMonitorDeviceStatus>>({})
+const deviceViewMode = ref<DeviceViewMode>(readDeviceViewMode())
 
+function setDeviceViewMode(mode: DeviceViewMode) {
+  deviceViewMode.value = mode
+  try {
+    localStorage.setItem(DEVICE_VIEW_MODE_KEY, mode)
+  } catch {
+    // ignore quota / private mode failures
+  }
+}
 const roomDialogVisible = ref(false)
 const editingRoomId = ref('')
 const roomName = ref('')
@@ -406,7 +513,6 @@ const detailDrawerTitle = computed(() => {
   return t('protocolMonitor.detailNamed', { name: detailDevice.value.name })
 })
 
-let statusTimer: number | null = null
 let statusRequestSequence = 0
 
 function normalizeError(error: any, fallback: string) {
@@ -464,7 +570,6 @@ async function selectRoom(roomId: string) {
   selectedRoomId.value = roomId
   statusByDevice.value = {}
   lastCheckedAt.value = ''
-  await refreshStatus(true)
 }
 
 async function refreshStatus(silent = false) {
@@ -685,13 +790,6 @@ async function removeDevice(device: ProtocolMonitorDevice) {
 
 onMounted(() => {
   void loadRooms()
-  statusTimer = window.setInterval(() => {
-    if (document.visibilityState === 'visible') void refreshStatus(true)
-  }, STATUS_REFRESH_INTERVAL_MS)
-})
-
-onUnmounted(() => {
-  if (statusTimer !== null) window.clearInterval(statusTimer)
 })
 </script>
 
@@ -778,7 +876,7 @@ h3 {
 }
 
 .page-meta,
-.room-head span,
+.room-updated,
 .checked-time,
 .muted-text {
   color: var(--monitor-muted);
@@ -799,58 +897,7 @@ h3 {
   display: grid;
   min-height: 520px;
   flex: 1;
-  grid-template-columns: 240px minmax(0, 1fr);
-}
-
-.room-pane {
-  min-width: 0;
-  border-right: 1px solid var(--monitor-border);
-  background: #f8fafc;
-}
-
-.room-list {
-  display: grid;
-}
-
-.room-row {
-  display: grid;
-  min-width: 0;
-  min-height: 48px;
-  padding: 0 14px 0 16px;
-  border: 0;
-  border-bottom: 1px solid #e4ebf3;
-  border-left: 3px solid transparent;
-  background: transparent;
-  color: var(--monitor-text);
-  cursor: pointer;
-  font: inherit;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-}
-
-.room-row:hover {
-  background: var(--monitor-accent-soft);
-}
-
-.room-row.is-active {
-  border-left-color: var(--monitor-accent);
-  background: var(--monitor-accent-soft);
-  color: #142033;
-}
-
-.room-name {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.room-count {
-  color: #7a8596;
-  font-size: 12px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .device-pane,
@@ -879,17 +926,36 @@ h3 {
   border-bottom: 1px solid var(--monitor-border);
 }
 
-.room-head > div:first-child {
+.room-head-main {
   display: grid;
-  gap: 4px;
+  min-width: 0;
+}
+
+.room-select {
+  width: min(280px, 100%);
 }
 
 .status-summary {
   min-height: 48px;
-  gap: 26px;
+  justify-content: space-between;
+  gap: 16px;
   padding: 0 18px;
   border-bottom: 1px solid var(--monitor-border);
   background: #f8fafc;
+}
+
+.summary-stats {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 26px;
+}
+
+.view-toggle {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
 }
 
 .summary-item {
@@ -934,6 +1000,98 @@ h3 {
   gap: 14px;
   overflow-y: auto;
   padding: 14px;
+}
+
+.device-list {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: 0;
+  overflow: auto;
+  padding: 8px 14px 14px;
+}
+
+.device-list-head,
+.device-list-row {
+  display: grid;
+  min-width: 760px;
+  grid-template-columns: 88px minmax(140px, 1.2fr) minmax(110px, 0.8fr) minmax(160px, 1.4fr) 150px 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-list-head {
+  padding: 8px 12px;
+  color: #7a8596;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.device-list-row {
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid #e4ebf3;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.device-list-row + .device-list-row {
+  margin-top: 8px;
+}
+
+.device-list-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.device-list-name strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-list-name small {
+  overflow: hidden;
+  color: #5d6879;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-list-name small.is-empty {
+  color: #8aa0b8;
+}
+
+.device-list-ip,
+.protocol-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-list-protocol {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.device-status.is-inline {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid #e4ebf3;
+  border-radius: 5px;
+  background: #f8fafc;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.device-list-menu :deep(.el-button .el-icon) {
+  transform: rotate(90deg);
 }
 
 .device-card {
@@ -1162,7 +1320,7 @@ code {
   }
 
   .monitor-workspace {
-    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .room-actions,
@@ -1170,24 +1328,26 @@ code {
     width: 100%;
   }
 
+  .page-actions {
+    flex-wrap: wrap;
+  }
+
   .status-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 18px;
+  }
+
+  .summary-stats {
+    flex-wrap: wrap;
     gap: 16px;
   }
 }
 
 @media (max-width: 640px) {
-  .monitor-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .room-pane {
-    border-right: 0;
-    border-bottom: 1px solid var(--monitor-border);
-  }
-
-  .room-list {
-    max-height: 180px;
-    overflow-y: auto;
+  .room-select {
+    width: 100%;
   }
 
   .device-form-grid {

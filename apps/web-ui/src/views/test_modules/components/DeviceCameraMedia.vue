@@ -100,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type HlsInstance from 'hls.js'
 import { ElMessage } from 'element-plus'
 import {
@@ -112,6 +112,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { protocolMonitorApi } from '@/scripts/api'
+import { csrfHeaders } from '@/scripts/api/http'
 
 const props = defineProps<{
   roomId: string
@@ -126,9 +127,11 @@ const enablingStream = ref(false)
 const streamLoading = ref(false)
 const streamError = ref('')
 const previewVisible = ref(false)
+const streamLeaseId = ref('')
 const cardVideoRef = ref<HTMLVideoElement | null>(null)
 const previewVideoRef = ref<HTMLVideoElement | null>(null)
 let hls: HlsInstance | null = null
+let disposed = false
 
 const imageAlt = computed(() => `${props.deviceName} Flex`)
 
@@ -171,7 +174,11 @@ async function attachStream(): Promise<void> {
   destroyStream()
   streamLoading.value = true
   streamError.value = ''
-  const streamUrl = protocolMonitorApi.deviceLivestreamUrl(props.roomId, props.deviceId)
+  const streamUrl = protocolMonitorApi.deviceLivestreamUrl(
+    props.roomId,
+    props.deviceId,
+    streamLeaseId.value,
+  )
 
   const { default: Hls } = await import('hls.js')
   if (mediaMode.value !== 'stream' || activeVideoElement() !== video) return
@@ -220,7 +227,12 @@ async function attachStream(): Promise<void> {
 async function showStream(): Promise<void> {
   enablingStream.value = true
   try {
-    await protocolMonitorApi.enableDeviceLivestream(props.roomId, props.deviceId)
+    const response = await protocolMonitorApi.enableDeviceLivestream(props.roomId, props.deviceId)
+    streamLeaseId.value = response.data.lease_id || ''
+    if (disposed) {
+      releaseStreamLease(true)
+      return
+    }
     mediaMode.value = 'stream'
     await nextTick()
     await attachStream()
@@ -233,8 +245,26 @@ async function showStream(): Promise<void> {
   }
 }
 
+function releaseStreamLease(keepalive = false): void {
+  const leaseId = streamLeaseId.value
+  if (!leaseId) return
+  streamLeaseId.value = ''
+  if (keepalive) {
+    const url = protocolMonitorApi.deviceLivestreamReleaseUrl(props.roomId, props.deviceId, leaseId)
+    void fetch(url, {
+      method: 'POST',
+      headers: csrfHeaders('POST'),
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {})
+    return
+  }
+  void protocolMonitorApi.releaseDeviceLivestream(props.roomId, props.deviceId, leaseId).catch(() => {})
+}
+
 function showImage(): void {
   destroyStream()
+  releaseStreamLease()
   mediaMode.value = 'image'
   streamLoading.value = false
   streamError.value = ''
@@ -246,8 +276,9 @@ function toggleMedia(): void {
 }
 
 async function retryStream(): Promise<void> {
-  await nextTick()
-  await attachStream()
+  destroyStream()
+  releaseStreamLease()
+  await showStream()
 }
 
 watch(previewVisible, async () => {
@@ -256,7 +287,21 @@ watch(previewVisible, async () => {
   await attachStream()
 })
 
-onBeforeUnmount(destroyStream)
+function releaseStreamOnPageHide(): void {
+  destroyStream()
+  releaseStreamLease(true)
+  mediaMode.value = 'image'
+  streamLoading.value = false
+  streamError.value = ''
+}
+
+onMounted(() => window.addEventListener('pagehide', releaseStreamOnPageHide))
+onBeforeUnmount(() => {
+  disposed = true
+  window.removeEventListener('pagehide', releaseStreamOnPageHide)
+  destroyStream()
+  releaseStreamLease(true)
+})
 </script>
 
 <style scoped>

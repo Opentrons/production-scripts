@@ -521,13 +521,23 @@ export const protocolMonitorApi = {
       { timeout: 30000 }
     ),
   enableDeviceLivestream: (roomId: string, deviceId: string) =>
-    api.post<{ enabled: boolean }>(
+    api.post<{ enabled: boolean; idle_override: boolean; lease_id: string | null }>(
       `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/enable`,
       undefined,
-      { timeout: 15000 }
+      { timeout: 40000 }
     ),
-  deviceLivestreamUrl: (roomId: string, deviceId: string) =>
-    `${API_BASE_URL}/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/stream.m3u8`,
+  releaseDeviceLivestream: (roomId: string, deviceId: string, leaseId: string) =>
+    api.post<{ released: boolean; stopped: boolean }>(
+      `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/${encodeURIComponent(leaseId)}/release`,
+      undefined,
+      { timeout: 40000 }
+    ),
+  deviceLivestreamReleaseUrl: (roomId: string, deviceId: string, leaseId: string) =>
+    `${API_BASE_URL}/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/${encodeURIComponent(leaseId)}/release`,
+  deviceLivestreamUrl: (roomId: string, deviceId: string, leaseId = '') => {
+    const base = `${API_BASE_URL}/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/stream.m3u8`
+    return leaseId ? `${base}?lease_id=${encodeURIComponent(leaseId)}` : base
+  },
 }
 
 export const robotApi = {

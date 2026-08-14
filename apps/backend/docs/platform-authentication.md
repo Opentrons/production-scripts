@@ -50,11 +50,11 @@ Authentication environment variables:
 
 ```text
 PRODUCTION_PLATFORM_AUTH_JWT_SECRET=<at least 32 random characters>
-PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=20
-PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=168
+PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=5
+PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=1
 PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=true
 PRODUCTION_PLATFORM_AUTH_DB_PATH=<optional absolute sqlite path for simulating mode>
 PRODUCTION_PLATFORM_AUTH_ALLOWED_ORIGINS=<optional comma-separated origins>
 ```
 
-JWTs are held in HttpOnly cookies. State-changing cookie-authenticated API requests also require the session CSRF header. Access JWTs are rotated every 20 minutes while the login session remains valid. The login session expires after 168 hours (7 days) by default, then the web client requires a new login. Refresh tokens are rotated, and logout revokes the server-side session immediately.
+JWTs are held in HttpOnly cookies. State-changing cookie-authenticated API requests also require the session CSRF header. Access JWTs expire after 5 minutes by default while the login session remains valid. The login session expires after 1 hour by default, then the web client requires a new login. Refresh tokens are rotated, and logout revokes the server-side session immediately.

@@ -104,6 +104,14 @@ async def enable_device_livestream(room_id: str, device_id: str):
         _raise_livestream_error(exc)
 
 
+@router.post("/rooms/{room_id}/devices/{device_id}/livestream/{lease_id}/release")
+async def release_device_livestream(room_id: str, device_id: str, lease_id: str):
+    try:
+        return await run_in_threadpool(livestream.release, room_id, device_id, lease_id)
+    except Exception as exc:
+        _raise_livestream_error(exc)
+
+
 @router.get("/rooms/{room_id}/devices/{device_id}/livestream/{asset_path:path}")
 async def proxy_device_livestream(
     room_id: str,
@@ -112,6 +120,8 @@ async def proxy_device_livestream(
     request: Request,
 ):
     try:
+        lease_id = request.query_params.get("lease_id")
+        livestream.touch(room_id, device_id, lease_id)
         asset = await run_in_threadpool(
             livestream.open_asset,
             room_id,
@@ -124,7 +134,7 @@ async def proxy_device_livestream(
             content = await run_in_threadpool(lambda: asset.response.content.decode("utf-8"))
             asset.response.close()
             proxy_base = request.url.path.rsplit("/livestream/", 1)[0] + "/livestream"
-            rewritten = livestream.rewrite_playlist(content, asset, proxy_base)
+            rewritten = livestream.rewrite_playlist(content, asset, proxy_base, lease_id)
             return Response(
                 content=rewritten,
                 media_type="application/vnd.apple.mpegurl",

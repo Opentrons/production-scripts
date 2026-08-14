@@ -179,6 +179,8 @@ class _OddCdpSession:
         self.height = _DEFAULT_HEIGHT
         self.title: str | None = None
         self.last_used = time.monotonic()
+        self._last_wake_at = 0.0
+        self._wake_cooldown_s = 25.0
 
     async def close(self) -> None:
         if self._ws is not None and not self._ws.closed:
@@ -246,6 +248,9 @@ class _OddCdpSession:
 
     async def _wake_if_asleep(self, *, force: bool = False) -> None:
         """Dismiss Flex Touchscreen_SleepScreen (solid dark overlay) before capture."""
+        now = time.monotonic()
+        if not force and (now - self._last_wake_at) < self._wake_cooldown_s:
+            return
         asleep = force
         if not force:
             try:
@@ -258,9 +263,11 @@ class _OddCdpSession:
                 )
                 asleep = bool((result.get("result") or {}).get("value"))
             except Exception:
-                asleep = True
+                # Never tap on detection failure — avoids screenshot-poll click loops.
+                return
         if not asleep:
             return
+        self._last_wake_at = now
         x = max(1.0, self.width / 2.0)
         y = max(1.0, self.height / 2.0)
         await self.call(
@@ -276,7 +283,8 @@ class _OddCdpSession:
     async def screenshot(self, quality: int = 55) -> bytes:
         async with self._lock:
             await self.ensure()
-            await self._wake_if_asleep(force=True)
+            # DOM-confirmed sleep only; do not force-tap every HTTP poll frame.
+            await self._wake_if_asleep(force=False)
             result = await self.call(
                 "Page.captureScreenshot",
                 {

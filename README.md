@@ -33,7 +33,7 @@ production-scripts/
 
 - FastAPI 统一 API，覆盖认证、机器人、测试、上传、数据分析、版本、SOP、Duro、工作流和 Agent。
 - Opentrons HTTP API 客户端、批量设备操作、日志 / 文件 / Protocol 管理。
-- JWT Access Token 默认 20 分钟轮换，登录会话默认 168 小时（7 天）。
+- JWT Access Token 默认 5 分钟，登录会话默认 1 小时。
 - 非仿真模式使用 MongoDB `ProductionsMessage`；仿真模式使用 `apps/backend/db-storage/simulating/` 下的 SQLite。
 - Google Drive、Slack、Duro、Remote Chrome 和 LLM 等外部服务集成。
 
@@ -90,8 +90,8 @@ openssl rand -hex 32
 ```dotenv
 PRODUCTION_PLATFORM_RUN_ENV=dev
 PRODUCTION_PLATFORM_AUTH_JWT_SECRET=<openssl rand -hex 32 的输出>
-PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=20
-PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=168
+PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=5
+PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=1
 PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=false
 PRODUCTION_PLATFORM_MONGO_URI=mongodb://127.0.0.1:27017
 ```
@@ -219,7 +219,7 @@ sudo "$(command -v uv)" run --package production-backend \
   python apps/backend/scripts/create_auth_user.py --username admin --role admin
 ```
 
-认证密钥保存在 `/etc/production-platform.env`。部署脚本会生成缺失的 JWT Secret，并将登录会话设置为 168 小时。运行数据、数据库、本地 `.env` 和认证文件不会被远程同步删除。
+认证密钥保存在 `/etc/production-platform.env`。部署脚本会生成缺失的 JWT Secret，并将登录会话设置为 1 小时。运行数据、数据库、本地 `.env` 和认证文件不会被远程同步删除。
 
 ## 数据持久化
 

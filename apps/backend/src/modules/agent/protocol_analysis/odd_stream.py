@@ -42,6 +42,9 @@ class OddCdpMux:
         self._reader_task: asyncio.Task[None] | None = None
         self._closed = False
         self._send_lock = asyncio.Lock()
+        self._last_wake_at = 0.0
+        # Prevent the frame loop from repeatedly tapping the ODD center.
+        self._wake_cooldown_s = 25.0
 
     async def connect(self) -> None:
         origin = f"http://{self.host}:{self.port}"
@@ -212,20 +215,28 @@ class OddCdpMux:
             timeout_s=2.0,
         )
 
-    async def wake_display(self, *, force: bool = False) -> bool:
-        """Tap the center of the ODD to dismiss sleep. Returns True if a wake tap was sent."""
+    async def wake_display(self, *, force: bool = False, ignore_cooldown: bool = False) -> bool:
+        """Tap the center of the ODD to dismiss sleep. Returns True if a wake tap was sent.
+
+        force=True is for the initial connect path only. The streaming loop must use
+        force=False so we never spam taps on a dark-but-awake UI (tiny JPEGs look like sleep).
+        """
+        now = time.monotonic()
+        if not ignore_cooldown and (now - self._last_wake_at) < self._wake_cooldown_s:
+            return False
         asleep = True if force else False
         if not force:
             try:
                 asleep = await self.is_sleep_screen()
             except Exception:
-                # Detection failed — still try a wake tap so connect never stays black.
-                asleep = True
+                # Do not tap when detection fails — that caused endless mid-screen clicks.
+                return False
         if not asleep:
             return False
+        self._last_wake_at = now
         await self._tap_center()
         await asyncio.sleep(0.45)
-        # Second tap if the overlay is still present (some builds need two).
+        # Second tap only if the sleep overlay is still present (some builds need two).
         try:
             if await self.is_sleep_screen():
                 await self._tap_center()
@@ -348,8 +359,8 @@ async def run_odd_stream(websocket: WebSocket, ip: str, port: int = ODD_DEVTOOLS
     forward_task: asyncio.Task[None] | None = None
     try:
         await mux.connect()
-        # Always tap on connect — SleepScreen is a solid #16212d fill that looks like a black stream.
-        await mux.wake_display(force=True)
+        # One wake on connect only — SleepScreen is a solid #16212d that looks black.
+        await mux.wake_display(force=True, ignore_cooldown=True)
         await mux.start_screencast(quality=quality)
         await websocket.send_json(
             {
@@ -372,7 +383,7 @@ async def run_odd_stream(websocket: WebSocket, ip: str, port: int = ODD_DEVTOOLS
             )
             await websocket.send_bytes(header + jpeg)
 
-        # Push one screenshot immediately so UI is not stuck on sleep/black waiting for dirty screencast.
+        # Push one screenshot immediately so UI is not stuck waiting for a dirty screencast.
         try:
             await _send_jpeg(await mux.capture_jpeg(quality=quality))
         except Exception:
@@ -385,9 +396,11 @@ async def run_odd_stream(websocket: WebSocket, ip: str, port: int = ODD_DEVTOOLS
                     frame = await mux.next_frame(timeout_s=1.25)
                 except asyncio.TimeoutError:
                     # Electron ODD often emits screencast only on dirty frames.
-                    # Fall back to screenshots so a static (or just-woken) UI still updates.
+                    # Fall back to screenshots so a static UI still updates.
                     idle_checks += 1
-                    if idle_checks % 3 == 1:
+                    # Rare sleep-screen recovery only (DOM-confirmed + cooldown). Never force-tap
+                    # on tiny JPEGs — dark awake screens also compress small and caused click loops.
+                    if idle_checks % 8 == 1:
                         try:
                             await mux.wake_display(force=False)
                         except Exception:
@@ -396,13 +409,6 @@ async def run_odd_stream(websocket: WebSocket, ip: str, port: int = ODD_DEVTOOLS
                         jpeg = await mux.capture_jpeg(quality=quality)
                     except Exception:
                         continue
-                    # Tiny JPEG (~solid sleep fill) → force another wake then recapture.
-                    if len(jpeg) < 8000:
-                        try:
-                            await mux.wake_display(force=True)
-                            jpeg = await mux.capture_jpeg(quality=quality)
-                        except Exception:
-                            pass
                     await _send_jpeg(jpeg)
                     continue
                 idle_checks = 0
@@ -413,12 +419,6 @@ async def run_odd_stream(websocket: WebSocket, ip: str, port: int = ODD_DEVTOOLS
                     jpeg = base64.b64decode(data_b64)
                 except Exception:
                     continue
-                if len(jpeg) < 8000:
-                    try:
-                        await mux.wake_display(force=True)
-                        jpeg = await mux.capture_jpeg(quality=quality)
-                    except Exception:
-                        pass
                 await _send_jpeg(jpeg)
 
         forward_task = asyncio.create_task(forward_frames(), name=f"odd-frame-forward-{host}")
