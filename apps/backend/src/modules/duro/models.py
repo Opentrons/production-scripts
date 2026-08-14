@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 def utc_now() -> datetime:
@@ -104,3 +104,7 @@ class DuroConnectionStatus(BaseModel):
     remote_chrome_last_success_at: datetime | None = None
     remote_chrome_error: str = ""
     auto_refresh_active: bool = False
+
+
+class DuroApiKeyUpdate(BaseModel):
+    duro_api_key: SecretStr = Field(min_length=1, max_length=8192)

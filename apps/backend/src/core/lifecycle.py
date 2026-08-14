@@ -13,6 +13,7 @@ from modules.duro.runtime import (
     duro_browser_token_provider,
     ensure_duro_remote_chrome_running,
 )
+from modules.system.health import start_health_refresh_scheduler, stop_health_refresh_scheduler
 from modules.auth.dependencies import get_auth_service
 from modules.system.simulating_seed import ensure_simulating_seed
 from modules.robots.diagnostic_logs import (
@@ -31,6 +32,7 @@ from modules.uploads.handler.drivers.google_drive import (
 from modules.uploads.handler.utils import runtime_config
 from modules.uploads.upload import shutdown_upload_service
 from modules.workflows.runtime import workflow_scheduler, workflow_service
+from modules.agent.schedules import agent_schedule_scheduler
 
 
 logger = get_logger(__name__)
@@ -52,11 +54,13 @@ async def lifespan(_: FastAPI):
     resume_pending_diagnostic_log_cleanups()
     start_robot_scan_scheduler()
     google_proxy_manager.start()
+    start_health_refresh_scheduler()
     ensure_duro_remote_chrome_running()
     if duro_browser_token_provider is not None:
         duro_browser_token_provider.start_auto_refresh(DURO_TOKEN_AUTO_REFRESH_SECONDS)
     workflow_service.initialize()
     workflow_scheduler.start()
+    agent_schedule_scheduler.start()
 
     # Do not block API readiness on proxy probing; login and other routes must
     # stay available while the optional Google proxy refresh runs in background.
@@ -73,6 +77,8 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         workflow_scheduler.stop()
+        agent_schedule_scheduler.stop()
+        stop_health_refresh_scheduler()
         google_proxy_manager.stop()
         if duro_browser_token_provider is not None:
             duro_browser_token_provider.close()

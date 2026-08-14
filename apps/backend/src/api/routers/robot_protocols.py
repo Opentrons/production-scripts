@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
@@ -96,6 +96,50 @@ async def get_robot_protocol_analyses(ip: str, protocol_id: str, port: int = set
         port,
     )
     return RobotActionResponse(success=True, data={"analyses": analyses})
+
+
+@router.get("/robots/{ip}/data-files", response_model=RobotActionResponse)
+async def list_robot_data_files(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
+    files = await run_in_threadpool(opentrons_protocols_service.list_data_files, ip, port)
+    return RobotActionResponse(success=True, data={"files": files})
+
+
+@router.get("/robots/{ip}/protocols/{protocol_id}/data-files", response_model=RobotActionResponse)
+async def list_robot_protocol_data_files(
+    ip: str,
+    protocol_id: str,
+    port: int = setting.ROBOT_HEALTH_PORT,
+):
+    files = await run_in_threadpool(
+        opentrons_protocols_service.list_protocol_data_files,
+        ip,
+        protocol_id,
+        port,
+    )
+    return RobotActionResponse(success=True, data={"files": files})
+
+
+@router.post("/robots/{ip}/data-files/upload", response_model=RobotActionResponse)
+async def upload_robot_data_file(
+    ip: str,
+    file: UploadFile = File(...),
+    port: int = setting.ROBOT_HEALTH_PORT,
+):
+    filename = file.filename or "data.csv"
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .csv files are supported for dataFiles upload",
+        )
+    content = await file.read()
+    data = await run_in_threadpool(
+        opentrons_protocols_service.upload_data_file,
+        ip,
+        filename,
+        content,
+        port=port,
+    )
+    return RobotActionResponse(success=True, message="CSV uploaded", data=data)
 
 
 @router.get("/robots/{ip}/runs", response_model=RobotRunListResponse)

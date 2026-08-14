@@ -26,6 +26,7 @@ PATH_SETTINGS_ROBOT = "/settings/robot"
 PATH_PIPETTES = "/pipettes"
 PATH_PROTOCOLS = "/protocols"
 PATH_RUNS = "/runs"
+PATH_DATA_FILES = "/dataFiles"
 
 
 @lru_cache(maxsize=1)

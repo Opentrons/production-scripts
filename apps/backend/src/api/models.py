@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -263,6 +264,7 @@ class ServiceStatus(BaseModel):
 class HealthResponse(BaseModel):
     status: bool
     elapsed_ms: float | None = None
+    checked_at: datetime | None = None
     services: dict[str, ServiceStatus]
 
 

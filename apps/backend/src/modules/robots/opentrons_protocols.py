@@ -65,6 +65,28 @@ def list_protocol_analyses(
     return _client(ip, port).list_protocol_analyses(protocol_id)
 
 
+def list_data_files(ip: str, port: int | None = None) -> list[dict[str, Any]]:
+    return _client(ip, port).list_data_files()
+
+
+def list_protocol_data_files(
+    ip: str,
+    protocol_id: str,
+    port: int | None = None,
+) -> list[dict[str, Any]]:
+    return _client(ip, port).list_protocol_data_files(protocol_id)
+
+
+def upload_data_file(
+    ip: str,
+    filename: str,
+    content: bytes,
+    *,
+    port: int | None = None,
+) -> dict[str, Any]:
+    return _client(ip, port).upload_data_file(filename, content)
+
+
 def list_runs(ip: str, port: int | None = None) -> list[dict[str, Any]]:
     return _client(ip, port).list_runs()
 

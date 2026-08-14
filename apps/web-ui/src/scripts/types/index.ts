@@ -15,6 +15,7 @@ export interface HealthStatus {
 export interface HealthCheckResponse {
   status: boolean
   elapsed_ms?: number
+  checked_at?: string | null
   services: {
     system_service: HealthStatus
     slack: HealthStatus

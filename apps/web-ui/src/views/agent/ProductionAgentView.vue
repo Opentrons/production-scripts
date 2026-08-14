@@ -14,6 +14,7 @@
 
       <div class="agent-header-actions">
         <button
+          v-if="activePanel === 'messages'"
           class="agent-icon-button"
           type="button"
           :title="t('agent.clear')"
@@ -27,7 +28,51 @@
       </div>
     </header>
 
-    <div class="agent-workspace">
+    <div class="agent-shell">
+      <nav class="agent-nav" :aria-label="t('agent.navLabel')">
+        <button
+          type="button"
+          class="agent-nav-button"
+          :class="{ 'is-active': activePanel === 'messages' }"
+          :title="t('agent.nav.messages')"
+          :aria-label="t('agent.nav.messages')"
+          @click="activePanel = 'messages'"
+        >
+          <MessageSquare :size="20" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="agent-nav-button"
+          :class="{ 'is-active': activePanel === 'knowledge' }"
+          :title="t('agent.nav.knowledge')"
+          :aria-label="t('agent.nav.knowledge')"
+          @click="activePanel = 'knowledge'"
+        >
+          <BookOpen :size="20" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="agent-nav-button"
+          :class="{ 'is-active': activePanel === 'schedules' }"
+          :title="t('agent.nav.schedules')"
+          :aria-label="t('agent.nav.schedules')"
+          @click="activePanel = 'schedules'"
+        >
+          <Timer :size="20" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="agent-nav-button"
+          :class="{ 'is-active': activePanel === 'protocol' }"
+          :title="t('agent.nav.protocol')"
+          :aria-label="t('agent.nav.protocol')"
+          @click="activePanel = 'protocol'"
+        >
+          <TabletSmartphone :size="20" aria-hidden="true" />
+        </button>
+      </nav>
+
+      <div v-if="activePanel === 'messages'" class="agent-workspace">
       <aside class="agent-rail" :aria-label="t('agent.quickTasks')">
         <div class="agent-rail-heading">
           <Sparkles :size="17" aria-hidden="true" />
@@ -141,7 +186,7 @@
                       v-for="file in item.attachments"
                       :key="`${item.id}-${file.name}`"
                       class="agent-attachment-chip"
-                      :title="file.truncated ? `${file.name} (${t('agent.truncated')})` : file.name"
+                      :title="file.name"
                     >
                       <Paperclip :size="13" aria-hidden="true" />
                       <span>{{ file.name }}</span>
@@ -230,12 +275,12 @@
                   type="button"
                   :title="t('agent.upload')"
                   :aria-label="t('agent.upload')"
-                  :disabled="streaming || connectionState === 'unconfigured'"
+                  :disabled="streaming || uploadingAttachments || connectionState === 'unconfigured'"
                   @click="openFilePicker"
                 >
                   <Paperclip :size="16" aria-hidden="true" />
                 </button>
-                <span>{{ t('agent.attachmentHint') }}</span>
+                <span>{{ t('agent.attachmentHint', { size: formatBytes(MAX_ATTACHMENT_BYTES) }) }}</span>
               </div>
               <button
                 v-if="streaming"
@@ -262,6 +307,11 @@
           </div>
         </footer>
       </main>
+      </div>
+
+      <AgentKnowledgePanel v-else-if="activePanel === 'knowledge'" class="agent-panel-host" />
+      <AgentSchedulePanel v-else-if="activePanel === 'schedules'" class="agent-panel-host" />
+      <AgentProtocolPanel v-else-if="activePanel === 'protocol'" class="agent-panel-host" />
     </div>
     <div
       v-if="shortcutTooltip.visible"
@@ -280,6 +330,7 @@ import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import {
   ArrowUpRight,
+  BookOpen,
   Bot,
   Check,
   ChevronDown,
@@ -287,26 +338,34 @@ import {
   CircleCheck,
   Copy,
   LoaderCircle,
+  MessageSquare,
   Paperclip,
   Send,
   Sparkles,
   Square,
+  TabletSmartphone,
+  Timer,
   Trash2,
   User,
   X,
 } from '@lucide/vue'
 import {
   useProductionAgent,
+  type AgentAttachment,
   type AgentChatMessage,
   type AgentChatRole,
   type AgentToolEventData,
 } from '@/scripts/modules/agent/useProductionAgent'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
+import AgentKnowledgePanel from '@/views/agent/AgentKnowledgePanel.vue'
+import AgentSchedulePanel from '@/views/agent/AgentSchedulePanel.vue'
+import AgentProtocolPanel from '@/views/agent/AgentProtocolPanel.vue'
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'
 
 const { t } = useI18n()
 const { locale } = useAppLocale()
+const activePanel = ref<'messages' | 'knowledge' | 'schedules' | 'protocol'>('messages')
 
 interface ConversationMessage {
   id: string
@@ -322,15 +381,13 @@ interface ConversationMessage {
 }
 
 interface MessageAttachment {
+  id: string
   name: string
   size: number
-  truncated?: boolean
+  expiresAt?: string
 }
 
-interface PendingAttachment extends MessageAttachment {
-  id: string
-  text: string
-}
+type PendingAttachment = MessageAttachment
 
 interface ToolActivity {
   id: string
@@ -344,8 +401,7 @@ const STORAGE_KEY = 'production-agent-conversation-v1'
 const MAX_STORED_MESSAGES = 30
 const TYPEWRITER_INTERVAL_MS = 24
 const MAX_ATTACHMENTS = 5
-const MAX_ATTACHMENT_BYTES = 512 * 1024
-const MAX_ATTACHMENT_CHARS = 24_000
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const MAX_MESSAGE_CHARS = 100_000
 const ATTACHMENT_EXTENSIONS = new Set([
   'csv', 'tsv', 'txt', 'log', 'json', 'md', 'markdown', 'xml', 'yaml', 'yml', 'ini', 'cfg', 'conf',
@@ -389,7 +445,8 @@ function hideShortcutTooltip(): void {
 }
 
 const TOOL_NAMES = [
-  'get_current_time', 'get_platform_overview', 'query_upload_records', 'analyze_upload_records', 'query_products',
+  'get_current_time', 'inspect_agent_attachment', 'read_agent_attachment', 'get_platform_overview',
+  'query_upload_records', 'analyze_upload_records', 'query_products',
   'query_unit_tracker', 'list_data_links', 'list_test_data_collections', 'query_test_data', 'query_devices',
   'query_version_history', 'query_protocol_monitor', 'query_workflows', 'query_test_cases', 'search_sop_catalog',
   'query_platform_messages', 'query_platform_database', 'aggregate_platform_database', 'get_spreadsheet_info',
@@ -423,7 +480,7 @@ function renderMarkdown(content: string): string {
   return DOMPurify.sanitize(enhanceCodeBlocks(marked.parse(content) as string), MARKDOWN_SANITIZE)
 }
 
-const { chat, getStatus, stop, streaming } = useProductionAgent()
+const { chat, deleteAttachment, getStatus, stop, streaming, uploadAttachment } = useProductionAgent()
 const messages = ref<ConversationMessage[]>(loadConversation())
 const draft = ref('')
 const pendingAttachments = ref<PendingAttachment[]>([])
@@ -433,6 +490,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const composerFocused = ref(false)
 const isDraggingFiles = ref(false)
 const attachmentError = ref('')
+const uploadingAttachments = ref(false)
 const modelName = ref('')
 const selectedModel = ref('deepseek')
 const connectionState = ref<'loading' | 'ready' | 'unconfigured' | 'unavailable'>('loading')
@@ -451,6 +509,7 @@ const connectionLabel = computed(() => {
 
 const composerNotice = computed(() => {
   if (attachmentError.value) return attachmentError.value
+  if (uploadingAttachments.value) return t('agent.attachment.uploading')
   if (connectionState.value === 'unconfigured') return t('agent.status.missingKey')
   if (connectionState.value === 'unavailable') return t('agent.status.unavailableHint')
   return ''
@@ -459,6 +518,7 @@ const composerNotice = computed(() => {
 const canSend = computed(() => (
   Boolean(draft.value.trim() || pendingAttachments.value.length)
   && !streaming.value
+  && !uploadingAttachments.value
   && connectionState.value !== 'unconfigured'
 ))
 
@@ -530,8 +590,7 @@ function buildMessageContent(text: string, attachments: PendingAttachment[]): st
   const sections: string[] = []
   if (text.trim()) sections.push(text.trim())
   for (const file of attachments) {
-    const note = file.truncated ? ` (${t('agent.truncated')})` : ''
-    sections.push(`${t('agent.attachment.prefix')}: ${file.name}${note}\n\`\`\`\n${file.text}\n\`\`\``)
+    sections.push(`${t('agent.attachment.prefix')}: ${file.name}\n${t('agent.attachment.serverReference', { id: file.id, size: formatBytes(file.size) })}`)
   }
   return sections.join('\n\n').slice(0, MAX_MESSAGE_CHARS)
 }
@@ -551,15 +610,8 @@ async function readAttachment(file: File): Promise<PendingAttachment> {
   if (file.size > MAX_ATTACHMENT_BYTES) {
     throw new Error(t('agent.attachment.tooLarge', { name: file.name, size: formatBytes(MAX_ATTACHMENT_BYTES) }))
   }
-  const raw = await file.text()
-  const truncated = raw.length > MAX_ATTACHMENT_CHARS
-  return {
-    id: messageId(),
-    name: file.name,
-    size: file.size,
-    truncated,
-    text: truncated ? `${raw.slice(0, MAX_ATTACHMENT_CHARS)}\n…` : raw,
-  }
+  const uploaded = await uploadAttachment(file)
+  return { id: uploaded.id, name: uploaded.name, size: uploaded.size, expiresAt: uploaded.expires_at }
 }
 
 async function addFiles(fileList: FileList | File[]): Promise<void> {
@@ -571,19 +623,31 @@ async function addFiles(fileList: FileList | File[]): Promise<void> {
     return
   }
   const selected = files.slice(0, remaining)
+  uploadingAttachments.value = true
+  const next: PendingAttachment[] = []
   try {
-    const next = await Promise.all(selected.map(readAttachment))
+    for (const file of selected) {
+      next.push(await readAttachment(file))
+    }
     pendingAttachments.value = [...pendingAttachments.value, ...next]
     if (files.length > remaining) {
       setComposerFeedback(t('agent.attachment.extrasIgnored', { count: MAX_ATTACHMENTS }))
     }
   } catch (error) {
-    setComposerFeedback(error instanceof Error ? error.message : t('agent.attachment.readFailed'))
+    pendingAttachments.value = [...pendingAttachments.value, ...next]
+    setComposerFeedback(error instanceof Error ? error.message : t('agent.attachment.uploadFailed'))
+  } finally {
+    uploadingAttachments.value = false
   }
 }
 
-function removePendingAttachment(id: string): void {
+async function removePendingAttachment(id: string): Promise<void> {
   pendingAttachments.value = pendingAttachments.value.filter(item => item.id !== id)
+  try {
+    await deleteAttachment(id)
+  } catch (error) {
+    setComposerFeedback(error instanceof Error ? error.message : t('agent.attachment.deleteFailed'))
+  }
 }
 
 function openFilePicker(): void {
@@ -636,6 +700,23 @@ function buildHistory(): AgentChatMessage[] {
     .filter(item => !item.welcome && !item.pending && item.content.trim())
     .slice(-30)
     .map(item => ({ role: item.role, content: item.content }))
+}
+
+function buildAttachmentReferences(): AgentAttachment[] {
+  const references = new Map<string, AgentAttachment>()
+  const now = Date.now()
+  const history = messages.value
+    .filter(item => !item.welcome && !item.pending && item.content.trim())
+    .slice(-30)
+  for (const message of history) {
+    for (const attachment of message.attachments || []) {
+      if (!/^[0-9a-f]{32}$/.test(attachment.id || '')) continue
+      if (!attachment.expiresAt || Date.parse(attachment.expiresAt) > now) {
+        references.set(attachment.id, { id: attachment.id, name: attachment.name, size: attachment.size })
+      }
+    }
+  }
+  return [...references.values()]
 }
 
 function formatTime(value: string): string {
@@ -721,11 +802,13 @@ function createTypewriter(message: ConversationMessage) {
 
 function clearConversation(): void {
   if (streaming.value) stopGeneration()
+  const pendingIds = pendingAttachments.value.map(attachment => attachment.id)
   messages.value = [createWelcomeMessage()]
   draft.value = ''
   pendingAttachments.value = []
   attachmentError.value = ''
   persistConversation()
+  void Promise.allSettled(pendingIds.map(deleteAttachment))
 }
 
 async function copyMessage(item: ConversationMessage): Promise<void> {
@@ -780,7 +863,7 @@ function stopGeneration(): void {
 async function sendMessage(quickPrompt?: string): Promise<void> {
   const typed = (quickPrompt ?? draft.value).trim()
   const attachments = [...pendingAttachments.value]
-  if ((!typed && !attachments.length) || streaming.value || connectionState.value === 'unconfigured') return
+  if ((!typed && !attachments.length) || streaming.value || uploadingAttachments.value || connectionState.value === 'unconfigured') return
 
   const displayContent = typed || (attachments.length ? t('agent.attachment.analyze') : '')
   const content = buildMessageContent(displayContent, attachments)
@@ -790,11 +873,7 @@ async function sendMessage(quickPrompt?: string): Promise<void> {
     content,
     displayContent,
     createdAt: new Date().toISOString(),
-    attachments: attachments.map(file => ({
-      name: file.name,
-      size: file.size,
-      truncated: file.truncated,
-    })),
+    attachments,
   })
   if (quickPrompt === undefined) draft.value = ''
   pendingAttachments.value = []
@@ -820,6 +899,7 @@ async function sendMessage(quickPrompt?: string): Promise<void> {
   await chat(
     buildHistory(),
     t('agent.pageContext'),
+    buildAttachmentReferences(),
     {
       async onChunk(chunk) {
         receivedText += chunk
@@ -1019,6 +1099,55 @@ onBeforeUnmount(() => {
 
 .agent-icon-button:hover { color: #a43f3f; border-color: #deb9b9; }
 .agent-icon-button:disabled { opacity: 0.38; cursor: default; }
+
+.agent-shell {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.agent-nav {
+  display: flex;
+  width: 64px;
+  flex: 0 0 64px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-right: 1px solid var(--agent-line);
+  background: #e7eeea;
+}
+
+.agent-nav-button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  color: #61706b;
+  background: transparent;
+  cursor: pointer;
+}
+
+.agent-nav-button:hover {
+  color: var(--agent-green);
+  background: rgba(23, 107, 95, 0.1);
+}
+
+.agent-nav-button.is-active {
+  color: #ffffff;
+  background: var(--agent-green);
+}
+
+.agent-panel-host {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
 
 .agent-workspace {
   display: grid;
@@ -1680,6 +1809,17 @@ onBeforeUnmount(() => {
   .agent-title-icon { width: 36px; height: 36px; flex-basis: 36px; }
   .agent-model-line span { max-width: 205px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .agent-icon-button { display: none; }
+
+  .agent-nav {
+    width: 52px;
+    flex-basis: 52px;
+    padding-top: 10px;
+  }
+
+  .agent-nav-button {
+    width: 38px;
+    height: 38px;
+  }
 
   .agent-workspace {
     grid-template-columns: 1fr;

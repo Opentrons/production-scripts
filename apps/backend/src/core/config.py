@@ -119,6 +119,16 @@ else:
     CONFIG_DIR = "/configs"
 
 FILE_RESOURCE_DIR = os.getenv("PRODUCTION_PLATFORM_FILE_RESOURCE_DIR", FILE_RESOURCE_DIR)
+AGENT_ATTACHMENT_DIR = Path(
+    os.getenv(
+        "PRODUCTION_PLATFORM_AGENT_ATTACHMENT_DIR",
+        Path(DOWNLOAD_DIR) / "agent_attachments",
+    )
+)
+AGENT_ATTACHMENT_TTL_SECONDS = max(
+    300,
+    int(os.getenv("PRODUCTION_PLATFORM_AGENT_ATTACHMENT_TTL_SECONDS", "86400")),
+)
 ROBOT_LOG_DOWNLOAD_DIR = os.getenv(
     "PRODUCTION_PLATFORM_ROBOT_LOG_DOWNLOAD_DIR",
     os.path.join(DOWNLOAD_DIR, "robot_logs"),
@@ -179,6 +189,9 @@ ROBOT_SSH_COMMAND_COLLECTION = "robot_ssh_commands"
 ROBOT_VERSION_RECORD_COLLECTION = "robot_version_records"
 PROTOCOL_MONITOR_ROOM_COLLECTION = "protocol_monitor_rooms"
 AGENT_KNOWLEDGE_COLLECTION = "agent_knowledge"
+AGENT_SCHEDULE_COLLECTION = "agent_schedules"
+AGENT_SCHEDULE_RUN_COLLECTION = "agent_schedule_runs"
+SYSTEM_HEALTH_COLLECTION = "system_health"
 
 # Version management, Duro, SOP, and workflow persistence.
 # Defaults live under db-storage/business; simulating mode can switch via resolve_sqlite_path().
@@ -189,6 +202,14 @@ WORKFLOW_STORE_PATH = Path(
     )
 )
 SCHEDULER_POLL_SECONDS = float(os.getenv("PRODUCTION_PLATFORM_SCHEDULER_POLL_SECONDS", "5"))
+AGENT_SCHEDULER_POLL_SECONDS = float(
+    os.getenv("PRODUCTION_PLATFORM_AGENT_SCHEDULER_POLL_SECONDS", str(SCHEDULER_POLL_SECONDS))
+)
+SYSTEM_HEALTH_REFRESH_SECONDS = max(
+    10,
+    int(os.getenv("PRODUCTION_PLATFORM_SYSTEM_HEALTH_REFRESH_SECONDS", "600")),
+)
+AGENT_SCHEDULE_TIMEZONE = os.getenv("PRODUCTION_PLATFORM_AGENT_SCHEDULE_TIMEZONE", "Asia/Shanghai").strip() or "Asia/Shanghai"
 
 GHELPER_DIR = Path(os.getenv("PRODUCTION_PLATFORM_GHELPER_DIR", API_ROOT / "ghelper-test"))
 GOOGLE_TOKEN_PATH = Path(

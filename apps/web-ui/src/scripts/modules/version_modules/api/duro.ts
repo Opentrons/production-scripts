@@ -108,6 +108,8 @@ const api = createApiClient(120000)
 
 export const duroApi = {
   status: () => api.get<DuroConnectionStatus>('/duro/status'),
+  updateApiKey: (duroApiKey: string) =>
+    api.put<DuroConnectionStatus>('/duro/api-key', { duro_api_key: duroApiKey }),
   products: (refresh = false) =>
     api.get<DuroProductSearchResponse>('/duro/products', { params: { refresh } }),
   productBom: (productId: string, refresh = false) =>

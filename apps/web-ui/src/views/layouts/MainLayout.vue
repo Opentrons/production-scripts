@@ -248,7 +248,7 @@ const lastUpdateText = computed(() => {
 })
 
 const refreshHealth = () => {
-  healthStore.fetchHealth()
+  void healthStore.refreshHealth()
 }
 
 const openMessages = () => {
@@ -283,13 +283,13 @@ let healthInterval: ReturnType<typeof setInterval>
 let messageInterval: ReturnType<typeof setInterval>
 
 onMounted(() => {
-  healthStore.fetchHealth()
-  messageStore.fetchMessages()
+  void healthStore.fetchHealth()
+  void messageStore.fetchMessages()
   healthInterval = setInterval(() => {
-    healthStore.fetchHealth()
+    void healthStore.fetchHealth()
   }, HEALTH_REFRESH_INTERVAL_MS)
   messageInterval = setInterval(() => {
-    messageStore.fetchMessages()
+    void messageStore.fetchMessages()
   }, MESSAGE_REFRESH_INTERVAL_MS)
 })
 

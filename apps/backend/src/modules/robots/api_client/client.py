@@ -8,6 +8,7 @@ from modules.robots.api_client.spec import (
     DEFAULT_OPENTRONS_VERSION,
     DEFAULT_PORT,
     PATH_COMMANDS,
+    PATH_DATA_FILES,
     PATH_HEALTH,
     PATH_INSTRUMENTS,
     PATH_MAINTENANCE_RUNS,
@@ -352,10 +353,13 @@ class OpentronsHttpClient:
         *,
         body: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        request_body = body or {}
+        if "data" not in request_body:
+            request_body = {"data": request_body}
         payload = self.request(
             "POST",
             f"{PATH_PROTOCOLS}/{protocol_id}/analyses",
-            json_body=body or {},
+            json_body=request_body,
             timeout=max(self.timeout, 120),
         )
         data = self.unwrap_data(payload)
@@ -365,6 +369,25 @@ class OpentronsHttpClient:
         payload = self.request("GET", f"{PATH_PROTOCOLS}/{protocol_id}/analyses")
         data = self.unwrap_data(payload)
         return data if isinstance(data, list) else []
+
+    def list_data_files(self) -> list[dict[str, Any]]:
+        payload = self.request("GET", PATH_DATA_FILES)
+        data = self.unwrap_data(payload)
+        return data if isinstance(data, list) else []
+
+    def list_protocol_data_files(self, protocol_id: str) -> list[dict[str, Any]]:
+        payload = self.request("GET", f"{PATH_PROTOCOLS}/{protocol_id}/dataFiles")
+        data = self.unwrap_data(payload)
+        return data if isinstance(data, list) else []
+
+    def upload_data_file(self, filename: str, content: bytes) -> dict[str, Any]:
+        response = self.request_raw(
+            "POST",
+            PATH_DATA_FILES,
+            files=[("file", (filename, content, "text/csv"))],
+            timeout=max(self.timeout, 60),
+        )
+        return self.unwrap_data(response.json())
 
     def list_runs(self) -> list[dict[str, Any]]:
         payload = self.request("GET", PATH_RUNS)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import tempfile
 import threading
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -203,6 +204,41 @@ class DuroClient:
             auto_refresh_active=bool(browser_status.get("auto_refresh_active")),
         )
 
+    def update_api_key(self, api_key: str) -> DuroConnectionStatus:
+        value = self._strip_bearer_prefix(api_key.strip())
+        if not value:
+            raise DuroAuthenticationError("Duro API Key 不能为空")
+        expires_at = self._token_expiry(value)
+        if expires_at is not None and expires_at <= datetime.now(timezone.utc):
+            raise DuroAuthenticationError(f"Duro API Key 已过期: {expires_at.isoformat()}")
+
+        self.api_key_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.api_key_path.parent,
+                prefix=f".{self.api_key_path.name}.",
+                delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                os.chmod(temporary_path, 0o600)
+                handle.write(f"{value}\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary_path, self.api_key_path)
+            os.chmod(self.api_key_path, 0o600)
+        except OSError as exc:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+            raise DuroAuthenticationError(
+                f"无法写入 Duro API Key 文件: {self.api_key_path}"
+            ) from exc
+
+        self.api_key = value
+        return self.connection_status()
+
     def _access_token(self) -> str:
         explicit_token = os.getenv("PRODUCTION_PLATFORM_DURO_TOKEN", "").strip()
         if explicit_token:
@@ -253,7 +289,7 @@ class DuroClient:
         return self._strip_bearer_prefix(value)
 
     def _api_token(self) -> str:
-        value = os.getenv("PRODUCTION_PLATFORM_DURO_API_KEY", "").strip() or self.api_key
+        value = self.api_key
         if not value and self.api_key_path.exists():
             try:
                 value = self.api_key_path.read_text(encoding="utf-8").strip()
@@ -261,6 +297,8 @@ class DuroClient:
                 raise DuroAuthenticationError(
                     f"无法读取 Duro API Key 文件: {self.api_key_path}"
                 ) from exc
+        if not value:
+            value = os.getenv("PRODUCTION_PLATFORM_DURO_API_KEY", "").strip()
         return self._strip_bearer_prefix(value)
 
     def _search_products_graphql(

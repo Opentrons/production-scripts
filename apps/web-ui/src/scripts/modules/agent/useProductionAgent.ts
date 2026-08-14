@@ -9,6 +9,17 @@ export interface AgentChatMessage {
   content: string
 }
 
+export interface AgentAttachment {
+  id: string
+  name: string
+  size: number
+}
+
+export interface AgentUploadedAttachment extends AgentAttachment {
+  content_type: string
+  expires_at: string
+}
+
 export interface AgentStatus {
   configured: boolean
   model: string
@@ -66,6 +77,7 @@ export function useProductionAgent() {
   async function chat(
     messages: AgentChatMessage[],
     context: string,
+    attachments: AgentAttachment[],
     callbacks: ChatCallbacks,
   ): Promise<void> {
     if (streaming.value) return
@@ -81,7 +93,7 @@ export function useProductionAgent() {
           Accept: 'text/event-stream',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages, context }),
+        body: JSON.stringify({ messages, context, attachments }),
         signal: controller.signal,
       })
 
@@ -147,5 +159,23 @@ export function useProductionAgent() {
     streaming.value = false
   }
 
-  return { chat, getStatus, stop, streaming }
+  async function uploadAttachment(file: File): Promise<AgentUploadedAttachment> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    const response = await authenticatedFetch(`${AGENT_API_BASE}/attachments`, {
+      method: 'POST',
+      body: form,
+    })
+    if (!response.ok) throw new Error(await responseError(response))
+    return await response.json() as AgentUploadedAttachment
+  }
+
+  async function deleteAttachment(attachmentId: string): Promise<void> {
+    const response = await authenticatedFetch(`${AGENT_API_BASE}/attachments/${encodeURIComponent(attachmentId)}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok && response.status !== 404) throw new Error(await responseError(response))
+  }
+
+  return { chat, deleteAttachment, getStatus, stop, streaming, uploadAttachment }
 }

@@ -149,7 +149,32 @@ textarea {
 }
 
 .sidebar-note-title strong {
+  min-width: 0;
   font-size: 12px;
+}
+
+.sidebar-note-toggle {
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8293a1;
+  cursor: pointer;
+}
+
+.sidebar-note-toggle .el-icon {
+  font-size: 12px;
+  transition: transform 160ms ease;
+}
+
+.sidebar-note-toggle.is-expanded .el-icon {
+  transform: rotate(180deg);
+}
+
+.sidebar-note-toggle:hover {
+  color: #d5dee5;
 }
 
 .sidebar-note-detail {
@@ -158,6 +183,41 @@ textarea {
   margin-left: 16px;
   color: #8293a1;
   font-size: 10px;
+}
+
+.sidebar-note-credential {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  margin-left: 16px;
+  color: #a7b3bc;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.sidebar-note-credential span {
+  overflow-wrap: anywhere;
+}
+
+.sidebar-note-credential span.is-expiring {
+  color: #f2b84b;
+}
+
+.sidebar-note-credential button {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #d5dee5;
+  font: inherit;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.sidebar-note-credential button:hover {
+  color: #fff;
 }
 
 .versions-auth-menu {
@@ -971,6 +1031,17 @@ textarea {
 }
 
 .ignore-rule-dialog-form label > span {
+  color: #53616b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.duro-api-key-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.duro-api-key-form label > span {
   color: #53616b;
   font-size: 11px;
   font-weight: 700;

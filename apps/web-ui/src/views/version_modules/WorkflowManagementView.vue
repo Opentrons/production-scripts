@@ -13,8 +13,25 @@
         <div class="sidebar-note-title">
           <span class="status-dot" :class="dataSourceStatusClass"></span>
           <strong>{{ dataSourceStatusTitle }}</strong>
+          <button
+            type="button"
+            class="sidebar-note-toggle"
+            :class="{ 'is-expanded': dataSourceDetailsExpanded }"
+            :aria-label="w(dataSourceDetailsExpanded ? 'collapseDataSources' : 'expandDataSources')"
+            :aria-expanded="dataSourceDetailsExpanded"
+            :title="w(dataSourceDetailsExpanded ? 'collapseDataSources' : 'expandDataSources')"
+            @click="dataSourceDetailsExpanded = !dataSourceDetailsExpanded"
+          >
+            <el-icon><ArrowDown /></el-icon>
+          </button>
         </div>
-        <span class="sidebar-note-detail" :title="dataSourceErrorDetail">{{ dataSourceStatusDetail }}</span>
+        <template v-if="dataSourceDetailsExpanded">
+          <span class="sidebar-note-detail" :title="dataSourceErrorDetail">{{ dataSourceStatusDetail }}</span>
+          <div v-if="duroConnectionStatus && !dataSourcesChecking" class="sidebar-note-credential">
+            <span :class="{ 'is-expiring': duroApiKeyExpiring }">{{ duroApiKeyExpiryText }}</span>
+            <button type="button" @click="openDuroApiKeyDialog">{{ w('updateDuroApiKey') }}</button>
+          </div>
+        </template>
       </div>
 
       <nav class="main-nav" :aria-label="w('mainNavigation')">
@@ -1008,7 +1025,7 @@
       </footer>
     </main>
     <SopOverviewPanel v-else-if="activeModule === 'sop'" />
-    <DuroProductsPanel v-else />
+    <DuroProductsPanel v-else :key="duroCredentialRevision" />
 
     <el-dialog v-model="createDialogVisible" :title="w('newWorkflow')" width="520px">
       <div class="dialog-form">
@@ -1076,6 +1093,31 @@
       <template #footer>
         <el-button @click="ignoreRuleDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
         <el-button type="primary" @click="confirmIgnoreRule">{{ t('common.actions.add') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="duroApiKeyDialogVisible"
+      :title="w('updateDuroApiKeyTitle')"
+      width="min(480px, calc(100vw - 24px))"
+      @closed="duroApiKey = ''"
+    >
+      <div class="duro-api-key-form">
+        <label>
+          <span>duro_api_key</span>
+          <el-input
+            v-model="duroApiKey"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            :placeholder="w('duroApiKeyPlaceholder')"
+            @keyup.enter="submitDuroApiKey"
+          />
+        </label>
+      </div>
+      <template #footer>
+        <el-button :disabled="updatingDuroApiKey" @click="duroApiKeyDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :loading="updatingDuroApiKey" @click="submitDuroApiKey">{{ w('updateDuroApiKey') }}</el-button>
       </template>
     </el-dialog>
 
@@ -1150,7 +1192,7 @@ import SopOverviewPanel from '@/views/version_modules/SopOverviewPanel.vue'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import { useAppLocale } from '@/i18n'
 import '@/styles/version_modules/version_modules.css'
-import { duroApi, type DuroBomNode, type DuroProduct } from '@/scripts/modules/version_modules/api/duro'
+import { duroApi, type DuroBomNode, type DuroConnectionStatus, type DuroProduct } from '@/scripts/modules/version_modules/api/duro'
 import { sopApi, type SopCatalogEntry } from '@/scripts/modules/version_modules/api/sop'
 import {
   workflowApi,
@@ -1272,6 +1314,12 @@ const duroProductsLoading = ref(false)
 const duroProductsError = ref('')
 const duroSourceChecked = ref(false)
 const duroProducts = ref<DuroProduct[]>([])
+const duroConnectionStatus = ref<DuroConnectionStatus | null>(null)
+const duroApiKeyDialogVisible = ref(false)
+const duroApiKey = ref('')
+const updatingDuroApiKey = ref(false)
+const duroCredentialRevision = ref(0)
+const dataSourceDetailsExpanded = ref(false)
 const duroSubmenusLoading = ref(false)
 const duroSubmenusError = ref('')
 const duroSubmenuOptions = ref<DuroBomNode[]>([])
@@ -1459,6 +1507,18 @@ const dataSourceErrorDetail = computed(() =>
     duroProductsError.value ? `Duro API：${duroProductsError.value}` : ''
   ].filter(Boolean).join('\n')
 )
+const duroApiKeyExpiring = computed(() => {
+  const expiresAt = duroConnectionStatus.value?.token_expires_at
+  if (!expiresAt) return false
+  const remaining = Date.parse(expiresAt) - Date.now()
+  return remaining <= 14 * 24 * 60 * 60 * 1000
+})
+const duroApiKeyExpiryText = computed(() => {
+  const status = duroConnectionStatus.value
+  if (!status?.configured) return w('duroApiKeyMissing')
+  if (!status.token_expires_at) return w('duroApiKeyExpiryUnknown')
+  return w('duroApiKeyExpiresAt', { time: formatDate(status.token_expires_at) })
+})
 
 function cloneWorkflowPayload(workflow: Workflow): WorkflowPayload {
   return {
@@ -1765,6 +1825,8 @@ async function loadDuroProducts(refresh = false) {
   duroProductsLoading.value = true
   duroProductsError.value = ''
   try {
+    const statusResponse = await duroApi.status()
+    duroConnectionStatus.value = statusResponse.data
     const response = await duroApi.products(refresh)
     duroProducts.value = response.data.products
   } catch (error: any) {
@@ -1773,6 +1835,34 @@ async function loadDuroProducts(refresh = false) {
   } finally {
     duroProductsLoading.value = false
     duroSourceChecked.value = true
+  }
+}
+
+function openDuroApiKeyDialog() {
+  duroApiKey.value = ''
+  duroApiKeyDialogVisible.value = true
+}
+
+async function submitDuroApiKey() {
+  const value = duroApiKey.value.trim()
+  if (!value) {
+    ElMessage.warning(w('messages.duroApiKeyRequired'))
+    return
+  }
+  updatingDuroApiKey.value = true
+  try {
+    const response = await duroApi.updateApiKey(value)
+    duroConnectionStatus.value = response.data
+    duroApiKeyDialogVisible.value = false
+    duroApiKey.value = ''
+    duroCredentialRevision.value += 1
+    await loadDuroProducts(true)
+    ElMessage.success(w('messages.duroApiKeyUpdated'))
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error(apiError(error, w('messages.duroApiKeyUpdateFailed')))
+  } finally {
+    updatingDuroApiKey.value = false
   }
 }
 

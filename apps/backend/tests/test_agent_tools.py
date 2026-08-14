@@ -19,6 +19,8 @@ def test_tool_registry_exposes_broad_platform_capabilities() -> None:
     assert tool_registry.count >= 30
     assert {
         "read_sheet_range",
+        "inspect_agent_attachment",
+        "read_agent_attachment",
         "create_spreadsheet",
         "update_sheet_range",
         "query_platform_database",

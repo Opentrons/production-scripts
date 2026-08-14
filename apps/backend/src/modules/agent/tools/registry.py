@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from modules.agent.tools import google_sheets, knowledge, opentrons, platform
+from modules.agent.tools import attachments, google_sheets, knowledge, opentrons, platform
 from modules.agent.tools.runtime import AgentTool, ToolExecutionResult, execute_handler
 
 
@@ -45,6 +45,8 @@ def build_tools() -> list[AgentTool]:
     confirm = _boolean("用户已明确确认本次外部写操作。未确认必须传 false", False)
     return [
         AgentTool("get_current_time", "获取当前北京时间和日期。", _object({}), platform.current_time, "utility"),
+        AgentTool("inspect_agent_attachment", "完整扫描用户本次对话中上传的服务器临时附件。CSV/TSV 会返回全文件行列数、空值、重复行、列唯一值等统计；分析附件时必须先调用。", _object({"attachment_id": _string("用户消息中提供的附件 ID")}, ["attachment_id"]), attachments.inspect_agent_attachment, "attachment"),
+        AgentTool("read_agent_attachment", "按字符区段读取用户本次对话中的服务器临时附件原文。响应包含 has_more 和 next_offset；需要更多原文时用 next_offset 继续读取。", _object({"attachment_id": _string("用户消息中提供的附件 ID"), "offset": _integer("起始字符偏移，首次读取传 0", 0, minimum=0, maximum=10000000), "max_chars": _integer("本次最大读取字符数", 16000, minimum=1000, maximum=20000)}, ["attachment_id"]), attachments.read_agent_attachment, "attachment"),
         AgentTool("get_platform_overview", "获取全平台概览，包括运行模式、上传统计、产品数、设备、版本、监控房间、消息和工作流。适合先判断平台整体状态。", _object({}), platform.platform_overview),
         AgentTool("query_upload_records", "查询 CSV 上传记录及每次上传的解析、Google Drive、Unit Tracker、Slack 状态和错误。", _object({**record_filters, **pagination}), platform.query_upload_records),
         AgentTool("analyze_upload_records", "统计上传完成数、成功数、失败数、运行数、成功率、产品良率和测试耗时。", _object(record_filters), platform.analyze_upload_records),

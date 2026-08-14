@@ -83,3 +83,6 @@ apps/backend/data/*.json
 **/.env
 **/.env.*
 !**/.env.example
+
+# Accidental Opentrons worktree stubs (literal $WT path)
+$WT/

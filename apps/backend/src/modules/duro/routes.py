@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from modules.duro.client import DuroApiError, DuroAuthenticationError
 from modules.duro.models import (
+    DuroApiKeyUpdate,
     DuroComponentChildrenResponse,
     DuroConnectionStatus,
     DuroProductBomResponse,
@@ -30,6 +31,14 @@ def _http_exception_for_duro(exc: Exception) -> HTTPException:
 @router.get("/status", response_model=DuroConnectionStatus)
 def get_duro_status() -> DuroConnectionStatus:
     return duro_client.connection_status()
+
+
+@router.put("/api-key", response_model=DuroConnectionStatus)
+def update_duro_api_key(payload: DuroApiKeyUpdate) -> DuroConnectionStatus:
+    try:
+        return duro_client.update_api_key(payload.duro_api_key.get_secret_value())
+    except DuroAuthenticationError as exc:
+        raise _http_exception_for_duro(exc) from exc
 
 
 @router.get("/products", response_model=DuroProductSearchResponse)

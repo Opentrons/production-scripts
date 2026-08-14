@@ -457,3 +457,37 @@ def test_api_key_is_preferred_over_remote_chrome(
     assert response.count == 1
     assert provider.calls == []
     assert session.calls[0]["headers"]["apiToken"] == api_key  # type: ignore[index]
+
+
+def test_update_api_key_persists_and_overrides_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    old_key = make_token(datetime.now(timezone.utc) + timedelta(days=1))
+    new_expiry = datetime.now(timezone.utc) + timedelta(days=30)
+    new_key = make_token(new_expiry)
+    api_key_path = tmp_path / "credentials" / "duro-api-key.txt"
+    monkeypatch.setenv("PRODUCTION_PLATFORM_DURO_API_KEY", old_key)
+    client = DuroClient(api_key_path=api_key_path)
+
+    status = client.update_api_key(f"Bearer {new_key}")
+
+    assert status.token_valid is True
+    assert status.token_expires_at is not None
+    assert abs(status.token_expires_at.timestamp() - new_expiry.timestamp()) < 1
+    assert api_key_path.read_text(encoding="utf-8").strip() == new_key
+    assert api_key_path.stat().st_mode & 0o777 == 0o600
+    assert client._api_token() == new_key
+    assert DuroClient(api_key_path=api_key_path)._api_token() == new_key
+
+
+def test_update_api_key_rejects_expired_value(tmp_path: Path) -> None:
+    api_key_path = tmp_path / "duro-api-key.txt"
+    client = DuroClient(api_key_path=api_key_path)
+
+    with pytest.raises(DuroAuthenticationError, match="已过期"):
+        client.update_api_key(
+            make_token(datetime.now(timezone.utc) - timedelta(minutes=1))
+        )
+
+    assert not api_key_path.exists()

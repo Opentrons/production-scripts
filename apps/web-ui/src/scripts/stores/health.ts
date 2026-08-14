@@ -8,14 +8,20 @@ export const useHealthStore = defineStore('health', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const lastUpdateTime = ref<Date | null>(null)
+  let cachedRequest: Promise<void> | null = null
+  let refreshRequest: Promise<void> | null = null
 
-  const fetchHealth = async () => {
+  const requestHealth = async (refresh: boolean) => {
     loading.value = true
     error.value = null
     try {
-      const response = await healthApi.getHealth()
+      const response = refresh
+        ? await healthApi.refreshHealth()
+        : await healthApi.getHealth()
       healthData.value = response.data
-      lastUpdateTime.value = new Date()
+      const checkedAt = response.data.checked_at
+      const parsed = checkedAt ? new Date(checkedAt) : null
+      lastUpdateTime.value = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null
     } catch (e: any) {
       error.value = e.message || 'Failed to fetch health status'
     } finally {
@@ -23,11 +29,32 @@ export const useHealthStore = defineStore('health', () => {
     }
   }
 
+  const fetchHealth = () => {
+    if (refreshRequest) return refreshRequest
+    if (cachedRequest) return cachedRequest
+    cachedRequest = requestHealth(false).finally(() => {
+      cachedRequest = null
+    })
+    return cachedRequest
+  }
+
+  const refreshHealth = () => {
+    if (refreshRequest) return refreshRequest
+    refreshRequest = (async () => {
+      if (cachedRequest) await cachedRequest
+      await requestHealth(true)
+    })().finally(() => {
+      refreshRequest = null
+    })
+    return refreshRequest
+  }
+
   return {
     healthData,
     loading,
     error,
     lastUpdateTime,
-    fetchHealth
+    fetchHealth,
+    refreshHealth
   }
 })

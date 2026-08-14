@@ -117,8 +117,15 @@ async function submit(): Promise<void> {
     await router.replace(safeRedirect(route.query.redirect))
   } catch (error) {
     const status = axios.isAxiosError(error) ? error.response?.status : undefined
-    const unreachable = !axios.isAxiosError(error) || error.response == null
-    if (unreachable) errorMessage.value = t('auth.login.backendUnreachable')
+    // Backend down / Vite proxy miss often surfaces as no response, 404, or gateway errors —
+    // never treat those as bad credentials.
+    const backendDown = !axios.isAxiosError(error)
+      || error.response == null
+      || status === 404
+      || status === 502
+      || status === 504
+      || status === 500
+    if (backendDown) errorMessage.value = t('auth.login.backendUnreachable')
     else if (status === 429) errorMessage.value = t('auth.login.tooManyAttempts')
     else if (status === 503) errorMessage.value = t('auth.login.serviceUnavailable')
     else errorMessage.value = t('auth.login.invalidCredentials')

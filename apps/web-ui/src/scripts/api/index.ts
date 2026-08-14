@@ -485,7 +485,8 @@ export interface RobotLogDownloadRecordsResponse {
 }
 
 export const healthApi = {
-  getHealth: () => api.get<HealthCheckResponse>('/health')
+  getHealth: () => api.get<HealthCheckResponse>('/health'),
+  refreshHealth: () => api.post<HealthCheckResponse>('/health/refresh')
 }
 
 export const protocolMonitorApi = {
@@ -738,6 +739,19 @@ export const robotApi = {
     api.post<RobotActionResponse>(`/robots/${ip}/protocols/${protocolId}/analyze`, { body, port }),
   getProtocolAnalyses: (ip: string, protocolId: string, port?: number) =>
     api.get<RobotActionResponse>(`/robots/${ip}/protocols/${protocolId}/analyses`, { params: { port } }),
+  listDataFiles: (ip: string, port?: number) =>
+    api.get<RobotActionResponse>(`/robots/${ip}/data-files`, { params: { port } }),
+  listProtocolDataFiles: (ip: string, protocolId: string, port?: number) =>
+    api.get<RobotActionResponse>(`/robots/${ip}/protocols/${protocolId}/data-files`, { params: { port } }),
+  uploadDataFile: (ip: string, file: File, port?: number) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post<RobotActionResponse>(`/robots/${ip}/data-files/upload`, formData, {
+      params: port ? { port } : undefined,
+      timeout: 0,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   listRuns: (ip: string, port?: number) =>
     api.get<{ runs: Record<string, unknown>[] }>(`/robots/${ip}/runs`, { params: { port } }),
   createRun: (ip: string, protocolId: string, port?: number) =>

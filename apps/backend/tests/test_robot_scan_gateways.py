@@ -115,3 +115,23 @@ def test_resolve_server_scan_ip_prefers_local_ip_over_configured_api_host(
     assert server_ip == "192.168.31.161"
     assert targets[0] == "192.168.31.1"
     assert scan_gateways == []
+
+
+def test_resolve_server_scan_ip_skips_vpn_like_outbound_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(robots.setting, "API_HOST", "127.0.0.1")
+    monkeypatch.setattr(robots, "get_local_ip", lambda: "198.18.196.204")
+    monkeypatch.setattr(
+        robots,
+        "list_local_ipv4_addresses",
+        lambda: ["198.18.196.204", "192.168.0.79"],
+    )
+    monkeypatch.setattr(robots, "get_gateway_ip", lambda: "198.18.0.1")
+    monkeypatch.setattr(robots, "list_scan_gateways", lambda: {"gateways": []})
+
+    assert robots.resolve_server_scan_ip() == "192.168.0.79"
+    targets, scan_network, server_ip, _scan_gateways = robots.resolve_scan_targets()
+    assert server_ip == "192.168.0.79"
+    assert scan_network == "192.168.0.1-255"
+    assert "192.168.0.126" in targets

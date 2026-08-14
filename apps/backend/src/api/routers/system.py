@@ -37,6 +37,11 @@ async def health_check():
     return await run_in_threadpool(health_service.get_health_status)
 
 
+@router.post("/health/refresh", response_model=HealthResponse)
+async def refresh_health_check():
+    return await run_in_threadpool(health_service.refresh_health_status)
+
+
 @router.get("/system/simulating", response_model=SimulatingStatusResponse)
 async def get_simulating_status():
     return await run_in_threadpool(simulating_service.get_status)

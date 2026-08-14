@@ -458,11 +458,105 @@ def delete_scan_gateway(gateway: str) -> dict:
     return {"deleted": result.deleted_count > 0, "gateway": normalized_gateway}
 
 
-def get_local_ip_and_prefix() -> tuple:
+# Outbound "default route" IPs that are usually VPN/proxy tunnels, not the
+# factory LAN we should scan for Flex robots (e.g. Clash/Surge/Cisco AnyConnect).
+_VPN_LIKE_NETWORKS = (
+    ipaddress.ip_network("198.18.0.0/15"),
+    ipaddress.ip_network("100.64.0.0/10"),
+)
+
+
+def _is_vpn_like_ip(ip: str) -> bool:
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(address in network for network in _VPN_LIKE_NETWORKS)
+
+
+def _is_preferred_lan_ip(ip: str) -> bool:
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if address.is_loopback or address.is_link_local or not address.is_private:
+        return False
+    return not _is_vpn_like_ip(ip)
+
+
+def list_local_ipv4_addresses() -> list[str]:
+    """Return local IPv4 addresses, preferring real LAN over tunnel interfaces."""
+    found: list[str] = []
+
+    def _add(candidate: str) -> None:
+        value = (candidate or "").strip()
+        if not value or value in found:
+            return
+        try:
+            ipaddress.IPv4Address(value)
+        except ValueError:
+            return
+        found.append(value)
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as connection:
             connection.connect(("8.8.8.8", 80))
-            local_ip = connection.getsockname()[0]
+            _add(connection.getsockname()[0])
+    except Exception:
+        pass
+
+    try:
+        if platform.system() == "Darwin":
+            for iface in ("en0", "en1", "en2"):
+                result = subprocess.run(
+                    ["ipconfig", "getifaddr", iface],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    _add(result.stdout.strip())
+            result = subprocess.run(
+                ["ifconfig"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+            if result.returncode == 0:
+                for match in re.finditer(r"\binet (\d+\.\d+\.\d+\.\d+)\b", result.stdout):
+                    _add(match.group(1))
+        else:
+            result = subprocess.run(
+                ["hostname", "-I"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+            if result.returncode == 0:
+                for token in result.stdout.split():
+                    _add(token)
+    except Exception as exc:
+        logger.debug("Failed to enumerate local IPv4 addresses: %s", exc)
+
+    preferred = [ip for ip in found if _is_preferred_lan_ip(ip)]
+    if preferred:
+        # Keep preferred LAN IPs first, then any remaining.
+        remainder = [ip for ip in found if ip not in preferred]
+        return preferred + remainder
+    return found
+
+
+def get_local_ip_and_prefix() -> tuple:
+    try:
+        candidates = list_local_ipv4_addresses()
+        local_ip = next((ip for ip in candidates if _is_preferred_lan_ip(ip)), None)
+        if not local_ip and candidates:
+            local_ip = candidates[0]
+        if not local_ip:
+            return "192.168.1", "unknown"
         parts = local_ip.rsplit(".", 1)
         if len(parts) == 2:
             return parts[0], parts[1]
@@ -481,13 +575,24 @@ def get_local_ip() -> str:
 def resolve_server_scan_ip() -> str:
     """Resolve the IP used to decide the live LAN scan range.
 
-    Prefer the machine's actual outbound address over PRODUCTION_PLATFORM_HOST /
-    LOCAL_SERVER_HOST. Those configured hosts are often a factory server address
-    and may not match the network this process is currently attached to.
+    Prefer a real private LAN address over PRODUCTION_PLATFORM_HOST /
+    LOCAL_SERVER_HOST, and skip VPN/proxy tunnel addresses (e.g. 198.18.x)
+    that would otherwise make robot scan miss the factory subnet.
     """
     local_ip = get_local_ip()
-    if local_ip:
+    if local_ip and _is_preferred_lan_ip(local_ip):
         return local_ip
+    if local_ip and not _is_vpn_like_ip(local_ip):
+        return local_ip
+
+    for candidate in list_local_ipv4_addresses():
+        if _is_preferred_lan_ip(candidate):
+            logger.info(
+                "Robot scan ignoring VPN-like local IP %s; using LAN IP %s",
+                local_ip or "(none)",
+                candidate,
+            )
+            return candidate
 
     configured_host = str(getattr(setting, "API_HOST", "") or "").strip()
     host = configured_host.split(":", 1)[0]
@@ -496,13 +601,16 @@ def resolve_server_scan_ip() -> str:
         try:
             resolved_host = socket.gethostbyname(host)
             ipaddress.IPv4Address(resolved_host)
-            return resolved_host
+            if _is_preferred_lan_ip(resolved_host) or not _is_vpn_like_ip(resolved_host):
+                return resolved_host
         except Exception as exc:
             logger.warning(f"Failed to resolve configured server host {host}: {exc}")
 
     gateway_ip = get_gateway_ip()
-    if gateway_ip:
+    if gateway_ip and not _is_vpn_like_ip(gateway_ip):
         return gateway_ip
+    if local_ip:
+        return local_ip
     return "192.168.1.1"
 
 
