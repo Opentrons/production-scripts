@@ -136,6 +136,12 @@ EOF
         try_files \$uri =404;
     }
 
+    location /agent-media/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
+
     location ~ ^/(favicon\.png|agent-favicon\.svg|testing-favicon\.svg|versions-favicon\.svg|icons\.svg)$ {
         try_files \$uri =404;
     }
@@ -147,7 +153,9 @@ EOF
     location / {
         auth_request /_auth;
         error_page 401 = @login_redirect;
-        try_files \$uri \$uri/ /index.html;
+        # Do not use \$uri/ — a public/ folder matching a Vue route (e.g. /agent)
+        # would otherwise 403 as a directory index instead of serving the SPA.
+        try_files \$uri /index.html;
     }
 }
 EOF
@@ -204,6 +212,12 @@ EOF
         try_files \$uri =404;
     }
 
+    location /agent-media/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
+
     location ~ ^/(favicon\.png|agent-favicon\.svg|testing-favicon\.svg|versions-favicon\.svg|icons\.svg)$ {
         try_files \$uri =404;
     }
@@ -215,7 +229,8 @@ EOF
     location / {
         auth_request /_auth;
         error_page 401 = @login_redirect;
-        try_files \$uri \$uri/ /index.html;
+        # Do not use \$uri/ — avoids 403 when a static folder collides with a SPA route.
+        try_files \$uri /index.html;
     }
 }
 EOF

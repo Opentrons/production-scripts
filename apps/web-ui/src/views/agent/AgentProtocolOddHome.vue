@@ -63,7 +63,7 @@
     <!-- Dashboard -->
     <section v-if="tab === 'dashboard'" class="odd-page">
       <div class="odd-empty-card">
-        <img src="/agent/empty_protocol_dashboard.png" alt="" draggable="false">
+        <img src="/agent-media/empty_protocol_dashboard.png" alt="" draggable="false">
         <strong>{{ t('agent.protocol.homeNoRuns') }}</strong>
         <p>{{ t('agent.protocol.homeNoRunsHint') }}</p>
       </div>
@@ -72,7 +72,7 @@
     <!-- Protocols -->
     <section v-else-if="tab === 'protocols'" class="odd-page odd-protocols">
       <div class="odd-empty-card">
-        <img src="/agent/empty_protocol_dashboard.png" alt="" draggable="false">
+        <img src="/agent-media/empty_protocol_dashboard.png" alt="" draggable="false">
         <strong>{{ t('agent.protocol.homeNoProtocols') }}</strong>
         <p>{{ t('agent.protocol.homeNoProtocolsHint') }}</p>
       </div>

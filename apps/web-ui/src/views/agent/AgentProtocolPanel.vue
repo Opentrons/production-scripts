@@ -31,7 +31,7 @@
     <div class="protocol-hero">
       <div class="flex-stage">
         <div class="flex-frame">
-          <img class="flex-photo" src="/agent/flex-p2.png" alt="Opentrons Flex" draggable="false">
+          <img class="flex-photo" src="/agent-media/flex-p2.png" alt="Opentrons Flex" draggable="false">
           <Teleport to="body" :disabled="!screenExpanded">
             <div
               v-if="screenExpanded"
