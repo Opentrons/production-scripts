@@ -5,6 +5,7 @@ import getpass
 import sqlite3
 
 from core import config
+from modules.auth.factory import create_auth_store
 from modules.auth.service import AuthService
 
 
@@ -27,8 +28,8 @@ def main() -> int:
     if password != confirmation:
         raise SystemExit("Passwords do not match")
     service = AuthService(
-        db_path=config.AUTH_DB_PATH,
-        jwt_secret="unused-for-user-creation".ljust(32, "-"),
+        store=create_auth_store(),
+        jwt_secret=config.AUTH_JWT_SECRET or "unused-for-user-creation".ljust(32, "-"),
         issuer=config.AUTH_JWT_ISSUER,
         audience=config.AUTH_JWT_AUDIENCE,
         access_token_minutes=config.AUTH_ACCESS_TOKEN_MINUTES,

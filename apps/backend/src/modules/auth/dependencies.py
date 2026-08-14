@@ -10,6 +10,7 @@ from fastapi import Depends, Request, status
 
 from core import config
 from core.i18n import api_error
+from modules.auth.factory import create_auth_store
 from modules.auth.service import (
     AuthService,
     AuthenticationConfigurationError,
@@ -39,7 +40,7 @@ class AuthContext:
 @lru_cache(maxsize=1)
 def get_auth_service() -> AuthService:
     service = AuthService(
-        db_path=config.AUTH_DB_PATH,
+        store=create_auth_store(),
         jwt_secret=config.AUTH_JWT_SECRET,
         issuer=config.AUTH_JWT_ISSUER,
         audience=config.AUTH_JWT_AUDIENCE,
@@ -48,6 +49,11 @@ def get_auth_service() -> AuthService:
     )
     service.initialize()
     return service
+
+
+def reset_auth_service() -> None:
+    """Drop the cached AuthService so the next request rebuilds for the active mode."""
+    get_auth_service.cache_clear()
 
 
 def _credentials(request: Request) -> tuple[str, bool]:

@@ -12,6 +12,7 @@ import jwt
 from jwt import InvalidTokenError
 from pwdlib import PasswordHash
 
+from modules.auth.factory import AuthStoreProtocol
 from modules.auth.store import AuthSession, AuthStore, AuthUser, utc_now
 
 
@@ -43,14 +44,20 @@ class AuthService:
     def __init__(
         self,
         *,
-        db_path: Path,
         jwt_secret: str,
         issuer: str,
         audience: str,
         access_token_minutes: int,
         refresh_token_hours: int,
+        store: AuthStoreProtocol | None = None,
+        db_path: Path | None = None,
     ) -> None:
-        self.store = AuthStore(db_path)
+        if store is not None:
+            self.store = store
+        elif db_path is not None:
+            self.store = AuthStore(db_path)
+        else:
+            raise ValueError("AuthService requires store or db_path")
         self.jwt_secret = jwt_secret
         self.issuer = issuer
         self.audience = audience

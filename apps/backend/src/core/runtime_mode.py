@@ -52,6 +52,12 @@ def set_simulating(enabled: bool) -> bool:
     with _LOCK:
         _write_mode_file(value)
         _SIMULATING = value
+    try:
+        from modules.auth.dependencies import reset_auth_service
+
+        reset_auth_service()
+    except Exception as exc:
+        logger.warning("Failed to reset auth service after mode change: %s", exc)
     logger.info("Simulating mode %s", "enabled" if value else "disabled")
     return value
 
@@ -62,11 +68,13 @@ def get_simulating_status() -> dict:
     return {
         "simulating": simulating,
         "persistence": "sqlite" if simulating else "mongodb",
+        "auth_persistence": "sqlite" if simulating else "mongodb",
         "db_root": str(setting.DB_ROOT),
         "active_db_dir": str(active_dir),
         "business_db_dir": str(setting.DB_BUSINESS_DIR),
         "simulating_db_dir": str(setting.DB_SIMULATING_DIR),
         "platform_db_path": str(setting.resolve_sqlite_path("platform.sqlite3")),
+        "auth_db_path": str(setting.AUTH_DB_PATH),
     }
 
 

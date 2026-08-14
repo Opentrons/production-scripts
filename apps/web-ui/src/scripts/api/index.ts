@@ -1,4 +1,4 @@
-import { createApiClient } from '@/scripts/api/http'
+import { API_BASE_URL, createApiClient } from '@/scripts/api/http'
 import type {
   HealthCheckResponse,
   TestDataResponse,
@@ -520,6 +520,14 @@ export const protocolMonitorApi = {
       undefined,
       { timeout: 30000 }
     ),
+  enableDeviceLivestream: (roomId: string, deviceId: string) =>
+    api.post<{ enabled: boolean }>(
+      `/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/enable`,
+      undefined,
+      { timeout: 15000 }
+    ),
+  deviceLivestreamUrl: (roomId: string, deviceId: string) =>
+    `${API_BASE_URL}/protocol-monitor/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/livestream/stream.m3u8`,
 }
 
 export const robotApi = {
@@ -960,11 +968,13 @@ export const settingsApi = {
 export interface SimulatingStatusResponse {
   simulating: boolean
   persistence: string
+  auth_persistence?: string
   db_root: string
   active_db_dir: string
   business_db_dir: string
   simulating_db_dir: string
   platform_db_path: string
+  auth_db_path?: string
 }
 
 export default api

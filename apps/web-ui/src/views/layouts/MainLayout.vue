@@ -175,7 +175,7 @@ const activeMenu = computed(() => {
   const path = route.path
   if (path === '/devices' || path === '/devices/control') return 'menu-devices'
   if (path === '/test-cases') return 'menu-terminal-tests'
-  if (path === '/test-cases/protocol') return 'menu-protocol-tests'
+  if (path === '/test-cases/protocol' || path.startsWith('/test-cases/protocol/')) return 'menu-protocol-tests'
   if (path === '/data/uploads') return 'menu-data-uploads'
   if (path === '/data') return 'menu-data-list'
   if (path === '/data/analysis') return 'menu-data-analysis'

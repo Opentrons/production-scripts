@@ -1,6 +1,11 @@
 <template>
   <section class="protocol-panel">
-    <div class="protocol-mode-switch" role="tablist" :aria-label="t('agent.protocol.modeLabel')">
+    <div
+      v-if="showModeSwitch"
+      class="protocol-mode-switch"
+      role="tablist"
+      :aria-label="t('agent.protocol.modeLabel')"
+    >
       <button
         type="button"
         role="tab"
@@ -617,6 +622,24 @@ type RemoteSubTab = 'connect' | 'upload'
 
 const { t } = useI18n()
 
+const props = withDefaults(defineProps<{
+  initialMode?: PanelMode
+  initialIp?: string
+  initialName?: string
+  initialApiPort?: number
+  initialDevtoolsPort?: number
+  showModeSwitch?: boolean
+  autoConnectRemote?: boolean
+}>(), {
+  initialMode: 'simulate',
+  initialIp: '',
+  initialName: '',
+  initialApiPort: 31950,
+  initialDevtoolsPort: 9223,
+  showModeSwitch: true,
+  autoConnectRemote: false,
+})
+
 const protocolInput = ref<HTMLInputElement | null>(null)
 const labwareInput = ref<HTMLInputElement | null>(null)
 const environment = ref<ProtocolAnalysisEnvironment | null>(null)
@@ -635,10 +658,10 @@ const activeParameter = ref<ProtocolRuntimeParameter | null>(null)
 const draftNumber = ref<number>(0)
 const screenExpanded = ref(false)
 const selectedVersion = ref('')
-const panelMode = ref<PanelMode>('simulate')
+const panelMode = ref<PanelMode>(props.initialMode === 'remote' ? 'remote' : 'simulate')
 const remoteSubTab = ref<RemoteSubTab>('connect')
 const oddDevices = ref<OddRemoteDevice[]>([])
-const selectedOddIp = ref('')
+const selectedOddIp = ref((props.initialIp || '').trim())
 const remoteOdd = ref<OddRemoteDevice | null>(null)
 const oddLoading = ref(false)
 const oddError = ref('')
@@ -798,14 +821,36 @@ function setPanelMode(mode: PanelMode) {
   panelMode.value = mode
 }
 
+function ensureSeedDevice(ip: string): OddRemoteDevice {
+  const existing = oddDevices.value.find((item) => item.ip === ip)
+  if (existing) {
+    if (props.initialName && !existing.name) existing.name = props.initialName
+    return existing
+  }
+  const seeded: OddRemoteDevice = {
+    ip,
+    api_port: props.initialApiPort || 31950,
+    name: props.initialName || ip,
+    odd_devtools_port: props.initialDevtoolsPort || 9223,
+    odd_available: true,
+    odd_detail: 'Seeded from protocol test device',
+  }
+  oddDevices.value = [seeded, ...oddDevices.value]
+  return seeded
+}
+
 async function loadOddDevices() {
   oddLoading.value = true
   oddError.value = ''
+  const preferredIp = (selectedOddIp.value || props.initialIp || '').trim()
   try {
     const result = await agentProtocolAnalysisApi.listOddDevices()
     oddDevices.value = result.devices || []
     oddDevtoolsPort.value = result.devtools_port || 9223
-    if (selectedOddIp.value && !oddDevices.value.some((item) => item.ip === selectedOddIp.value)) {
+    if (preferredIp) {
+      ensureSeedDevice(preferredIp)
+      selectedOddIp.value = preferredIp
+    } else if (selectedOddIp.value && !oddDevices.value.some((item) => item.ip === selectedOddIp.value)) {
       selectedOddIp.value = ''
     }
     if (!selectedOddIp.value) {
@@ -814,21 +859,19 @@ async function loadOddDevices() {
     }
   } catch (err) {
     oddError.value = err instanceof Error ? err.message : t('agent.protocol.oddLoadFailed')
+    if (preferredIp) ensureSeedDevice(preferredIp)
   } finally {
     oddLoading.value = false
   }
 }
 
 async function connectOddDevice() {
-  const device = oddDevices.value.find((item) => item.ip === selectedOddIp.value)
-  if (!device) {
+  const ip = (selectedOddIp.value || '').trim()
+  if (!ip) {
     oddError.value = t('agent.protocol.oddSelectPlaceholder')
     return
   }
-  if (!device.odd_available) {
-    oddError.value = device.odd_detail || t('agent.protocol.oddNotReady')
-    return
-  }
+  const device = ensureSeedDevice(ip)
   oddError.value = ''
   try {
     // Probe over HTTP /json only — do not open a CDP debugger before screencast,
@@ -836,15 +879,20 @@ async function connectOddDevice() {
     const probe = await agentProtocolAnalysisApi.oddProbe(device.ip, device.odd_devtools_port)
     if (!probe.available) {
       oddError.value = probe.detail || t('agent.protocol.oddNotReady')
+      device.odd_available = false
+      device.odd_detail = probe.detail || t('agent.protocol.oddNotReady')
       remoteOdd.value = null
       return
     }
+    device.odd_available = true
+    device.odd_detail = probe.detail || device.odd_detail
+    device.odd_title = probe.title || device.odd_title
     // Remount stream cleanly if reconnecting the same device.
     if (remoteOdd.value?.ip === device.ip) {
       remoteOdd.value = null
       await nextTick()
     }
-    remoteOdd.value = device
+    remoteOdd.value = { ...device }
     void loadRemoteDataFiles()
   } catch (err) {
     oddError.value = err instanceof Error ? err.message : t('agent.protocol.oddConnectFailed')
@@ -1205,6 +1253,14 @@ watch(
 onMounted(() => {
   void loadEnvironment()
   window.addEventListener('keydown', onScreenKeydown)
+  if (panelMode.value === 'remote') {
+    void (async () => {
+      await loadOddDevices()
+      if (props.autoConnectRemote && selectedOddIp.value) {
+        await connectOddDevice()
+      }
+    })()
+  }
 })
 
 onBeforeUnmount(() => {

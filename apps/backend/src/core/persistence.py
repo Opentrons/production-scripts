@@ -1,0 +1,49 @@
+"""Unified document persistence: MongoDB outside simulating, SQLite inside simulating."""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+import core.config as setting
+from core.database import mongodb
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
+StorageBackend = Literal["mongodb", "sqlite"]
+
+
+def storage_backend() -> StorageBackend:
+    return "sqlite" if setting.use_sqlite_persistence() else "mongodb"
+
+
+def storage_label() -> StorageBackend:
+    return storage_backend()
+
+
+def require_mongodb() -> Any:
+    """Return a live MongoDB client or raise."""
+    if mongodb.client is None and not mongodb.connect():
+        raise RuntimeError("MongoDB is unavailable")
+    return mongodb.client
+
+
+def get_message_database():
+    """Return ProductionsMessage database (Mongo) or raise when unavailable."""
+    client = require_mongodb()
+    return client[setting.MESSAGE_COLLECTION]
+
+
+def get_document_collection(name: str):
+    """Return a Mongo-like collection for business documents.
+
+    - simulating → local platform.sqlite3 collection
+    - production → MongoDB ProductionsMessage.<name>
+    """
+    if setting.use_sqlite_persistence():
+        from core.sqlite_store import get_platform_store
+
+        return get_platform_store()[name]
+
+    database = get_message_database()
+    return database[name]

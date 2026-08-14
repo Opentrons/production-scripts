@@ -77,6 +77,12 @@ const routes: RouteRecordRaw[] = [
     meta: productionTestingMeta,
   },
   {
+    path: '/test-cases/protocol/odd',
+    name: 'ProtocolOddWorkspace',
+    component: () => import('@/views/test_modules/ProtocolOddWorkspaceView.vue'),
+    meta: productionTestingMeta,
+  },
+  {
     path: '/data',
     name: 'Data',
     component: () => import('@/views/data/DataView.vue'),

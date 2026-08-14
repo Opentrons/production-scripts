@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import core.config as setting
-from core.sqlite_store import get_platform_store
+from core.persistence import get_document_collection
 from core.slack.message import SlackBotMessenger
 from modules.uploads.handler.utils import google_drive_health_check
 
@@ -141,7 +141,7 @@ def check_google_drive_health() -> tuple[bool, dict]:
 
 
 def _health_collection():
-    return get_platform_store()[setting.SYSTEM_HEALTH_COLLECTION]
+    return get_document_collection(setting.SYSTEM_HEALTH_COLLECTION)
 
 
 def _empty_health_status() -> dict[str, Any]:

@@ -11,11 +11,11 @@ make backend-test
 
 Runtime files live in `apps/backend/data/`.
 
-SQLite databases live under `apps/backend/db-storage/`:
+Persistence rule:
 
-- `db-storage/business/` — production/business sqlite (workflows, duro/sop cache, and simulating-off platform docs)
-- `db-storage/simulating/` — isolated sqlite used when Dashboard **Simulating** is enabled
+- Non-simulating → MongoDB (`ProductionsMessage`) for auth, workflows, version records, health, and other business documents
+- Simulating → SQLite under `db-storage/simulating/`
 
-When simulating is on, Mongo-backed features (robot scan gateways/cache, SSH custom commands, upload finish settings) use `db-storage/simulating/platform.sqlite3` instead of MongoDB.
+`db-storage/business/` may still hold regenerable caches (`duro_cache.sqlite3`, `sop_cache.sqlite3`). Legacy production sqlite files can be migrated with `apps/backend/scripts/migrate_sqlite_to_mongodb.py` then removed.
 
-Platform login accounts and sessions use `db-storage/auth/auth.sqlite3`, independently of simulating mode. See [Platform authentication](docs/platform-authentication.md) for first-user and HTTPS deployment instructions.
+See [Platform authentication](docs/platform-authentication.md) for first-user and HTTPS deployment instructions.

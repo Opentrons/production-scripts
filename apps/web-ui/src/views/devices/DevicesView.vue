@@ -41,10 +41,6 @@
           <span class="stat-label">{{ t('devices.stats.online') }}</span>
           <span class="stat-value">{{ scannedDeviceCount }}</span>
         </span>
-        <span class="stat-item offline">
-          <span class="stat-label">{{ t('devices.stats.offline') }}</span>
-          <span class="stat-value">{{ offlineDeviceCount }}</span>
-        </span>
         <span class="stat-item abnormal">
           <span class="stat-label">{{ t('devices.stats.abnormal') }}</span>
           <span class="stat-value">{{ abnormalDeviceCount }}</span>
@@ -420,11 +416,6 @@ const filteredOnlineRobots = computed(() => {
 const emptyDeviceDescription = computed(() => (
   deviceSearchQuery.value.trim() ? t('devices.scan.noMatches') : t('devices.scan.noOnline')
 ))
-const offlineDeviceCount = computed(() => {
-  if (!scanResult.value) return 0
-  return scanResult.value.offline_count
-    ?? scanResult.value.offline_robots.length
-})
 const abnormalDeviceCount = computed(() => {
   if (!scanResult.value) return 0
   return scanResult.value.abnormal_count
@@ -579,10 +570,6 @@ onMounted(async () => {
 
 .stat-item.online .stat-value {
   color: #16803c;
-}
-
-.stat-item.offline .stat-value {
-  color: #64748b;
 }
 
 .stat-item.abnormal .stat-value {

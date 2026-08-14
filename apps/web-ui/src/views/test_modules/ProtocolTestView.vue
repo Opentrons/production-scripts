@@ -100,27 +100,34 @@
         <div v-if="selectedRoom.devices.length" class="device-grid">
           <article v-for="device in selectedRoom.devices" :key="device.id" class="device-card">
             <div class="device-card-visual">
-              <img :src="flexImage" :alt="`${device.name} Flex`" />
-              <span class="device-status" :class="`is-${deviceStatus(device.id).status}`">
-                <span class="status-dot" :class="`is-${deviceStatus(device.id).status}`"></span>
-                {{ statusText[deviceStatus(device.id).status] }}
-              </span>
-              <el-dropdown
-                class="device-menu"
-                trigger="click"
-                placement="bottom-end"
-                @command="handleDeviceCommand($event, device)"
+              <DeviceCameraMedia
+                :room-id="selectedRoom.id"
+                :device-id="device.id"
+                :device-name="device.name"
+                :image-src="flexImage"
               >
-                <el-button :icon="MoreFilled" circle :aria-label="t('protocolMonitor.deviceMenu')" />
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="details" :icon="InfoFilled">{{ t('protocolMonitor.details') }}</el-dropdown-item>
-                    <el-dropdown-item command="manage" :icon="Setting">{{ t('protocolMonitor.manage') }}</el-dropdown-item>
-                    <el-dropdown-item command="edit" :icon="EditPen">{{ t('protocolMonitor.editDevice') }}</el-dropdown-item>
-                    <el-dropdown-item command="delete" :icon="Delete" divided>{{ t('protocolMonitor.deleteDevice') }}</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+                <span class="device-status" :class="`is-${deviceStatus(device.id).status}`">
+                  <span class="status-dot" :class="`is-${deviceStatus(device.id).status}`"></span>
+                  {{ statusText[deviceStatus(device.id).status] }}
+                </span>
+                <el-dropdown
+                  class="device-menu"
+                  trigger="click"
+                  placement="bottom-end"
+                  @command="handleDeviceCommand($event, device)"
+                >
+                  <el-button :icon="MoreFilled" circle :aria-label="t('protocolMonitor.deviceMenu')" />
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="details" :icon="InfoFilled">{{ t('protocolMonitor.details') }}</el-dropdown-item>
+                      <el-dropdown-item command="manage" :icon="Setting">{{ t('protocolMonitor.manage') }}</el-dropdown-item>
+                      <el-dropdown-item command="connect-odd" :icon="Monitor">{{ t('protocolMonitor.openConnectOdd') }}</el-dropdown-item>
+                      <el-dropdown-item command="edit" :icon="EditPen">{{ t('protocolMonitor.editDevice') }}</el-dropdown-item>
+                      <el-dropdown-item command="delete" :icon="Delete" divided>{{ t('protocolMonitor.deleteDevice') }}</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </DeviceCameraMedia>
             </div>
 
             <div class="device-card-body">
@@ -344,6 +351,7 @@ import {
 } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import DeviceInfoPanel from '@/views/devices/components/DeviceInfoPanel.vue'
+import DeviceCameraMedia from '@/views/test_modules/components/DeviceCameraMedia.vue'
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'
 
@@ -633,6 +641,18 @@ function handleDeviceCommand(command: string, device: ProtocolMonitorDevice) {
     void router.push({ name: 'DeviceControl', query: { ip: device.ip } })
     return
   }
+  if (command === 'connect-odd') {
+    void router.push({
+      name: 'ProtocolOddWorkspace',
+      query: {
+        mode: 'remote',
+        ip: device.ip,
+        name: device.name,
+        port: String(device.port || 31950),
+      },
+    })
+    return
+  }
   if (command === 'edit') openEditDevice(device)
   if (command === 'delete') void removeDevice(device)
 }
@@ -677,13 +697,15 @@ onUnmounted(() => {
 
 <style scoped>
 .protocol-monitor-page {
-  --monitor-border: #dfe5e2;
-  --monitor-text: #20272c;
-  --monitor-muted: #68747c;
+  --monitor-border: #dce3eb;
+  --monitor-text: #172033;
+  --monitor-muted: #6b778a;
+  --monitor-accent: #276fbf;
+  --monitor-accent-soft: #edf3fa;
   display: flex;
   min-height: 100%;
   flex-direction: column;
-  background: #f5f7f6;
+  background: #eef2f6;
   color: var(--monitor-text);
 }
 
@@ -723,10 +745,10 @@ onUnmounted(() => {
   width: 38px;
   height: 38px;
   place-items: center;
-  border: 1px solid #bdd4cb;
+  border: 1px solid #cfd8e3;
   border-radius: 6px;
-  background: #edf6f2;
-  color: #176b5f;
+  background: var(--monitor-accent-soft);
+  color: var(--monitor-accent);
   font-size: 20px;
 }
 
@@ -783,7 +805,7 @@ h3 {
 .room-pane {
   min-width: 0;
   border-right: 1px solid var(--monitor-border);
-  background: #fbfcfb;
+  background: #f8fafc;
 }
 
 .room-list {
@@ -796,7 +818,7 @@ h3 {
   min-height: 48px;
   padding: 0 14px 0 16px;
   border: 0;
-  border-bottom: 1px solid #e8ecea;
+  border-bottom: 1px solid #e4ebf3;
   border-left: 3px solid transparent;
   background: transparent;
   color: var(--monitor-text);
@@ -809,13 +831,13 @@ h3 {
 }
 
 .room-row:hover {
-  background: #f1f5f3;
+  background: var(--monitor-accent-soft);
 }
 
 .room-row.is-active {
-  border-left-color: #176b5f;
-  background: #e9f2ee;
-  color: #124f47;
+  border-left-color: var(--monitor-accent);
+  background: var(--monitor-accent-soft);
+  color: #142033;
 }
 
 .room-name {
@@ -827,7 +849,7 @@ h3 {
 }
 
 .room-count {
-  color: #7a858b;
+  color: #7a8596;
   font-size: 12px;
 }
 
@@ -867,12 +889,12 @@ h3 {
   gap: 26px;
   padding: 0 18px;
   border-bottom: 1px solid var(--monitor-border);
-  background: #fafbfa;
+  background: #f8fafc;
 }
 
 .summary-item {
   gap: 7px;
-  color: #536069;
+  color: #5d6879;
   font-size: 12px;
 }
 
@@ -887,20 +909,20 @@ h3 {
   height: 8px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: #9aa3a8;
+  background: #8aa0b8;
 }
 
 .status-dot.is-idle {
-  background: #28a36a;
+  background: #2f9e73;
 }
 
 .status-dot.is-running {
-  background: #d68a16;
-  box-shadow: 0 0 0 3px rgba(214, 138, 22, 0.14);
+  background: #c27803;
+  box-shadow: 0 0 0 3px rgba(194, 120, 3, 0.14);
 }
 
 .status-dot.is-offline {
-  background: #9aa3a8;
+  background: #8aa0b8;
 }
 
 .device-grid {
@@ -917,10 +939,10 @@ h3 {
 .device-card {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dfe5e2;
+  border: 1px solid #dce3eb;
   border-radius: 6px;
   background: #ffffff;
-  box-shadow: 0 2px 7px rgba(32, 39, 44, 0.05);
+  box-shadow: 0 2px 7px rgba(23, 32, 51, 0.05);
 }
 
 .device-card-visual {
@@ -929,8 +951,8 @@ h3 {
   height: 152px;
   place-items: center;
   overflow: hidden;
-  border-bottom: 1px solid #e4e9e6;
-  background: #f0f3f2;
+  border-bottom: 1px solid #e4ebf3;
+  background: #eef2f6;
 }
 
 .device-card-visual img {
@@ -939,7 +961,7 @@ h3 {
   max-width: calc(100% - 36px);
   height: 138px;
   object-fit: contain;
-  filter: drop-shadow(0 9px 10px rgba(35, 43, 47, 0.15));
+  filter: drop-shadow(0 9px 10px rgba(23, 32, 51, 0.14));
 }
 
 .device-card-visual .device-status {
@@ -948,7 +970,7 @@ h3 {
   left: 10px;
   min-height: 26px;
   padding: 0 9px;
-  border: 1px solid rgba(223, 229, 226, 0.92);
+  border: 1px solid rgba(220, 227, 235, 0.95);
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.94);
 }
@@ -960,7 +982,7 @@ h3 {
 }
 
 .device-menu :deep(.el-button) {
-  border-color: rgba(223, 229, 226, 0.92);
+  border-color: rgba(220, 227, 235, 0.95);
   background: rgba(255, 255, 255, 0.94);
 }
 
@@ -995,7 +1017,7 @@ h3 {
   min-height: 18px;
   margin: 2px 0 0;
   overflow: hidden;
-  color: #58646b;
+  color: #5d6879;
   font-size: 12px;
   line-height: 1.5;
   -webkit-box-orient: vertical;
@@ -1003,7 +1025,7 @@ h3 {
 }
 
 .device-card-title p.is-empty {
-  color: #98a1a6;
+  color: #8aa0b8;
 }
 
 .device-glyph {
@@ -1012,10 +1034,10 @@ h3 {
   height: 26px;
   flex-shrink: 0;
   place-items: center;
-  border: 1px solid #d9e1dd;
+  border: 1px solid #cad6e4;
   border-radius: 4px;
-  background: #f6f8f7;
-  color: #52615b;
+  background: #f8fafc;
+  color: #5d6879;
 }
 
 code {
@@ -1023,10 +1045,10 @@ code {
   max-width: 100%;
   overflow: hidden;
   padding: 2px 5px;
-  border: 1px solid #e0e5e3;
+  border: 1px solid #d9e1ea;
   border-radius: 3px;
-  background: #f5f7f6;
-  color: #344149;
+  background: #f8fafc;
+  color: #172033;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   text-overflow: ellipsis;
@@ -1041,16 +1063,16 @@ code {
 }
 
 .device-status.is-idle {
-  color: #168052;
+  color: #2f9e73;
 }
 
 .device-status.is-running {
-  color: #a9650b;
+  color: #c27803;
 }
 
 .device-status.is-offline,
 .error-text {
-  color: #7a858b;
+  color: #7a8596;
 }
 
 .device-info-section {
@@ -1060,18 +1082,18 @@ code {
 
 .device-info-section + .device-info-section {
   padding-top: 10px;
-  border-top: 1px solid #edf0ee;
+  border-top: 1px solid #e4ebf3;
 }
 
 .section-label {
   gap: 6px;
-  color: #37434a;
+  color: #172033;
   font-size: 12px;
   font-weight: 700;
 }
 
 .section-label .el-icon {
-  color: #176b5f;
+  color: var(--monitor-accent);
 }
 
 .info-row {
@@ -1093,7 +1115,7 @@ code {
 
 .info-key {
   gap: 6px;
-  color: #748087;
+  color: #6b778a;
   white-space: nowrap;
 }
 

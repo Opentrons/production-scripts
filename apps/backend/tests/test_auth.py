@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,7 @@ def make_service(tmp_path: Path) -> AuthService:
         issuer="test-production-platform",
         audience="test-production-web",
         access_token_minutes=20,
-        refresh_token_hours=8,
+        refresh_token_hours=24 * 7,
     )
     service.initialize()
     return service
@@ -47,6 +48,10 @@ def test_auth_service_issues_rotates_and_revokes_session(tmp_path: Path) -> None
         "correct-horse-battery-staple",
         user_agent="pytest",
         ip_address="127.0.0.1",
+    )
+    assert session.session_expires_at - session.access_expires_at == timedelta(
+        hours=167,
+        minutes=40,
     )
     verified_user, claims = service.verify_access_token(session.access_token)
     assert verified_user.id == user.id

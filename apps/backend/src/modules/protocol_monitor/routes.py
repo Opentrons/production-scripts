@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 
-from modules.protocol_monitor import service
+from modules.protocol_monitor import livestream, service
 from modules.protocol_monitor.models import (
     ProtocolMonitorDeviceCreate,
     ProtocolMonitorDeviceUpdate,
@@ -24,6 +25,14 @@ def _raise_service_error(exc: Exception) -> None:
     if isinstance(exc, ValueError):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _raise_livestream_error(exc: Exception) -> None:
+    if isinstance(exc, (KeyError, ValueError)):
+        _raise_service_error(exc)
+    if isinstance(exc, livestream.LivestreamUpstreamError):
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    raise HTTPException(status_code=503, detail="摄像头流暂时不可用") from exc
 
 
 @router.get("/rooms", response_model=ProtocolMonitorRoomsResponse)
@@ -85,6 +94,61 @@ async def delete_device(room_id: str, device_id: str):
         return await run_in_threadpool(service.delete_device, room_id, device_id)
     except Exception as exc:
         _raise_service_error(exc)
+
+
+@router.post("/rooms/{room_id}/devices/{device_id}/livestream/enable")
+async def enable_device_livestream(room_id: str, device_id: str):
+    try:
+        return await run_in_threadpool(livestream.enable, room_id, device_id)
+    except Exception as exc:
+        _raise_livestream_error(exc)
+
+
+@router.get("/rooms/{room_id}/devices/{device_id}/livestream/{asset_path:path}")
+async def proxy_device_livestream(
+    room_id: str,
+    device_id: str,
+    asset_path: str,
+    request: Request,
+):
+    try:
+        asset = await run_in_threadpool(
+            livestream.open_asset,
+            room_id,
+            device_id,
+            asset_path,
+            range_header=request.headers.get("Range"),
+        )
+        content_type = asset.response.headers.get("Content-Type") or "application/octet-stream"
+        if asset.is_playlist:
+            content = await run_in_threadpool(lambda: asset.response.content.decode("utf-8"))
+            asset.response.close()
+            proxy_base = request.url.path.rsplit("/livestream/", 1)[0] + "/livestream"
+            rewritten = livestream.rewrite_playlist(content, asset, proxy_base)
+            return Response(
+                content=rewritten,
+                media_type="application/vnd.apple.mpegurl",
+                headers={"Cache-Control": "no-store"},
+            )
+
+        response_headers = {
+            key: value
+            for key, value in {
+                "Accept-Ranges": asset.response.headers.get("Accept-Ranges"),
+                "Content-Length": asset.response.headers.get("Content-Length"),
+                "Content-Range": asset.response.headers.get("Content-Range"),
+                "Cache-Control": asset.response.headers.get("Cache-Control"),
+            }.items()
+            if value
+        }
+        return StreamingResponse(
+            livestream.iter_asset_content(asset),
+            status_code=asset.response.status_code,
+            media_type=content_type,
+            headers=response_headers,
+        )
+    except Exception as exc:
+        _raise_livestream_error(exc)
 
 
 @router.post("/rooms/{room_id}/status", response_model=ProtocolMonitorStatusResponse)

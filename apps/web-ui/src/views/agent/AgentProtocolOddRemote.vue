@@ -401,8 +401,12 @@ function scheduleHttpPull(delay = pollMs.value) {
   }, delay)
 }
 
+function isWebSocketStreamActive(): boolean {
+  return streamMode.value === 'ws'
+}
+
 async function pullHttpFrame() {
-  if (disposed || httpInFlight || !props.ip || streamMode.value === 'ws') return
+  if (disposed || httpInFlight || !props.ip || isWebSocketStreamActive()) return
   httpInFlight = true
   try {
     const blob = await agentProtocolAnalysisApi.fetchOddScreenshot(
@@ -410,7 +414,7 @@ async function pullHttpFrame() {
       port.value,
       streamQuality.value,
     )
-    if (disposed || streamMode.value === 'ws') return
+    if (disposed || isWebSocketStreamActive()) return
     const next = URL.createObjectURL(blob)
     const prev = lastBlobUrl
     lastBlobUrl = next
@@ -425,7 +429,7 @@ async function pullHttpFrame() {
     loading.value = false
   } finally {
     httpInFlight = false
-    if (!disposed && streamMode.value !== 'ws') scheduleHttpPull()
+    if (!disposed && !isWebSocketStreamActive()) scheduleHttpPull()
   }
 }
 

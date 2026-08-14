@@ -103,6 +103,17 @@ def _find_room_document(room_id: str) -> dict[str, Any]:
     return document
 
 
+def get_device(room_id: str, device_id: str) -> dict[str, Any]:
+    document = _find_room_document(room_id)
+    device = next(
+        (item for item in document.get("devices") or [] if item.get("id") == device_id),
+        None,
+    )
+    if not isinstance(device, dict):
+        raise KeyError("设备不存在")
+    return deepcopy(device)
+
+
 def list_rooms() -> ProtocolMonitorRoomsResponse:
     collection = _get_collection()
     collection.create_index("name_key", unique=True)

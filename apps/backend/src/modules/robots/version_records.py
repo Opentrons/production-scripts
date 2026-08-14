@@ -343,18 +343,20 @@ def _collect_versions(
 
 
 def _get_collection():
-    """Version history always persists to platform.sqlite3 under the active profile.
+    """Version history follows the unified persistence rule.
 
-    Non-simulating → db-storage/business/platform.sqlite3
+    Non-simulating → MongoDB ProductionsMessage.robot_version_records
     Simulating → db-storage/simulating/platform.sqlite3
     """
-    from core.sqlite_store import get_platform_store
+    from core.persistence import get_document_collection
 
-    return get_platform_store()[setting.ROBOT_VERSION_RECORD_COLLECTION]
+    return get_document_collection(setting.ROBOT_VERSION_RECORD_COLLECTION)
 
 
 def _storage_label() -> str:
-    return "sqlite"
+    from core.persistence import storage_label
+
+    return storage_label()
 
 def _serialize_document(document: dict[str, Any]) -> dict[str, Any]:
     serialized = dict(document)

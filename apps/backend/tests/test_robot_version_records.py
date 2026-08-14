@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from core import persistence
 from core import runtime_mode
 from core.sqlite_store import SqliteDocumentStore
 import core.config as setting
@@ -146,20 +147,20 @@ def test_capture_merges_tests_for_the_same_barcode(tmp_path: Path, monkeypatch) 
     assert documents[0]["tests"]["test2"]["test_name"] == product["test_names"][1]
 
 
-def test_business_capture_uses_business_sqlite(tmp_path: Path, monkeypatch) -> None:
-    db_root = tmp_path / "db"
-    monkeypatch.setattr(setting, "DB_ROOT", db_root)
-    monkeypatch.setattr(setting, "DB_BUSINESS_DIR", db_root / "business")
-    monkeypatch.setattr(setting, "DB_SIMULATING_DIR", db_root / "simulating")
-    runtime_mode._SIMULATING = None
-    runtime_mode.set_simulating(False)
-
+def test_business_capture_uses_mongodb(tmp_path: Path, monkeypatch) -> None:
+    collection = SqliteDocumentStore(tmp_path / "mongo-double.sqlite3")["versions"]
     captured = {
         "barcode": "FLXA1001",
         "test_version": "hardware-test-1.2.3",
         "robot": {"name": "RightFlex"},
         "subsystems": [],
     }
+    monkeypatch.setattr(setting, "use_sqlite_persistence", lambda: False)
+    monkeypatch.setattr(
+        persistence,
+        "get_document_collection",
+        lambda _name: collection,
+    )
     monkeypatch.setattr(version_records, "_collect_versions", lambda *args, **kwargs: captured)
 
     product = version_records.list_products()["products"][0]
@@ -171,12 +172,10 @@ def test_business_capture_uses_business_sqlite(tmp_path: Path, monkeypatch) -> N
     )
     history = version_records.list_history()
 
-    assert result["storage"] == "sqlite"
-    assert history["storage"] == "sqlite"
+    assert result["storage"] == "mongodb"
+    assert history["storage"] == "mongodb"
     assert history["total"] == 1
     assert history["records"][0]["barcode"] == "FLXA1001"
-    assert (db_root / "business" / "platform.sqlite3").exists()
-    assert not (db_root / "simulating" / "platform.sqlite3").exists()
 
 
 def test_simulating_capture_uses_sqlite_profile(tmp_path: Path, monkeypatch) -> None:

@@ -1,6 +1,13 @@
 # Platform authentication
 
-Production Testing, Productions Versions, the Dashboard, Downloads, and the Production Agent use one FastAPI login session. Authentication data is stored in `db-storage/auth/auth.sqlite3` and never switches with simulating mode.
+Production Testing, Productions Versions, the Dashboard, Downloads, and the Production Agent use one FastAPI login session.
+
+Persistence follows the platform rule:
+
+- Non-simulating → MongoDB `ProductionsMessage.auth_users` / `auth_sessions`
+- Simulating → SQLite under `db-storage/simulating/auth.sqlite3` (or `PRODUCTION_PLATFORM_AUTH_DB_PATH`)
+
+Migrate legacy production `db-storage/auth/auth.sqlite3` into MongoDB with `apps/backend/scripts/migrate_sqlite_to_mongodb.py` before removing the sqlite file.
 
 ## First deployment
 
@@ -44,10 +51,10 @@ Authentication environment variables:
 ```text
 PRODUCTION_PLATFORM_AUTH_JWT_SECRET=<at least 32 random characters>
 PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=20
-PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=8
+PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=168
 PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=true
-PRODUCTION_PLATFORM_AUTH_DB_PATH=<optional absolute sqlite path>
+PRODUCTION_PLATFORM_AUTH_DB_PATH=<optional absolute sqlite path for simulating mode>
 PRODUCTION_PLATFORM_AUTH_ALLOWED_ORIGINS=<optional comma-separated origins>
 ```
 
-JWTs are held in HttpOnly cookies. State-changing cookie-authenticated API requests also require the session CSRF header. Refresh tokens are rotated, and logout revokes the server-side session immediately.
+JWTs are held in HttpOnly cookies. State-changing cookie-authenticated API requests also require the session CSRF header. Access JWTs are rotated every 20 minutes while the login session remains valid. The login session expires after 168 hours (7 days) by default, then the web client requires a new login. Refresh tokens are rotated, and logout revokes the server-side session immediately.
