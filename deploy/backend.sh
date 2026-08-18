@@ -32,6 +32,19 @@ if ! grep -Eq '^PRODUCTION_PLATFORM_AUTH_JWT_SECRET=.{32,}$' "$AUTH_ENV_FILE"; t
     fi
     echo "PRODUCTION_PLATFORM_AUTH_JWT_SECRET=$(openssl rand -hex 32)" >> "$AUTH_ENV_FILE"
 fi
+if ! grep -Eq '^PRODUCTION_PLATFORM_COLLECTION_DATA_ACCESS_TOKEN=.{32,}$' "$AUTH_ENV_FILE"; then
+    if ! command -v openssl >/dev/null 2>&1; then
+        echo "openssl is required to generate the collection data access token"
+        exit 1
+    fi
+    COLLECTION_DATA_ACCESS_TOKEN="$(openssl rand -hex 32)"
+    if grep -q '^PRODUCTION_PLATFORM_COLLECTION_DATA_ACCESS_TOKEN=' "$AUTH_ENV_FILE"; then
+        sed -i "s/^PRODUCTION_PLATFORM_COLLECTION_DATA_ACCESS_TOKEN=.*/PRODUCTION_PLATFORM_COLLECTION_DATA_ACCESS_TOKEN=$COLLECTION_DATA_ACCESS_TOKEN/" "$AUTH_ENV_FILE"
+    else
+        echo "PRODUCTION_PLATFORM_COLLECTION_DATA_ACCESS_TOKEN=$COLLECTION_DATA_ACCESS_TOKEN" >> "$AUTH_ENV_FILE"
+    fi
+    unset COLLECTION_DATA_ACCESS_TOKEN
+fi
 if ! [[ "$AUTH_REFRESH_TOKEN_HOURS" =~ ^[1-9][0-9]*$ ]]; then
     echo "AUTH_REFRESH_TOKEN_HOURS must be a positive integer"
     exit 1

@@ -8,6 +8,7 @@ from modules.protocol_monitor.routes import router as protocol_monitor_router
 from api.routers import (
     data,
     file_transfer,
+    integrations,
     products,
     resources,
     robot_control,
@@ -30,6 +31,7 @@ router.include_router(odd_stream_router)
 router.include_router(system.data_center_client_router)
 router.include_router(uploads.data_center_client_router)
 router.include_router(file_transfer.router)
+router.include_router(integrations.router)
 protected_router.include_router(agent_router)
 protected_router.include_router(protocol_monitor_router)
 protected_router.include_router(resources.router)

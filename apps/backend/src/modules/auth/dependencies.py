@@ -4,9 +4,10 @@ import re
 import secrets
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import Depends, Request, status
+from fastapi import Depends, Request, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from core import config
 from core.i18n import api_error
@@ -28,6 +29,7 @@ DEVICE_OPERATOR_ROLE = "device_operator"
 DEVICE_CONTROL_PATH_PATTERN = re.compile(r"^/api/robots/[^/]+/control(?:/|$)")
 # Read-only device info used by the info drawer; operators may view it.
 DEVICE_CONTROL_READ_PATH_PATTERN = re.compile(r"^/api/robots/[^/]+/control/summary$")
+_collection_data_bearer = HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,31 @@ def require_authenticated_user(
     context: AuthContext = Depends(require_auth_context),
 ) -> AuthUser:
     return context.user
+
+
+def require_collection_data_access(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Security(_collection_data_bearer),
+    ] = None,
+) -> None:
+    expected = config.COLLECTION_DATA_ACCESS_TOKEN
+    if len(expected) < 32:
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "integration.configuration_error",
+            locale=request.headers.get("Accept-Language"),
+        )
+
+    token = credentials.credentials if credentials else ""
+    if not token or not secrets.compare_digest(token, expected):
+        raise api_error(
+            status.HTTP_401_UNAUTHORIZED,
+            "integration.authentication_required",
+            headers={"WWW-Authenticate": "Bearer"},
+            locale=request.headers.get("Accept-Language"),
+        )
 
 
 def require_platform_access(

@@ -208,6 +208,25 @@ class CollectionFilterOptionsResponse(BaseModel):
     error: str | None = None
 
 
+class IntegrationCollectionDataItem(BaseModel):
+    collection: str
+    update_time: str
+    sn: str | None = None
+    model: str | None = None
+    type: str | None = None
+    total_result: str | None = None
+
+
+class IntegrationCollectionDataResponse(BaseModel):
+    data: list[IntegrationCollectionDataItem]
+    count: int
+    limit: int
+    has_more: bool
+    next_cursor: str | None = None
+    collection: str
+    snapshot_time: str
+
+
 class TestDataResponse(BaseModel):
     data: list[dict[str, Any]]
     total: int
