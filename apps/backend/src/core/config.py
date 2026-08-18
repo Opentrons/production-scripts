@@ -81,6 +81,43 @@ def use_sqlite_persistence() -> bool:
 RUN_ENV = os.getenv("PRODUCTION_PLATFORM_RUN_ENV", "dev" if IS_WINDOWS or IS_MAC else "server").lower()
 IS_DEV_ENV = RUN_ENV in ("dev", "local", "development")
 
+
+def _configured_choice(name: str, default: str, choices: set[str]) -> str:
+    value = os.getenv(name, default).strip().lower()
+    if value not in choices:
+        allowed = ", ".join(sorted(choices))
+        raise ValueError(f"{name} must be one of: {allowed}")
+    return value
+
+
+# Authentication is intentionally independent from business persistence. Local
+# development can use a private SQLite user database while workflows and other
+# business documents continue to use MongoDB.
+AUTH_STORAGE = _configured_choice(
+    "PRODUCTION_PLATFORM_AUTH_STORAGE",
+    "sqlite" if IS_DEV_ENV else "mongodb",
+    {"mongodb", "sqlite"},
+)
+DEVICE_SCAN_MODE = _configured_choice(
+    "PRODUCTION_PLATFORM_DEVICE_SCAN_MODE",
+    "real",
+    {"real", "simulated"},
+)
+
+
+def use_sqlite_auth() -> bool:
+    return AUTH_STORAGE == "sqlite"
+
+
+def use_simulated_device_scan() -> bool:
+    """Return whether device discovery should use seeded fixture devices.
+
+    The legacy simulating switch remains an implicit fixture mode so existing
+    test data and the admin toggle keep their previous behavior. New setups
+    should use DEVICE_SCAN_MODE explicitly when they need simulated devices.
+    """
+    return DEVICE_SCAN_MODE == "simulated" or use_sqlite_persistence()
+
 AUTH_JWT_SECRET = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_SECRET", "").strip()
 AUTH_JWT_ISSUER = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_ISSUER", "production-platform")
 AUTH_JWT_AUDIENCE = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_AUDIENCE", "production-web")
@@ -162,7 +199,10 @@ LOG_FILE = LOG_INFO_FILE
 
 LOG_MAX_SIZE = 10 * 1024 * 1024  # 10MB
 
-MONGO_HOST = os.getenv("PRODUCTION_PLATFORM_MONGO_HOST", API_HOST)
+MONGO_HOST = os.getenv(
+    "PRODUCTION_PLATFORM_MONGO_HOST",
+    "127.0.0.1" if IS_DEV_ENV else API_HOST,
+)
 MONGO_URI = os.getenv("PRODUCTION_PLATFORM_MONGO_URI", "")
 
 # google driver

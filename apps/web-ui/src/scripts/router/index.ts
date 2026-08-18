@@ -155,6 +155,11 @@ function defaultAuthenticatedPath(): string {
 
 router.beforeEach(async (to) => {
   const authStore = useAuthStore(pinia)
+
+  // The login screen must remain usable while the backend is starting or unavailable.
+  // An existing in-memory session is still handled by the normal restore path.
+  if (to.name === 'Login' && !authStore.initialized) return true
+
   await authStore.restore()
   if (to.meta.public) {
     if (to.name === 'Login' && authStore.authenticated) {

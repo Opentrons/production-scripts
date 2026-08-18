@@ -979,6 +979,7 @@ export interface SimulatingStatusResponse {
   simulating: boolean
   persistence: string
   auth_persistence?: string
+  device_scan_mode?: string
   db_root: string
   active_db_dir: string
   business_db_dir: string

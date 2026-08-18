@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -61,17 +62,39 @@ def read_json_config(config_path: Path = SKILL_CONFIG_PATH) -> dict[str, Any]:
 
 
 def write_json_atomic(config_path: Path, data: dict[str, Any]) -> None:
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = config_path.with_name(f".{config_path.name}.tmp")
-    tmp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    os.replace(tmp_path, config_path)
+    _write_text_atomic(
+        config_path,
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+    )
 
 
 def write_text_atomic(path: Path, text: str) -> None:
+    _write_text_atomic(path, text if text.endswith("\n") else f"{text}\n")
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+    """Replace a file through a unique sibling temp file.
+
+    Subscription refreshes can run concurrently with proxy failover requests;
+    a shared ``.<name>.tmp`` path lets one writer delete another writer's
+    temporary file before ``os.replace`` runs.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(f".{path.name}.tmp")
-    tmp_path.write_text(text if text.endswith("\n") else f"{text}\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+            tmp_file.write(text)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def validate_subscription_yaml(text: str) -> dict[str, Any]:

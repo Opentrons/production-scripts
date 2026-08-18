@@ -26,11 +26,17 @@ export const useAuthStore = defineStore('auth', {
       }
       this.checking = true
       try {
+        // The CSRF cookie is intentionally readable and is issued with every
+        // authenticated session. Without it there is no session to restore,
+        // so avoid blocking navigation on an unnecessary backend request.
+        if (!csrfToken()) {
+          this.user = null
+          return false
+        }
         try {
           const { data } = await authApi.me()
           this.user = data.user
         } catch {
-          if (!csrfToken()) throw new Error('No session')
           await authApi.refresh()
           const { data } = await authApi.me()
           this.user = data.user

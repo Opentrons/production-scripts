@@ -10,6 +10,7 @@ from typing import Any
 
 import core.config as setting
 from core.persistence import get_document_collection
+from core.sqlite_store import get_platform_store
 from core.slack.message import SlackBotMessenger
 from modules.uploads.handler.utils import google_drive_health_check
 
@@ -141,6 +142,10 @@ def check_google_drive_health() -> tuple[bool, dict]:
 
 
 def _health_collection():
+    # Health is local runtime telemetry in development. Keeping its cache in
+    # SQLite means the status bar remains usable when business MongoDB is down.
+    if setting.IS_DEV_ENV:
+        return get_platform_store()[setting.SYSTEM_HEALTH_COLLECTION]
     return get_document_collection(setting.SYSTEM_HEALTH_COLLECTION)
 
 

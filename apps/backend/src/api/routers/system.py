@@ -16,6 +16,8 @@ data_center_client_router = APIRouter()
 class SimulatingStatusResponse(BaseModel):
     simulating: bool
     persistence: str
+    auth_persistence: str
+    device_scan_mode: str
     db_root: str
     active_db_dir: str
     business_db_dir: str

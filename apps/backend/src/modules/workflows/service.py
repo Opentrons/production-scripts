@@ -98,6 +98,9 @@ class WorkflowService:
         with self._initialize_lock:
             if self._initialized:
                 return
+            initialize_repository = getattr(self.repository, "initialize", None)
+            if initialize_repository is not None:
+                initialize_repository()
             workflows = self.repository.list_workflows()
             if not workflows:
                 self.repository.save_workflow(build_duro_bom_workflow())

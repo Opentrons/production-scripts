@@ -64,10 +64,12 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=$REPOSITORY_ROOT
-Environment=PRODUCTION_PLATFORM_RUN_ENV=server
 Environment=PRODUCTION_PLATFORM_DATA_DIR=$API_ROOT/data
 Environment=PRODUCTION_PLATFORM_REFRESH_PROXY_ON_STARTUP=false
 EnvironmentFile=$AUTH_ENV_FILE
+Environment=PRODUCTION_PLATFORM_RUN_ENV=server
+Environment=PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb
+Environment=PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real
 Environment=PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=$AUTH_COOKIE_SECURE
 Environment=PYTHONUNBUFFERED=1
 ExecStart=$UV_BIN run --package production-backend uvicorn app:app --host 127.0.0.1 --port $API_PORT

@@ -20,13 +20,18 @@ REMOTE_SSL_CERTIFICATE ?= /etc/ssl/production-platform/production-platform.crt
 REMOTE_SSL_CERTIFICATE_KEY ?= /etc/ssl/production-platform/production-platform.key
 DURO_API_KEY_PATH ?= $(CURDIR)/apps/backend/auth-files/duro-api-key.txt
 REMOTE_DURO_API_KEY_PATH ?= /configs/duro-api-key.txt
+MONGO_IMAGE ?= mongo:7
+MONGO_CONTAINER ?= production-platform-mongodb
+MONGO_PORT ?= 27017
 
-.PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build deploy-backend deploy-web deploy-remote
+.PHONY: help sync dev dev-stop-ports mongo-dev mongo-stop backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build deploy-backend deploy-web deploy-remote
 
 help:
 	@echo "Production Scripts targets:"
 	@echo "  make sync             Install both Python applications"
 	@echo "  make dev              Restart occupied dev ports and start backend + web"
+	@echo "  make mongo-dev        Start the loopback-only development MongoDB container"
+	@echo "  make mongo-stop       Stop the development MongoDB container"
 	@echo "  make backend-dev      Start FastAPI with reload"
 	@echo "  make backend-prod     Start FastAPI"
 	@echo "  make backend-test     Run backend tests"
@@ -65,6 +70,37 @@ dev-stop-ports:
 
 dev: dev-stop-ports
 	$(MAKE) -j2 backend-dev web-dev
+
+mongo-dev:
+	@command -v docker >/dev/null 2>&1 || { echo "Error: Docker is required for the local MongoDB container"; exit 1; }
+	@if docker container inspect "$(MONGO_CONTAINER)" >/dev/null 2>&1; then \
+		docker start "$(MONGO_CONTAINER)" >/dev/null; \
+	else \
+		docker run -d \
+			--name "$(MONGO_CONTAINER)" \
+			--restart unless-stopped \
+			-p "127.0.0.1:$(MONGO_PORT):27017" \
+			-v production-platform-mongodb:/data/db \
+			"$(MONGO_IMAGE)" >/dev/null; \
+	fi
+	@attempt=0; \
+	until docker exec "$(MONGO_CONTAINER)" mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' >/dev/null 2>&1; do \
+		attempt=$$((attempt + 1)); \
+		if [ "$$attempt" -ge 30 ]; then \
+			echo "Error: MongoDB did not become ready within 30 seconds"; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done
+	@echo "MongoDB is ready at mongodb://127.0.0.1:$(MONGO_PORT)"
+
+mongo-stop:
+	@if docker container inspect "$(MONGO_CONTAINER)" >/dev/null 2>&1; then \
+		docker stop "$(MONGO_CONTAINER)" >/dev/null; \
+		echo "MongoDB container stopped; the data volume was retained"; \
+	else \
+		echo "MongoDB container is not present"; \
+	fi
 
 backend-dev:
 	uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT) --reload --reload-dir apps/backend/src

@@ -68,7 +68,8 @@ def get_simulating_status() -> dict:
     return {
         "simulating": simulating,
         "persistence": "sqlite" if simulating else "mongodb",
-        "auth_persistence": "sqlite" if simulating else "mongodb",
+        "auth_persistence": setting.AUTH_STORAGE,
+        "device_scan_mode": "simulated" if setting.use_simulated_device_scan() else "real",
         "db_root": str(setting.DB_ROOT),
         "active_db_dir": str(active_dir),
         "business_db_dir": str(setting.DB_BUSINESS_DIR),

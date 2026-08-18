@@ -110,7 +110,7 @@ def _result_from_cache_document(doc: dict, port: int, network: str | None = None
 
 
 def load_robot_scan_cache(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None) -> dict:
-    if setting.use_sqlite_persistence():
+    if setting.use_simulated_device_scan():
         from modules.system import simulating_seed
 
         simulating_seed.ensure_simulating_seed()
@@ -133,7 +133,7 @@ def load_robot_scan_cache(port: int = setting.ROBOT_HEALTH_PORT, network: str | 
     if cached_result is not None:
         return deepcopy(cached_result)
 
-    if setting.use_sqlite_persistence():
+    if setting.use_simulated_device_scan():
         from modules.system import simulating_seed
 
         return simulating_seed.build_fake_scan_result(port)
@@ -968,7 +968,7 @@ async def execute_robot_commands_batch(
 
 
 async def scan_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None = None) -> dict:
-    if setting.use_sqlite_persistence():
+    if setting.use_simulated_device_scan():
         from modules.system import simulating_seed
 
         simulating_seed.ensure_simulating_seed()
@@ -1031,7 +1031,7 @@ async def scan_robots(port: int = setting.ROBOT_HEALTH_PORT, network: str | None
 
 
 def get_robot_detail(ip: str, port: int = setting.ROBOT_HEALTH_PORT) -> dict:
-    if setting.use_sqlite_persistence():
+    if setting.use_simulated_device_scan():
         from modules.system import simulating_seed
 
         fake = simulating_seed.find_fake_robot(ip, port)

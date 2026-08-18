@@ -1,4 +1,4 @@
-"""Auth store factory: MongoDB outside simulating, SQLite inside simulating."""
+"""Authentication store factory with an independent SQLite/Mongo setting."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import core.config as setting
-from core.persistence import get_message_database, storage_backend
+from core.persistence import get_message_database
 from modules.auth.mongo_store import MongoAuthStore
 from modules.auth.store import AuthSession, AuthStore, AuthUser
 
@@ -57,16 +57,14 @@ class AuthStoreProtocol(Protocol):
 
 
 def resolve_auth_sqlite_path() -> Path:
-    """SQLite auth path used in simulating mode (and as migration source)."""
+    """Resolve the dedicated SQLite authentication database path."""
     configured = os.getenv("PRODUCTION_PLATFORM_AUTH_DB_PATH", "").strip()
     if configured:
         return Path(configured)
-    if setting.use_sqlite_persistence():
-        return setting.DB_SIMULATING_DIR / "auth.sqlite3"
     return setting.AUTH_DB_PATH
 
 
 def create_auth_store() -> AuthStoreProtocol:
-    if storage_backend() == "sqlite":
+    if setting.use_sqlite_auth():
         return AuthStore(resolve_auth_sqlite_path())
     return MongoAuthStore(get_message_database())

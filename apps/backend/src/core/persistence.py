@@ -24,7 +24,11 @@ def storage_label() -> StorageBackend:
 def require_mongodb() -> Any:
     """Return a live MongoDB client or raise."""
     if mongodb.client is None and not mongodb.connect():
-        raise RuntimeError("MongoDB is unavailable")
+        target = "PRODUCTION_PLATFORM_MONGO_URI" if setting.MONGO_URI else f"{setting.MONGO_HOST}:27017"
+        raise RuntimeError(
+            "MongoDB is unavailable for business persistence "
+            f"({target}); configure a reachable MongoDB instance."
+        )
     return mongodb.client
 
 

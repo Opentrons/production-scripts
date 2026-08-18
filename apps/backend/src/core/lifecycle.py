@@ -4,6 +4,7 @@ import os
 
 from fastapi import FastAPI
 
+from core.config import IS_DEV_ENV, MONGO_HOST, MONGO_URI
 from core.database import mongodb
 from core.google.proxy_manager import google_proxy_manager
 from core.logging import get_logger
@@ -44,15 +45,37 @@ async def lifespan(_: FastAPI):
     get_auth_service().initialize()
     if is_simulating():
         ensure_simulating_seed()
-    mongodb.connect()
-    fail_interrupted_diagnostic_log_downloads()
-    resume_pending_diagnostic_log_cleanups()
+    mongo_available = is_simulating() or mongodb.connect()
+    if not mongo_available:
+        target = "PRODUCTION_PLATFORM_MONGO_URI" if MONGO_URI else f"{MONGO_HOST}:27017"
+        if not IS_DEV_ENV:
+            raise RuntimeError(
+                "MongoDB is required for non-development business persistence but is "
+                f"unavailable ({target}). Start MongoDB or set "
+                "PRODUCTION_PLATFORM_MONGO_URI to a reachable server."
+            )
+        logger.error(
+            "MongoDB is unavailable (%s). Starting in degraded local mode: "
+            "SQLite authentication and real device scanning remain available; "
+            "Mongo-backed business features are paused until MongoDB recovers.",
+            target,
+        )
+    if mongo_available:
+        fail_interrupted_diagnostic_log_downloads()
+        resume_pending_diagnostic_log_cleanups()
     start_robot_scan_scheduler()
     google_proxy_manager.start()
-    start_health_refresh_scheduler()
-    workflow_service.initialize()
-    workflow_scheduler.start()
-    agent_schedule_scheduler.start()
+    if mongo_available or IS_DEV_ENV:
+        start_health_refresh_scheduler()
+    if mongo_available:
+        workflow_service.initialize()
+        workflow_scheduler.start()
+        agent_schedule_scheduler.start()
+    else:
+        logger.warning(
+            "Mongo-backed workflow and Agent schedulers are disabled "
+            "for this process"
+        )
 
     # Do not block API readiness on proxy probing; login and other routes must
     # stay available while the optional Google proxy refresh runs in background.

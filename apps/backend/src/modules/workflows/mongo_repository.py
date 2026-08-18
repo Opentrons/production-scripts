@@ -18,7 +18,6 @@ class MongoWorkflowRepository:
 
     def __init__(self) -> None:
         self._lock = RLock()
-        self._initialize()
 
     def _workflows(self):
         return get_document_collection(self.WORKFLOWS)
@@ -29,7 +28,8 @@ class MongoWorkflowRepository:
     def _ignored(self):
         return get_document_collection(self.IGNORED)
 
-    def _initialize(self) -> None:
+    def initialize(self) -> None:
+        """Create indexes after the application has established MongoDB."""
         with self._lock:
             self._runs().create_index([("workflow_id", 1), ("created_at", -1)])
             self._ignored().create_index([("workflow_id", 1), ("ignored_at", -1)])

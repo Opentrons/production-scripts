@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -46,3 +47,30 @@ def test_run_tests_does_not_print_each_node(monkeypatch, capsys) -> None:
 
     assert len(results) == 2
     assert capsys.readouterr().out == ""
+
+
+def test_atomic_writes_use_independent_temp_files(tmp_path) -> None:
+    config_path = tmp_path / "skill_config.json"
+    yml_path = tmp_path / "proxies.yml"
+
+    node_test.write_json_atomic(config_path, {"proxy": "http://proxy-a"})
+    node_test.write_text_atomic(yml_path, "proxies: []")
+
+    assert config_path.read_text(encoding="utf-8") == '{\n  "proxy": "http://proxy-a"\n}\n'
+    assert yml_path.read_text(encoding="utf-8") == "proxies: []\n"
+    assert list(tmp_path.glob(".*.tmp")) == []
+
+
+def test_concurrent_atomic_writes_do_not_race_on_temp_path(tmp_path) -> None:
+    yml_path = tmp_path / "proxies.yml"
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(
+            executor.map(
+                lambda index: node_test.write_text_atomic(yml_path, f"proxies: [{index}]"),
+                range(8),
+            )
+        )
+
+    assert yml_path.read_text(encoding="utf-8").startswith("proxies: [")
+    assert list(tmp_path.glob(".*.tmp")) == []
