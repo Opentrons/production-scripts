@@ -4,15 +4,10 @@ import os
 
 from fastapi import FastAPI
 
-from core.config import DURO_TOKEN_AUTO_REFRESH_SECONDS
 from core.database import mongodb
 from core.google.proxy_manager import google_proxy_manager
 from core.logging import get_logger
 from core.runtime_mode import ensure_db_layout, is_simulating
-from modules.duro.runtime import (
-    duro_browser_token_provider,
-    ensure_duro_remote_chrome_running,
-)
 from modules.system.health import start_health_refresh_scheduler, stop_health_refresh_scheduler
 from modules.auth.dependencies import get_auth_service
 from modules.system.simulating_seed import ensure_simulating_seed
@@ -55,9 +50,6 @@ async def lifespan(_: FastAPI):
     start_robot_scan_scheduler()
     google_proxy_manager.start()
     start_health_refresh_scheduler()
-    ensure_duro_remote_chrome_running()
-    if duro_browser_token_provider is not None:
-        duro_browser_token_provider.start_auto_refresh(DURO_TOKEN_AUTO_REFRESH_SECONDS)
     workflow_service.initialize()
     workflow_scheduler.start()
     agent_schedule_scheduler.start()
@@ -80,8 +72,6 @@ async def lifespan(_: FastAPI):
         agent_schedule_scheduler.stop()
         stop_health_refresh_scheduler()
         google_proxy_manager.stop()
-        if duro_browser_token_provider is not None:
-            duro_browser_token_provider.close()
         shutdown_robot_service()
         shutdown_diagnostic_log_service()
         shutdown_upload_service()

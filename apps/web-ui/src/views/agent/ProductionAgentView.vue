@@ -362,6 +362,7 @@ import AgentSchedulePanel from '@/views/agent/AgentSchedulePanel.vue'
 import AgentProtocolPanel from '@/views/agent/AgentProtocolPanel.vue'
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'
+import { authenticatedFetch } from '@/scripts/api/http'
 
 const { t } = useI18n()
 const { locale } = useAppLocale()
@@ -409,6 +410,7 @@ const ATTACHMENT_EXTENSIONS = new Set([
 const ATTACHMENT_ACCEPT = [...ATTACHMENT_EXTENSIONS].map(ext => `.${ext}`).join(',')
 
 const quickPrompts = computed(() => [
+  t('agent.prompts.downloadTestData'), t('agent.prompts.platformStatus'),
   t('agent.prompts.uploads'), t('agent.prompts.devices'), t('agent.prompts.quality'), t('agent.prompts.sop'),
   t('agent.prompts.checkSheet'), t('agent.prompts.editSheet'), t('agent.prompts.attachment'),
   t('agent.prompts.gripperZSpeed'), t('agent.prompts.modulesCount'),
@@ -446,6 +448,8 @@ function hideShortcutTooltip(): void {
 
 const TOOL_NAMES = [
   'get_current_time', 'inspect_agent_attachment', 'read_agent_attachment', 'get_platform_overview',
+  'get_platform_health', 'get_platform_version', 'list_downloadable_resources', 'query_robot_log_downloads',
+  'query_agent_schedules', 'list_robot_testing_data', 'prepare_robot_testing_data_download',
   'query_upload_records', 'analyze_upload_records', 'query_products',
   'query_unit_tracker', 'list_data_links', 'list_test_data_collections', 'query_test_data', 'query_devices',
   'query_version_history', 'query_protocol_monitor', 'query_workflows', 'query_test_cases', 'search_sop_catalog',
@@ -824,6 +828,13 @@ async function copyMessage(item: ConversationMessage): Promise<void> {
 
 async function onMarkdownClick(event: MouseEvent): Promise<void> {
   const target = event.target as HTMLElement | null
+  const link = target?.closest('a[href]') as HTMLAnchorElement | null
+  const href = link?.getAttribute('href') || ''
+  if (isPlatformDownloadUrl(href)) {
+    event.preventDefault()
+    await downloadPlatformFile(href)
+    return
+  }
   const button = target?.closest('.agent-code-copy') as HTMLButtonElement | null
   if (!button) return
   event.preventDefault()
@@ -845,6 +856,41 @@ async function onMarkdownClick(event: MouseEvent): Promise<void> {
     }, 1600)
   } catch {
     // Clipboard can be unavailable in insecure contexts; keep the UI quiet.
+  }
+}
+
+function isPlatformDownloadUrl(href: string): boolean {
+  return /^\/api\/(?:agent\/downloads\/testing-data\/|file-resources\/versions\/[^/]+\/download$|robots\/log-downloads\/records\/[^/]+\/file$)/.test(href)
+}
+
+function downloadFilename(response: Response): string {
+  const disposition = response.headers.get('content-disposition') || ''
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded)
+    } catch {
+      // Fall through to the plain filename.
+    }
+  }
+  return disposition.match(/filename="?([^";]+)"?/i)?.[1] || 'production-download'
+}
+
+async function downloadPlatformFile(href: string): Promise<void> {
+  try {
+    const response = await authenticatedFetch(href)
+    if (!response.ok) throw new Error(t('agent.httpFailed', { status: response.status }))
+    const objectUrl = URL.createObjectURL(await response.blob())
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = downloadFilename(response)
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(objectUrl)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : t('agent.callFailed')
+    setComposerFeedback(t('agent.downloadFailed', { error: message }))
   }
 }
 

@@ -13,29 +13,16 @@
     </header>
 
     <el-alert
-      v-if="connectionStatus && (!connectionStatus.configured || (!connectionStatus.token_valid && !connectionStatus.remote_chrome_configured))"
-      class="token-alert"
+      v-if="connectionStatus && (!connectionStatus.configured || !connectionStatus.api_key_valid)"
+      class="connection-alert"
       type="warning"
       :closable="false"
       show-icon
     >
-      <template #title>{{ t(connectionStatus.configured ? 'versions.duro.tokenExpired' : 'versions.duro.tokenMissing') }}</template>
+      <template #title>{{ t(connectionStatus.configured ? 'versions.duro.apiKeyExpired' : 'versions.duro.apiKeyMissing') }}</template>
       <template #default>
-        <span v-if="connectionStatus.token_expires_at">{{ t('versions.duro.expiresAt', { time: formatDate(connectionStatus.token_expires_at) }) }}</span>
-        {{ t('versions.duro.tokenHelp') }} <code>PRODUCTION_PLATFORM_DURO_TOKEN</code> {{ t('versions.duro.tokenHelpSuffix') }}
-      </template>
-    </el-alert>
-
-    <el-alert
-      v-if="connectionStatus?.remote_chrome_configured && !connectionStatus.token_valid && connectionStatus.remote_chrome_error"
-      class="token-alert"
-      type="warning"
-      :closable="false"
-      show-icon
-      :title="t('versions.duro.autoRefreshUnavailable')"
-    >
-      <template #default>
-        {{ t('versions.duro.remoteChromeHelp', { error: connectionStatus.remote_chrome_error }) }}
+        <span v-if="connectionStatus.api_key_expires_at">{{ t('versions.duro.expiresAt', { time: formatDate(connectionStatus.api_key_expires_at) }) }}</span>
+        {{ t('versions.duro.apiKeyHelp') }} <code>PRODUCTION_PLATFORM_DURO_API_KEY</code> {{ t('versions.duro.apiKeyHelpSuffix') }}
       </template>
     </el-alert>
 
@@ -410,7 +397,7 @@ async function loadProducts(refresh = false) {
     connectionStatus.value = statusResponse.data
     if (
       !statusResponse.data.configured ||
-      (!statusResponse.data.token_valid && !statusResponse.data.remote_chrome_configured)
+      !statusResponse.data.api_key_valid
     ) {
       productResponse.value = null
       return
@@ -422,7 +409,7 @@ async function loadProducts(refresh = false) {
     console.error(error)
     loadError.value = error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || t('versions.duro.loadFailed')
     if ([401, 503].includes(error?.response?.status) && connectionStatus.value) {
-      connectionStatus.value = { ...connectionStatus.value, token_valid: false }
+      connectionStatus.value = { ...connectionStatus.value, api_key_valid: false }
     }
   } finally {
     loading.value = false
@@ -606,11 +593,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.token-alert {
+.connection-alert {
   margin-top: 20px;
 }
 
-.token-alert code {
+.connection-alert code {
   padding: 2px 5px;
   border-radius: 4px;
   background: rgba(30, 43, 52, 0.08);

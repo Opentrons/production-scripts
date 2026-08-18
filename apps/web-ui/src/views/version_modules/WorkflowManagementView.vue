@@ -989,15 +989,25 @@
                         </el-table>
                     </template>
                   </div>
-                  <el-alert
-                    v-else-if="runDetailLoaded[run.id] && (run.status === 'running' || run.status === 'queued')"
-                    :title="w('checkingBom')"
-                    type="info"
-                    :closable="false"
-                    show-icon
-                  />
                   <div v-else-if="runDetailLoaded[run.id]" class="run-log-list">
-                    <span v-for="(log, index) in run.logs" :key="index">{{ log }}</span>
+                    <span
+                      v-for="(log, index) in run.logs"
+                      :key="index"
+                      class="run-log-entry"
+                      :class="{ 'is-current': isRunInProgress(run) && index === run.logs.length - 1 }"
+                    >
+                      <span class="run-log-entry-marker" aria-hidden="true">
+                        <el-icon v-if="isRunInProgress(run) && index === run.logs.length - 1"><Loading /></el-icon>
+                        <span v-else class="run-log-entry-dot"></span>
+                      </span>
+                      <span>{{ log }}</span>
+                    </span>
+                    <span v-if="!run.logs.length" class="run-log-entry is-current">
+                      <span class="run-log-entry-marker" aria-hidden="true">
+                        <el-icon><Loading /></el-icon>
+                      </span>
+                      <span>{{ w('workflowRunning') }}</span>
+                    </span>
                   </div>
                 </el-collapse-item>
               </el-collapse>
@@ -1508,7 +1518,7 @@ const dataSourceErrorDetail = computed(() =>
   ].filter(Boolean).join('\n')
 )
 const duroApiKeyExpiring = computed(() => {
-  const expiresAt = duroConnectionStatus.value?.token_expires_at
+  const expiresAt = duroConnectionStatus.value?.api_key_expires_at
   if (!expiresAt) return false
   const remaining = Date.parse(expiresAt) - Date.now()
   return remaining <= 14 * 24 * 60 * 60 * 1000
@@ -1516,8 +1526,8 @@ const duroApiKeyExpiring = computed(() => {
 const duroApiKeyExpiryText = computed(() => {
   const status = duroConnectionStatus.value
   if (!status?.configured) return w('duroApiKeyMissing')
-  if (!status.token_expires_at) return w('duroApiKeyExpiryUnknown')
-  return w('duroApiKeyExpiresAt', { time: formatDate(status.token_expires_at) })
+  if (!status.api_key_expires_at) return w('duroApiKeyExpiryUnknown')
+  return w('duroApiKeyExpiresAt', { time: formatDate(status.api_key_expires_at) })
 })
 
 function cloneWorkflowPayload(workflow: Workflow): WorkflowPayload {
@@ -2077,6 +2087,9 @@ async function loadRuns(workflowId: string) {
         if (['queued', 'running'].includes(run.status)) {
           setWorkflowRunning(workflowId, true)
           startPollingWorkflowRun(workflowId, run.id)
+          if (expandedRunIds.has(run.id) && !runDetailLoaded[run.id]) {
+            void loadRunDetail(run.id)
+          }
         }
       }
       for (const runId of detailRunIdsToReload) {
@@ -2357,7 +2370,10 @@ async function triggerWorkflow(workflow: Workflow) {
   try {
     const response = await workflowApi.trigger(workflow.id)
     ElMessage.success(w('messages.triggered'))
-    if (editorVisible.value && selectedWorkflowId.value === workflow.id) builderTab.value = 'history'
+    if (editorVisible.value && selectedWorkflowId.value === workflow.id) {
+      builderTab.value = 'history'
+      activeRunIds.value = [response.data.id]
+    }
     startPollingWorkflowRun(workflow.id, response.data.id)
     await loadWorkflows()
   } catch (error) {
@@ -2393,6 +2409,7 @@ async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
   try {
     const response = await workflowApi.runDetail(runId, 0, 1)
     const run = response.data.run
+    mergePolledWorkflowRun(run)
     if (!run || !['queued', 'running'].includes(run.status) || attempt >= 1800) {
       stopPollingWorkflowRun(workflowId, runId)
       setWorkflowRunning(workflowId, false)
@@ -2409,6 +2426,25 @@ async function pollWorkflowRun(workflowId: string, runId: string, attempt = 0) {
     }
   }
   window.setTimeout(() => void pollWorkflowRun(workflowId, runId, attempt + 1), 1000)
+}
+
+function mergePolledWorkflowRun(run: WorkflowRun | undefined) {
+  if (!run) return
+  const index = workflowRuns.value.findIndex((item) => item.id === run.id)
+  if (index < 0) return
+  const current = workflowRuns.value[index]
+  workflowRuns.value[index] = {
+    ...current,
+    status: run.status,
+    message: run.message,
+    logs: run.logs,
+    started_at: run.started_at,
+    finished_at: run.finished_at
+  }
+  if (activeRunIds.value.includes(run.id)) {
+    runDetailLoaded[run.id] = true
+    runDetailErrors[run.id] = ''
+  }
 }
 
 function duroTemplateSteps(): WorkflowStep[] {
@@ -2800,6 +2836,9 @@ function runStatusClass(run: WorkflowRun) {
 
 function runMessageText(run: WorkflowRun) {
   if (run.status === 'succeeded' && run.report) return w('verificationCompleted', { count: runWarningCount(run) })
+  if (isRunInProgress(run)) {
+    return run.logs[run.logs.length - 1]?.trim() || w('workflowRunning')
+  }
   const message = run.message.trim()
   if (message) return run.status === 'failed' ? w('failureReason', { reason: message }) : message
   if (run.status === 'failed') {
@@ -2807,6 +2846,10 @@ function runMessageText(run: WorkflowRun) {
     return w('failureReason', { reason: lastLog || w('noFailureReason') })
   }
   return w('workflowRunning')
+}
+
+function isRunInProgress(run: WorkflowRun) {
+  return run.status === 'queued' || run.status === 'running'
 }
 
 function truncatedRunMessage(run: WorkflowRun, limit = 38) {

@@ -897,6 +897,63 @@
                   </div>
                 </el-tab-pane>
 
+                <el-tab-pane :label="t('devices.workbench.tabs.barcode')" name="barcode">
+                  <div class="batch-form-grid">
+                    <label class="batch-field">
+                      <span>{{ t('devices.workbench.batch.barcodeTarget') }}</span>
+                      <el-select v-model="batchBarcodeKind">
+                        <el-option
+                          v-for="target in batchBarcodeTargetOptions"
+                          :key="target.value"
+                          :label="target.label"
+                          :value="target.value"
+                        />
+                      </el-select>
+                    </label>
+                    <label v-if="batchBarcodeKind === 'pipette'" class="batch-field">
+                      <span>{{ t('devices.workbench.batch.barcodeMount') }}</span>
+                      <el-select v-model="batchBarcodeMount">
+                        <el-option :label="t('devices.barcode.mount', { value: 'left' })" value="left" />
+                        <el-option :label="t('devices.barcode.mount', { value: 'right' })" value="right" />
+                      </el-select>
+                    </label>
+                  </div>
+
+                  <div v-if="selectedRobots.length" class="batch-barcode-list">
+                    <div class="batch-barcode-list-header">
+                      <span>{{ t('devices.workbench.batch.barcodeDevice') }}</span>
+                      <span>{{ t('devices.workbench.batch.barcodeValue') }}</span>
+                    </div>
+                    <label
+                      v-for="robot in selectedRobots"
+                      :key="`barcode-${robot.ip}`"
+                      class="batch-barcode-row"
+                    >
+                      <span class="batch-barcode-device">
+                        <strong>{{ robot.name || t('devices.unnamed') }}</strong>
+                        <small>{{ robot.ip }}</small>
+                      </span>
+                      <el-input
+                        v-model="batchBarcodeByIp[robot.ip]"
+                        :placeholder="t('devices.workbench.batch.barcodePlaceholder')"
+                        :disabled="batchRunning"
+                      />
+                    </label>
+                  </div>
+                  <el-empty v-else :description="t('devices.workbench.batch.selectDevice')" :image-size="72" />
+
+                  <div class="batch-actions-row">
+                    <el-button
+                      type="primary"
+                      :loading="batchRunning"
+                      :disabled="!canBatchProvisionBarcodes"
+                      @click="runBatchBarcodeProvision"
+                    >
+                      {{ t('devices.workbench.batch.provisionBarcodes') }}
+                    </el-button>
+                  </div>
+                </el-tab-pane>
+
                 <el-tab-pane :label="t('devices.workbench.tabs.logs')" name="logs">
                   <el-tabs v-model="logViewTab" class="log-view-tabs">
                     <el-tab-pane :label="t('devices.workbench.logs.select')" name="select">
@@ -1579,6 +1636,10 @@ const batchRunning = ref(false)
 const batchUploadPath = ref('')
 const batchUploadFile = ref<File | null>(null)
 const batchDownloadPath = ref('')
+type BatchBarcodeKind = 'robot' | 'pipette' | 'gripper' | 'hepauv'
+const batchBarcodeKind = ref<BatchBarcodeKind>('robot')
+const batchBarcodeMount = ref<'left' | 'right'>('left')
+const batchBarcodeByIp = ref<Record<string, string>>({})
 const batchHttpCommandPresetId = ref('')
 const batchCommandMethod = ref('GET')
 const batchCommandPath = ref('/health')
@@ -1667,6 +1728,12 @@ const HTTP_COMMAND_PRESETS = computed(() => [
   { id: 'gantry-y', name: t('devices.workbench.command.presets.y'), path: '/subsystems/status/gantry_y' },
   { id: 'head', name: t('devices.workbench.command.presets.head'), path: '/subsystems/status/head' },
   { id: 'rear-panel', name: t('devices.workbench.command.presets.rear'), path: '/subsystems/status/rear_panel' }
+])
+const batchBarcodeTargetOptions = computed(() => [
+  { value: 'robot' as const, label: t('devices.workbench.batch.barcodeKinds.robot') },
+  { value: 'pipette' as const, label: t('devices.workbench.batch.barcodeKinds.pipette') },
+  { value: 'gripper' as const, label: t('devices.workbench.batch.barcodeKinds.gripper') },
+  { value: 'hepauv' as const, label: t('devices.workbench.batch.barcodeKinds.hepauv') }
 ])
 
 interface BatchOperationResult {
@@ -1812,6 +1879,19 @@ const canReadBatchFile = computed(() => Boolean(batchReferenceIp.value && batchE
 const canWriteBatchFile = computed(() => selectedIps.value.length > 0 && Boolean(batchEditPath.value.trim()))
 const canBatchUpload = computed(() => selectedIps.value.length > 0 && Boolean(batchUploadPath.value.trim() && batchUploadFile.value))
 const canBatchDownload = computed(() => selectedIps.value.length > 0 && Boolean(batchDownloadPath.value.trim()))
+const batchBarcodeValues = computed(() => (
+  selectedIps.value.map(ip => batchBarcodeByIp.value[ip]?.trim() || '')
+))
+const hasDuplicateBatchBarcode = computed(() => {
+  const values = batchBarcodeValues.value.filter(Boolean)
+  return new Set(values).size !== values.length
+})
+const canBatchProvisionBarcodes = computed(() => (
+  selectedIps.value.length > 0
+  && batchBarcodeValues.value.every(Boolean)
+  && !hasDuplicateBatchBarcode.value
+  && !batchRunning.value
+))
 const canBatchCommand = computed(() => selectedIps.value.length > 0 && Boolean(batchCommandMethod.value && batchCommandPath.value.trim()))
 const canRunBatchSshCommand = computed(() => (
   selectedIps.value.length > 0
@@ -2054,6 +2134,49 @@ async function runBatchDownload() {
     const filename = parseDownloadFilename(response.headers['content-disposition'], fallbackName)
     saveBlob(response.data, filename)
     return t('devices.workbench.batch.downloaded', { path })
+  })
+}
+
+async function runBatchBarcodeProvision() {
+  if (!canBatchProvisionBarcodes.value) {
+    ElMessage.warning(
+      hasDuplicateBatchBarcode.value
+        ? t('devices.workbench.batch.barcodeDuplicate')
+        : t('devices.workbench.batch.barcodeRequired')
+    )
+    return
+  }
+  const target = batchBarcodeTargetOptions.value.find(item => item.value === batchBarcodeKind.value)
+  try {
+    await ElMessageBox.confirm(
+      t('devices.workbench.batch.barcodeConfirm', {
+        count: selectedIps.value.length,
+        target: target?.label || batchBarcodeKind.value
+      }),
+      t('devices.barcode.confirmTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('devices.workbench.batch.provisionBarcodes'),
+        cancelButtonText: t('common.actions.cancel')
+      }
+    )
+  } catch {
+    return
+  }
+
+  await runForSelectedDevices(t('devices.workbench.batch.provisionBarcodeAction'), async (ip) => {
+    const serial = batchBarcodeByIp.value[ip].trim()
+    const robot = selectedRobots.value.find(item => item.ip === ip)
+    const response = await robotApi.provisionBarcode(ip, {
+      kind: batchBarcodeKind.value,
+      serial,
+      mount: batchBarcodeKind.value === 'pipette' ? batchBarcodeMount.value : undefined,
+      port: robot?.port
+    })
+    if (!response.data.success) {
+      throw new Error(response.data.message || t('devices.barcode.failed'))
+    }
+    return response.data.message || t('devices.workbench.batch.barcodeProvisioned', { serial })
   })
 }
 
@@ -2906,6 +3029,9 @@ watch(selectedIps, (ips) => {
   if (!ips.includes(batchReferenceIp.value)) {
     batchReferenceIp.value = ips[0] ?? ''
   }
+  for (const ip of ips) {
+    if (!(ip in batchBarcodeByIp.value)) batchBarcodeByIp.value[ip] = ''
+  }
 })
 
 watch(versionCaptureProductType, () => {
@@ -3671,6 +3797,56 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.batch-barcode-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.batch-barcode-list-header,
+.batch-barcode-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.batch-barcode-list-header {
+  color: var(--console-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.batch-barcode-row {
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.batch-barcode-device {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.batch-barcode-device strong,
+.batch-barcode-device small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-barcode-device strong {
+  color: var(--console-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.batch-barcode-device small {
+  color: var(--console-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
 .batch-actions-row {
   display: flex;
   flex-wrap: wrap;
@@ -4238,6 +4414,15 @@ onMounted(async () => {
 
   .batch-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .batch-barcode-list-header {
+    display: none;
+  }
+
+  .batch-barcode-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .batch-ssh-settings {

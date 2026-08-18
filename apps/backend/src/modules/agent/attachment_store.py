@@ -57,6 +57,13 @@ def reset_attachment_scope(token: Token) -> None:
     _attachment_scope.reset(token)
 
 
+def current_attachment_owner() -> str:
+    scope = _attachment_scope.get()
+    if scope is None:
+        raise AttachmentError("该工具仅支持在已登录的助手对话中使用")
+    return scope[0]
+
+
 def _root() -> Path:
     return Path(config.AGENT_ATTACHMENT_DIR)
 

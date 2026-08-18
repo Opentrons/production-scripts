@@ -35,7 +35,7 @@ production-scripts/
 - Opentrons HTTP API 客户端、批量设备操作、日志 / 文件 / Protocol 管理。
 - JWT Access Token 默认 5 分钟，登录会话默认 1 小时。
 - 非仿真模式使用 MongoDB `ProductionsMessage`；仿真模式使用 `apps/backend/db-storage/simulating/` 下的 SQLite。
-- Google Drive、Slack、Duro、Remote Chrome 和 LLM 等外部服务集成。
+- Google Drive、Slack、Duro API Key 和 LLM 等外部服务集成。
 
 ### 硬件工具
 

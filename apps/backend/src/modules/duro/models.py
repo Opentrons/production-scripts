@@ -94,16 +94,9 @@ class DuroComponentChildrenResponse(BaseModel):
 
 class DuroConnectionStatus(BaseModel):
     configured: bool
-    token_valid: bool
-    token_expires_at: datetime | None = None
+    api_key_valid: bool
+    api_key_expires_at: datetime | None = None
     base_url: str
-    remote_chrome_configured: bool = False
-    remote_chrome_connected: bool = False
-    remote_chrome_token_valid: bool = False
-    remote_chrome_token_expires_at: datetime | None = None
-    remote_chrome_last_success_at: datetime | None = None
-    remote_chrome_error: str = ""
-    auto_refresh_active: bool = False
 
 
 class DuroApiKeyUpdate(BaseModel):

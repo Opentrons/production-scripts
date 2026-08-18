@@ -8,6 +8,14 @@ from modules.robots import file_transfer as file_transfer_service
 logger = get_logger(__name__)
 router = APIRouter()
 
+
+def _client_ip(request: Request) -> str:
+    forwarded_ip = request.headers.get("X-Real-IP", "").strip()
+    if forwarded_ip:
+        return forwarded_ip
+    return request.client.host if request.client else "unknown"
+
+
 @router.post("/pull-folder", response_model=PullFolderResponse)
 async def pull_folder(
     request: Request,
@@ -16,7 +24,7 @@ async def pull_folder(
     pull_method: str = Form("sftp", description="Pull method: sftp or scp"),
 ):
     try:
-        robot_ip = request.client.host
+        robot_ip = _client_ip(request)
         logger.info(f"Received pull-folder request from {robot_ip}")
         return await file_transfer_service.pull_folder(
             robot_ip=robot_ip,

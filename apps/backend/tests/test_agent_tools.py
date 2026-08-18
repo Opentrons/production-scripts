@@ -27,6 +27,13 @@ def test_tool_registry_exposes_broad_platform_capabilities() -> None:
         "aggregate_platform_database",
         "query_devices",
         "query_unit_tracker",
+        "get_platform_health",
+        "get_platform_version",
+        "list_downloadable_resources",
+        "query_robot_log_downloads",
+        "query_agent_schedules",
+        "list_robot_testing_data",
+        "prepare_robot_testing_data_download",
         "search_opentrons_official_docs",
         "read_opentrons_official_doc",
         "search_opentrons_source",
@@ -34,6 +41,27 @@ def test_tool_registry_exposes_broad_platform_capabilities() -> None:
         "search_knowledge",
         "save_knowledge",
     } <= names
+
+
+def test_robot_log_tool_adds_download_urls_for_available_files(monkeypatch) -> None:
+    from modules.robots import diagnostic_logs
+
+    monkeypatch.setattr(
+        diagnostic_logs,
+        "list_download_records",
+        lambda **_kwargs: {
+            "records": [
+                {"_id": "available", "file_available": True},
+                {"_id": "missing", "file_available": False},
+            ],
+            "total": 2,
+        },
+    )
+
+    result = platform.query_robot_log_downloads(ip="192.168.6.101")
+
+    assert result["records"][0]["download_url"] == "/api/robots/log-downloads/records/available/file"
+    assert "download_url" not in result["records"][1]
 
 
 def test_google_sheet_mutations_require_confirmation_without_opening_google() -> None:

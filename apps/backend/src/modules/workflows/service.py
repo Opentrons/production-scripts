@@ -412,15 +412,14 @@ class WorkflowService:
     def _execute_run(self, workflow: Workflow, run: WorkflowRun) -> None:
         run.status = "running"
         run.started_at = utc_now()
-        run.logs.append(f"开始执行工作流：{workflow.name}")
-        self.repository.save_run(run)
+        self._append_run_log(run, f"开始执行工作流：{workflow.name}")
 
         try:
             if workflow.kind == "duro_bom_check":
                 sop_sources = self._configured_sop_sources(workflow)
                 duro_source = str(workflow.configuration.get("duro_product_id") or "").strip()
                 duro_submenu_ids = self._configured_duro_submenu_ids(workflow)
-                run.logs.append("检查 SOP 与 Duro 数据源配置。")
+                self._append_run_log(run, "检查 SOP 与 Duro 数据源配置。")
                 if not sop_sources or not duro_source or not duro_submenu_ids:
                     missing = []
                     if not sop_sources:
@@ -435,32 +434,32 @@ class WorkflowService:
                     return
                 if self.sop_service is None or self.duro_service is None:
                     raise RuntimeError("工作流 BOM 核对服务未初始化")
-                run.logs.append("运行前强制刷新 SOP 总表和 Duro 产品表。")
-                self.repository.save_run(run)
+                self._append_run_log(run, "运行前强制刷新 SOP 总表和 Duro 产品表。")
                 sop_sources, duro_source = self._refresh_run_data_sources(
                     workflow,
                     sop_sources,
                     duro_source,
                     run,
                 )
-                run.logs.append(f"读取 {len(sop_sources)} 份 SOP。")
-                self.repository.save_run(run)
+                self._append_run_log(run, f"读取 {len(sop_sources)} 份 SOP。")
                 sop_materials = self._collect_sop_references(sop_sources)
                 sop_cleanup_items = self._normalize_material_part_numbers(sop_materials, "sop")
-                run.logs.append(f"SOP 全文引用汇总完成：{len(sop_materials)} 个料号。")
-                self.repository.save_run(run)
-
-                run.logs.append(
-                    f"读取 Duro 产品：{workflow.configuration.get('duro_product_name') or duro_source}。"
+                self._append_run_log(
+                    run,
+                    f"SOP 全文引用汇总完成：{len(sop_materials)} 个料号。",
                 )
-                self.repository.save_run(run)
+
+                self._append_run_log(
+                    run,
+                    f"读取 Duro 产品：{workflow.configuration.get('duro_product_name') or duro_source}。",
+                )
                 duro_materials, duro_submenus = self._collect_duro_materials(duro_source, duro_submenu_ids)
                 duro_cleanup_items = self._normalize_material_part_numbers(duro_materials, "duro")
-                run.logs.append(
+                self._append_run_log(
+                    run,
                     f"Duro BOM 展开完成：扫描 {len(duro_submenus)} 个子菜单，"
-                    f"识别 {len(duro_materials)} 个料号。"
+                    f"识别 {len(duro_materials)} 个料号。",
                 )
-                self.repository.save_run(run)
 
                 report = self._build_bom_report(sop_sources, sop_materials, duro_materials, duro_submenus)
                 mismatch_part_numbers = {
@@ -470,14 +469,19 @@ class WorkflowService:
                 }
                 if mismatch_part_numbers:
                     try:
+                        self._append_run_log(
+                            run,
+                            f"开始二次复核 {len(mismatch_part_numbers)} 个数量差异料号。",
+                        )
                         refined_count = self._refine_sop_quantity_mismatches(
                             sop_sources,
                             sop_materials,
                             mismatch_part_numbers,
                         )
-                        run.logs.append(
+                        self._append_run_log(
+                            run,
                             "数量差异物料名二次复核完成："
-                            f"检查 {len(mismatch_part_numbers)} 个料号，更新 {refined_count} 个结果。"
+                            f"检查 {len(mismatch_part_numbers)} 个料号，更新 {refined_count} 个结果。",
                         )
                         if refined_count:
                             report = self._build_bom_report(
@@ -487,9 +491,10 @@ class WorkflowService:
                                 duro_submenus,
                             )
                     except Exception as exc:
-                        run.logs.append(
+                        self._append_run_log(
+                            run,
                             "数量差异物料名二次复核未完成，保留第一阶段料号统计结果："
-                            f"{str(exc)[:300]}"
+                            f"{str(exc)[:300]}",
                         )
                 report = self._apply_ignored_differences(workflow, report)
                 warning_difference_count = (
@@ -507,9 +512,15 @@ class WorkflowService:
                 if cleanup_items:
                     report.ignored_items.extend(cleanup_items)
                     report.total_ignored_count = len(report.ignored_items)
-                    run.logs.append(f"默认料号清洗完成：规范化 {len(cleanup_items)} 个料号。")
+                    self._append_run_log(
+                        run,
+                        f"默认料号清洗完成：规范化 {len(cleanup_items)} 个料号。",
+                    )
                 if report.ignored_items:
-                    run.logs.append(f"已按配置忽略 {len(report.ignored_items)} 项 BOM 差异。")
+                    self._append_run_log(
+                        run,
+                        f"已按配置忽略 {len(report.ignored_items)} 项 BOM 差异。",
+                    )
                 run.report = report
                 run.status = "succeeded"
                 run.message = f"核对完成：{warning_difference_count} 项警告"
@@ -525,6 +536,10 @@ class WorkflowService:
         finally:
             run.finished_at = utc_now()
             self.repository.save_run(run)
+
+    def _append_run_log(self, run: WorkflowRun, message: str) -> None:
+        run.logs.append(message)
+        self.repository.save_run(run)
 
     def _merge_persisted_ignored_part_rules(self, workflow: Workflow) -> Workflow:
         if workflow.kind != "duro_bom_check":
@@ -734,9 +749,10 @@ class WorkflowService:
             str(old.get("drive_file_id") or "").strip() != fresh["drive_file_id"]
             for old, fresh in zip(configured_sop_sources, fresh_sop_sources)
         )
-        run.logs.append(
+        self._append_run_log(
+            run,
             f"SOP 总表实时刷新完成：定位 {len(fresh_sop_sources)} 份 SOP，"
-            f"更新 {changed_sop_links} 个源 PDF 链接。"
+            f"更新 {changed_sop_links} 个源 PDF 链接。",
         )
 
         product_table = self.duro_service.list_products(refresh=True)
@@ -751,9 +767,10 @@ class WorkflowService:
         if not fresh_duro_product_id:
             raise RuntimeError("Duro 产品表中的目标产品缺少产品 ID")
         product_changed = fresh_duro_product_id != configured_duro_product_id
-        run.logs.append(
+        self._append_run_log(
+            run,
             f"Duro 产品表实时刷新完成：读取 {len(product_table.products)} 个产品，"
-            f"目标产品 ID {'已更新' if product_changed else '未变化'}。"
+            f"目标产品 ID {'已更新' if product_changed else '未变化'}。",
         )
 
         configuration = dict(workflow.configuration)

@@ -25,7 +25,16 @@
 
       <div class="flash-form-grid">
         <label class="flash-field branch-field">
-          <span>{{ t('devices.codeFlash.branch') }}</span>
+          <span class="branch-label">
+            <span>{{ t('devices.codeFlash.branch') }}</span>
+            <el-checkbox
+              v-model="robotDiagnosticEnabled"
+              class="diagnostic-branch-checkbox"
+              @change="toggleRobotDiagnostic"
+            >
+              {{ t('devices.codeFlash.robotDiagnostic') }}
+            </el-checkbox>
+          </span>
           <div class="branch-select-row">
             <el-select
               v-model="selectedBranch"
@@ -53,7 +62,7 @@
         </label>
 
         <div class="pull-field">
-          <span>{{ t('devices.codeFlash.remoteSync') }}</span>
+          <span class="pull-field-title">{{ t('devices.codeFlash.remoteSync') }}</span>
           <el-checkbox v-model="pullBeforeFlash">{{ t('devices.codeFlash.pullAfterSwitch') }}</el-checkbox>
         </div>
 
@@ -190,6 +199,7 @@ import {
 import { useAppLocale } from '@/i18n'
 
 const { t } = useAppLocale()
+const ROBOT_DIAGNOSTIC_BRANCH = 'robot.diagnostic-25-12.19'
 
 const props = defineProps<{
   ip: string | null
@@ -198,6 +208,8 @@ const props = defineProps<{
 const presets = ref<RobotCodeFlashPreset[]>([])
 const branches = ref<RobotCodeFlashBranch[]>([])
 const selectedBranch = ref('')
+const defaultBranch = ref('')
+const robotDiagnosticEnabled = ref(false)
 const pullBeforeFlash = ref(false)
 const selectedPresetId = ref('all-flex-services')
 const makeCommand = ref('')
@@ -253,6 +265,12 @@ function applyPreset(presetId: string) {
   if (preset) makeCommand.value = preset.command
 }
 
+function toggleRobotDiagnostic(enabled: boolean | string | number) {
+  const checked = Boolean(enabled)
+  robotDiagnosticEnabled.value = checked
+  selectedBranch.value = checked ? ROBOT_DIAGNOSTIC_BRANCH : defaultBranch.value
+}
+
 async function loadPresets() {
   if (loadingPresets.value) return
   loadingPresets.value = true
@@ -263,7 +281,9 @@ async function loadPresets() {
     repositoryAvailable.value = response.data.available
     repositoryError.value = response.data.error || ''
     branches.value = response.data.branches || []
-    selectedBranch.value = response.data.current_branch || response.data.branches?.[0]?.name || ''
+    defaultBranch.value = response.data.current_branch || response.data.branches?.[0]?.name || ''
+    robotDiagnosticEnabled.value = false
+    selectedBranch.value = defaultBranch.value
     repositoryClean.value = response.data.clean
     dirtyFiles.value = response.data.dirty_files || []
     if (!makeCommand.value.trim()) {
@@ -449,7 +469,32 @@ onBeforeUnmount(clearPollTimer)
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 8px;
+}
+
+.branch-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1f2a37;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.branch-label > span {
+  white-space: nowrap;
+}
+
+.diagnostic-branch-checkbox {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.diagnostic-branch-checkbox :deep(.el-checkbox__label) {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .branch-option strong {
@@ -461,12 +506,19 @@ onBeforeUnmount(clearPollTimer)
 }
 
 .pull-field {
+  grid-column: 1 / -1;
   display: grid;
   align-content: start;
   gap: 7px;
   color: #6b7280;
   font-size: 12px;
   font-weight: 600;
+}
+
+.pull-field-title {
+  color: #1f2a37;
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .pull-field :deep(.el-checkbox) {

@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-DEFAULT_SERVER_HOST = "192.168.0.137"
+DEFAULT_SERVER_HOST = "192.168.6.55"
 DEFAULT_SERVER_PORT = 8090
 DEFAULT_BASE_URL = f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}"
 

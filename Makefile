@@ -2,13 +2,15 @@
 
 HOST ?= 0.0.0.0
 API_PORT ?= 8090
+DEPLOY_API_PORT ?= 18090
 WEB_PORT ?= 8091
 WEB_HTTP_PORT ?= 80
 WEB_HTTPS_PORT ?= 443
+DATA_CENTER_HTTP_PORT ?= 8090
+DATA_CENTER_ALLOWED_CIDRS ?= 192.168.6.0/24,192.168.7.0/24,192.168.8.0/24
 SERVER_NAME ?= _
 SSL_CERTIFICATE ?=
 SSL_CERTIFICATE_KEY ?=
-REMOTE_CHROME_PORT ?= 9222
 REMOTE_HOST ?= 192.168.6.55
 REMOTE_USER ?= root
 REMOTE_SSH_PORT ?= 22
@@ -19,7 +21,7 @@ REMOTE_SSL_CERTIFICATE_KEY ?= /etc/ssl/production-platform/production-platform.k
 DURO_API_KEY_PATH ?= $(CURDIR)/apps/backend/auth-files/duro-api-key.txt
 REMOTE_DURO_API_KEY_PATH ?= /configs/duro-api-key.txt
 
-.PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build remote-chrome deploy-backend deploy-web deploy-remote
+.PHONY: help sync dev dev-stop-ports backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build deploy-backend deploy-web deploy-remote
 
 help:
 	@echo "Production Scripts targets:"
@@ -38,7 +40,6 @@ help:
 	@echo "  make high-voltage     Run the high-voltage tool"
 	@echo "  make test             Run backend and hardware tests"
 	@echo "  make build            Build web and hardware executable"
-	@echo "  make remote-chrome    Start the Duro Chrome CDP profile"
 	@echo "  make deploy-backend   Install/restart the backend service"
 	@echo "  make deploy-web       Build/configure the nginx site"
 	@echo "  make deploy-remote    Build and deploy web/backend to $(REMOTE_HOST)"
@@ -102,9 +103,6 @@ test: backend-test hardware-test
 
 build: web-build hardware-build
 
-remote-chrome:
-	cd apps/backend && DURO_REMOTE_CHROME_PORT=$(REMOTE_CHROME_PORT) ./scripts/start_duro_remote_chrome.sh
-
 deploy-backend:
 	sudo API_PORT=$(API_PORT) bash deploy/backend.sh
 
@@ -117,9 +115,11 @@ deploy-remote: web-build
 	REMOTE_SSH_PORT="$(REMOTE_SSH_PORT)" \
 	REMOTE_ROOT="$(REMOTE_ROOT)" \
 	REMOTE_UV_BIN="$(REMOTE_UV_BIN)" \
-	API_PORT="$(API_PORT)" \
+	API_PORT="$(DEPLOY_API_PORT)" \
 	WEB_HTTP_PORT="$(WEB_HTTP_PORT)" \
 	WEB_HTTPS_PORT="$(WEB_HTTPS_PORT)" \
+	DATA_CENTER_HTTP_PORT="$(DATA_CENTER_HTTP_PORT)" \
+	DATA_CENTER_ALLOWED_CIDRS="$(DATA_CENTER_ALLOWED_CIDRS)" \
 	SERVER_NAME="$(SERVER_NAME)" \
 	SSL_CERTIFICATE="$(REMOTE_SSL_CERTIFICATE)" \
 	SSL_CERTIFICATE_KEY="$(REMOTE_SSL_CERTIFICATE_KEY)" \

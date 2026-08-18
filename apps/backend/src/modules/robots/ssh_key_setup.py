@@ -133,7 +133,7 @@ def install_ssh_key(ip: str, timeout: int = 30, *, script_path: Path | None = No
     started = perf_counter()
     try:
         completed = subprocess.run(
-            ["sh", script.name, "-flex", normalized_ip],
+            ["bash", script.name, "-flex", normalized_ip],
             cwd=script.parent,
             capture_output=True,
             text=True,

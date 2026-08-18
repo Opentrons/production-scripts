@@ -90,11 +90,21 @@ class DuroService:
             product_id=normalized_id,
             root=root,
             direct_child_count=len(children),
-            source_url=f"{getattr(self.client, 'app_url', self.client.base_url)}/product/view/{normalized_id}",
+            source_url=self._product_source_url(normalized_id),
         )
         self._set_cached(self._product_bom_cache, normalized_id, response)
         self._set_disk_cached(disk_key, response)
         return response
+
+    def _product_source_url(self, product_id: str) -> str:
+        """Build a user-facing Duro product URL across client implementations."""
+        base_url = getattr(self.client, "app_url", None) or getattr(
+            self.client, "base_url", None
+        )
+        if not base_url:
+            graphql_url = str(getattr(self.client, "graphql_url", "")).rstrip("/")
+            base_url = graphql_url.removesuffix("/graphql")
+        return f"{str(base_url).rstrip('/')}/product/view/{product_id}"
 
     def get_component_children(
         self,

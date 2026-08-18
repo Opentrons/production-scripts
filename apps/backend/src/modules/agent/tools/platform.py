@@ -27,6 +27,64 @@ def current_time() -> dict[str, str]:
     return {"datetime": now.isoformat(), "date": now.strftime("%Y-%m-%d"), "timezone": "Asia/Shanghai"}
 
 
+def get_platform_health(refresh: bool = False) -> dict[str, Any]:
+    from modules.system import health
+
+    return health.refresh_health_status() if refresh else health.get_health_status()
+
+
+def get_platform_version() -> dict[str, Any]:
+    from modules.system.app_version import load_app_version
+
+    return load_app_version()
+
+
+def list_downloadable_resources() -> dict[str, Any]:
+    from modules.resources.file_resources import list_projects
+
+    return list_projects()
+
+
+def query_robot_log_downloads(
+    ip: str = "",
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
+    from modules.robots.diagnostic_logs import list_download_records
+
+    result = list_download_records(
+        page=page,
+        page_size=min(max(int(page_size), 1), 100),
+        robot_ip=ip or None,
+    )
+    for record in result.get("records") or []:
+        record_id = str(record.get("_id") or "").strip()
+        if record_id and record.get("file_available") is True:
+            record["download_url"] = f"/api/robots/log-downloads/records/{record_id}/file"
+    return result
+
+
+def query_agent_schedules(include_runs: bool = True, limit: int = 30) -> dict[str, Any]:
+    from modules.agent.schedules.service import agent_schedule_service
+
+    response = _dump(agent_schedule_service.list_schedules())
+    if include_runs:
+        response["runs"] = _dump(agent_schedule_service.list_runs(limit=min(max(int(limit), 1), 100)))
+    return response
+
+
+def list_robot_testing_data(ip: str, path: str = "") -> dict[str, Any]:
+    from modules.robots.opentrons_control import list_robot_testing_data as list_testing_data
+
+    return list_testing_data(str(ip or "").strip(), str(path or "").strip() or None)
+
+
+def prepare_robot_testing_data_download(ip: str, paths: list[str]) -> dict[str, Any]:
+    from modules.agent.download_store import create_robot_testing_data_request
+
+    return create_robot_testing_data_request(ip, paths)
+
+
 def platform_overview() -> dict[str, Any]:
     from core.runtime_mode import get_simulating_status
     from modules.data_analysis import product_management

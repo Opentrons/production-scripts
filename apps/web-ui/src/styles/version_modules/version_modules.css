@@ -2585,12 +2585,49 @@ textarea {
 .run-log-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
+  gap: 2px;
+  padding: 10px;
   border-radius: 8px;
   background: #f7f9fa;
   color: #697781;
-  font-size: 10px;
+  font-size: 11px;
+}
+
+.run-log-entry {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  line-height: 1.45;
+}
+
+.run-log-entry.is-current {
+  background: #eaf4fa;
+  color: #285f83;
+  font-weight: 700;
+}
+
+.run-log-entry-marker {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  margin-top: 1px;
+  color: #3d8ed0;
+}
+
+.run-log-entry-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a7b3ba;
+}
+
+.run-log-entry-marker .el-icon {
+  animation: run-status-spin 0.9s linear infinite;
 }
 
 .run-row {

@@ -147,6 +147,30 @@
                 <span v-if="item.model">{{ item.model }}</span>
                 <span v-if="item.serial">{{ item.serial }}</span>
               </div>
+              <div v-if="isStackerModule(item)" class="module-actions">
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  :icon="VideoPlay"
+                  :loading="isModuleActionLoading(item, 'initialize')"
+                  :disabled="!item.moduleId || hasModuleActionLoading"
+                  @click.stop="runModuleAction(item, 'initialize')"
+                >
+                  {{ t('devices.infoPanel.moduleActions.initialize') }}
+                </el-button>
+                <el-button
+                  size="small"
+                  type="warning"
+                  plain
+                  :icon="Refresh"
+                  :loading="isModuleActionLoading(item, 'reset')"
+                  :disabled="!item.moduleId || hasModuleActionLoading"
+                  @click.stop="runModuleAction(item, 'reset')"
+                >
+                  {{ t('devices.infoPanel.moduleActions.reset') }}
+                </el-button>
+              </div>
             </div>
             <el-popover
               trigger="hover"
@@ -177,8 +201,8 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 import { robotApi, type RobotControlSummary } from '@/scripts/api'
 import { useAppLocale } from '@/i18n'
 
@@ -200,6 +224,7 @@ const props = withDefaults(
 
 const loading = ref(false)
 const summary = ref<RobotControlSummary | null>(null)
+const moduleActionLoading = ref<string | null>(null)
 
 const healthName = computed(() => stringField(summary.value?.health?.name))
 const healthModel = computed(() => stringField(summary.value?.health?.robot_model))
@@ -214,6 +239,8 @@ type ResourceKind = 'instrument' | 'module'
 
 interface ResourceItem {
   id: string
+  moduleId: string
+  moduleType: string
   title: string
   model: string
   serial: string
@@ -316,8 +343,15 @@ function normalizeResources(value: unknown, kind: ResourceKind): ResourceItem[] 
       const location = resolveLocation(raw, kind, key)
       const model = resolveModel(raw, kind)
       const title = resolveTitle(raw, kind, model, key)
+      const moduleId = kind === 'module'
+        ? firstString(raw.id, raw.moduleId, raw.serialNumber, raw.serial)
+        : ''
       return {
         id: firstString(raw.id, raw.serialNumber, `${kind}-${key || index}`),
+        moduleId,
+        moduleType: kind === 'module'
+          ? firstNestedString(raw, ['moduleType', 'moduleModel', 'model'])
+          : '',
         title,
         model: model !== title ? model : '',
         serial: resolveSerial(raw),
@@ -392,6 +426,80 @@ function resourceStatusType(status: string) {
   if (['error', 'failed', 'failure', 'disconnected', 'offline', 'false'].includes(normalized)) return 'danger'
   if (['running', 'busy', 'moving', 'updating'].includes(normalized)) return 'warning'
   return 'info'
+}
+
+type ModuleAction = 'initialize' | 'reset'
+
+const hasModuleActionLoading = computed(() => moduleActionLoading.value !== null)
+
+function isStackerModule(item: ResourceItem): boolean {
+  return [item.title, item.model, item.moduleType].some((value) => /stacker/i.test(value))
+}
+
+function moduleActionKey(item: ResourceItem, action: ModuleAction): string {
+  return `${item.moduleId}:${action}`
+}
+
+function isModuleActionLoading(item: ResourceItem, action: ModuleAction): boolean {
+  return moduleActionLoading.value === moduleActionKey(item, action)
+}
+
+function commandErrorMessage(result: { response?: unknown; error?: string } | undefined): string {
+  if (!result) return ''
+  const response = asRecord(result.response)
+  const responseData = asRecord(response?.data)
+  const commandError = responseData?.error
+  if (typeof commandError === 'string') return commandError
+  const commandErrorRecord = asRecord(commandError)
+  if (commandErrorRecord) {
+    return firstString(commandErrorRecord.detail, commandErrorRecord.message, commandErrorRecord.error)
+  }
+  return firstString(result.error, responseData?.message)
+}
+
+async function runModuleAction(item: ResourceItem, action: ModuleAction) {
+  if (!props.ip || !item.moduleId || moduleActionLoading.value) return
+
+  try {
+    await ElMessageBox.confirm(
+      t(`devices.infoPanel.moduleActions.${action}Confirm`, { module: item.title }),
+      t(`devices.infoPanel.moduleActions.${action}Title`),
+      {
+        type: 'warning',
+        confirmButtonText: t('common.actions.confirm'),
+        cancelButtonText: t('common.actions.cancel'),
+        closeOnClickModal: false
+      }
+    )
+    moduleActionLoading.value = moduleActionKey(item, action)
+    const response = await robotApi.executeCommands({
+      ips: [props.ip],
+      port: props.port,
+      method: 'POST',
+      path: '/commands?waitUntilComplete=true&timeout=120000',
+      body: {
+        data: {
+          commandType: 'unsafe/flexStacker/prepareShuttle',
+          params: { moduleId: item.moduleId }
+        }
+      },
+      timeout: 130
+    })
+    const result = response.data.results?.[0]
+    const responseBody = asRecord(result?.response)
+    const responseData = asRecord(responseBody?.data)
+    if (!result?.success || responseData?.status === 'failed') {
+      throw new Error(commandErrorMessage(result) || t('devices.infoPanel.moduleActions.requestFailed'))
+    }
+    ElMessage.success(t(`devices.infoPanel.moduleActions.${action}Completed`, { module: item.title }))
+    await loadSummary()
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close') return
+    const message = error?.message || t('devices.infoPanel.moduleActions.requestFailed')
+    ElMessage.error(t(`devices.infoPanel.moduleActions.${action}Failed`, { error: message }))
+  } finally {
+    moduleActionLoading.value = null
+  }
 }
 
 async function copyJson(text: string) {
@@ -587,6 +695,17 @@ defineExpose({ refresh: loadSummary })
 .location-chip span {
   color: #909399;
   font-weight: 500;
+}
+
+.module-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.module-actions :deep(.el-button) {
+  margin-left: 0;
 }
 
 .resource-empty {

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections.abc import AsyncIterator
 
@@ -5,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Respon
 from fastapi.responses import StreamingResponse
 from starlette.websockets import WebSocketDisconnect
 
-from modules.agent import attachment_store
+from modules.agent import attachment_store, download_store
 from modules.agent.models import AgentChatRequest, AgentStatusResponse
 from modules.agent.knowledge.models import KnowledgeDocument, KnowledgeDocumentInput, KnowledgeSearchResponse
 from modules.agent.knowledge.service import knowledge_service
@@ -236,6 +237,34 @@ def delete_agent_attachment(
     except attachment_store.AttachmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/downloads/testing-data/{request_id}")
+async def download_agent_robot_testing_data(
+    request_id: str,
+    user: AuthUser = Depends(require_authenticated_user),
+):
+    from modules.robots import opentrons_control
+    from modules.robots.files.ssh_client import OpentronsSshError
+
+    try:
+        request = download_store.resolve_robot_testing_data_request(request_id, user.id)
+        filename, content, media_type = await asyncio.to_thread(
+            opentrons_control.download_robot_testing_data,
+            request["ip"],
+            request["paths"],
+        )
+    except download_store.AgentDownloadNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except OpentronsSshError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"SSH 测试数据下载失败: {exc}") from exc
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/chat/stream")

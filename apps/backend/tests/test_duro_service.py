@@ -63,6 +63,13 @@ class FakeDuroClient:
         }
 
 
+class AppUrlOnlyDuroClient(FakeDuroClient):
+    def __init__(self) -> None:
+        super().__init__()
+        del self.base_url
+        self.app_url = "https://mfg.duro.app"
+
+
 def test_product_search_uses_cache() -> None:
     client = FakeDuroClient()
     service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]
@@ -140,8 +147,18 @@ def test_product_bom_maps_relationship_fields_and_uses_cache() -> None:
     assert first.root.children[0].item_number == 10
     assert first.root.children[0].reference_designators == ["M1", "M2", "M3", "M4"]
     assert first.root.children[0].has_children is True
+    assert first.source_url == "https://mfg.duro.app/product/view/product-id"
     assert second.cached is True
     assert client.call_count == 1
+
+
+def test_product_bom_source_url_does_not_require_legacy_base_url() -> None:
+    client = AppUrlOnlyDuroClient()
+    service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]
+
+    response = service.get_product_bom("product-id")
+
+    assert response.source_url == "https://mfg.duro.app/product/view/product-id"
 
 
 def test_component_children_are_loaded_one_level_at_a_time() -> None:

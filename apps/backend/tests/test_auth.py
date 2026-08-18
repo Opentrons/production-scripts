@@ -7,6 +7,8 @@ import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
 
+from api.router import router as api_router
+from api.routers import system
 from modules.auth.dependencies import (
     CSRF_COOKIE_NAME,
     get_auth_service,
@@ -151,6 +153,18 @@ def test_auth_routes_protect_api_and_require_csrf(tmp_path: Path) -> None:
     )
     assert logout.status_code == 200
     assert client.get("/api/protected").status_code == 401
+
+
+def test_data_center_client_endpoints_bypass_platform_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(system.health_service, "get_health_status", lambda: {"status": True, "services": {}})
+    app = FastAPI()
+    app.include_router(api_router, prefix="/api")
+    client = TestClient(app)
+
+    assert client.get("/api/health").status_code == 200
+    assert client.post("/api/pull-folder").status_code == 422
+    assert client.post("/api/upload-data", json={}).status_code == 422
+    assert client.post("/api/upload-data/manual").status_code == 422
 
 
 def test_device_operator_can_use_platform_but_not_device_control(tmp_path: Path) -> None:

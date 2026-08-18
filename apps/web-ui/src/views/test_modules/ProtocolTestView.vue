@@ -18,6 +18,7 @@
           :model-value="selectedRoomId"
           class="room-select"
           filterable
+          fit-input-width
           :placeholder="t('protocolMonitor.selectRoomPlaceholder')"
           @change="selectRoom"
         >
@@ -932,7 +933,20 @@ h3 {
 }
 
 .room-select {
-  width: min(280px, 100%);
+  width: 240px;
+  max-width: 240px;
+  flex: 0 0 240px;
+}
+
+.room-select :deep(.el-select__wrapper) {
+  width: 100%;
+}
+
+.room-select :deep(.el-select__selected-item),
+.room-select :deep(.el-select__placeholder) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-summary {
@@ -996,7 +1010,8 @@ h3 {
   min-width: 0;
   min-height: 0;
   align-content: start;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  justify-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 280px));
   gap: 14px;
   overflow-y: auto;
   padding: 14px;
@@ -1095,6 +1110,8 @@ h3 {
 }
 
 .device-card {
+  width: 100%;
+  max-width: 280px;
   min-width: 0;
   overflow: hidden;
   border: 1px solid #dce3eb;
@@ -1106,7 +1123,7 @@ h3 {
 .device-card-visual {
   position: relative;
   display: grid;
-  height: 152px;
+  height: 140px;
   place-items: center;
   overflow: hidden;
   border-bottom: 1px solid #e4ebf3;
@@ -1116,8 +1133,9 @@ h3 {
 .device-card-visual img {
   display: block;
   width: auto;
-  max-width: calc(100% - 36px);
-  height: 138px;
+  max-width: calc(100% - 32px);
+  max-height: 126px;
+  height: auto;
   object-fit: contain;
   filter: drop-shadow(0 9px 10px rgba(23, 32, 51, 0.14));
 }
@@ -1348,6 +1366,16 @@ code {
 @media (max-width: 640px) {
   .room-select {
     width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
+  .device-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .device-card {
+    max-width: none;
   }
 
   .device-form-grid {

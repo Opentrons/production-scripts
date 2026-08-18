@@ -10,6 +10,7 @@ from modules.system import simulating as simulating_service
 
 
 router = APIRouter()
+data_center_client_router = APIRouter()
 
 
 class SimulatingStatusResponse(BaseModel):
@@ -32,7 +33,7 @@ class AppVersionResponse(BaseModel):
     commit: str | None = None
 
 
-@router.get("/health", response_model=HealthResponse)
+@data_center_client_router.get("/health", response_model=HealthResponse)
 async def health_check():
     return await run_in_threadpool(health_service.get_health_status)
 

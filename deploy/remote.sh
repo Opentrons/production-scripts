@@ -13,6 +13,8 @@ REMOTE_UV_BIN="${REMOTE_UV_BIN:-/root/.local/bin/uv}"
 API_PORT="${API_PORT:-8090}"
 WEB_HTTP_PORT="${WEB_HTTP_PORT:-80}"
 WEB_HTTPS_PORT="${WEB_HTTPS_PORT:-443}"
+DATA_CENTER_HTTP_PORT="${DATA_CENTER_HTTP_PORT:-}"
+DATA_CENTER_ALLOWED_CIDRS="${DATA_CENTER_ALLOWED_CIDRS:-}"
 SERVER_NAME="${SERVER_NAME:-_}"
 SSL_CERTIFICATE="${SSL_CERTIFICATE:-/etc/ssl/production-platform/production-platform.crt}"
 SSL_CERTIFICATE_KEY="${SSL_CERTIFICATE_KEY:-/etc/ssl/production-platform/production-platform.key}"
@@ -28,6 +30,18 @@ done
 
 if [[ ! "$REMOTE_SSH_PORT" =~ ^[0-9]+$ ]]; then
     echo "Error: REMOTE_SSH_PORT must be numeric"
+    exit 1
+fi
+if [[ ! "$API_PORT" =~ ^[0-9]+$ ]] || (( API_PORT < 1 || API_PORT > 65535 )); then
+    echo "Error: API_PORT must be a valid TCP port"
+    exit 1
+fi
+if [ -n "$DATA_CENTER_HTTP_PORT" ] && { [[ ! "$DATA_CENTER_HTTP_PORT" =~ ^[0-9]+$ ]] || (( DATA_CENTER_HTTP_PORT < 1 || DATA_CENTER_HTTP_PORT > 65535 )); }; then
+    echo "Error: DATA_CENTER_HTTP_PORT must be a valid TCP port"
+    exit 1
+fi
+if [ -n "$DATA_CENTER_HTTP_PORT" ] && [ "$DATA_CENTER_HTTP_PORT" = "$API_PORT" ]; then
+    echo "Error: DATA_CENTER_HTTP_PORT must differ from API_PORT"
     exit 1
 fi
 if [[ ! "$REMOTE_ROOT" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
@@ -129,6 +143,7 @@ rsync -az -e "$RSYNC_SSH" \
 echo "Restarting the remote backend and reloading Nginx..."
 ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" bash -s -- \
     "$REMOTE_ROOT" "$REMOTE_UV_BIN" "$API_PORT" "$WEB_HTTP_PORT" "$WEB_HTTPS_PORT" \
+    "$DATA_CENTER_HTTP_PORT" "$DATA_CENTER_ALLOWED_CIDRS" \
     "$SERVER_NAME" "$SSL_CERTIFICATE" "$SSL_CERTIFICATE_KEY" <<'REMOTE_SCRIPT'
 set -euo pipefail
 
@@ -137,15 +152,19 @@ uv_bin="$2"
 api_port="$3"
 web_http_port="$4"
 web_https_port="$5"
-server_name="$6"
-ssl_certificate="$7"
-ssl_certificate_key="$8"
+data_center_http_port="$6"
+data_center_allowed_cidrs="$7"
+server_name="$8"
+ssl_certificate="$9"
+ssl_certificate_key="${10}"
 
 cd "$remote_root"
 UV_BIN="$uv_bin" API_PORT="$api_port" bash deploy/backend.sh
 API_PORT="$api_port" \
 WEB_HTTP_PORT="$web_http_port" \
 WEB_HTTPS_PORT="$web_https_port" \
+DATA_CENTER_HTTP_PORT="$data_center_http_port" \
+DATA_CENTER_ALLOWED_CIDRS="$data_center_allowed_cidrs" \
 WEB_ENABLE_HTTPS=true \
 WEB_SKIP_BUILD=true \
 SERVER_NAME="$server_name" \

@@ -21,7 +21,7 @@ def test_install_ssh_key_runs_fixed_script_and_recognizes_success(tmp_path, monk
     script = _setup_script(tmp_path, monkeypatch)
 
     def fake_run(command, **kwargs):
-        assert command == ["sh", "setup_ssh_keys.sh", "-flex", "192.168.6.126"]
+        assert command == ["bash", "setup_ssh_keys.sh", "-flex", "192.168.6.126"]
         assert kwargs["cwd"] == script.parent
         assert kwargs["timeout"] == 45
         return subprocess.CompletedProcess(

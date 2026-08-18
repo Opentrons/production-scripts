@@ -7,6 +7,7 @@ import re
 import shlex
 import signal
 import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -19,7 +20,17 @@ from uuid import uuid4
 
 OPENTRONS_FLASH_DIR_ENV = "PRODUCTION_PLATFORM_OPENTRONS_FLASH_DIR"
 DEFAULT_OPENTRONS_FLASH_DIR = Path("/opentrons")
+DEFAULT_RESTORE_BRANCH = "edge"
 MAX_LOG_CHARS = 500_000
+_FLASH_ENVIRONMENT_KEYS_TO_CLEAR = (
+    "PIPENV_ACTIVE",
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "UV_PROJECT",
+    "UV_RUN_RECURSION_DEPTH",
+    "UV_WORKSPACE",
+    "VIRTUAL_ENV",
+)
 
 FLASH_PRESETS = (
     {
@@ -53,6 +64,12 @@ FLASH_PRESETS = (
         "command": "make -C hardware push-ot3 host={robot_ip}",
     },
     {
+        "id": "hardware-testing",
+        "name": "Hardware-testing",
+        "description": "在 hardware-testing 目录构建并推送测试代码",
+        "command": "make -C hardware-testing push-ot3 host={robot_ip}",
+    },
+    {
         "id": "update-server",
         "name": "Update Server",
         "description": "构建并推送 update-server",
@@ -73,6 +90,7 @@ _ALLOWED_COMPONENT_DIRECTORIES = {
     "api",
     "auth-server",
     "hardware",
+    "hardware-testing",
     "key-server",
     "robot-server",
     "server-utils",
@@ -105,16 +123,34 @@ def _normalize_robot_ip(ip: str) -> str:
     return str(address)
 
 
-def resolve_opentrons_directory() -> Path:
+def _opentrons_directory_candidates() -> list[Path]:
     configured = str(os.getenv(OPENTRONS_FLASH_DIR_ENV, "") or "").strip()
-    candidate = Path(configured).expanduser() if configured else DEFAULT_OPENTRONS_FLASH_DIR
-    try:
-        resolved = candidate.resolve(strict=True)
-    except (FileNotFoundError, OSError) as exc:
-        raise RuntimeError(f"Opentrons 源码目录不存在: {candidate}") from exc
-    if not resolved.is_dir() or not (resolved / "Makefile").is_file():
-        raise RuntimeError(f"Opentrons 源码目录缺少 Makefile: {resolved}")
-    return resolved
+    candidates = [
+        *(Path(item.strip()).expanduser() for item in configured.split(os.pathsep) if item.strip()),
+        DEFAULT_OPENTRONS_FLASH_DIR,
+        Path.home() / "projects" / "opentrons",
+    ]
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = str(candidate)
+        if normalized not in seen:
+            seen.add(normalized)
+            unique.append(candidate)
+    return unique
+
+
+def resolve_opentrons_directory() -> Path:
+    candidates = _opentrons_directory_candidates()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve(strict=True)
+        except (FileNotFoundError, OSError):
+            continue
+        if resolved.is_dir() and (resolved / "Makefile").is_file():
+            return resolved
+    attempted = "、".join(str(candidate) for candidate in candidates)
+    raise RuntimeError(f"未找到可用的 Opentrons 源码目录（已尝试: {attempted}）")
 
 
 def _run_git_command(arguments: list[str], *, cwd: Path, timeout: int = 60) -> subprocess.CompletedProcess[str]:
@@ -217,8 +253,7 @@ def get_repository_state(workdir: Path | None = None) -> dict[str, Any]:
 
 
 def list_flash_presets() -> dict[str, Any]:
-    configured = str(os.getenv(OPENTRONS_FLASH_DIR_ENV, "") or "").strip()
-    workdir = str(Path(configured).expanduser() if configured else DEFAULT_OPENTRONS_FLASH_DIR)
+    workdir = str(_opentrons_directory_candidates()[0])
     try:
         resolved = resolve_opentrons_directory()
         workdir = str(resolved)
@@ -366,6 +401,10 @@ def _prepare_repository(task_id: str, workdir: Path, branch: str, pull: bool) ->
     switch_result = _run_git_command(switch_arguments, cwd=workdir, timeout=120)
     _log_git_result(task_id, f"切换分支 {target_branch}", switch_result)
     _require_git_success(switch_result, f"切换分支 {target_branch}")
+    with _TASKS_LOCK:
+        task = _TASKS.get(task_id)
+        if task is not None:
+            task["branch_switched"] = True
 
     if pull:
         pull_result = _run_git_command(
@@ -388,6 +427,59 @@ def _prepare_repository(task_id: str, workdir: Path, branch: str, pull: bool) ->
     _append_log(task_id, f"[Git] 已准备分支 {target_branch}")
 
 
+def _restore_repository_to_edge(task_id: str, workdir: Path) -> None:
+    local_result = _run_git_command(
+        ["show-ref", "--verify", "--quiet", f"refs/heads/{DEFAULT_RESTORE_BRANCH}"],
+        cwd=workdir,
+    )
+    remote_result = _run_git_command(
+        ["show-ref", "--verify", "--quiet", f"refs/remotes/origin/{DEFAULT_RESTORE_BRANCH}"],
+        cwd=workdir,
+    )
+    if local_result.returncode == 0:
+        switch_arguments = ["switch", DEFAULT_RESTORE_BRANCH]
+    elif remote_result.returncode == 0:
+        switch_arguments = [
+            "switch",
+            "--track",
+            "-c",
+            DEFAULT_RESTORE_BRANCH,
+            f"origin/{DEFAULT_RESTORE_BRANCH}",
+        ]
+    else:
+        raise RuntimeError(f"分支不存在: {DEFAULT_RESTORE_BRANCH}")
+
+    _append_log(task_id, f"[Git] 烧录结束，切回分支 {DEFAULT_RESTORE_BRANCH}")
+    switch_result = _run_git_command(switch_arguments, cwd=workdir, timeout=120)
+    _log_git_result(task_id, f"切回分支 {DEFAULT_RESTORE_BRANCH}", switch_result)
+    _require_git_success(switch_result, f"切回分支 {DEFAULT_RESTORE_BRANCH}")
+    _append_log(task_id, f"[Git] 已切回分支 {DEFAULT_RESTORE_BRANCH}")
+
+
+def _flash_environment() -> dict[str, str]:
+    """Build without inheriting the production platform's active virtualenv."""
+    environment = dict(os.environ)
+    inherited_virtualenv = environment.get("VIRTUAL_ENV", "")
+    for key in _FLASH_ENVIRONMENT_KEYS_TO_CLEAR:
+        environment.pop(key, None)
+
+    blocked_path_entries = {
+        os.path.normcase(os.path.abspath(str(Path(inherited_virtualenv) / "bin")))
+        if inherited_virtualenv
+        else "",
+        os.path.normcase(os.path.abspath(str(Path(sys.prefix) / "bin"))),
+    }
+    path_entries = [
+        entry
+        for entry in environment.get("PATH", "").split(os.pathsep)
+        if entry and os.path.normcase(os.path.abspath(entry)) not in blocked_path_entries
+    ]
+    environment["PATH"] = os.pathsep.join(path_entries)
+    environment["OT_PYTHON"] = "python3"
+    environment["PIPENV_IGNORE_VIRTUALENVS"] = "1"
+    return environment
+
+
 def _execute_make_process(
     arguments: list[str],
     *,
@@ -405,6 +497,7 @@ def _execute_make_process(
         errors="replace",
         bufsize=1,
         start_new_session=True,
+        env=_flash_environment(),
     )
     assert process.stdout is not None
 
@@ -495,6 +588,17 @@ def _run_flash_task(task_id: str, workdir: Path, timeout: int) -> None:
         message = f"烧录任务异常: {exc}"
         _append_log(task_id, f"[平台] {message}")
 
+    with _TASKS_LOCK:
+        task = _TASKS.get(task_id)
+        branch_switched = bool(task and task.get("branch_switched"))
+    if branch_switched:
+        try:
+            _restore_repository_to_edge(task_id, workdir)
+        except (RuntimeError, OSError) as exc:
+            success = False
+            message = f"{message}；烧录结束但切回 {DEFAULT_RESTORE_BRANCH} 失败: {exc}"
+            _append_log(task_id, f"[平台] {message}")
+
     _append_log(task_id, f"[平台] {message}")
     with _TASKS_LOCK:
         task = _TASKS.get(task_id)
@@ -543,6 +647,7 @@ def create_flash_task(
             "arguments": arguments,
             "workdir": str(workdir),
             "branch": normalized_branch,
+            "branch_switched": False,
             "pull": bool(pull),
             "timeout": normalized_timeout,
             "logs": [],
@@ -567,5 +672,6 @@ def get_flash_task(task_id: str) -> dict[str, Any]:
             raise KeyError(task_id)
         response = deepcopy(task)
     response.pop("arguments", None)
+    response.pop("branch_switched", None)
     response.pop("output_size", None)
     return response

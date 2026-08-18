@@ -8,12 +8,15 @@ WEB_ROOT="$REPOSITORY_ROOT/apps/web-ui"
 API_PORT="${API_PORT:-8090}"
 WEB_HTTP_PORT="${WEB_HTTP_PORT:-80}"
 WEB_HTTPS_PORT="${WEB_HTTPS_PORT:-443}"
+DATA_CENTER_HTTP_PORT="${DATA_CENTER_HTTP_PORT:-}"
+DATA_CENTER_ALLOWED_CIDRS="${DATA_CENTER_ALLOWED_CIDRS:-}"
 WEB_ENABLE_HTTPS="${WEB_ENABLE_HTTPS:-true}"
 WEB_SKIP_BUILD="${WEB_SKIP_BUILD:-false}"
 SERVER_NAME="${SERVER_NAME:-_}"
 SSL_CERTIFICATE="${SSL_CERTIFICATE:-}"
 SSL_CERTIFICATE_KEY="${SSL_CERTIFICATE_KEY:-}"
 SITE_NAME="production-web-ui"
+DATA_CENTER_SITE_NAME="production-data-center-client"
 VERSION_SOURCE="$REPOSITORY_ROOT/apps/version.json"
 VERSION_FILE="$REPOSITORY_ROOT/apps/backend/data/app-version.json"
 
@@ -66,6 +69,53 @@ write_proxy_headers() {
 EOF
 }
 
+write_data_center_client_locations() {
+    local require_auth="$1"
+    local endpoint
+    for endpoint in /api/health /api/pull-folder /api/upload-data /api/upload-data/manual; do
+        cat <<EOF
+    location = $endpoint {
+EOF
+        if [ "$require_auth" = "true" ]; then
+            cat <<'EOF'
+        auth_request /_auth;
+EOF
+        fi
+        cat <<EOF
+        proxy_pass http://127.0.0.1:$API_PORT;
+EOF
+        write_proxy_headers
+        cat <<'EOF'
+    }
+
+EOF
+    done
+}
+
+data_center_allow_directives=""
+if [ -n "$DATA_CENTER_HTTP_PORT" ]; then
+    if [[ ! "$DATA_CENTER_HTTP_PORT" =~ ^[0-9]+$ ]] || (( DATA_CENTER_HTTP_PORT < 1 || DATA_CENTER_HTTP_PORT > 65535 )); then
+        echo "DATA_CENTER_HTTP_PORT must be a valid TCP port"
+        exit 1
+    fi
+    if [ "$DATA_CENTER_HTTP_PORT" = "$API_PORT" ]; then
+        echo "DATA_CENTER_HTTP_PORT must differ from API_PORT"
+        exit 1
+    fi
+    if [ -z "$DATA_CENTER_ALLOWED_CIDRS" ]; then
+        echo "DATA_CENTER_ALLOWED_CIDRS is required when DATA_CENTER_HTTP_PORT is set"
+        exit 1
+    fi
+    IFS=',' read -r -a data_center_cidrs <<< "$DATA_CENTER_ALLOWED_CIDRS"
+    for cidr in "${data_center_cidrs[@]}"; do
+        if [[ ! "$cidr" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/([0-9]|[12][0-9]|3[0-2])$ ]]; then
+            echo "Invalid DATA_CENTER_ALLOWED_CIDRS entry: $cidr"
+            exit 1
+        fi
+        data_center_allow_directives+="    allow $cidr;\n"
+    done
+fi
+
 if [ "$WEB_ENABLE_HTTPS" = "true" ]; then
     {
         cat <<EOF
@@ -115,6 +165,9 @@ EOF
         cat <<EOF
     }
 
+EOF
+        write_data_center_client_locations true
+        cat <<EOF
     location /api/ {
         proxy_pass http://127.0.0.1:$API_PORT;
 EOF
@@ -191,6 +244,9 @@ EOF
         cat <<EOF
     }
 
+EOF
+        write_data_center_client_locations true
+        cat <<EOF
     location /api/ {
         proxy_pass http://127.0.0.1:$API_PORT;
 EOF
@@ -239,6 +295,45 @@ fi
 
 if [ -n "$ENABLED_FILE" ]; then
     ln -sfn "$SITE_FILE" "$ENABLED_FILE"
+fi
+
+if [ -n "$DATA_CENTER_HTTP_PORT" ]; then
+    if [ -d /etc/nginx/sites-available ]; then
+        DATA_CENTER_SITE_FILE="/etc/nginx/sites-available/$DATA_CENTER_SITE_NAME"
+        DATA_CENTER_ENABLED_FILE="/etc/nginx/sites-enabled/$DATA_CENTER_SITE_NAME"
+    else
+        DATA_CENTER_SITE_FILE="/etc/nginx/conf.d/$DATA_CENTER_SITE_NAME.conf"
+        DATA_CENTER_ENABLED_FILE=""
+    fi
+
+    {
+        cat <<EOF
+server {
+    listen $DATA_CENTER_HTTP_PORT;
+    server_name _;
+    client_max_body_size 200m;
+    server_tokens off;
+
+    allow 127.0.0.1;
+    allow ::1;
+EOF
+        printf '%b' "$data_center_allow_directives"
+        cat <<'EOF'
+    deny all;
+
+EOF
+        write_data_center_client_locations false
+        cat <<'EOF'
+    location / {
+        return 404;
+    }
+}
+EOF
+    } > "$DATA_CENTER_SITE_FILE"
+
+    if [ -n "$DATA_CENTER_ENABLED_FILE" ]; then
+        ln -sfn "$DATA_CENTER_SITE_FILE" "$DATA_CENTER_ENABLED_FILE"
+    fi
 fi
 
 nginx -t

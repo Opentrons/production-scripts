@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 
 from modules.duro.models import DuroBomNode
@@ -345,6 +346,18 @@ class FakeDuroService:
             ],
         }
         return SimpleNamespace(children=children[component_id])
+
+
+class BlockingProductDuroService(FakeDuroService):
+    def __init__(self, started: Event, release: Event) -> None:
+        self.started = started
+        self.release = release
+
+    def list_products(self, refresh: bool = False):
+        self.started.set()
+        if not self.release.wait(timeout=2):
+            raise RuntimeError("test release timeout")
+        return super().list_products(refresh)
 
 
 class EmptySopService:
@@ -799,6 +812,48 @@ def test_run_refreshes_source_tables_and_uses_current_sop_link_and_duro_product(
     assert stored.configuration["duro_product_id"] == "duro-current"
     assert any("更新 1 个源 PDF 链接" in message for message in current.logs)
     assert any("目标产品 ID 已更新" in message for message in current.logs)
+
+
+def test_workflow_persists_progress_before_next_source_refresh_finishes(tmp_path: Path) -> None:
+    refresh_started = Event()
+    release_refresh = Event()
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=FakeSopService(),  # type: ignore[arg-type]
+        duro_service=BlockingProductDuroService(  # type: ignore[arg-type]
+            refresh_started,
+            release_refresh,
+        ),
+    )
+    workflow = service.create_workflow(
+        WorkflowCreate(
+            name="实时执行日志",
+            kind="duro_bom_check",
+            configuration={
+                "sop_sources": [
+                    {"drive_file_id": "sop-a", "project": "Robot", "process": "Assembly A"},
+                ],
+                "duro_product_id": "duro-product",
+                "duro_submenu_ids": ["assembly"],
+            },
+        )
+    )
+
+    run = service.trigger_workflow(workflow.id, "manual")
+    try:
+        assert refresh_started.wait(timeout=2)
+        current = service.get_run(run.id)
+        assert any("SOP 总表实时刷新完成" in message for message in current.logs)
+        assert not any("Duro 产品表实时刷新完成" in message for message in current.logs)
+    finally:
+        release_refresh.set()
+
+    deadline = time.monotonic() + 2
+    current = service.get_run(run.id)
+    while current.status in {"queued", "running"} and time.monotonic() < deadline:
+        time.sleep(0.01)
+        current = service.get_run(run.id)
+    assert current.status == "succeeded"
 
 
 def test_manual_duro_run_rejects_sop_without_full_text_references(tmp_path: Path) -> None:

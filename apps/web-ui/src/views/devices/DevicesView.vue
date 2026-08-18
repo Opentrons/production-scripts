@@ -585,7 +585,6 @@ onMounted(async () => {
 .device-list {
   display: grid;
   width: 100%;
-  max-width: 960px;
   margin-top: 10px;
   border-top: 1px solid var(--console-border);
   background: var(--console-bg);

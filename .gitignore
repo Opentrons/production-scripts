@@ -70,9 +70,6 @@ apps/backend/ghelper-test/skill_config.json
 **/auth-files/slack.yaml
 **/auth-files/duro-api*.txt
 **/auth-files/robot_key
-**/auth-files/duro-chrome-profile/
-**/auth-files/cookies*.txt
-**/auth-files/*token*.txt
 **/configs/robot_key
 **/configs/slack.yaml
 **/configs/slack.local.yaml

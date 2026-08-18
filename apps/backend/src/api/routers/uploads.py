@@ -20,6 +20,7 @@ from modules.uploads import upload_settings as upload_settings_service
 
 logger = get_logger(__name__)
 router = APIRouter()
+data_center_client_router = APIRouter()
 
 @router.get("/settings/upload/finish", response_model=UploadFinishSettingResponse)
 async def get_upload_finish_settings():
@@ -41,7 +42,7 @@ async def update_upload_finish_setting(payload: UploadFinishSettingUpdateRequest
         ) from exc
 
 
-@router.post("/upload-data", response_model=UploadDataResponse)
+@data_center_client_router.post("/upload-data", response_model=UploadDataResponse)
 async def upload_data(payload: UploadDataRequest):
     record_id = upload_record_service.create_upload_record(
         payload.csv_file_path,
@@ -68,7 +69,7 @@ async def upload_data(payload: UploadDataRequest):
         )
 
 
-@router.post("/upload-data/manual", response_model=UploadDataResponse)
+@data_center_client_router.post("/upload-data/manual", response_model=UploadDataResponse)
 async def upload_manual_data(
     csv_file: UploadFile = File(...),
     include_source_zip: bool = Form(False),
