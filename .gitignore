@@ -76,6 +76,9 @@ apps/backend/ghelper-test/skill_config.json
 **/rsa_install/id_rsa
 **/rsa_install/id_rsa.pub
 **/resources/robot_key
+apps/auth-files/*.crt
+apps/auth-files/*.key
+apps/auth-files/*.pem
 apps/backend/data/*.json
 **/.env
 **/.env.*
