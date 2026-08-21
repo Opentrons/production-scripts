@@ -33,7 +33,7 @@ production-scripts/
 
 - FastAPI 统一 API，覆盖认证、机器人、测试、上传、数据分析、版本、SOP、Duro、工作流和 Agent。
 - Opentrons HTTP API 客户端、批量设备操作、日志 / 文件 / Protocol 管理。
-- JWT Access Token 默认 5 分钟，登录会话默认 1 小时。
+- JWT Access Token 默认 5 分钟，登录会话默认 24 小时。
 - 业务文档默认使用 MongoDB `ProductionsMessage`；显式开启仿真后才切换到 `apps/backend/db-storage/simulating/` 下的 SQLite。
 - 认证存储独立配置：本地开发默认使用 `apps/backend/db-storage/auth/auth.sqlite3`，服务器默认使用 MongoDB。
 - 设备扫描独立配置：本地开发默认扫描真实网络设备，只有 `PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=simulated` 或仿真开关打开时才使用固定测试设备。
@@ -95,7 +95,7 @@ PRODUCTION_PLATFORM_AUTH_STORAGE=sqlite
 PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real
 PRODUCTION_PLATFORM_AUTH_JWT_SECRET=<openssl rand -hex 32 的输出>
 PRODUCTION_PLATFORM_AUTH_ACCESS_TOKEN_MINUTES=5
-PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=1
+PRODUCTION_PLATFORM_AUTH_REFRESH_TOKEN_HOURS=24
 PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=false
 PRODUCTION_PLATFORM_MONGO_URI=mongodb://127.0.0.1:27017
 ```
@@ -257,7 +257,7 @@ sudo "$(command -v uv)" run --package production-backend \
   python apps/backend/scripts/create_auth_user.py --username admin --role admin
 ```
 
-服务器 systemd 服务会显式设置 `PRODUCTION_PLATFORM_RUN_ENV=server`、`PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb` 和 `PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real`。`make deploy-remote` 不会同步本机 `apps/backend/.env`；Mongo URI 等服务器专属变量应写在远端 `/etc/production-platform.env`，该文件会被保留。认证密钥保存在该文件中，部署脚本会生成缺失的 JWT Secret，并将登录会话设置为 1 小时。运行数据、数据库、本地 `.env` 和认证文件不会被远程同步删除。
+服务器 systemd 服务会显式设置 `PRODUCTION_PLATFORM_RUN_ENV=server`、`PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb` 和 `PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real`。`make deploy-remote` 不会同步本机 `apps/backend/.env`；Mongo URI 等服务器专属变量应写在远端 `/etc/production-platform.env`，该文件会被保留。认证密钥保存在该文件中，部署脚本会生成缺失的 JWT Secret，并将登录会话设置为 24 小时。运行数据、数据库、本地 `.env` 和认证文件不会被远程同步删除。
 
 ## 数据持久化
 
