@@ -581,10 +581,21 @@ class ProductUploaderBase(UploadCommonMixin):
     def __init__(self, context) -> None:
         self.context = context
 
-    def report_progress(self, stage: str, message: str) -> None:
+    def report_progress(
+        self,
+        stage: str,
+        message: str,
+        checkpoint: dict | None = None,
+    ) -> None:
         reporter = getattr(self.context, "report_upload_progress", None)
         if reporter:
-            reporter(stage, message)
+            try:
+                reporter(stage, message, checkpoint)
+            except TypeError:
+                reporter(stage, message)
+
+    def get_upload_checkpoint(self) -> dict:
+        return dict(getattr(self.context, "upload_checkpoint", {}) or {})
 
     def __getattr__(self, name):
         return getattr(self.context, name)

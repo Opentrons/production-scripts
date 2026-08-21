@@ -1,10 +1,13 @@
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import socket
 import sys
 import threading
+import time
+from uuid import uuid4
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -21,6 +24,8 @@ API_ENDPOINT_UPLOAD_RECORD_START = f"{API_ENDPOINT_UPLOAD_RECORDS}/start"
 API_ENDPOINT_HEALTH = "/api/health"
 BASE_URL = None
 DEFAULT_TIMEOUT = 120
+DEFAULT_UPLOAD_WAIT_TIMEOUT = 900
+ACTIVE_UPLOAD_STATUSES = {"queued", "running", "retrying"}
 
 DEFAULT_PULL_METHOD = "scp"
 
@@ -171,29 +176,112 @@ def request_failure_classification(exc):
     return "request_transport", "client_request_failed"
 
 
-def start_upload_record(csv_file_path, zip_file_path=None, source="client"):
+def get_file_integrity(file_path):
+    if not file_path or not os.path.isfile(file_path):
+        return None, None
+    digest = hashlib.sha256()
+    size = 0
+    with open(file_path, "rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            size += len(chunk)
+            digest.update(chunk)
+    return size, digest.hexdigest()
+
+
+def start_upload_record(
+    csv_file_path,
+    zip_file_path=None,
+    source="client",
+    idempotency_key=None,
+):
     """Create the durable upload record before sending a large request body."""
     base_url = get_base_url()
+    csv_size, csv_sha256 = get_file_integrity(csv_file_path)
     payload = {
         "csv_file_name": os.path.basename(csv_file_path or ""),
         "zip_file_name": os.path.basename(zip_file_path) if zip_file_path else None,
         "source": source,
+        "idempotency_key": idempotency_key or uuid4().hex,
+        "csv_size": csv_size,
+        "csv_sha256": csv_sha256,
     }
+    for attempt in range(1, 4):
+        try:
+            response = requests.post(
+                f"{base_url}{API_ENDPOINT_UPLOAD_RECORD_START}",
+                json=payload,
+                timeout=min(DEFAULT_TIMEOUT, 30),
+            )
+            response.raise_for_status()
+            body = response.json()
+            record_id = body.get("record_id")
+            if not record_id:
+                raise RuntimeError(f"Upload record response missing record_id: {body}")
+            return record_id
+        except Exception as exc:
+            if attempt == 3:
+                print(f"Failed to create upload record: {exc}")
+                return None
+            time.sleep(attempt)
+    return None
+
+
+def get_upload_record_status(record_id):
+    if not record_id:
+        return None
     try:
-        response = requests.post(
-            f"{base_url}{API_ENDPOINT_UPLOAD_RECORD_START}",
-            json=payload,
+        response = requests.get(
+            f"{get_base_url()}{API_ENDPOINT_UPLOAD_RECORDS}/{record_id}",
             timeout=min(DEFAULT_TIMEOUT, 30),
         )
         response.raise_for_status()
-        body = response.json()
-        record_id = body.get("record_id")
-        if not record_id:
-            raise RuntimeError(f"Upload record response missing record_id: {body}")
-        return record_id
-    except Exception as exc:
-        print(f"Failed to create upload record: {exc}")
+        return response.json()
+    except requests.exceptions.RequestException:
         return None
+
+
+def wait_for_upload_record(record_id, timeout=DEFAULT_UPLOAD_WAIT_TIMEOUT, poll_seconds=2):
+    deadline = time.monotonic() + max(1, timeout)
+    last_status = None
+    while time.monotonic() < deadline:
+        status = get_upload_record_status(record_id)
+        if status:
+            last_status = status
+            if status.get("status") == "success":
+                return {**status, "success": True}
+            if status.get("status") == "failed":
+                return {**status, "success": False}
+        time.sleep(max(0.2, poll_seconds))
+    return {
+        **(last_status or {}),
+        "record_id": record_id,
+        "success": False,
+        "pending": bool(last_status and last_status.get("status") in ACTIVE_UPLOAD_STATUSES),
+        "error": "Upload is still processing after the client wait timeout",
+    }
+
+
+def resolve_uncertain_upload_request(record_id, error):
+    status = get_upload_record_status(record_id)
+    if status and status.get("status") == "success":
+        return {**status, "success": True}
+    if (
+        status
+        and status.get("status") in ACTIVE_UPLOAD_STATUSES
+        and status.get("job_enqueued")
+    ):
+        return {**status, "success": True, "accepted": True, "pending": True}
+    if status and status.get("status") == "failed":
+        return {**status, "success": False}
+    failure_stage, failure_code = request_failure_classification(error)
+    detail = request_error_detail(error)
+    mark_upload_record_failed(
+        record_id,
+        detail,
+        failure_stage=failure_stage,
+        failure_code=failure_code,
+    )
+    return {"error": detail, "record_id": record_id, "success": False}
 
 
 def mark_upload_record_failed(
@@ -292,15 +380,8 @@ def upload_data(csv_file_path, zip_file_path, record_id=None):
         return response.json()
     except requests.exceptions.RequestException as exc:
         error = request_error_detail(exc)
-        failure_stage, failure_code = request_failure_classification(exc)
         print(f"Error uploading data: {error}")
-        mark_upload_record_failed(
-            record_id,
-            error,
-            failure_stage=failure_stage,
-            failure_code=failure_code,
-        )
-        return {"error": error, "record_id": record_id, "success": False}
+        return resolve_uncertain_upload_request(record_id, exc)
     except Exception as exc:
         print(f"Error: {exc}")
         mark_upload_record_failed(record_id, exc)
@@ -349,15 +430,8 @@ def upload_manual_data(
         return response.json()
     except requests.exceptions.RequestException as exc:
         error = request_error_detail(exc)
-        failure_stage, failure_code = request_failure_classification(exc)
         print(f"Error uploading manual data: {error}")
-        mark_upload_record_failed(
-            record_id,
-            error,
-            failure_stage=failure_stage,
-            failure_code=failure_code,
-        )
-        return {"error": error, "record_id": record_id, "success": False}
+        return resolve_uncertain_upload_request(record_id, exc)
     except Exception as exc:
         print(f"Error: {exc}")
         mark_upload_record_failed(
@@ -418,13 +492,18 @@ def upload_data_to_google_drive(
             all_files=all_files,
             record_id=record_id,
         )
-        result = upload_response.get("success")
+        final_response = (
+            wait_for_upload_record(record_id)
+            if upload_response.get("success")
+            else upload_response
+        )
+        result = final_response.get("success")
         if result and remove_remote_folder:
             delete_folder(folder_name)
         if result:
             print(f"Data uploaded successfully, Result is {result}")
         else:
-            print(f"Fail: Result is {upload_response}")
+            print(f"Fail: Result is {final_response}")
         print("================UPLOAD END=====================")
         return result
 
@@ -464,13 +543,18 @@ def upload_data_to_google_drive(
         zip_file_path=zip_path,
         record_id=record_id,
     )
-    result = upload_response.get("success")
+    final_response = (
+        wait_for_upload_record(record_id)
+        if upload_response.get("success")
+        else upload_response
+    )
+    result = final_response.get("success")
     if result and remove_remote_folder:
         delete_folder(folder_name)
     if result:
         print(f"Data uploaded successfully, Result is {result}")
     else:
-        print(f"Fail: Result is {upload_response}")
+        print(f"Fail: Result is {final_response}")
     print("================UPLOAD END=====================")
     return result
 
@@ -594,9 +678,14 @@ def main(argv=None):
         meta=meta,
         record_id=record_id,
     )
-    print_response(upload_response)
+    final_response = (
+        wait_for_upload_record(record_id)
+        if upload_response.get("success")
+        else upload_response
+    )
+    print_response(final_response)
     print("================UPLOAD END=====================")
-    return 0 if upload_response.get("success") else 1
+    return 0 if final_response.get("success") else 1
 
 
 if __name__ == "__main__":

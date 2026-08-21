@@ -2,7 +2,9 @@
 
 `data_center_client.py` 是一个可独立使用的 Data Center 上传客户端。它通过 HTTP 调用后端 API，把本地 CSV 测试数据提交到 Google Drive / Google Sheet。
 
-上传开始前，客户端会先调用 `/api/upload-records/start` 创建持久化记录，再提交 CSV。若文件传输、请求校验或服务端处理失败，客户端会调用 `/api/upload-records/{record_id}/fail` 回写失败阶段、错误码和具体原因；无法创建记录时不会继续上传。超过 2 小时没有进度更新的任务会被服务端标记为后台任务中断，避免长期停留在“上传中”。
+上传开始前，客户端会计算 CSV 大小和 SHA-256，并使用幂等键调用 `/api/upload-records/start` 创建持久化记录。文件保存并校验后进入后台队列，服务端通过任务租约执行上传；Google Drive、数据库、Unit Tracker 等可恢复错误会指数退避重试。服务重启后，过期租约会被重新领取，不会丢失已入队任务。
+
+客户端请求超时后会调用 `/api/upload-records/{record_id}` 确认任务是否已入队，而不是直接重复上传。高层入口会等待任务进入 `success` 或 `failed`；Slack 通知使用独立队列重试，不影响数据上传的最终状态。
 
 客户端默认走**手动上传 API**（`/api/upload-data/manual`），并支持「只附带 CSV 源文件」和「打包整个目录」两种原数据上传方式。
 
@@ -29,7 +31,7 @@ pip install requests
 文件顶部定义了常量，可按需直接修改：
 
 ```python
-DEFAULT_SERVER_HOST = "192.168.0.137"
+DEFAULT_SERVER_HOST = "192.168.6.55"
 DEFAULT_SERVER_PORT = 8090
 DEFAULT_BASE_URL = f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}"
 ```
@@ -175,6 +177,7 @@ response = upload_manual_data(
 print(response)
 # {
 #   "success": true,
+#   "status": "queued",
 #   "record_id": "...",
 #   "csv_file": "/data/temp/manual_uploads/.../test.csv",
 #   "zip_file": "/data/temp/.../test-name-20260608_120000.zip",
@@ -182,7 +185,7 @@ print(response)
 # }
 ```
 
-适合需要拿到 `record_id`、在 Web UI 里跟踪上传进度的场景。
+这里的 `success: true` 表示任务已持久化入队，不代表上传已经完成。适合需要拿到 `record_id`、在 Web UI 里跟踪上传进度的场景；需要同步等待最终结果时调用 `wait_for_upload_record(record_id)`。
 
 ### 其他可用函数
 
@@ -192,8 +195,36 @@ print(response)
 | `get_base_url()` | 获取当前使用的服务地址 |
 | `upload_data(csv_path, zip_path)` | 调用 `/api/upload-data`（服务端路径） |
 | `pull_folder(csv_path, folder_name)` | 从机器人拉取文件夹 |
+| `get_upload_record_status(record_id)` | 查询持久化任务状态 |
+| `wait_for_upload_record(record_id)` | 等待上传进入最终状态 |
 
 ## 上传模式说明
+
+### 持久化状态与重试
+
+上传任务状态包括：
+
+| 状态 | 说明 |
+|------|------|
+| `queued` | 文件已校验，等待后台领取 |
+| `running` | 后台持有有效租约并正在执行 |
+| `retrying` | 当前尝试失败，等待下次重试时间 |
+| `success` | 数据上传和数据库写入成功 |
+| `failed` | 不可重试，或已达到最大尝试次数 |
+
+默认最多尝试 4 次，退避时间从 5 秒开始，最大 300 秒，并加入随机抖动。CSV 解析、配置不支持、文件摘要不一致等确定性错误不会重试。
+
+后端可通过以下环境变量调整：
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `PRODUCTION_PLATFORM_UPLOAD_SCHEDULER_POLL_SECONDS` | `2` | 后台队列轮询间隔秒数 |
+| `PRODUCTION_PLATFORM_UPLOAD_MAX_WORKERS` | `2` | 上传并发数 |
+| `PRODUCTION_PLATFORM_UPLOAD_MAX_ATTEMPTS` | `4` | 最大尝试次数 |
+| `PRODUCTION_PLATFORM_UPLOAD_RETRY_BASE_SECONDS` | `5` | 初始退避秒数 |
+| `PRODUCTION_PLATFORM_UPLOAD_RETRY_MAX_SECONDS` | `300` | 最大退避秒数 |
+| `PRODUCTION_PLATFORM_UPLOAD_LEASE_SECONDS` | `1800` | 单次任务租约秒数 |
+| `PRODUCTION_PLATFORM_UPLOAD_NOTIFICATION_MAX_ATTEMPTS` | `5` | Slack 通知最大尝试次数 |
 
 ### `include_source_zip` 与 `all_files`
 
@@ -296,12 +327,12 @@ print(check_health())
 
 函数内部使用 `print` 输出步骤信息。嵌入其他程序时如需静默，可自行重定向 stdout，或直接调用 `upload_manual_data` 等底层函数。
 
-## 与旧版 client 的选择
+## 调用方式选择
 
 | 场景 | 推荐 |
 |------|------|
 | 本地 CSV + 手动上传 API | `data_center_client.py` |
-| 机器人自动拉取 + 服务端路径上传 | 两者均可；新版 `--pull-folder` 仍支持 |
+| 机器人自动拉取 + 服务端路径上传 | 使用 `--pull-folder` |
 | 只需传服务端已有 csv/zip 路径 | `data_center_client.py` 的 `upload_data()` |
 
 ## 文件位置

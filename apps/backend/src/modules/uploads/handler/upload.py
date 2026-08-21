@@ -60,6 +60,8 @@ class UploadData:
         self.config_repo = ConfigRepository.from_environment(ENVIRONMENT)
         self.upload_repositories = default_upload_repositories(self)
         self._progress_callback: UploadProgressCallback | None = None
+        self.upload_record_id: str | None = None
+        self.upload_checkpoint: dict = {}
         self.nowmonth = self.get_current_month()
         if self.mongo is None:
             logger.warning("MongoDB not connected, try to connect...")
@@ -82,9 +84,18 @@ class UploadData:
             logger.error(e)
             print(f"Init Google Drive driver fail, {e}")
 
-    def report_upload_progress(self, stage: str, message: str) -> None:
+    def report_upload_progress(
+        self,
+        stage: str,
+        message: str,
+        checkpoint: dict | None = None,
+    ) -> None:
         if self._progress_callback:
-            self._progress_callback("stage", {"stage": stage, "message": message})
+            payload = {"stage": stage, "message": message}
+            if checkpoint:
+                self.upload_checkpoint.update(checkpoint)
+                payload["checkpoint"] = checkpoint
+            self._progress_callback("stage", payload)
 
     def get_current_month(self):
         """获取服务器当前月份"""
@@ -207,6 +218,8 @@ class UploadData:
         zip_file=None,
         progress_callback: UploadProgressCallback | None = None,
         meta: dict | None = None,
+        upload_record_id: str | None = None,
+        resume_checkpoint: dict | None = None,
     ) -> UploadApiResponse:
         """
         上传测试数据到 Google Drive。
@@ -221,6 +234,8 @@ class UploadData:
         print(f"Start to upload {file_path}")
         logger.info("==== Upload data to google drive start ====")
         self._progress_callback = progress_callback
+        self.upload_record_id = upload_record_id
+        self.upload_checkpoint = dict(resume_checkpoint or {})
         try:
             def report_stage(stage: str, message: str) -> None:
                 self.report_upload_progress(stage, message)
@@ -277,6 +292,8 @@ class UploadData:
             return build_api_response(finished=False, error=f"Exception occurred: {str(errval)}")
         finally:
             self._progress_callback = None
+            self.upload_record_id = None
+            self.upload_checkpoint = {}
             logger.info("==== Upload data to google drive end ====")
 
     def query_csv_link(
@@ -613,6 +630,8 @@ class UploadData:
             "workflow": get_upload_workflow_from_config_key(config_key),
             "source_csv_path": file_desc.get("file_path", ""),
         }
+        if self.upload_record_id:
+            db_result["upload_record_id"] = self.upload_record_id
 
         if is_combined_upload_config(config_key):
             for test_field in get_combined_test_fields(config_key):
@@ -737,8 +756,25 @@ class UploadData:
             db_result = {**result, "update_time": datetime.now()}
             db = self.mongo.get_database(db_name)
             collection = db[collection_name]
-            insert_result = collection.insert_one(db_result)
-            logger.info(f"Inserted result into {db_name}.{collection_name}, id: {insert_result.inserted_id}")
+            upload_record_id = db_result.get("upload_record_id")
+            if upload_record_id:
+                collection.create_index("upload_record_id", unique=True, sparse=True)
+                write_result = collection.update_one(
+                    {"upload_record_id": upload_record_id},
+                    {"$set": db_result},
+                    upsert=True,
+                )
+                saved_id = write_result.upserted_id or upload_record_id
+                logger.info(
+                    "Upserted result into %s.%s, upload_record_id=%s id=%s",
+                    db_name,
+                    collection_name,
+                    upload_record_id,
+                    saved_id,
+                )
+            else:
+                insert_result = collection.insert_one(db_result)
+                logger.info(f"Inserted result into {db_name}.{collection_name}, id: {insert_result.inserted_id}")
             if self.upload_session_repo is not None:
                 self.upload_session_repo.mark_uploaded(db_name, collection_name, db_result)
             return True, ""

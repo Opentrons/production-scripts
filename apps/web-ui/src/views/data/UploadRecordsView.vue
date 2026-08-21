@@ -186,7 +186,7 @@
           <template #default="{ row }">
             <div class="status-cell">
               <div class="status-main">
-                <el-icon v-if="row.status === 'running'" class="is-loading running-icon">
+                <el-icon v-if="isActiveUploadStatus(row.status)" class="is-loading running-icon">
                   <Loading />
                 </el-icon>
                 <el-tag :type="statusTagType(row.status)" size="small" effect="light">
@@ -197,6 +197,21 @@
                 {{ row.progress_message }}
               </span>
             </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="t('uploadRecords.retryAttempts')" width="100" align="center">
+          <template #default="{ row }">
+            <el-tooltip placement="top" :disabled="!row.stage_history?.length">
+              <template #content>
+                <div class="stage-history-tooltip">
+                  <div v-for="(stage, index) in getStageHistory(row)" :key="`${stage.label}-${index}`">
+                    {{ stage.label }} · {{ stage.duration }}
+                  </div>
+                </div>
+              </template>
+              <span>{{ row.attempt_count || 0 }}/{{ row.max_attempts || 0 }}</span>
+            </el-tooltip>
           </template>
         </el-table-column>
 
@@ -229,19 +244,19 @@
 
         <el-table-column :label="t('uploadRecords.columns.upload')" min-width="95">
           <template #default="{ row }">
-            <StepStatus :value="row.upload_success" :running="row.status === 'running' && row.upload_success === null" />
+            <StepStatus :value="row.upload_success" :running="isActiveUploadStatus(row.status) && row.upload_success === null" />
           </template>
         </el-table-column>
 
         <el-table-column :label="t('uploadRecords.columns.database')" min-width="95">
           <template #default="{ row }">
-            <StepStatus :value="row.database_success" :running="row.status === 'running' && row.database_success === null" />
+            <StepStatus :value="row.database_success" :running="isActiveUploadStatus(row.status) && row.database_success === null" />
           </template>
         </el-table-column>
 
         <el-table-column label="Slack" min-width="95">
           <template #default="{ row }">
-            <StepStatus :value="row.slack_success" :running="row.status === 'running' && row.slack_success === null" />
+            <StepStatus :value="row.slack_success" :running="['queued', 'running', 'retrying'].includes(row.notification_status || '')" />
           </template>
         </el-table-column>
 
@@ -836,7 +851,9 @@ let refreshIntervalMs = 0
 
 const statusOptions = computed(() => [
   { label: t('uploadRecords.status.all'), value: '' },
+  { label: t('uploadRecords.status.queued'), value: 'queued' },
   { label: t('common.status.running'), value: 'running' },
+  { label: t('uploadRecords.status.retrying'), value: 'retrying' },
   { label: t('uploadRecords.status.success'), value: 'success' },
   { label: t('common.status.error'), value: 'failed' }
 ])
@@ -1232,8 +1249,20 @@ const afterUploadSubmitted = async (recordId?: string | null) => {
   await fetchRecords(true)
 }
 
-const startTrackedUpload = async (fileName: string, source = 'web') => {
-  const response = await uploadRecordApi.startUploadRecord({ csvFileName: fileName, source })
+const createUploadIdempotencyKey = () => {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
+}
+
+const startTrackedUpload = async (fileName: string, source = 'web', csvSize?: number) => {
+  const response = await uploadRecordApi.startUploadRecord({
+    csvFileName: fileName,
+    source,
+    csvSize,
+    idempotencyKey: createUploadIdempotencyKey()
+  })
   const recordId = response.data.record_id
   if (!recordId) throw new Error('Upload record was not created')
   return recordId
@@ -1305,8 +1334,9 @@ const StepStatus = defineComponent({
   }
 })
 
-const runningCount = computed(() => records.value.filter((item) => item.status === 'running').length)
-const isAutoRefreshing = computed(() => runningCount.value > 0 || filters.value.status === 'running')
+const isActiveUploadStatus = (status?: string | null) => ['queued', 'running', 'retrying'].includes(status || '')
+const runningCount = computed(() => records.value.filter((item) => isActiveUploadStatus(item.status)).length)
+const isAutoRefreshing = computed(() => runningCount.value > 0 || isActiveUploadStatus(filters.value.status))
 const hasActiveFilters = computed(() => {
   return Boolean(
     filters.value.status ||
@@ -1460,7 +1490,9 @@ const getFilterParams = () => {
 
 const statusText = (status: string) => {
   const statusMap: Record<string, string> = {
+    queued: t('uploadRecords.status.queued'),
     running: t('common.status.running'),
+    retrying: t('uploadRecords.status.retrying'),
     success: t('uploadRecords.status.success'),
     failed: t('common.status.error')
   }
@@ -1470,7 +1502,7 @@ const statusText = (status: string) => {
 const statusTagType = (status: string) => {
   if (status === 'success') return 'success'
   if (status === 'failed') return 'danger'
-  if (status === 'running') return 'warning'
+  if (isActiveUploadStatus(status)) return 'warning'
   return 'info'
 }
 
@@ -1521,12 +1553,13 @@ const displayValue = (value: unknown) => {
 }
 
 const getErrorMessage = (record: UploadRecordItem) => {
-  return displayValue(record.error || record.result?.error || record.upload_result?.error)
+  return displayValue(record.error || record.result?.error || record.upload_result?.error || record.notification_error)
 }
 
 const getFailureStage = (record: UploadRecordItem) => {
-  if (!record.failure_stage) return '-'
-  return t(`uploadRecords.failureStages.${record.failure_stage}`)
+  const stage = record.failure_stage || (record.notification_status === 'failed' ? 'slack_notification' : '')
+  if (!stage) return '-'
+  return t(`uploadRecords.failureStages.${stage}`)
 }
 
 const getErrorDetail = (record: UploadRecordItem) => {
@@ -1536,6 +1569,19 @@ const getErrorDetail = (record: UploadRecordItem) => {
   const parts = [code === '-' ? '' : `[${code}]`, error]
   if (detail !== '-' && detail !== error) parts.push(detail)
   return parts.filter(Boolean).join('\n')
+}
+
+const getStageHistory = (record: UploadRecordItem) => {
+  return (record.stage_history || []).map((stage: Record<string, any>) => {
+    const message = String(stage.message || '').trim()
+    const stageName = String(stage.stage || '')
+    const label = message || (stageName ? t(`uploadRecords.failureStages.${stageName}`) : '-')
+    const duration = Number(stage.duration_seconds)
+    return {
+      label,
+      duration: Number.isFinite(duration) ? formatDurationSeconds(duration) : '-'
+    }
+  })
 }
 
 const normalizeLink = (value: unknown) => {
@@ -1652,7 +1698,7 @@ const mergeWatchedRecord = async () => {
 
   const existingIndex = records.value.findIndex((record) => record._id === watchedRecordId.value)
   const existingRecord = existingIndex >= 0 ? records.value[existingIndex] : null
-  if (existingRecord && existingRecord.status !== 'running') {
+  if (existingRecord && !isActiveUploadStatus(existingRecord.status)) {
     watchedRecordId.value = ''
     return
   }
@@ -1672,7 +1718,7 @@ const mergeWatchedRecord = async () => {
       records.value = [watchedRecord, ...records.value].slice(0, pageSize)
     }
 
-    if (watchedRecord.status !== 'running') {
+    if (!isActiveUploadStatus(watchedRecord.status)) {
       watchedRecordId.value = ''
     }
   } catch (e: any) {
@@ -1753,7 +1799,7 @@ const submitManualUpload = async () => {
   manualUploading.value = true
   let recordId = ''
   try {
-    recordId = await startTrackedUpload(manualFile.value.name)
+    recordId = await startTrackedUpload(manualFile.value.name, 'web', manualFile.value.size)
     const response = await uploadRecordApi.uploadManualData(
       manualFile.value,
       includeSourceZip.value,
@@ -1781,16 +1827,18 @@ const submitStandardRobotUpload = async () => {
 
   manualUploading.value = true
   let recordId = ''
+  let failureStage: string | undefined = 'robot_data_pull'
   try {
     recordId = await startTrackedUpload(standardSelectedRobotFile.value.name, 'web_robot')
     const response = await robotApi.downloadFile(standardRobotIp.value, standardSelectedRobotFile.value.path)
     const csvFile = blobToCsvFile(response.data, standardSelectedRobotFile.value.name)
+    failureStage = undefined
     const uploadResponse = await uploadRecordApi.uploadManualData(csvFile, false, false, undefined, recordId)
     ElMessage.success(t('uploadRecords.messages.submitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(uploadResponse.data.record_id)
   } catch (error: any) {
-    if (recordId) await markTrackedUploadFailed(recordId, error, 'robot_data_pull')
+    if (recordId) await markTrackedUploadFailed(recordId, error, failureStage)
     const message = normalizeUploadError(error)
     ElMessage.error(message ? t('uploadRecords.messages.robotFailedWithReason', { error: message }) : t('uploadRecords.messages.robotFailed'))
   } finally {
@@ -1811,7 +1859,7 @@ const submitZStageLocalUpload = async () => {
   zStageUploading.value = true
   let recordId = ''
   try {
-    recordId = await startTrackedUpload(zStageLocalFile.value.name, 'web_z_stage')
+    recordId = await startTrackedUpload(zStageLocalFile.value.name, 'web_z_stage', zStageLocalFile.value.size)
     const response = await uploadZStageFile(zStageLocalFile.value, recordId)
     ElMessage.success(t('uploadRecords.messages.zStageSubmitted'))
     manualUploadVisible.value = false
@@ -1840,16 +1888,18 @@ const submitZStageRemoteUpload = async () => {
     file.status = 'uploading'
     file.error = ''
     let recordId = ''
+    let failureStage: string | undefined = 'robot_data_pull'
     try {
       recordId = await startTrackedUpload(file.name, 'web_z_stage_robot')
       const response = await robotApi.downloadFile(zStageFixtureIp.value.trim(), file.path)
       const csvFile = blobToCsvFile(response.data, file.name)
+      failureStage = undefined
       const uploadResponse = await uploadZStageFile(csvFile, recordId)
       file.status = 'success'
       successCount += 1
       lastRecordId = uploadResponse.data.record_id || lastRecordId
     } catch (error: any) {
-      if (recordId) await markTrackedUploadFailed(recordId, error, 'robot_data_pull')
+      if (recordId) await markTrackedUploadFailed(recordId, error, failureStage)
       file.status = 'failed'
       file.error = normalizeUploadError(error)
       failedCount += 1

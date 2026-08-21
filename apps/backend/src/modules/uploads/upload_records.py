@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from enum import Enum
+import hashlib
 from pathlib import Path
+import random
 import re
 from typing import Any
 
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 
 import core.config as setting
 from core.database import mongodb
@@ -19,6 +22,9 @@ from modules.data_analysis.test_names import canonical_test_type
 
 
 STALE_UPLOAD_RECORD_MINUTES = 120
+ACTIVE_UPLOAD_STATUSES = {"queued", "running", "retrying"}
+TERMINAL_UPLOAD_STATUSES = {"success", "failed"}
+STAGE_HISTORY_LIMIT = 100
 
 
 def normalize_record_id(record_id: str) -> str | ObjectId:
@@ -51,6 +57,37 @@ def get_upload_record_collection():
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("Upload record database connection failed")
     return mongodb.get_database(setting.MESSAGE_COLLECTION)[setting.DATA_UPLOAD_RECORD_COLLECTION]
+
+
+def ensure_upload_record_indexes() -> None:
+    collection = get_upload_record_collection()
+    create_index = getattr(collection, "create_index", None)
+    if not create_index:
+        return
+    create_index("idempotency_key", unique=True, sparse=True)
+    create_index([("status", 1), ("next_retry_at", 1)])
+    create_index([("notification_status", 1), ("notification_next_retry_at", 1)])
+
+
+def get_upload_record(record_id: str | None) -> dict[str, Any] | None:
+    if not record_id:
+        return None
+    try:
+        return get_upload_record_collection().find_one({"_id": normalize_record_id(record_id)})
+    except Exception as exc:
+        logger.warning("Unable to read upload record %s: %s", record_id, exc)
+        return None
+
+
+def get_upload_record_by_idempotency_key(idempotency_key: str | None) -> dict[str, Any] | None:
+    normalized = str(idempotency_key or "").strip()
+    if not normalized:
+        return None
+    try:
+        return get_upload_record_collection().find_one({"idempotency_key": normalized})
+    except Exception as exc:
+        logger.warning("Unable to resolve upload idempotency key %s: %s", normalized, exc)
+        return None
 
 
 def _nested_get(document: dict[str, Any], path: str) -> Any:
@@ -305,7 +342,7 @@ def summarize_product_stats(records: list[dict[str, Any]]) -> list[dict[str, Any
         )
         stats["total"] += 1
         status = record.get("status")
-        if status == "running":
+        if status in ACTIVE_UPLOAD_STATUSES:
             stats["running"] += 1
         elif status == "success":
             stats["finished"] += 1
@@ -341,6 +378,18 @@ def build_file_info(path_value: str | None, name: str | None = None) -> dict[str
     return info
 
 
+def build_file_info_with_integrity(path_value: str, name: str | None = None) -> dict[str, Any]:
+    info = build_file_info(path_value, name) or {"path": path_value, "name": name or ""}
+    digest = hashlib.sha256()
+    size = 0
+    with open(path_value, "rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            size += len(chunk)
+            digest.update(chunk)
+    info.update({"size": size, "sha256": digest.hexdigest()})
+    return info
+
+
 def create_upload_record(
     csv_path: str | None,
     zip_path: str | None = None,
@@ -348,32 +397,87 @@ def create_upload_record(
     csv_name: str | None = None,
     zip_name: str | None = None,
     source: str = "api",
+    idempotency_key: str | None = None,
+    csv_size: int | None = None,
+    csv_sha256: str | None = None,
 ) -> str | None:
     try:
+        normalized_idempotency_key = str(idempotency_key or "").strip() or None
+        collection = get_upload_record_collection()
+        ensure_upload_record_indexes()
+        if normalized_idempotency_key:
+            existing = collection.find_one({"idempotency_key": normalized_idempotency_key})
+            if existing:
+                return str(existing["_id"])
+
         now = datetime.now()
+        csv_info = build_file_info(csv_path, csv_name)
+        if csv_info is not None:
+            if csv_size is not None:
+                csv_info["expected_size"] = int(csv_size)
+            if csv_sha256:
+                csv_info["expected_sha256"] = str(csv_sha256).lower()
         doc = {
             "status": "running",
             "source": source,
+            "idempotency_key": normalized_idempotency_key,
+            "name_key": f"upload:{normalized_idempotency_key}" if normalized_idempotency_key else None,
             "request_started_at": now,
             "request_finished_at": None,
             "updated_at": now,
-            "csv_file": build_file_info(csv_path, csv_name),
+            "csv_file": csv_info,
             "zip_file": build_file_info(zip_path, zip_name),
             "file_desc": None,
             "progress_stage": "created",
             "progress_message": "已创建上传任务",
+            "stage_history": [
+                {
+                    "stage": "created",
+                    "message": "已创建上传任务",
+                    "started_at": now,
+                    "finished_at": None,
+                    "duration_seconds": None,
+                }
+            ],
+            "checkpoint": {},
+            "job": None,
+            "attempt_count": 0,
+            "max_attempts": setting.UPLOAD_MAX_ATTEMPTS,
+            "next_retry_at": None,
+            "retryable": None,
+            "retry_history": [],
+            "lease_owner": None,
+            "lease_expires_at": None,
             "failure_stage": None,
             "failure_code": None,
             "error_detail": None,
             "upload_success": None,
             "database_success": None,
             "slack_success": None,
+            "notification_status": "pending",
+            "notification_attempt_count": 0,
+            "notification_next_retry_at": None,
+            "notification_lease_expires_at": None,
+            "notification_payload": None,
+            "notification_error": None,
             "slack_notified_at": None,
             "result": None,
             "error": None,
         }
-        insert_result = get_upload_record_collection().insert_one(doc)
+        if normalized_idempotency_key is None:
+            doc.pop("idempotency_key", None)
+            doc.pop("name_key", None)
+        insert_result = collection.insert_one(to_mongo_safe(doc))
         return str(insert_result.inserted_id)
+    except DuplicateKeyError:
+        if idempotency_key:
+            existing = get_upload_record_collection().find_one(
+                {"idempotency_key": str(idempotency_key).strip()}
+            )
+            if existing:
+                return str(existing["_id"])
+        logger.warning("Duplicate upload record rejected: idempotency_key=%s", idempotency_key)
+        return None
     except Exception as exc:
         logger.error(f"Failed to create upload record: {exc}")
         return None
@@ -394,6 +498,378 @@ def update_upload_record(record_id: str | None, fields: dict[str, Any]) -> None:
         )
     except Exception as exc:
         logger.error(f"Failed to update upload record {record_id}: {exc}")
+
+
+def update_upload_attempt(
+    record_id: str | None,
+    expected_attempt: int | None,
+    fields: dict[str, Any],
+) -> bool:
+    if expected_attempt is None:
+        update_upload_record(record_id, fields)
+        return bool(record_id)
+    if not record_id:
+        return False
+    try:
+        result = get_upload_record_collection().update_one(
+            {
+                "_id": normalize_record_id(record_id),
+                "status": "running",
+                "attempt_count": int(expected_attempt),
+            },
+            {"$set": {**to_mongo_safe(fields), "updated_at": datetime.now()}},
+        )
+        return int(getattr(result, "matched_count", 0) or 0) > 0
+    except Exception as exc:
+        logger.error("Failed to update upload record %s attempt %s: %s", record_id, expected_attempt, exc)
+        return False
+
+
+def renew_upload_attempt_lease(record_id: str, expected_attempt: int) -> bool:
+    now = datetime.now()
+    try:
+        result = get_upload_record_collection().update_one(
+            {
+                "_id": normalize_record_id(record_id),
+                "status": "running",
+                "attempt_count": int(expected_attempt),
+            },
+            {
+                "$set": to_mongo_safe(
+                    {
+                        "lease_expires_at": now + timedelta(seconds=setting.UPLOAD_LEASE_SECONDS),
+                        "updated_at": now,
+                    }
+                )
+            },
+        )
+        return int(getattr(result, "matched_count", 0) or 0) > 0
+    except Exception as exc:
+        logger.warning("Unable to renew upload lease %s attempt %s: %s", record_id, expected_attempt, exc)
+        return False
+
+
+def record_upload_progress(
+    record_id: str | None,
+    stage: str,
+    message: str,
+    *,
+    checkpoint: dict[str, Any] | None = None,
+    expected_attempt: int | None = None,
+) -> bool:
+    record = get_upload_record(record_id)
+    if record is None:
+        return False
+    if expected_attempt is not None and (
+        record.get("status") != "running"
+        or int(record.get("attempt_count") or 0) != int(expected_attempt)
+    ):
+        return False
+
+    now = datetime.now()
+    history = list(record.get("stage_history") or [])[-STAGE_HISTORY_LIMIT:]
+    if history and history[-1].get("stage") == stage:
+        history[-1] = {**history[-1], "message": message}
+    else:
+        if history and not history[-1].get("finished_at"):
+            started_at = parse_record_datetime(history[-1].get("started_at"))
+            history[-1] = {
+                **history[-1],
+                "finished_at": now,
+                "duration_seconds": (
+                    round(max(0.0, (now - started_at).total_seconds()), 3)
+                    if started_at
+                    else None
+                ),
+            }
+        history.append(
+            {
+                "stage": stage,
+                "message": message,
+                "started_at": now,
+                "finished_at": None,
+                "duration_seconds": None,
+            }
+        )
+
+    fields: dict[str, Any] = {
+        "progress_stage": stage,
+        "progress_message": message,
+        "stage_history": history[-STAGE_HISTORY_LIMIT:],
+    }
+    if checkpoint:
+        fields["checkpoint"] = {**(record.get("checkpoint") or {}), **checkpoint}
+    if record.get("status") == "running" and record.get("lease_owner"):
+        fields["lease_expires_at"] = now + timedelta(seconds=setting.UPLOAD_LEASE_SECONDS)
+    if expected_attempt is None:
+        update_upload_record(record_id, fields)
+        return True
+    result = get_upload_record_collection().update_one(
+        {
+            "_id": normalize_record_id(str(record["_id"])),
+            "status": "running",
+            "attempt_count": int(expected_attempt),
+        },
+        {"$set": to_mongo_safe({**fields, "updated_at": now})},
+    )
+    return int(getattr(result, "matched_count", 0) or 0) > 0
+
+
+def enqueue_upload_record(
+    record_id: str | None,
+    *,
+    csv_path: str,
+    zip_path: str | None,
+    meta: dict[str, Any] | None,
+) -> bool:
+    record = get_upload_record(record_id)
+    if record is None:
+        return False
+    if record.get("status") == "success":
+        return True
+    if record.get("job") and record.get("status") in ACTIVE_UPLOAD_STATUSES:
+        return True
+
+    now = datetime.now()
+    csv_info = record.get("csv_file") or {}
+    if not csv_info.get("sha256") or csv_info.get("path") != csv_path:
+        try:
+            csv_info = build_file_info_with_integrity(csv_path, csv_info.get("name"))
+        except OSError as exc:
+            logger.error("Unable to fingerprint queued CSV %s: %s", csv_path, exc)
+            return False
+    fields = {
+        "status": "queued",
+        "job": {
+            "csv_path": csv_path,
+            "zip_path": zip_path,
+            "meta": meta or {},
+        },
+        "request_finished_at": None,
+        "next_retry_at": now,
+        "retryable": None,
+        "failure_stage": None,
+        "failure_code": None,
+        "error": None,
+        "error_detail": None,
+        "lease_owner": None,
+        "lease_expires_at": None,
+        "csv_file": csv_info,
+    }
+    collection = get_upload_record_collection()
+    result = collection.update_one(
+        {
+            "_id": normalize_record_id(str(record["_id"])),
+            "status": record.get("status"),
+        },
+        {"$set": to_mongo_safe({**fields, "updated_at": now})},
+    )
+    if int(getattr(result, "matched_count", 0) or 0) == 0:
+        refreshed = get_upload_record(record_id)
+        return bool(refreshed and refreshed.get("job") and refreshed.get("status") in ACTIVE_UPLOAD_STATUSES)
+    record_upload_progress(record_id, "queued", "上传任务已进入持久化队列")
+    return True
+
+
+def calculate_retry_delay_seconds(attempt_count: int) -> float:
+    exponent = max(0, int(attempt_count) - 1)
+    base_delay = min(
+        setting.UPLOAD_RETRY_MAX_SECONDS,
+        setting.UPLOAD_RETRY_BASE_SECONDS * (2 ** exponent),
+    )
+    return round(base_delay * random.uniform(0.8, 1.2), 3)
+
+
+def _record_is_due(record: dict[str, Any], field: str, now: datetime) -> bool:
+    due_at = parse_record_datetime(record.get(field))
+    return due_at is None or due_at <= now
+
+
+def claim_due_upload_record(owner: str) -> dict[str, Any] | None:
+    collection = get_upload_record_collection()
+    now = datetime.now()
+    if setting.use_sqlite_persistence():
+        candidates = [
+            record
+            for record in collection.find({})
+            if record.get("status") in {"queued", "retrying"}
+            and record.get("job")
+            and _record_is_due(record, "next_retry_at", now)
+        ]
+    else:
+        candidates = list(
+            collection.find(
+                {
+                    "status": {"$in": ["queued", "retrying"]},
+                    "next_retry_at": {"$lte": now},
+                    "job": {"$ne": None},
+                }
+            ).sort("next_retry_at", 1).limit(20)
+        )
+
+    candidates.sort(key=lambda item: str(item.get("next_retry_at") or ""))
+    for record in candidates:
+        current_attempt = int(record.get("attempt_count") or 0)
+        result = collection.update_one(
+            {
+                "_id": normalize_record_id(str(record["_id"])),
+                "status": record.get("status"),
+                "attempt_count": current_attempt,
+            },
+            {
+                "$set": to_mongo_safe(
+                    {
+                        "status": "running",
+                        "attempt_count": current_attempt + 1,
+                        "attempt_started_at": now,
+                        "next_retry_at": None,
+                        "lease_owner": owner,
+                        "lease_expires_at": now + timedelta(seconds=setting.UPLOAD_LEASE_SECONDS),
+                        "updated_at": now,
+                    }
+                )
+            },
+        )
+        if int(getattr(result, "matched_count", 0) or 0) > 0:
+            claimed = get_upload_record(str(record["_id"]))
+            if claimed:
+                record_upload_progress(
+                    str(record["_id"]),
+                    "running",
+                    f"正在执行上传，第 {current_attempt + 1} 次尝试",
+                )
+            return claimed
+    return None
+
+
+def schedule_upload_retry(
+    record_id: str | None,
+    *,
+    failure_stage: str,
+    failure_code: str,
+    error: str,
+    error_detail: str | None = None,
+    expected_attempt: int | None = None,
+) -> bool:
+    record = get_upload_record(record_id)
+    if record is None:
+        return False
+    current_status = record.get("status")
+    if current_status not in ACTIVE_UPLOAD_STATUSES:
+        return False
+    attempt_count = int(record.get("attempt_count") or 0)
+    if expected_attempt is not None and (
+        current_status != "running" or attempt_count != int(expected_attempt)
+    ):
+        return False
+    max_attempts = int(record.get("max_attempts") or setting.UPLOAD_MAX_ATTEMPTS)
+    if not record.get("job") or attempt_count >= max_attempts:
+        return False
+
+    now = datetime.now()
+    delay_seconds = calculate_retry_delay_seconds(attempt_count)
+    next_retry_at = now + timedelta(seconds=delay_seconds)
+    retry_history = list(record.get("retry_history") or [])
+    retry_history.append(
+        {
+            "attempt": attempt_count,
+            "failed_at": now,
+            "failure_stage": failure_stage,
+            "failure_code": failure_code,
+            "error": error,
+            "next_retry_at": next_retry_at,
+        }
+    )
+    retry_fields = {
+        "status": "retrying",
+        "request_finished_at": None,
+        "next_retry_at": next_retry_at,
+        "retryable": True,
+        "retry_history": retry_history[-20:],
+        "failure_stage": failure_stage,
+        "failure_code": failure_code,
+        "error": error,
+        "error_detail": error_detail or error,
+        "lease_owner": None,
+        "lease_expires_at": None,
+    }
+    result = get_upload_record_collection().update_one(
+        {
+            "_id": normalize_record_id(str(record["_id"])),
+            "status": current_status,
+            "attempt_count": attempt_count,
+        },
+        {"$set": to_mongo_safe({**retry_fields, "updated_at": now})},
+    )
+    if int(getattr(result, "matched_count", 0) or 0) == 0:
+        return False
+    record_upload_progress(
+        record_id,
+        "retrying",
+        f"第 {attempt_count} 次上传失败，将在 {round(delay_seconds, 1)} 秒后重试",
+    )
+    return True
+
+
+def recover_expired_upload_leases() -> int:
+    collection = get_upload_record_collection()
+    now = datetime.now()
+    if setting.use_sqlite_persistence():
+        records = [
+            record
+            for record in collection.find({})
+            if record.get("status") == "running"
+            and record.get("job")
+            and parse_record_datetime(record.get("lease_expires_at"))
+            and parse_record_datetime(record.get("lease_expires_at")) <= now
+        ]
+    else:
+        records = list(
+            collection.find(
+                {
+                    "status": "running",
+                    "job": {"$ne": None},
+                    "lease_expires_at": {"$lte": now},
+                }
+            )
+        )
+
+    recovered = 0
+    for record in records:
+        record_id = str(record["_id"])
+        expected_attempt = int(record.get("attempt_count") or 0)
+        if schedule_upload_retry(
+            record_id,
+            failure_stage="worker_interrupted",
+            failure_code="upload_lease_expired",
+            error="后台上传任务租约过期，正在恢复执行",
+            expected_attempt=expected_attempt,
+        ):
+            recovered += 1
+        else:
+            error = "后台上传任务租约过期且已达到最大重试次数"
+            finished = finish_upload_record(
+                record_id,
+                upload_success=False,
+                database_success=False,
+                slack_success=None,
+                failure_stage="worker_interrupted",
+                failure_code="upload_lease_expired",
+                error=error,
+                expected_attempt=expected_attempt,
+            )
+            if finished:
+                job = record.get("job") or {}
+                queue_upload_notification(
+                    record_id,
+                    result=None,
+                    csv_path=str(job.get("csv_path") or ""),
+                    zip_path=job.get("zip_path") or None,
+                    error_message=error,
+                    upload_success=False,
+                    database_success=False,
+                )
+    return recovered
 
 
 def set_file_description(record_id: str | None, file_desc: dict[str, Any]) -> None:
@@ -430,8 +906,9 @@ def finish_upload_record(
     failure_code: str | None = None,
     error_detail: str | None = None,
     only_if_running: bool = False,
-) -> None:
-    finished_success = upload_success and database_success and slack_success is True
+    expected_attempt: int | None = None,
+) -> bool:
+    finished_success = upload_success and database_success
     failure_reason = None if finished_success else resolve_failure_reason(
         upload_success=upload_success,
         database_success=database_success,
@@ -439,8 +916,6 @@ def finish_upload_record(
         error=error,
     )
     resolved_failure_stage = failure_stage
-    if not finished_success and not resolved_failure_stage and slack_success is False:
-        resolved_failure_stage = "slack_notification"
     finish_fields = {
         "status": "success" if finished_success else "failed",
         "request_finished_at": datetime.now(),
@@ -454,23 +929,57 @@ def finish_upload_record(
         "failure_stage": resolved_failure_stage if not finished_success else None,
         "failure_code": failure_code if not finished_success else None,
         "error_detail": (error_detail or failure_reason) if not finished_success else None,
+        "retryable": False if not finished_success else None,
+        "next_retry_at": None,
+        "lease_owner": None,
+        "lease_expires_at": None,
     }
     if slack_success is not None:
         finish_fields["slack_notified_at"] = datetime.now()
+        finish_fields["notification_status"] = "success" if slack_success else "retrying"
+    if expected_attempt is not None:
+        try:
+            if not record_id:
+                return False
+            update_fields = {**to_mongo_safe(finish_fields), "updated_at": datetime.now()}
+            result = get_upload_record_collection().update_one(
+                {
+                    "_id": normalize_record_id(record_id),
+                    "status": "running",
+                    "attempt_count": int(expected_attempt),
+                },
+                {"$set": update_fields},
+            )
+            if int(getattr(result, "matched_count", 0) or 0) == 0:
+                return False
+            record_upload_progress(record_id, "finished", finish_fields["progress_message"])
+            return True
+        except Exception as exc:
+            logger.error("Failed to finish upload record %s attempt %s: %s", record_id, expected_attempt, exc)
+            return False
     if only_if_running:
         try:
             if not record_id:
-                return
+                return False
+            record = get_upload_record(record_id)
+            if record is None or record.get("status") not in ACTIVE_UPLOAD_STATUSES:
+                return False
             update_fields = {**to_mongo_safe(finish_fields), "updated_at": datetime.now()}
-            get_upload_record_collection().update_one(
-                {"_id": normalize_record_id(record_id), "status": "running"},
+            result = get_upload_record_collection().update_one(
+                {"_id": normalize_record_id(record_id), "status": record.get("status")},
                 {"$set": update_fields},
             )
+            if int(getattr(result, "matched_count", 0) or 0) == 0:
+                return False
+            record_upload_progress(record_id, "finished", finish_fields["progress_message"])
+            return True
         except Exception as exc:
             logger.error(f"Failed to mark upload record {record_id} as failed: {exc}")
-        return
+            return False
 
     update_upload_record(record_id, finish_fields)
+    record_upload_progress(record_id, "finished", finish_fields["progress_message"])
+    return bool(record_id)
 
 
 def mark_upload_record_failed(
@@ -480,13 +989,28 @@ def mark_upload_record_failed(
     failure_code: str,
     error: str,
     error_detail: str | None = None,
-) -> None:
+    force: bool = False,
+) -> bool:
     """Persist a failure that happened outside the upload worker request.
 
     This is used by clients when a multipart request fails before FastAPI can
     parse the body and enter the upload handler.
     """
-    finish_upload_record(
+    record = get_upload_record(record_id)
+    if record is None or record.get("status") in TERMINAL_UPLOAD_STATUSES:
+        return False
+    if not force and record.get("job") and record.get("status") in ACTIVE_UPLOAD_STATUSES:
+        update_upload_record(
+            record_id,
+            {
+                "last_client_error": error,
+                "last_client_error_detail": error_detail or error,
+                "last_client_error_at": datetime.now(),
+            },
+        )
+        return False
+
+    return finish_upload_record(
         record_id,
         upload_success=False,
         database_success=False,
@@ -499,8 +1023,191 @@ def mark_upload_record_failed(
     )
 
 
+def queue_upload_notification(
+    record_id: str | None,
+    *,
+    result: dict[str, Any] | None,
+    csv_path: str,
+    zip_path: str | None,
+    error_message: str | None,
+    upload_success: bool,
+    database_success: bool,
+) -> None:
+    if not record_id:
+        return
+    update_upload_record(
+        record_id,
+        {
+            "notification_status": "queued",
+            "notification_next_retry_at": datetime.now(),
+            "notification_payload": {
+                "result": result,
+                "csv_path": csv_path,
+                "zip_path": zip_path,
+                "error_message": error_message,
+                "upload_success": upload_success,
+                "database_success": database_success,
+            },
+            "notification_error": None,
+            "notification_owner": None,
+            "notification_lease_expires_at": None,
+        },
+    )
+
+
+def claim_due_upload_notification(owner: str) -> dict[str, Any] | None:
+    collection = get_upload_record_collection()
+    now = datetime.now()
+    if setting.use_sqlite_persistence():
+        candidates = [
+            record
+            for record in collection.find({})
+            if record.get("notification_status") in {"queued", "retrying"}
+            and record.get("notification_payload")
+            and _record_is_due(record, "notification_next_retry_at", now)
+        ]
+    else:
+        candidates = list(
+            collection.find(
+                {
+                    "notification_status": {"$in": ["queued", "retrying"]},
+                    "notification_next_retry_at": {"$lte": now},
+                    "notification_payload": {"$ne": None},
+                }
+            ).sort("notification_next_retry_at", 1).limit(20)
+        )
+    candidates.sort(key=lambda item: str(item.get("notification_next_retry_at") or ""))
+    for record in candidates:
+        attempts = int(record.get("notification_attempt_count") or 0)
+        result = collection.update_one(
+            {
+                "_id": normalize_record_id(str(record["_id"])),
+                "notification_status": record.get("notification_status"),
+                "notification_attempt_count": attempts,
+            },
+            {
+                "$set": to_mongo_safe(
+                    {
+                        "notification_status": "running",
+                        "notification_attempt_count": attempts + 1,
+                        "notification_owner": owner,
+                        "notification_lease_expires_at": now
+                        + timedelta(seconds=setting.UPLOAD_LEASE_SECONDS),
+                        "notification_next_retry_at": None,
+                        "updated_at": now,
+                    }
+                )
+            },
+        )
+        if int(getattr(result, "matched_count", 0) or 0) > 0:
+            return get_upload_record(str(record["_id"]))
+    return None
+
+
+def finish_upload_notification(
+    record_id: str,
+    *,
+    success: bool,
+    error: str | None = None,
+    expected_attempt: int | None = None,
+) -> bool:
+    record = get_upload_record(record_id)
+    if record is None:
+        return False
+    attempts = int(record.get("notification_attempt_count") or 0)
+    if success:
+        fields = {
+            "slack_success": True,
+            "slack_notified_at": datetime.now(),
+            "notification_status": "success",
+            "notification_error": None,
+            "notification_payload": None,
+            "notification_owner": None,
+            "notification_lease_expires_at": None,
+            "notification_next_retry_at": None,
+        }
+    elif attempts >= setting.UPLOAD_NOTIFICATION_MAX_ATTEMPTS:
+        fields = {
+            "slack_success": False,
+            "notification_status": "failed",
+            "notification_error": error or "Slack notification failed",
+            "notification_owner": None,
+            "notification_lease_expires_at": None,
+            "notification_next_retry_at": None,
+        }
+    else:
+        delay_seconds = calculate_retry_delay_seconds(attempts)
+        fields = {
+            "slack_success": False,
+            "notification_status": "retrying",
+            "notification_error": error or "Slack notification failed",
+            "notification_owner": None,
+            "notification_lease_expires_at": None,
+            "notification_next_retry_at": datetime.now() + timedelta(seconds=delay_seconds),
+        }
+
+    if expected_attempt is None:
+        update_upload_record(record_id, fields)
+        return True
+    result = get_upload_record_collection().update_one(
+        {
+            "_id": normalize_record_id(record_id),
+            "notification_status": "running",
+            "notification_attempt_count": int(expected_attempt),
+        },
+        {"$set": to_mongo_safe({**fields, "updated_at": datetime.now()})},
+    )
+    return int(getattr(result, "matched_count", 0) or 0) > 0
+
+
+def recover_expired_upload_notifications() -> int:
+    collection = get_upload_record_collection()
+    now = datetime.now()
+    if setting.use_sqlite_persistence():
+        records = [
+            record
+            for record in collection.find({})
+            if record.get("notification_status") == "running"
+            and parse_record_datetime(record.get("notification_lease_expires_at"))
+            and parse_record_datetime(record.get("notification_lease_expires_at")) <= now
+        ]
+    else:
+        records = list(
+            collection.find(
+                {
+                    "notification_status": "running",
+                    "notification_lease_expires_at": {"$lte": now},
+                }
+            )
+        )
+    recovered = 0
+    for record in records:
+        result = collection.update_one(
+            {
+                "_id": normalize_record_id(str(record["_id"])),
+                "notification_status": "running",
+                "notification_attempt_count": int(record.get("notification_attempt_count") or 0),
+            },
+            {
+                "$set": to_mongo_safe(
+                    {
+                        "notification_status": "retrying",
+                        "notification_next_retry_at": now,
+                        "notification_owner": None,
+                        "notification_lease_expires_at": None,
+                        "notification_error": "Notification worker lease expired",
+                        "updated_at": now,
+                    }
+                )
+            },
+        )
+        recovered += int(getattr(result, "modified_count", 0) or 0)
+    return recovered
+
+
 def expire_stale_upload_records(max_age_minutes: int = STALE_UPLOAD_RECORD_MINUTES) -> int:
     """Fail running tasks that stopped reporting progress after a worker interruption."""
+    recover_expired_upload_leases()
     collection = get_upload_record_collection()
     cutoff = datetime.now() - timedelta(minutes=max(1, max_age_minutes))
     failure_fields = {
@@ -641,7 +1348,7 @@ def get_upload_record_stats(
             )
             records = list(collection.find(query))
         total = len(records)
-        running = sum(1 for record in records if record.get("status") == "running")
+        running = sum(1 for record in records if record.get("status") in ACTIVE_UPLOAD_STATUSES)
         success = sum(1 for record in records if record.get("status") == "success")
         finished = total - running
         failed = finished - success

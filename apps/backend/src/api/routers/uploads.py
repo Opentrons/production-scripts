@@ -27,6 +27,10 @@ data_center_client_router = APIRouter()
 
 @data_center_client_router.post("/upload-records/start", response_model=UploadDataResponse)
 async def start_upload_record(payload: UploadRecordStartRequest):
+    existing = await run_in_threadpool(
+        upload_record_service.get_upload_record_by_idempotency_key,
+        payload.idempotency_key,
+    )
     record_id = await run_in_threadpool(
         upload_record_service.create_upload_record,
         None,
@@ -34,6 +38,9 @@ async def start_upload_record(payload: UploadRecordStartRequest):
         csv_name=payload.csv_file_name,
         zip_name=payload.zip_file_name,
         source=payload.source,
+        idempotency_key=payload.idempotency_key,
+        csv_size=payload.csv_size,
+        csv_sha256=payload.csv_sha256,
     )
     if not record_id:
         raise HTTPException(
@@ -47,6 +54,8 @@ async def start_upload_record(payload: UploadRecordStartRequest):
         "success": True,
         "record_id": record_id,
         "message": "Upload record created",
+        "status": (existing or {}).get("status") or "running",
+        "deduplicated": existing is not None,
     }
 
 
@@ -64,6 +73,30 @@ async def fail_upload_record(record_id: str, payload: UploadRecordFailureRequest
         "success": True,
         "record_id": record_id,
         "message": "Upload record marked as failed",
+    }
+
+
+@data_center_client_router.get("/upload-records/{record_id}")
+async def get_upload_record_status(record_id: str):
+    record = await run_in_threadpool(upload_record_service.get_upload_record, record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail={"message": "Upload record not found"})
+    return {
+        "record_id": str(record.get("_id")),
+        "status": record.get("status"),
+        "job_enqueued": bool(record.get("job")),
+        "progress_stage": record.get("progress_stage"),
+        "progress_message": record.get("progress_message"),
+        "attempt_count": record.get("attempt_count", 0),
+        "max_attempts": record.get("max_attempts", 0),
+        "next_retry_at": record.get("next_retry_at"),
+        "upload_success": record.get("upload_success"),
+        "database_success": record.get("database_success"),
+        "notification_status": record.get("notification_status"),
+        "failure_stage": record.get("failure_stage"),
+        "failure_code": record.get("failure_code"),
+        "error": record.get("error"),
+        "error_detail": record.get("error_detail"),
     }
 
 
@@ -89,21 +122,48 @@ async def update_upload_finish_setting(payload: UploadFinishSettingUpdateRequest
 
 @data_center_client_router.post("/upload-data", response_model=UploadDataResponse)
 async def upload_data(payload: UploadDataRequest):
-    record_id = payload.record_id or upload_record_service.create_upload_record(
-        payload.csv_file_path, payload.zip_file_path, source="api"
-    )
+    record_id = payload.record_id
+    if not record_id:
+        record_id = await run_in_threadpool(
+            upload_record_service.create_upload_record,
+            payload.csv_file_path,
+            payload.zip_file_path,
+            source="api",
+        )
     try:
-        return await run_in_threadpool(
-            upload_service.upload_data,
+        queued = await run_in_threadpool(
+            upload_record_service.enqueue_upload_record,
+            record_id,
             csv_path=payload.csv_file_path,
             zip_path=payload.zip_file_path,
-            upload_record_id=record_id,
+            meta=None,
         )
+        if not queued:
+            await run_in_threadpool(
+                upload_record_service.mark_upload_record_failed,
+                record_id,
+                failure_stage="queue",
+                failure_code="upload_enqueue_failed",
+                error="Failed to enqueue upload task",
+            )
+            raise HTTPException(
+                status_code=503,
+                detail={"message": "Failed to enqueue upload task", "record_id": record_id},
+            )
+        return {
+            "csv_file": payload.csv_file_path,
+            "zip_file": payload.zip_file_path,
+            "success": True,
+            "record_id": record_id,
+            "status": "queued",
+            "message": "Upload task submitted",
+        }
     except HTTPException:
         raise
     except Exception as exc:
         logger.error(f"Unexpected error in upload-data: {str(exc)}", exc_info=True)
-        upload_record_service.mark_upload_record_failed(
+        await run_in_threadpool(
+            upload_record_service.mark_upload_record_failed,
             record_id,
             failure_stage="request_processing",
             failure_code="server_unhandled_exception",

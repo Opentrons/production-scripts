@@ -16,6 +16,9 @@ class UploadRecordStartRequest(BaseModel):
     csv_file_name: str = Field(default="", max_length=255)
     zip_file_name: str | None = Field(default=None, max_length=255)
     source: str = Field(default="api", min_length=1, max_length=32)
+    idempotency_key: str | None = Field(default=None, max_length=128)
+    csv_size: int | None = Field(default=None, ge=0)
+    csv_sha256: str | None = Field(default=None, min_length=64, max_length=64)
 
 
 class UploadRecordFailureRequest(BaseModel):
@@ -31,6 +34,8 @@ class UploadDataResponse(BaseModel):
     success: bool
     record_id: str | None = None
     message: str | None = None
+    status: str | None = None
+    deduplicated: bool = False
 
 
 class UploadFinishSettingUpdateRequest(BaseModel):

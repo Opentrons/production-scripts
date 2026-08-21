@@ -27,6 +27,7 @@ from modules.uploads.handler.drivers.google_drive import (
 )
 from modules.uploads.handler.utils import runtime_config
 from modules.uploads.upload import shutdown_upload_service
+from modules.uploads.scheduler import upload_scheduler
 from modules.workflows.runtime import workflow_scheduler, workflow_service
 from modules.agent.schedules import agent_schedule_scheduler
 
@@ -71,6 +72,7 @@ async def lifespan(_: FastAPI):
         workflow_service.initialize()
         workflow_scheduler.start()
         agent_schedule_scheduler.start()
+        upload_scheduler.start()
     else:
         logger.warning(
             "Mongo-backed workflow and Agent schedulers are disabled "
@@ -91,6 +93,7 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        upload_scheduler.stop()
         workflow_scheduler.stop()
         agent_schedule_scheduler.stop()
         stop_health_refresh_scheduler()

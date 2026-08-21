@@ -102,9 +102,18 @@ export interface UploadRecordItem {
   failure_stage?: string | null
   failure_code?: string | null
   error_detail?: string | null
+  attempt_count?: number
+  max_attempts?: number
+  next_retry_at?: string | null
+  retryable?: boolean | null
+  retry_history?: Array<Record<string, any>>
+  stage_history?: Array<Record<string, any>>
+  checkpoint?: Record<string, any>
   upload_success?: boolean | null
   database_success?: boolean | null
   slack_success?: boolean | null
+  notification_status?: string | null
+  notification_error?: string | null
   slack_notified_at?: string | null
   result?: Record<string, any> | null
   upload_result?: Record<string, any> | null

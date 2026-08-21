@@ -50,22 +50,36 @@ class SpreadsheetUploadWorkflow:
         if not plan.yaml_cfg["ifupdate"]:
             return None
 
+        checkpoint = self.uploader.get_upload_checkpoint()
         self.uploader.report_progress("prepare_spreadsheet", "正在创建或复用 Google Spreadsheet")
-        updatefileid, sheetlink = self._prepare_spreadsheet(plan)
+        updatefileid = checkpoint.get("spreadsheet_id")
+        sheetlink = checkpoint.get("spreadsheet_link")
+        if not updatefileid:
+            updatefileid, sheetlink = self._prepare_spreadsheet(plan)
         if not updatefileid:
             google_error = getattr(self.uploader.gdrive, "last_error", None)
             detail = f": {google_error}" if google_error else ""
             plan.result.set_error(f"创建或复用 Google Spreadsheet 失败{detail}")
             return plan.result.to_dict()
+        self.uploader.report_progress(
+            "prepare_spreadsheet",
+            "Google Spreadsheet 已准备完成",
+            {
+                "spreadsheet_id": updatefileid,
+                "spreadsheet_link": sheetlink,
+            },
+        )
 
         logger.info(f"Coping datas to {plan.csv_sheet_name}")
         self.uploader.report_progress("write_spreadsheet", "正在将 CSV 数据写入 Google Spreadsheet")
-        upload_ok = self.uploader.upload_csv_to_spreadsheet(
-            updatefileid,
-            plan.csv_sheet_name,
-            plan.file_desc.get("file_path"),
-            plan.csv_range,
-        )
+        upload_ok = bool(checkpoint.get("spreadsheet_written"))
+        if not upload_ok:
+            upload_ok = self.uploader.upload_csv_to_spreadsheet(
+                updatefileid,
+                plan.csv_sheet_name,
+                plan.file_desc.get("file_path"),
+                plan.csv_range,
+            )
         self._set_upload_result(plan, upload_ok=upload_ok)
         plan.result.set_csv_link(sheetlink)
         logger.info("template coping finished" if upload_ok else f"更新文件：失败 {plan.yaml_cfg}")
@@ -77,6 +91,11 @@ class SpreadsheetUploadWorkflow:
                 f"CSV 数据写入 Google Spreadsheet 失败: sheet={plan.csv_sheet_name}{detail}"
             )
             return plan.result.to_dict()
+        self.uploader.report_progress(
+            "write_spreadsheet",
+            "CSV 数据已写入 Google Spreadsheet",
+            {"spreadsheet_written": True},
+        )
 
         self.uploader.report_progress("read_summary", "正在读取测试汇总结果")
         copy_data_list = self.uploader.copy_summary_ranges(
@@ -87,24 +106,33 @@ class SpreadsheetUploadWorkflow:
         self._copy_test_result(plan, updatefileid, use_total_result_cell=False)
 
         self.uploader.report_progress("move_spreadsheet", "正在归档 Google Spreadsheet")
-        move_ok = self.uploader.move_spreadsheet_to_month(
-            plan.yaml_cfg,
-            updatefileid,
-            model_key=plan.model_key,
-        )
+        move_ok = bool(checkpoint.get("spreadsheet_archived"))
+        if not move_ok:
+            move_ok = self.uploader.move_spreadsheet_to_month(
+                plan.yaml_cfg,
+                updatefileid,
+                model_key=plan.model_key,
+            )
         if not move_ok:
             google_error = getattr(self.uploader.gdrive, "last_error", None)
             detail = f": {google_error}" if google_error else ""
             plan.result.set_error(f"归档 Google Spreadsheet 失败{detail}")
             return plan.result.to_dict()
-        self.uploader.report_progress("upload_raw_data", "正在上传原始数据压缩包")
-        raw_data = self.uploader.upload_raw_data(
-            plan.yaml_cfg,
-            plan.result.sn,
-            plan.timestamp,
-            plan.file_desc.get("zip_file"),
-            model_key=plan.model_key,
+        self.uploader.report_progress(
+            "move_spreadsheet",
+            "Google Spreadsheet 已归档",
+            {"spreadsheet_archived": True},
         )
+        self.uploader.report_progress("upload_raw_data", "正在上传原始数据压缩包")
+        raw_data = checkpoint.get("raw_data_result")
+        if not raw_data:
+            raw_data = self.uploader.upload_raw_data(
+                plan.yaml_cfg,
+                plan.result.sn,
+                plan.timestamp,
+                plan.file_desc.get("zip_file"),
+                model_key=plan.model_key,
+            )
         plan.result.set_raw_data(
             raw_data.get("url", "N/A"),
             raw_data.get("name", ""),
@@ -112,8 +140,15 @@ class SpreadsheetUploadWorkflow:
         if raw_data.get("error"):
             plan.result.set_error(raw_data["error"])
             return plan.result.to_dict()
+        self.uploader.report_progress(
+            "upload_raw_data",
+            "原始数据上传完成",
+            {"raw_data_result": raw_data},
+        )
         self.uploader.report_progress("database", "正在写入上传结果数据库")
-        database_status = plan.record_writer(plan.result.to_db_dict())
+        database_status = checkpoint.get("database_status")
+        if not database_status:
+            database_status = plan.record_writer(plan.result.to_db_dict())
         database_saved = bool(database_status.get("saved"))
         plan.result.set_database_saved(database_saved)
         if not database_saved:
@@ -122,6 +157,11 @@ class SpreadsheetUploadWorkflow:
             plan.result.set_unit_tracker_status(database_error)
             plan.result.set_error(database_error)
             return plan.result.to_dict()
+        self.uploader.report_progress(
+            "database",
+            "上传结果已写入数据库",
+            {"database_status": database_status},
+        )
 
         workflow_complete = bool(database_status.get("workflow_complete"))
         if workflow_complete and plan.total_result_cell:
@@ -146,7 +186,17 @@ class SpreadsheetUploadWorkflow:
             return plan.result.to_dict()
 
         self.uploader.report_progress("unit_tracker", "正在更新 Unit Tracker")
-        tracking_sheet = self._paste_to_tracker(plan, copy_data_list, sheetlink)
+        tracking_sheet = checkpoint.get("unit_tracker_link")
+        if not tracking_sheet:
+            tracking_sheet = self._paste_to_tracker(plan, copy_data_list, sheetlink)
+            if tracking_sheet and tracking_sheet != "NA":
+                self.uploader.report_progress(
+                    "unit_tracker",
+                    "Unit Tracker 已写入，正在确认数据库状态",
+                    {"unit_tracker_link": tracking_sheet},
+                )
+        elif tracking_sheet != "NA":
+            plan.result.set_unit_tracker(tracking_sheet)
         if tracking_sheet and tracking_sheet != "NA":
             if self.uploader.mark_unit_tracker_uploaded(
                 db_name=DATA_DB_NAME,
@@ -154,6 +204,11 @@ class SpreadsheetUploadWorkflow:
                 unit_tracker_link=tracking_sheet,
             ):
                 plan.result.set_unit_tracker_status("Uploaded to Unit Tracker")
+                self.uploader.report_progress(
+                    "unit_tracker",
+                    "Unit Tracker 更新完成",
+                    {"unit_tracker_confirmed": True},
+                )
             else:
                 plan.result.set_error("Unit Tracker 已写入，但数据库状态更新失败")
         else:

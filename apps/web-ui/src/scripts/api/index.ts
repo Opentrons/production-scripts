@@ -926,11 +926,17 @@ export const uploadRecordApi = {
     csvFileName?: string
     zipFileName?: string
     source?: string
+    idempotencyKey?: string
+    csvSize?: number
+    csvSha256?: string
   }) =>
     api.post<UploadDataResponse>('/upload-records/start', {
       csv_file_name: payload.csvFileName || '',
       zip_file_name: payload.zipFileName,
-      source: payload.source || 'web'
+      source: payload.source || 'web',
+      idempotency_key: payload.idempotencyKey,
+      csv_size: payload.csvSize,
+      csv_sha256: payload.csvSha256
     }),
   markUploadRecordFailed: (
     recordId: string,
