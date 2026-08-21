@@ -8,8 +8,10 @@ from api.models import (
     UploadDataResponse,
     UploadFinishSettingResponse,
     UploadFinishSettingUpdateRequest,
+    UploadRecordFailureRequest,
     UploadRecordFilterOptionsResponse,
     UploadRecordListResponse,
+    UploadRecordStartRequest,
     UploadRecordStatsResponse,
 )
 from core.logging import get_logger
@@ -21,6 +23,49 @@ from modules.uploads import upload_settings as upload_settings_service
 logger = get_logger(__name__)
 router = APIRouter()
 data_center_client_router = APIRouter()
+
+
+@data_center_client_router.post("/upload-records/start", response_model=UploadDataResponse)
+async def start_upload_record(payload: UploadRecordStartRequest):
+    record_id = await run_in_threadpool(
+        upload_record_service.create_upload_record,
+        None,
+        None,
+        csv_name=payload.csv_file_name,
+        zip_name=payload.zip_file_name,
+        source=payload.source,
+    )
+    if not record_id:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Unable to create upload record",
+                "success": False,
+            },
+        )
+    return {
+        "success": True,
+        "record_id": record_id,
+        "message": "Upload record created",
+    }
+
+
+@data_center_client_router.post("/upload-records/{record_id}/fail", response_model=UploadDataResponse)
+async def fail_upload_record(record_id: str, payload: UploadRecordFailureRequest):
+    await run_in_threadpool(
+        upload_record_service.mark_upload_record_failed,
+        record_id,
+        failure_stage=payload.failure_stage,
+        failure_code=payload.failure_code,
+        error=payload.message,
+        error_detail=payload.detail,
+    )
+    return {
+        "success": True,
+        "record_id": record_id,
+        "message": "Upload record marked as failed",
+    }
+
 
 @router.get("/settings/upload/finish", response_model=UploadFinishSettingResponse)
 async def get_upload_finish_settings():
@@ -44,10 +89,8 @@ async def update_upload_finish_setting(payload: UploadFinishSettingUpdateRequest
 
 @data_center_client_router.post("/upload-data", response_model=UploadDataResponse)
 async def upload_data(payload: UploadDataRequest):
-    record_id = upload_record_service.create_upload_record(
-        payload.csv_file_path,
-        payload.zip_file_path,
-        source="api",
+    record_id = payload.record_id or upload_record_service.create_upload_record(
+        payload.csv_file_path, payload.zip_file_path, source="api"
     )
     try:
         return await run_in_threadpool(
@@ -60,6 +103,13 @@ async def upload_data(payload: UploadDataRequest):
         raise
     except Exception as exc:
         logger.error(f"Unexpected error in upload-data: {str(exc)}", exc_info=True)
+        upload_record_service.mark_upload_record_failed(
+            record_id,
+            failure_stage="request_processing",
+            failure_code="server_unhandled_exception",
+            error="Internal server error",
+            error_detail=str(exc),
+        )
         raise HTTPException(
             status_code=500,
             detail={
@@ -75,6 +125,7 @@ async def upload_manual_data(
     include_source_zip: bool = Form(False),
     all_files: bool = Form(False),
     meta: str | None = Form(None),
+    record_id: str | None = Form(None),
     source_files: list[UploadFile] | None = File(None),
 ):
     try:
@@ -84,11 +135,19 @@ async def upload_manual_data(
             all_files=all_files,
             meta=meta,
             source_files=source_files,
+            upload_record_id=record_id,
         )
     except HTTPException:
         raise
     except Exception as exc:
         logger.error(f"Unexpected error in upload-data/manual: {str(exc)}", exc_info=True)
+        upload_record_service.mark_upload_record_failed(
+            record_id,
+            failure_stage="request_processing",
+            failure_code="server_unhandled_exception",
+            error="Internal server error",
+            error_detail=str(exc),
+        )
         raise HTTPException(
             status_code=500,
             detail={

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 import re
@@ -18,11 +18,22 @@ logger = get_logger(__name__)
 from modules.data_analysis.test_names import canonical_test_type
 
 
+STALE_UPLOAD_RECORD_MINUTES = 120
+
+
+def normalize_record_id(record_id: str) -> str | ObjectId:
+    if setting.use_sqlite_persistence():
+        return str(record_id)
+    return ObjectId(record_id)
+
+
 def to_mongo_safe(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, Path):
         return str(value)
+    if isinstance(value, datetime) and setting.use_sqlite_persistence():
+        return value.isoformat()
     if isinstance(value, dict):
         return {str(key): to_mongo_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):
@@ -141,7 +152,7 @@ def build_upload_record_query(
 
     if record_id:
         try:
-            query["_id"] = ObjectId(record_id)
+            query["_id"] = normalize_record_id(record_id)
         except Exception:
             logger.warning(f"Invalid upload record id ignored: {record_id}")
 
@@ -351,6 +362,9 @@ def create_upload_record(
             "file_desc": None,
             "progress_stage": "created",
             "progress_message": "已创建上传任务",
+            "failure_stage": None,
+            "failure_code": None,
+            "error_detail": None,
             "upload_success": None,
             "database_success": None,
             "slack_success": None,
@@ -375,7 +389,7 @@ def update_upload_record(record_id: str | None, fields: dict[str, Any]) -> None:
             "updated_at": datetime.now(),
         }
         get_upload_record_collection().update_one(
-            {"_id": ObjectId(record_id)},
+            {"_id": normalize_record_id(record_id)},
             {"$set": update_fields},
         )
     except Exception as exc:
@@ -412,6 +426,10 @@ def finish_upload_record(
     slack_success: bool | None,
     result: dict[str, Any] | None = None,
     error: str | None = None,
+    failure_stage: str | None = None,
+    failure_code: str | None = None,
+    error_detail: str | None = None,
+    only_if_running: bool = False,
 ) -> None:
     finished_success = upload_success and database_success and slack_success is True
     failure_reason = None if finished_success else resolve_failure_reason(
@@ -420,6 +438,9 @@ def finish_upload_record(
         slack_success=slack_success,
         error=error,
     )
+    resolved_failure_stage = failure_stage
+    if not finished_success and not resolved_failure_stage and slack_success is False:
+        resolved_failure_stage = "slack_notification"
     finish_fields = {
         "status": "success" if finished_success else "failed",
         "request_finished_at": datetime.now(),
@@ -430,10 +451,91 @@ def finish_upload_record(
         "slack_success": slack_success,
         "result": result,
         "error": failure_reason,
+        "failure_stage": resolved_failure_stage if not finished_success else None,
+        "failure_code": failure_code if not finished_success else None,
+        "error_detail": (error_detail or failure_reason) if not finished_success else None,
     }
     if slack_success is not None:
         finish_fields["slack_notified_at"] = datetime.now()
+    if only_if_running:
+        try:
+            if not record_id:
+                return
+            update_fields = {**to_mongo_safe(finish_fields), "updated_at": datetime.now()}
+            get_upload_record_collection().update_one(
+                {"_id": normalize_record_id(record_id), "status": "running"},
+                {"$set": update_fields},
+            )
+        except Exception as exc:
+            logger.error(f"Failed to mark upload record {record_id} as failed: {exc}")
+        return
+
     update_upload_record(record_id, finish_fields)
+
+
+def mark_upload_record_failed(
+    record_id: str | None,
+    *,
+    failure_stage: str,
+    failure_code: str,
+    error: str,
+    error_detail: str | None = None,
+) -> None:
+    """Persist a failure that happened outside the upload worker request.
+
+    This is used by clients when a multipart request fails before FastAPI can
+    parse the body and enter the upload handler.
+    """
+    finish_upload_record(
+        record_id,
+        upload_success=False,
+        database_success=False,
+        slack_success=None,
+        error=error,
+        failure_stage=failure_stage,
+        failure_code=failure_code,
+        error_detail=error_detail,
+        only_if_running=True,
+    )
+
+
+def expire_stale_upload_records(max_age_minutes: int = STALE_UPLOAD_RECORD_MINUTES) -> int:
+    """Fail running tasks that stopped reporting progress after a worker interruption."""
+    collection = get_upload_record_collection()
+    cutoff = datetime.now() - timedelta(minutes=max(1, max_age_minutes))
+    failure_fields = {
+        "status": "failed",
+        "request_finished_at": datetime.now(),
+        "updated_at": datetime.now(),
+        "progress_stage": "finished",
+        "progress_message": "上传任务长时间无更新，已标记为失败",
+        "upload_success": False,
+        "database_success": False,
+        "slack_success": None,
+        "failure_stage": "worker_interrupted",
+        "failure_code": "stale_upload_record",
+        "error": "上传任务长时间无更新，可能因服务重启或任务中断而结束",
+        "error_detail": f"最后更新时间早于 {cutoff.isoformat(timespec='seconds')}",
+    }
+
+    if setting.use_sqlite_persistence():
+        expired = 0
+        for record in collection.find({"status": "running"}):
+            updated_at = parse_record_datetime(record.get("updated_at") or record.get("request_started_at"))
+            if updated_at is None or updated_at >= cutoff:
+                continue
+            result = collection.update_one(
+                {"_id": str(record.get("_id")), "status": "running"},
+                {"$set": to_mongo_safe(failure_fields)},
+            )
+            expired += int(getattr(result, "modified_count", 0) or 0)
+        return expired
+
+    result = collection.update_many(
+        {"status": "running", "updated_at": {"$lt": cutoff}},
+        {"$set": failure_fields},
+    )
+    return int(getattr(result, "modified_count", 0) or 0)
 
 
 def get_upload_records(
@@ -447,6 +549,7 @@ def get_upload_records(
     end_date: str | None = None,
 ) -> dict:
     try:
+        expire_stale_upload_records()
         page = max(page, 1)
         page_size = min(max(page_size, 1), 2000)
         skip = (page - 1) * page_size
@@ -511,6 +614,7 @@ def get_upload_record_stats(
     end_date: str | None = None,
 ) -> dict:
     try:
+        expire_stale_upload_records()
         collection = get_upload_record_collection()
         if setting.use_sqlite_persistence():
             records = [

@@ -9,6 +9,20 @@ from pydantic import BaseModel, Field
 class UploadDataRequest(BaseModel):
     csv_file_path: str
     zip_file_path: str | None = None
+    record_id: str | None = None
+
+
+class UploadRecordStartRequest(BaseModel):
+    csv_file_name: str = Field(default="", max_length=255)
+    zip_file_name: str | None = Field(default=None, max_length=255)
+    source: str = Field(default="api", min_length=1, max_length=32)
+
+
+class UploadRecordFailureRequest(BaseModel):
+    failure_stage: str = Field(default="request_transport", min_length=1, max_length=80)
+    failure_code: str = Field(default="client_request_failed", min_length=1, max_length=80)
+    message: str = Field(min_length=1, max_length=4000)
+    detail: str | None = Field(default=None, max_length=10000)
 
 
 class UploadDataResponse(BaseModel):

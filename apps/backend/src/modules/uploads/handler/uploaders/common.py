@@ -539,12 +539,14 @@ class UploadCommonMixin:
         folder_id = self.gdrive.create_folders(folder_name, parent_id)
         if not folder_id:
             logger.error(f"Raw data folder create fail: {folder_name}")
-            return {"url": "N/A", "name": ""}
+            detail = getattr(self.gdrive, "last_error", None) or "Google Drive did not return a folder id"
+            return {"url": "N/A", "name": "", "error": f"创建原始数据文件夹失败: {detail}"}
 
         upload_id = self.gdrive.upload_to_drive(zip_file, folder_id)
         if not upload_id:
             logger.error(f"Raw data.zip upload fail, check out the path: {zip_file}")
-            return {"url": "N/A", "name": ""}
+            detail = getattr(self.gdrive, "last_error", None) or "Google Drive did not return a file id"
+            return {"url": "N/A", "name": "", "error": f"上传原始数据压缩包失败: {detail}"}
         logger.info("Upload zip file finished")
         return {
             "url": f"https://drive.google.com/drive/folders/{folder_id}",
@@ -578,6 +580,11 @@ class ProductUploaderBase(UploadCommonMixin):
 
     def __init__(self, context) -> None:
         self.context = context
+
+    def report_progress(self, stage: str, message: str) -> None:
+        reporter = getattr(self.context, "report_upload_progress", None)
+        if reporter:
+            reporter(stage, message)
 
     def __getattr__(self, name):
         return getattr(self.context, name)

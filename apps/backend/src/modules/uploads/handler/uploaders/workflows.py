@@ -50,11 +50,16 @@ class SpreadsheetUploadWorkflow:
         if not plan.yaml_cfg["ifupdate"]:
             return None
 
+        self.uploader.report_progress("prepare_spreadsheet", "正在创建或复用 Google Spreadsheet")
         updatefileid, sheetlink = self._prepare_spreadsheet(plan)
         if not updatefileid:
+            google_error = getattr(self.uploader.gdrive, "last_error", None)
+            detail = f": {google_error}" if google_error else ""
+            plan.result.set_error(f"创建或复用 Google Spreadsheet 失败{detail}")
             return plan.result.to_dict()
 
         logger.info(f"Coping datas to {plan.csv_sheet_name}")
+        self.uploader.report_progress("write_spreadsheet", "正在将 CSV 数据写入 Google Spreadsheet")
         upload_ok = self.uploader.upload_csv_to_spreadsheet(
             updatefileid,
             plan.csv_sheet_name,
@@ -66,8 +71,14 @@ class SpreadsheetUploadWorkflow:
         logger.info("template coping finished" if upload_ok else f"更新文件：失败 {plan.yaml_cfg}")
 
         if not upload_ok:
+            google_error = getattr(self.uploader.gdrive, "last_error", None)
+            detail = f": {google_error}" if google_error else ""
+            plan.result.set_error(
+                f"CSV 数据写入 Google Spreadsheet 失败: sheet={plan.csv_sheet_name}{detail}"
+            )
             return plan.result.to_dict()
 
+        self.uploader.report_progress("read_summary", "正在读取测试汇总结果")
         copy_data_list = self.uploader.copy_summary_ranges(
             plan.yaml_cfg,
             updatefileid,
@@ -75,7 +86,18 @@ class SpreadsheetUploadWorkflow:
         )
         self._copy_test_result(plan, updatefileid, use_total_result_cell=False)
 
-        self.uploader.move_spreadsheet_to_month(plan.yaml_cfg, updatefileid, model_key=plan.model_key)
+        self.uploader.report_progress("move_spreadsheet", "正在归档 Google Spreadsheet")
+        move_ok = self.uploader.move_spreadsheet_to_month(
+            plan.yaml_cfg,
+            updatefileid,
+            model_key=plan.model_key,
+        )
+        if not move_ok:
+            google_error = getattr(self.uploader.gdrive, "last_error", None)
+            detail = f": {google_error}" if google_error else ""
+            plan.result.set_error(f"归档 Google Spreadsheet 失败{detail}")
+            return plan.result.to_dict()
+        self.uploader.report_progress("upload_raw_data", "正在上传原始数据压缩包")
         raw_data = self.uploader.upload_raw_data(
             plan.yaml_cfg,
             plan.result.sn,
@@ -87,6 +109,10 @@ class SpreadsheetUploadWorkflow:
             raw_data.get("url", "N/A"),
             raw_data.get("name", ""),
         )
+        if raw_data.get("error"):
+            plan.result.set_error(raw_data["error"])
+            return plan.result.to_dict()
+        self.uploader.report_progress("database", "正在写入上传结果数据库")
         database_status = plan.record_writer(plan.result.to_db_dict())
         database_saved = bool(database_status.get("saved"))
         plan.result.set_database_saved(database_saved)
@@ -119,6 +145,7 @@ class SpreadsheetUploadWorkflow:
             self.uploader.log_upload_links(sheetlink, tracking_sheet)
             return plan.result.to_dict()
 
+        self.uploader.report_progress("unit_tracker", "正在更新 Unit Tracker")
         tracking_sheet = self._paste_to_tracker(plan, copy_data_list, sheetlink)
         if tracking_sheet and tracking_sheet != "NA":
             if self.uploader.mark_unit_tracker_uploaded(
@@ -127,8 +154,12 @@ class SpreadsheetUploadWorkflow:
                 unit_tracker_link=tracking_sheet,
             ):
                 plan.result.set_unit_tracker_status("Uploaded to Unit Tracker")
+            else:
+                plan.result.set_error("Unit Tracker 已写入，但数据库状态更新失败")
         else:
             plan.result.set_unit_tracker_status("Unit Tracker append skipped or failed")
+            if any(item.get("off/on") for item in plan.yaml_cfg["ifpaste"]):
+                plan.result.set_error("Unit Tracker 写入失败或测试汇总结果为空")
 
         self.uploader.log_upload_links(sheetlink, tracking_sheet)
         return plan.result.to_dict()

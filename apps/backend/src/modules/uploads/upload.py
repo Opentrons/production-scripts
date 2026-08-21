@@ -260,18 +260,50 @@ async def upload_manual_data(
     all_files: bool = False,
     meta: str | dict | None = None,
     source_files: list[UploadFile] | None = None,
+    upload_record_id: str | None = None,
 ) -> dict:
     csv_filename = os.path.basename(csv_file.filename or "") or "unknown"
-    upload_record_id = upload_record_service.create_upload_record(
-        None,
-        None,
-        csv_name=csv_filename,
-        source="manual",
-    )
+    if upload_record_id is None:
+        upload_record_id = upload_record_service.create_upload_record(
+            None,
+            None,
+            csv_name=csv_filename,
+            source="manual",
+        )
+    else:
+        upload_record_service.update_upload_record(
+            upload_record_id,
+            {
+                "source": "manual",
+                "csv_file": upload_record_service.build_file_info(None, csv_filename),
+            },
+        )
     csv_path = None
 
     try:
         meta_override = parse_manual_meta(meta)
+    except HTTPException as exc:
+        error_message = get_http_exception_message(exc)
+        finish_failed_upload(
+            upload_record_id,
+            csv_path=csv_filename,
+            upload_success=False,
+            database_success=False,
+            result=None,
+            error_message=error_message,
+            failure_stage="request_validation",
+            failure_code="invalid_manual_metadata",
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={
+                "message": error_message,
+                "success": False,
+                "record_id": upload_record_id,
+            },
+        )
+
+    try:
         csv_path = await save_manual_upload_files(csv_file, source_files)
         upload_record_service.update_upload_record(
             upload_record_id,
@@ -291,6 +323,8 @@ async def upload_manual_data(
             database_success=False,
             result=None,
             error_message=error_message,
+            failure_stage="save_files",
+            failure_code="save_upload_files_failed",
         )
         raise HTTPException(
             status_code=exc.status_code,
@@ -309,6 +343,8 @@ async def upload_manual_data(
             database_success=False,
             result=None,
             error_message=error_message,
+            failure_stage="save_files",
+            failure_code="save_upload_files_failed",
         )
         raise HTTPException(
             status_code=500,
@@ -335,6 +371,8 @@ async def upload_manual_data(
             database_success=False,
             result=None,
             error_message=error_message,
+            failure_stage="package_source",
+            failure_code="source_package_failed",
         )
         cleanup_upload_files(csv_path, None)
         raise HTTPException(
@@ -357,6 +395,8 @@ async def upload_manual_data(
             database_success=False,
             result=None,
             error_message=error_message,
+            failure_stage="package_source",
+            failure_code="source_package_failed",
         )
         cleanup_upload_files(csv_path, None)
         raise HTTPException(
@@ -435,6 +475,8 @@ def get_http_exception_message(exc: HTTPException) -> str:
 def resolve_upload_success(raw_result: dict | None, file_desc: dict | None, api_result: dict | None = None) -> bool:
     if not raw_result:
         return bool(api_result and api_result.get("finished"))
+    if raw_result.get("error"):
+        return False
 
     config_key = str(raw_result.get("upload_config_key") or (file_desc or {}).get("upload_config_key") or "")
     if not config_key:
@@ -451,6 +493,53 @@ def resolve_database_success(raw_result: dict | None, api_result: dict | None = 
     if raw_result and "database_saved" in raw_result:
         return raw_result.get("database_saved") is True
     return bool(api_result and api_result.get("finished"))
+
+
+def infer_upload_failure_stage(
+    raw_result: dict | None,
+    api_result: dict | None,
+    current_stage: str = "upload",
+) -> tuple[str, str]:
+    """Resolve a stable failure stage/code from the worker result.
+
+    The raw uploader result is intentionally retained in the record; these
+    fields make common failures filterable without parsing localized text.
+    """
+    result = raw_result or api_result or {}
+    if result.get("database_saved") is False:
+        return "database", "database_write_failed"
+    if result.get("missing_tests"):
+        return "workflow", "combined_workflow_incomplete"
+
+    precise_stages = {
+        "initializing",
+        "initialize_google",
+        "prepare_spreadsheet",
+        "write_spreadsheet",
+        "read_summary",
+        "move_spreadsheet",
+        "upload_raw_data",
+        "unit_tracker",
+    }
+    if current_stage in precise_stages:
+        return current_stage, f"{current_stage}_failed"
+
+    error = str(result.get("error") or "").lower()
+    if any(keyword in error for keyword in ("parse", "parser", "file description", "csv", "解析")):
+        return "parse_csv", "csv_parse_failed"
+    if any(keyword in error for keyword in ("unsupported", "test_type", "model", "配置")):
+        return "resolve_config", "upload_config_not_supported"
+    if any(keyword in error for keyword in ("google", "drive", "sheet", "spreadsheet", "oauth", "token")):
+        return "google_drive", "google_upload_failed"
+    if current_stage in {
+        "parse_csv",
+        "resolve_config",
+        "google_drive",
+        "database",
+        "workflow",
+    }:
+        return current_stage, f"{current_stage}_failed"
+    return "upload", "upload_failed"
 
 
 def acquire_upload_workflow_lock_ref(lock_key: str) -> threading.Lock:
@@ -515,6 +604,9 @@ def finish_failed_upload(
     database_success: bool,
     result: dict | None,
     error_message: str,
+    failure_stage: str = "upload",
+    failure_code: str = "upload_failed",
+    error_detail: str | None = None,
 ) -> None:
     save_upload_message(result or {}, success=False, csv_path=csv_path, error_message=error_message)
     upload_record_service.finish_upload_record(
@@ -524,6 +616,9 @@ def finish_failed_upload(
         slack_success=None,
         result=result,
         error=error_message,
+        failure_stage=failure_stage,
+        failure_code=failure_code,
+        error_detail=error_detail,
     )
     slack_success = notify_upload_result_to_slack(
         result,
@@ -541,6 +636,9 @@ def finish_failed_upload(
         slack_success=slack_success,
         result=result,
         error=error_message,
+        failure_stage=failure_stage,
+        failure_code=failure_code,
+        error_detail=error_detail,
     )
 
 
@@ -621,9 +719,23 @@ def _upload_data_unlocked(
         "file_desc": None,
         "raw_result": None,
     }
+    current_stage = "initializing"
 
     def update_upload_progress(event: str, payload: dict) -> None:
+        nonlocal current_stage
+        if event == "stage":
+            current_stage = str(payload.get("stage") or current_stage)
+            upload_record_service.update_upload_record(
+                upload_record_id,
+                {
+                    "progress_stage": current_stage,
+                    "progress_message": payload.get("message") or current_stage,
+                },
+            )
+            return
+
         if event == "file_desc":
+            current_stage = "parse_csv"
             upload_state["file_desc"] = payload
             upload_record_service.update_upload_record(
                 upload_record_id,
@@ -639,6 +751,7 @@ def _upload_data_unlocked(
             upload_state["raw_result"] = payload
             upload_success = resolve_upload_success(payload, upload_state.get("file_desc"))
             database_success = resolve_database_success(payload)
+            current_stage, _ = infer_upload_failure_stage(payload, None, current_stage)
             progress_message = payload.get("error") or "Google 上传和数据库写入已返回结果"
             upload_record_service.update_upload_record(
                 upload_record_id,
@@ -648,6 +761,7 @@ def _upload_data_unlocked(
                     "database_success": database_success,
                     "progress_stage": "upload_result",
                     "progress_message": progress_message,
+                    "failure_stage": None if upload_success and database_success else current_stage,
                 },
             )
 
@@ -684,6 +798,9 @@ def _upload_data_unlocked(
             database_success=False,
             result=None,
             error_message=str(exc),
+            failure_stage=current_stage,
+            failure_code=f"{current_stage}_exception",
+            error_detail=str(exc),
         )
         raise
 
@@ -714,6 +831,9 @@ def _upload_data_unlocked(
             database_success=database_success,
             slack_success=slack_success,
             result=result,
+            failure_stage="slack_notification" if slack_success is False else None,
+            failure_code="slack_notification_failed" if slack_success is False else None,
+            error="Slack 通知发送失败" if slack_success is False else None,
         )
         cleanup_upload_files(csv_path, zip_path)
         return {
@@ -724,6 +844,7 @@ def _upload_data_unlocked(
         }
 
     error_message = result.get("error") if result else "Unknown error"
+    failure_stage, failure_code = infer_upload_failure_stage(raw_result, result, current_stage)
     logger.error(f"Failed to upload data: {error_message}")
     finish_failed_upload(
         upload_record_id,
@@ -733,6 +854,9 @@ def _upload_data_unlocked(
         database_success=database_success,
         result=result,
         error_message=error_message,
+        failure_stage=failure_stage,
+        failure_code=failure_code,
+        error_detail=error_message,
     )
     raise HTTPException(
         status_code=500,
@@ -759,3 +883,10 @@ def run_upload_data_background(
         return
     except Exception as exc:
         logger.error(f"Background upload task failed: {exc}", exc_info=True)
+        upload_record_service.mark_upload_record_failed(
+            upload_record_id,
+            failure_stage="request_processing",
+            failure_code="background_task_failed",
+            error="后台上传任务异常退出",
+            error_detail=str(exc),
+        )

@@ -16,6 +16,8 @@ DEFAULT_BASE_URL = f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}"
 API_ENDPOINT_PULL = "/api/pull-folder"
 API_ENDPOINT_UPLOAD = "/api/upload-data"
 API_ENDPOINT_UPLOAD_MANUAL = "/api/upload-data/manual"
+API_ENDPOINT_UPLOAD_RECORDS = "/api/upload-records"
+API_ENDPOINT_UPLOAD_RECORD_START = f"{API_ENDPOINT_UPLOAD_RECORDS}/start"
 API_ENDPOINT_HEALTH = "/api/health"
 BASE_URL = None
 DEFAULT_TIMEOUT = 120
@@ -139,7 +141,92 @@ def check_health():
         return {"status": False, "error": str(exc)}
 
 
-def pull_folder(csv_file_path, folder_name, pull_method=DEFAULT_PULL_METHOD):
+def request_error_detail(exc):
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            payload = response.json()
+            detail = payload.get("detail", payload) if isinstance(payload, dict) else payload
+            if isinstance(detail, dict):
+                message = detail.get("message") or detail.get("error")
+                nested_error = detail.get("error") if detail.get("message") else None
+                if message and nested_error and nested_error != message:
+                    return f"{message}: {nested_error}"
+                if message:
+                    return str(message)
+            if detail:
+                return str(detail)
+        except (ValueError, TypeError):
+            pass
+    return str(exc)
+
+
+def request_failure_classification(exc):
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if status_code is not None and 400 <= status_code < 500:
+        return "request_validation", f"http_{status_code}"
+    if status_code is not None and status_code >= 500:
+        return "request_processing", f"http_{status_code}"
+    return "request_transport", "client_request_failed"
+
+
+def start_upload_record(csv_file_path, zip_file_path=None, source="client"):
+    """Create the durable upload record before sending a large request body."""
+    base_url = get_base_url()
+    payload = {
+        "csv_file_name": os.path.basename(csv_file_path or ""),
+        "zip_file_name": os.path.basename(zip_file_path) if zip_file_path else None,
+        "source": source,
+    }
+    try:
+        response = requests.post(
+            f"{base_url}{API_ENDPOINT_UPLOAD_RECORD_START}",
+            json=payload,
+            timeout=min(DEFAULT_TIMEOUT, 30),
+        )
+        response.raise_for_status()
+        body = response.json()
+        record_id = body.get("record_id")
+        if not record_id:
+            raise RuntimeError(f"Upload record response missing record_id: {body}")
+        return record_id
+    except Exception as exc:
+        print(f"Failed to create upload record: {exc}")
+        return None
+
+
+def mark_upload_record_failed(
+    record_id,
+    error,
+    *,
+    failure_stage="request_transport",
+    failure_code="client_request_failed",
+):
+    """Best-effort failure callback for requests that never reach the upload handler."""
+    if not record_id:
+        return False
+    base_url = get_base_url()
+    payload = {
+        "failure_stage": failure_stage,
+        "failure_code": failure_code,
+        "message": str(error)[:4000],
+        "detail": str(error)[:10000],
+    }
+    try:
+        response = requests.post(
+            f"{base_url}{API_ENDPOINT_UPLOAD_RECORDS}/{record_id}/fail",
+            json=payload,
+            timeout=min(DEFAULT_TIMEOUT, 30),
+        )
+        response.raise_for_status()
+        return bool(response.json().get("success"))
+    except Exception as exc:
+        print(f"Failed to mark upload record {record_id} as failed: {exc}")
+        return False
+
+
+def pull_folder(csv_file_path, folder_name, pull_method=DEFAULT_PULL_METHOD, record_id=None):
     base_url = get_base_url()
     try:
         url = f"{base_url}{API_ENDPOINT_PULL}"
@@ -147,18 +234,32 @@ def pull_folder(csv_file_path, folder_name, pull_method=DEFAULT_PULL_METHOD):
             "folder_name": folder_name,
             "pull_method": pull_method,
         }
-        files = {
-            "csv_file": open(csv_file_path, "rb"),
-        }
-        response = requests.post(url, data=data, files=files, timeout=DEFAULT_TIMEOUT)
+        with open(csv_file_path, "rb") as csv_handle:
+            response = requests.post(
+                url,
+                data=data,
+                files={"csv_file": csv_handle},
+                timeout=DEFAULT_TIMEOUT,
+            )
         response.raise_for_status()
-        files["csv_file"].close()
         return response.json()
     except requests.exceptions.RequestException as exc:
         print(f"Error pulling folder: {exc}")
+        mark_upload_record_failed(
+            record_id,
+            exc,
+            failure_stage="robot_data_pull",
+            failure_code="robot_data_pull_failed",
+        )
         return {"error": str(exc)}
     except Exception as exc:
         print(f"Error: {exc}")
+        mark_upload_record_failed(
+            record_id,
+            exc,
+            failure_stage="robot_data_pull",
+            failure_code="robot_data_pull_failed",
+        )
         return {"error": str(exc)}
 
 
@@ -174,23 +275,36 @@ def collect_source_files(csv_file_path):
     return source_files
 
 
-def upload_data(csv_file_path, zip_file_path):
+def upload_data(csv_file_path, zip_file_path, record_id=None):
     base_url = get_base_url()
+    record_id = record_id or start_upload_record(csv_file_path, zip_file_path)
+    if not record_id:
+        return {"error": "Unable to create upload record", "success": False}
     try:
         url = f"{base_url}{API_ENDPOINT_UPLOAD}"
         payload = {
             "csv_file_path": csv_file_path if csv_file_path else "",
             "zip_file_path": zip_file_path if zip_file_path else "",
+            "record_id": record_id,
         }
         response = requests.post(url, json=payload, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as exc:
-        print(f"Error uploading data: {exc}")
-        return {"error": str(exc)}
+        error = request_error_detail(exc)
+        failure_stage, failure_code = request_failure_classification(exc)
+        print(f"Error uploading data: {error}")
+        mark_upload_record_failed(
+            record_id,
+            error,
+            failure_stage=failure_stage,
+            failure_code=failure_code,
+        )
+        return {"error": error, "record_id": record_id, "success": False}
     except Exception as exc:
         print(f"Error: {exc}")
-        return {"error": str(exc)}
+        mark_upload_record_failed(record_id, exc)
+        return {"error": str(exc), "record_id": record_id, "success": False}
 
 
 def upload_manual_data(
@@ -198,14 +312,19 @@ def upload_manual_data(
     include_source_zip=False,
     all_files=False,
     meta=None,
+    record_id=None,
 ):
     base_url = get_base_url()
+    record_id = record_id or start_upload_record(csv_file_path, source="manual")
+    if not record_id:
+        return {"error": "Unable to create upload record", "success": False}
     opened_files = []
     try:
         url = f"{base_url}{API_ENDPOINT_UPLOAD_MANUAL}"
         data = {
             "include_source_zip": str(include_source_zip).lower(),
             "all_files": str(all_files).lower(),
+            "record_id": record_id or "",
         }
         if meta:
             data["meta"] = json.dumps(meta, ensure_ascii=False)
@@ -229,11 +348,25 @@ def upload_manual_data(
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as exc:
-        print(f"Error uploading manual data: {exc}")
-        return {"error": str(exc)}
+        error = request_error_detail(exc)
+        failure_stage, failure_code = request_failure_classification(exc)
+        print(f"Error uploading manual data: {error}")
+        mark_upload_record_failed(
+            record_id,
+            error,
+            failure_stage=failure_stage,
+            failure_code=failure_code,
+        )
+        return {"error": error, "record_id": record_id, "success": False}
     except Exception as exc:
         print(f"Error: {exc}")
-        return {"error": str(exc)}
+        mark_upload_record_failed(
+            record_id,
+            exc,
+            failure_stage="prepare_request",
+            failure_code="client_request_build_failed",
+        )
+        return {"error": str(exc), "record_id": record_id, "success": False}
     finally:
         for handle in opened_files:
             handle.close()
@@ -257,9 +390,19 @@ def upload_data_to_google_drive(
     print("Step 0: Checking health status...")
     folder_name = os.path.dirname(csv_file_path)
     print(f"folder_name: {folder_name}")
+    record_id = start_upload_record(csv_file_path, source="client")
+    if not record_id:
+        print("Unable to create upload record; upload aborted")
+        return False
     health_result = check_health()
     if not health_result.get("status", False):
         print(f"Data Center Health check failed: {health_result}")
+        mark_upload_record_failed(
+            record_id,
+            health_result.get("error") or "Data Center health check failed",
+            failure_stage="health_check",
+            failure_code="data_center_unhealthy",
+        )
         return False
 
     services = health_result.get("services", {})
@@ -273,6 +416,7 @@ def upload_data_to_google_drive(
             csv_file_path=csv_file_path,
             include_source_zip=include_source_zip or all_files,
             all_files=all_files,
+            record_id=record_id,
         )
         result = upload_response.get("success")
         if result and remove_remote_folder:
@@ -289,22 +433,36 @@ def upload_data_to_google_drive(
         csv_file_path=csv_file_path,
         folder_name=folder_name,
         pull_method=pull_method,
+        record_id=record_id,
     )
     download_success = download_response.get("success", False)
     if not download_success:
         print(f"Error: {download_response}")
+        mark_upload_record_failed(
+            record_id,
+            download_response.get("error") or "Robot data pull failed",
+            failure_stage="robot_data_pull",
+            failure_code="robot_data_pull_failed",
+        )
         return False
 
     zip_path = download_response.get("zip_path")
     csv_file = download_response.get("file_name")
     if not csv_file or not zip_path:
         print("Download response missing folder_name or file_name")
+        mark_upload_record_failed(
+            record_id,
+            "Download response missing folder_name or file_name",
+            failure_stage="robot_data_pull",
+            failure_code="robot_data_pull_response_invalid",
+        )
         return False
 
     print("Step 2: Uploading data to Google Drive...")
     upload_response = upload_data(
         csv_file_path=csv_file,
         zip_file_path=zip_path,
+        record_id=record_id,
     )
     result = upload_response.get("success")
     if result and remove_remote_folder:
@@ -406,12 +564,23 @@ def main(argv=None):
         if not health_result.get("status", False):
             print("Data Center health check failed:")
             print_response(health_result)
+            record_id = start_upload_record(args.csv, source="client")
+            mark_upload_record_failed(
+                record_id,
+                health_result.get("error") or "Data Center health check failed",
+                failure_stage="health_check",
+                failure_code="data_center_unhealthy",
+            )
             return 1
 
     include_source_zip = args.include_source_zip or args.all_files
     meta = json.loads(args.meta_json) if args.meta_json else None
     if meta is not None and not isinstance(meta, dict):
         print("--meta-json must be a JSON object")
+        return 1
+    record_id = start_upload_record(args.csv, source="client")
+    if not record_id:
+        print("Unable to create upload record; upload aborted")
         return 1
     print("================UPLOAD START=====================")
     print(f"CSV: {args.csv}")
@@ -423,6 +592,7 @@ def main(argv=None):
         include_source_zip=include_source_zip,
         all_files=args.all_files,
         meta=meta,
+        record_id=record_id,
     )
     print_response(upload_response)
     print("================UPLOAD END=====================")

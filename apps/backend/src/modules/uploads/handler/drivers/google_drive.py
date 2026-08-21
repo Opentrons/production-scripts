@@ -159,6 +159,7 @@ class GoogleDriveDriver:
         self.sheet_service_client = None
         self.spreadsheets = None
         self.google_service = None
+        self.last_error = None
         self.auto_refresh_stopped = False
         self.check_interval = self._refresh_interval
         self.get_drive_service_threading()
@@ -334,6 +335,7 @@ class GoogleDriveDriver:
         return upfailid
         """
         uploaded_file_id = ""
+        self.last_error = None
         logger.info(f"Trying to Upload file {file_path} to {folder_id}")
         try:
             # Set metadata for the new file
@@ -355,6 +357,7 @@ class GoogleDriveDriver:
             uploaded_file_id = uploaded_file.get('id')
             return uploaded_file_id
         except Exception as err:
+            self.last_error = str(err)
             logger.error("上传元数据文件失败")
             logger.error(err)
             return False
@@ -503,6 +506,7 @@ class GoogleDriveDriver:
         param new_file_name : 复制后文件的名称
         """
         # 构造请求体并发送请求
+        self.last_error = None
         try:
             logger.info(f"coping file {old_file_id} to {new_file_name}")
             request_body = {
@@ -520,6 +524,7 @@ class GoogleDriveDriver:
             # logger.info(f'复制文件成功 name:{newname} id{newid}')
             return newname, newid
         except Exception as err:
+            self.last_error = str(err)
             logger.info("复制文件出错: {}".format(err))
 
     def create_folders(self, newname, parentfolderid=""):
@@ -529,6 +534,7 @@ class GoogleDriveDriver:
         param parent_folder_id : 父文件夹名称 不输入则在根目录创建
         """
         folder_id = ''
+        self.last_error = None
         try:
             # 创建新文件夹
             folder_name = newname
@@ -553,6 +559,7 @@ class GoogleDriveDriver:
             # logger.info(f"已创建新文件夹，ID为{folder_id}")
             return folder_id
         except Exception as err:
+            self.last_error = str(err)
             logger.info("创建文件夹出错：{}".format(err))
             return folder_id
 
@@ -617,6 +624,7 @@ class GoogleDriveDriver:
         :return: dict {'file_id', 'success', 'parents', 'error'}
         """
         logger.info(f"Trying to move file to {dest_folder_id}")
+        self.last_error = None
         result_item = {
             'file_id': file_id,
             'success': "False",
@@ -660,6 +668,7 @@ class GoogleDriveDriver:
 
         except Exception as err:
             result_item['error'] = str(err)
+            self.last_error = str(err)
             logger.error(f"Error moving {file_id}: {err}")
 
         return result_item
@@ -1150,6 +1159,7 @@ class GoogleDriveDriver:
         :param new_values: 更新的数据（二维数组或二维数组列表）
         :param value_input_option: USER_ENTERED / RAW
         """
+        self.last_error = None
         try:
             # 情况 1：单个范围
             if isinstance(ranges, str):
@@ -1216,6 +1226,7 @@ class GoogleDriveDriver:
             return True
 
         except Exception as err:
+            self.last_error = str(err)
             logger.info(f"Update {sheet_name} in {spreadsheet_id}")
             logger.info(err)
             return False

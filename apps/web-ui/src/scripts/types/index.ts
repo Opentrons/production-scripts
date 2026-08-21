@@ -99,6 +99,9 @@ export interface UploadRecordItem {
   file_desc?: Record<string, any> | null
   progress_stage?: string | null
   progress_message?: string | null
+  failure_stage?: string | null
+  failure_code?: string | null
+  error_detail?: string | null
   upload_success?: boolean | null
   database_success?: boolean | null
   slack_success?: boolean | null

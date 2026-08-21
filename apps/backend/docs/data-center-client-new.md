@@ -1,8 +1,10 @@
-# data_center_client_new 使用指南
+# data_center_client 使用指南
 
-`data_center_client_new.py` 是一个可独立使用的 Data Center 上传客户端。它通过 HTTP 调用后端 API，把本地 CSV 测试数据提交到 Google Drive / Google Sheet。
+`data_center_client.py` 是一个可独立使用的 Data Center 上传客户端。它通过 HTTP 调用后端 API，把本地 CSV 测试数据提交到 Google Drive / Google Sheet。
 
-与旧版 `data_center_client.py` 相比，新版默认走**手动上传 API**（`/api/upload-data/manual`），并支持「只附带 CSV 源文件」和「打包整个目录」两种原数据上传方式。
+上传开始前，客户端会先调用 `/api/upload-records/start` 创建持久化记录，再提交 CSV。若文件传输、请求校验或服务端处理失败，客户端会调用 `/api/upload-records/{record_id}/fail` 回写失败阶段、错误码和具体原因；无法创建记录时不会继续上传。超过 2 小时没有进度更新的任务会被服务端标记为后台任务中断，避免长期停留在“上传中”。
+
+客户端默认走**手动上传 API**（`/api/upload-data/manual`），并支持「只附带 CSV 源文件」和「打包整个目录」两种原数据上传方式。
 
 ## 特点
 
@@ -43,7 +45,7 @@ DEFAULT_BASE_URL = f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}"
 ### 基本语法
 
 ```bash
-python data_center_client_new.py --csv <本地CSV路径> [选项]
+python data_center_client.py --csv <本地CSV路径> [选项]
 ```
 
 ### 常用示例
@@ -51,19 +53,19 @@ python data_center_client_new.py --csv <本地CSV路径> [选项]
 **只上传 CSV 数据（不附带原文件 zip）**
 
 ```bash
-python data_center_client_new.py --csv /path/to/test.csv
+python data_center_client.py --csv /path/to/test.csv
 ```
 
 **附带 CSV 本身作为源文件**
 
 ```bash
-python data_center_client_new.py --csv /path/to/test.csv --include-source-zip
+python data_center_client.py --csv /path/to/test.csv --include-source-zip
 ```
 
 **打包 CSV 所在目录的全部文件作为源文件**
 
 ```bash
-python data_center_client_new.py --csv /path/to/test.csv --all-files
+python data_center_client.py --csv /path/to/test.csv --all-files
 ```
 
 客户端会把同目录下除 CSV 以外的文件作为 `source_files` 一并上传；服务端再按目录规则打包成 zip。
@@ -71,7 +73,7 @@ python data_center_client_new.py --csv /path/to/test.csv --all-files
 **指定服务器地址**
 
 ```bash
-python data_center_client_new.py \
+python data_center_client.py \
   --csv /path/to/test.csv \
   --base-url http://192.168.1.100:8090
 ```
@@ -79,7 +81,7 @@ python data_center_client_new.py \
 **从机器人拉取文件夹后上传（旧流程）**
 
 ```bash
-python data_center_client_new.py \
+python data_center_client.py \
   --csv /path/to/test.csv \
   --pull-folder \
   --pull-method scp
@@ -88,7 +90,7 @@ python data_center_client_new.py \
 上传成功后删除本地 CSV 所在目录：
 
 ```bash
-python data_center_client_new.py \
+python data_center_client.py \
   --csv /path/to/test.csv \
   --pull-folder \
   --delete-folder
@@ -113,7 +115,7 @@ python data_center_client_new.py \
 ### 配置服务器
 
 ```python
-from data_center_client_new import configure_client
+from data_center_client import configure_client
 
 configure_client(base_url="http://192.168.0.137:8090", timeout=120)
 ```
@@ -125,7 +127,7 @@ configure_client(base_url="http://192.168.0.137:8090", timeout=120)
 完整流程封装，内部包含健康检查和分支选择。
 
 ```python
-from data_center_client_new import configure_client, upload_data_to_google_drive
+from data_center_client import configure_client, upload_data_to_google_drive
 
 configure_client(base_url="http://192.168.0.137:8090")
 
@@ -160,7 +162,7 @@ else:
 直接调用手动上传接口，返回完整 JSON 响应。
 
 ```python
-from data_center_client_new import configure_client, upload_manual_data
+from data_center_client import configure_client, upload_manual_data
 
 configure_client(base_url="http://192.168.0.137:8090")
 
@@ -272,7 +274,7 @@ Web 上只有勾选「上传文件夹」时才会出现 10MB 警告；仅勾选�
 可单独排查：
 
 ```python
-from data_center_client_new import check_health
+from data_center_client import check_health
 print(check_health())
 ```
 
@@ -298,7 +300,7 @@ print(check_health())
 
 | 场景 | 推荐 |
 |------|------|
-| 本地 CSV + 手动上传 API | `data_center_client_new.py` |
+| 本地 CSV + 手动上传 API | `data_center_client.py` |
 | 机器人自动拉取 + 服务端路径上传 | 两者均可；新版 `--pull-folder` 仍支持 |
 | 只需传服务端已有 csv/zip 路径 | `data_center_client.py` 的 `upload_data()` |
 

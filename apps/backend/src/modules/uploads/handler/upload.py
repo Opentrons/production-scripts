@@ -59,6 +59,7 @@ class UploadData:
         self.google_init_error = None
         self.config_repo = ConfigRepository.from_environment(ENVIRONMENT)
         self.upload_repositories = default_upload_repositories(self)
+        self._progress_callback: UploadProgressCallback | None = None
         self.nowmonth = self.get_current_month()
         if self.mongo is None:
             logger.warning("MongoDB not connected, try to connect...")
@@ -80,6 +81,10 @@ class UploadData:
             logger.error("Init Google Drive driver fail")
             logger.error(e)
             print(f"Init Google Drive driver fail, {e}")
+
+    def report_upload_progress(self, stage: str, message: str) -> None:
+        if self._progress_callback:
+            self._progress_callback("stage", {"stage": stage, "message": message})
 
     def get_current_month(self):
         """获取服务器当前月份"""
@@ -109,6 +114,8 @@ class UploadData:
     
     def is_upload_successful(self, result: dict, file_desc: dict) -> bool:
         if not result:
+            return False
+        if result.get("error"):
             return False
         if result.get("database_saved") is False:
             return False
@@ -213,13 +220,19 @@ class UploadData:
         """
         print(f"Start to upload {file_path}")
         logger.info("==== Upload data to google drive start ====")
+        self._progress_callback = progress_callback
         try:
+            def report_stage(stage: str, message: str) -> None:
+                self.report_upload_progress(stage, message)
+
             if self.gdrive is None:
+                report_stage("initialize_google", "Google Drive 服务未就绪")
                 error = f"Google driver not ready: {self.google_init_error}" if self.google_init_error else "Google driver not ready"
                 logger.error(error)
                 return build_api_response(finished=False, error=error)
             logger.info("Google driver is ready!")
 
+            report_stage("parse_csv", "正在解析 CSV 文件")
             file_desc, error = self.build_file_description(file_path, zip_file, meta=meta)
             if error:
                 if error.startswith("File is not finished"):
@@ -237,10 +250,12 @@ class UploadData:
             test_type = file_desc.test_type
             logger.info(f"start to update data with {getattr(test_type, 'value', test_type)}")
 
+            report_stage("resolve_config", "正在解析产品和测试配置")
             from modules.uploads.handler.repositories.upload_repository import resolve_upload_repository
 
             upload_repository = resolve_upload_repository(self.upload_repositories, file_desc, test_type)
             if upload_repository is None:
+                report_stage("resolve_config", "未找到匹配的上传配置")
                 logger.error(f"不支持的 test_type 或 model: {test_type}, model: {file_desc.get('model')}")
                 return build_api_response(
                     finished=False,
@@ -248,7 +263,12 @@ class UploadData:
                 )
 
             logger.info(f"Handling upload with {upload_repository.__class__.__name__}")
+            report_stage("google_drive", "正在写入 Google Drive / Sheets")
             result = upload_repository.upload(file_desc)
+            if result and result.get("database_saved") is False:
+                report_stage("database", result.get("error") or "正在写入数据库时失败")
+            elif result and result.get("missing_tests"):
+                report_stage("workflow", "组合测试尚未完成")
             if progress_callback:
                 progress_callback("upload_result", result or {})
             return self.build_upload_response(result, file_desc, upload_repository, test_type)
@@ -256,6 +276,7 @@ class UploadData:
             logger.exception("Upload data to google drive failed")
             return build_api_response(finished=False, error=f"Exception occurred: {str(errval)}")
         finally:
+            self._progress_callback = None
             logger.info("==== Upload data to google drive end ====")
 
     def query_csv_link(

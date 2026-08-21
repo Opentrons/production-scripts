@@ -922,6 +922,26 @@ export const uploadRecordApi = {
     }),
   getUploadRecordFilterOptions: () =>
     api.get<UploadRecordFilterOptionsResponse>('/upload-record-filter-options'),
+  startUploadRecord: (payload: {
+    csvFileName?: string
+    zipFileName?: string
+    source?: string
+  }) =>
+    api.post<UploadDataResponse>('/upload-records/start', {
+      csv_file_name: payload.csvFileName || '',
+      zip_file_name: payload.zipFileName,
+      source: payload.source || 'web'
+    }),
+  markUploadRecordFailed: (
+    recordId: string,
+    payload: { failureStage?: string; failureCode?: string; message: string; detail?: string }
+  ) =>
+    api.post<UploadDataResponse>(`/upload-records/${encodeURIComponent(recordId)}/fail`, {
+      failure_stage: payload.failureStage || 'request_transport',
+      failure_code: payload.failureCode || 'client_request_failed',
+      message: payload.message,
+      detail: payload.detail || payload.message
+    }),
   getUnitTrackerOptions: () =>
     api.get<UnitTrackerOptionsResponse>('/unit-tracker/options'),
   getUnitTrackerRows: (params?: {
@@ -950,12 +970,14 @@ export const uploadRecordApi = {
     csvFile: File,
     includeSourceZip: boolean,
     allFiles = false,
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown>,
+    recordId?: string
   ) => {
     const formData = new FormData()
     formData.append('csv_file', csvFile)
     formData.append('include_source_zip', String(includeSourceZip))
     formData.append('all_files', String(allFiles))
+    if (recordId) formData.append('record_id', recordId)
     if (meta && Object.keys(meta).length > 0) {
       formData.append('meta', JSON.stringify(meta))
     }

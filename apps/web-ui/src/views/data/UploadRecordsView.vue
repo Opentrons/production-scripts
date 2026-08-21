@@ -302,9 +302,23 @@
           </template>
         </el-table-column>
 
+        <el-table-column :label="t('uploadRecords.failureStage')" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ getFailureStage(row) }}
+          </template>
+        </el-table-column>
+
         <el-table-column :label="t('uploadRecords.columns.error')" min-width="240" show-overflow-tooltip>
           <template #default="{ row }">
-            <span :class="{ 'error-text': getErrorMessage(row) !== '-' }">
+            <el-tooltip
+              v-if="getErrorMessage(row) !== '-'
+                && getErrorDetail(row) !== getErrorMessage(row)"
+              :content="getErrorDetail(row)"
+              placement="top"
+            >
+              <span class="error-text">{{ getErrorMessage(row) }}</span>
+            </el-tooltip>
+            <span v-else :class="{ 'error-text': getErrorMessage(row) !== '-' }">
               {{ getErrorMessage(row) }}
             </span>
           </template>
@@ -1218,8 +1232,37 @@ const afterUploadSubmitted = async (recordId?: string | null) => {
   await fetchRecords(true)
 }
 
-const uploadZStageFile = async (file: File) => {
-  return uploadRecordApi.uploadManualData(file, false, false, getZStageMeta())
+const startTrackedUpload = async (fileName: string, source = 'web') => {
+  const response = await uploadRecordApi.startUploadRecord({ csvFileName: fileName, source })
+  const recordId = response.data.record_id
+  if (!recordId) throw new Error('Upload record was not created')
+  return recordId
+}
+
+const markTrackedUploadFailed = async (recordId: string, error: any, failureStage?: string) => {
+  const message = normalizeUploadError(error) || String(error || t('errors.unknown'))
+  const status = Number(error?.response?.status || 0)
+  const resolvedStage = failureStage || (
+    status >= 400 && status < 500
+      ? 'request_validation'
+      : status >= 500
+        ? 'request_processing'
+        : 'request_transport'
+  )
+  try {
+    await uploadRecordApi.markUploadRecordFailed(recordId, {
+      failureStage: resolvedStage,
+      failureCode: status ? `http_${status}` : `${resolvedStage}_failed`,
+      message,
+      detail: message
+    })
+  } catch {
+    // The original request failure is more useful to the operator than a secondary callback failure.
+  }
+}
+
+const uploadZStageFile = async (file: File, recordId?: string) => {
+  return uploadRecordApi.uploadManualData(file, false, false, getZStageMeta(), recordId)
 }
 
 const StepStatus = defineComponent({
@@ -1481,6 +1524,20 @@ const getErrorMessage = (record: UploadRecordItem) => {
   return displayValue(record.error || record.result?.error || record.upload_result?.error)
 }
 
+const getFailureStage = (record: UploadRecordItem) => {
+  if (!record.failure_stage) return '-'
+  return t(`uploadRecords.failureStages.${record.failure_stage}`)
+}
+
+const getErrorDetail = (record: UploadRecordItem) => {
+  const error = getErrorMessage(record)
+  const detail = displayValue(record.error_detail)
+  const code = displayValue(record.failure_code)
+  const parts = [code === '-' ? '' : `[${code}]`, error]
+  if (detail !== '-' && detail !== error) parts.push(detail)
+  return parts.filter(Boolean).join('\n')
+}
+
 const normalizeLink = (value: unknown) => {
   const text = String(value ?? '').trim()
   return displayValue(text) === '-' ? '' : text
@@ -1694,16 +1751,21 @@ const submitManualUpload = async () => {
   }
 
   manualUploading.value = true
+  let recordId = ''
   try {
+    recordId = await startTrackedUpload(manualFile.value.name)
     const response = await uploadRecordApi.uploadManualData(
       manualFile.value,
       includeSourceZip.value,
-      uploadAllFiles.value
+      uploadAllFiles.value,
+      undefined,
+      recordId
     )
     ElMessage.success(t('uploadRecords.messages.submitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(response.data.record_id)
   } catch (e: any) {
+    if (recordId) await markTrackedUploadFailed(recordId, e)
     const message = normalizeUploadError(e)
     ElMessage.error(message ? t('uploadRecords.messages.manualFailedWithReason', { error: message }) : t('uploadRecords.messages.manualFailed'))
   } finally {
@@ -1718,14 +1780,17 @@ const submitStandardRobotUpload = async () => {
   }
 
   manualUploading.value = true
+  let recordId = ''
   try {
+    recordId = await startTrackedUpload(standardSelectedRobotFile.value.name, 'web_robot')
     const response = await robotApi.downloadFile(standardRobotIp.value, standardSelectedRobotFile.value.path)
     const csvFile = blobToCsvFile(response.data, standardSelectedRobotFile.value.name)
-    const uploadResponse = await uploadRecordApi.uploadManualData(csvFile, false, false)
+    const uploadResponse = await uploadRecordApi.uploadManualData(csvFile, false, false, undefined, recordId)
     ElMessage.success(t('uploadRecords.messages.submitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(uploadResponse.data.record_id)
   } catch (error: any) {
+    if (recordId) await markTrackedUploadFailed(recordId, error, 'robot_data_pull')
     const message = normalizeUploadError(error)
     ElMessage.error(message ? t('uploadRecords.messages.robotFailedWithReason', { error: message }) : t('uploadRecords.messages.robotFailed'))
   } finally {
@@ -1744,12 +1809,15 @@ const submitZStageLocalUpload = async () => {
   }
 
   zStageUploading.value = true
+  let recordId = ''
   try {
-    const response = await uploadZStageFile(zStageLocalFile.value)
+    recordId = await startTrackedUpload(zStageLocalFile.value.name, 'web_z_stage')
+    const response = await uploadZStageFile(zStageLocalFile.value, recordId)
     ElMessage.success(t('uploadRecords.messages.zStageSubmitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(response.data.record_id)
   } catch (error: any) {
+    if (recordId) await markTrackedUploadFailed(recordId, error)
     const message = normalizeUploadError(error)
     ElMessage.error(message ? t('uploadRecords.messages.zStageFailedWithReason', { error: message }) : t('uploadRecords.messages.zStageFailed'))
   } finally {
@@ -1771,14 +1839,17 @@ const submitZStageRemoteUpload = async () => {
   for (const file of selectedZStageRemoteFiles.value) {
     file.status = 'uploading'
     file.error = ''
+    let recordId = ''
     try {
+      recordId = await startTrackedUpload(file.name, 'web_z_stage_robot')
       const response = await robotApi.downloadFile(zStageFixtureIp.value.trim(), file.path)
       const csvFile = blobToCsvFile(response.data, file.name)
-      const uploadResponse = await uploadZStageFile(csvFile)
+      const uploadResponse = await uploadZStageFile(csvFile, recordId)
       file.status = 'success'
       successCount += 1
       lastRecordId = uploadResponse.data.record_id || lastRecordId
     } catch (error: any) {
+      if (recordId) await markTrackedUploadFailed(recordId, error, 'robot_data_pull')
       file.status = 'failed'
       file.error = normalizeUploadError(error)
       failedCount += 1

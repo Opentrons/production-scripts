@@ -1164,6 +1164,7 @@ export default {
     highestProduct: '最高成功率产品', lowestProduct: '最低成功率产品', uploadStatus: '上传状态', averageDuration: '平均上传耗时',
     totalRecords: '上传记录共 {count} 条', autoRefreshing: '自动刷新中', loading: '正在加载上传数据...', empty: '暂无上传记录', open: '打开',
     columns: { startedAt: '请求开始', status: '状态', file: '文件', upload: '上传', database: '写库', finishedAt: '请求结束', duration: '耗时', sheet: '单表', masterSheet: '总表', rawData: '原数据', error: '错误' },
+    failureStage: '失败阶段', failureStages: { request_transport: '请求传输', request_validation: '请求校验', prepare_request: '准备请求', health_check: '健康检查', robot_data_pull: 'Robot 数据拉取', save_files: '保存上传文件', package_source: '源文件打包', initializing: '初始化上传服务', initialize_google: '初始化 Google Drive', parse_csv: 'CSV 解析', resolve_config: '解析上传配置', google_drive: 'Google Drive / Sheets', prepare_spreadsheet: '创建或复用单表', write_spreadsheet: '写入 CSV 到单表', read_summary: '读取测试汇总', move_spreadsheet: '归档单表', upload_raw_data: '上传原始数据', database: '数据库写入', workflow: '组合测试流程', unit_tracker: 'Unit Tracker', slack_notification: 'Slack 通知', request_processing: '服务端处理', worker_interrupted: '后台任务中断', upload: '数据上传' },
     manualDialog: { title: '手动上传数据' }, tabs: { standard: '标准', zStage: 'Z轴数据', pipetteOptical: '移液器光学' },
     uploadFile: '上传文件', chooseCsv: '选择或拖拽 CSV 文件', includeSource: '上传源文件', uploadFolder: '上传文件夹',
     folderWarning: '手动上传会先把 CSV 保存到服务器临时目录；勾选后，系统会将这个临时目录打包成 .zip 一起上传。',
