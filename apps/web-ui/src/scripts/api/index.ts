@@ -623,6 +623,8 @@ export const robotApi = {
     }),
   getServerLogDownloadUrl: (recordId: string) =>
     `/api/robots/log-downloads/records/${encodeURIComponent(recordId)}/file`,
+  getAppLogDownloadUrl: (ip: string, port?: number) =>
+    `/api/robots/${encodeURIComponent(ip)}/logs/app-download${port ? `?port=${port}` : ''}`,
   deleteServerLog: (recordId: string) =>
     api.delete<{
       success: boolean

@@ -1,12 +1,38 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
+import core.config as setting
 from api.models import RobotLogDownloadRequest
+from modules.robots import app_logs as app_logs_service
 from modules.robots import diagnostic_logs as diagnostic_log_service
+from modules.robots.api_client.client import OpentronsApiError
 
 
 router = APIRouter()
+
+@router.get("/robots/{ip}/logs/app-download")
+async def download_robot_app_logs(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
+    """Download the robot's Opentrons service logs via its HTTP API as a zip.
+
+    The robot's ``GET /health`` response lists the log endpoints (for example
+    ``/logs/api.log``); each is fetched over HTTP and bundled into a single
+    archive so the browser can save it directly.
+    """
+    try:
+        zip_bytes, filename = await run_in_threadpool(
+            app_logs_service.collect_opentrons_app_logs, ip, port
+        )
+    except OpentronsApiError as exc:
+        raise HTTPException(status_code=502, detail={"message": str(exc)}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 
 @router.get("/robots/log-downloads/folders")
 async def list_robot_log_download_folders():

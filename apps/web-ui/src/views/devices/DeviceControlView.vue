@@ -539,7 +539,20 @@
                     {{ t('devices.workbench.logs.description') }}
                   </div>
                 </div>
-                <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
+                <div class="log-intro-actions">
+                  <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
+                  <el-tooltip :content="t('devices.workbench.logs.appLogsHint')" placement="top" :show-after="300">
+                    <el-button
+                      type="primary"
+                      :icon="Download"
+                      :loading="appLogsDownloading"
+                      :disabled="!selectedIp"
+                      @click="downloadAppLogs"
+                    >
+                      {{ t('devices.workbench.logs.appLogs') }}
+                    </el-button>
+                  </el-tooltip>
+                </div>
               </div>
 
               <div v-loading="logOptionsLoading" class="log-option-section">
@@ -1576,10 +1589,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Loading, Plus, Refresh, Tickets } from '@element-plus/icons-vue'
+import { ArrowLeft, Download, Loading, Plus, Refresh, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'
+import { authenticatedFetch } from '@/scripts/api/http'
 import {
   robotApi,
   type RobotInfo,
@@ -1671,6 +1685,7 @@ const logTaskStarting = ref(false)
 const activeLogTask = ref<RobotLogDownloadTask | null>(null)
 const singleLogTaskStarting = ref(false)
 const singleActiveLogTask = ref<RobotLogDownloadTask | null>(null)
+const appLogsDownloading = ref(false)
 let logPollTimer: ReturnType<typeof setTimeout> | null = null
 let singleLogPollTimer: ReturnType<typeof setTimeout> | null = null
 const singleHttpCommandPresetId = ref('')
@@ -2385,6 +2400,42 @@ async function startSingleLogDownload() {
     ElMessage.error(t('devices.workbench.logs.startFailed', { error: normalizeError(error) }))
   } finally {
     singleLogTaskStarting.value = false
+  }
+}
+
+async function downloadAppLogs() {
+  const ip = selectedIp.value
+  if (!ip || appLogsDownloading.value) return
+
+  appLogsDownloading.value = true
+  try {
+    const response = await authenticatedFetch(robotApi.getAppLogDownloadUrl(ip), { cache: 'no-store' })
+    if (!response.ok) {
+      let message = ''
+      try {
+        const payload = await response.json() as { detail?: string | { message?: string } }
+        message = typeof payload.detail === 'string'
+          ? payload.detail
+          : payload.detail?.message || ''
+      } catch {
+        // Fall through to the HTTP status fallback below.
+      }
+      throw new Error(message || `HTTP ${response.status}`)
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `opentrons-app-logs-${ip}.zip`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('devices.workbench.logs.appLogsSuccess'))
+  } catch (error: any) {
+    ElMessage.error(t('devices.workbench.logs.appLogsFailed', { error: normalizeError(error) }))
+  } finally {
+    appLogsDownloading.value = false
   }
 }
 
@@ -4044,6 +4095,18 @@ onMounted(async () => {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.log-intro-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.log-intro-actions .log-root-path {
+  max-width: 420px;
 }
 
 .log-option-section {
