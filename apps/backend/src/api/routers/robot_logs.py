@@ -13,12 +13,7 @@ router = APIRouter()
 
 @router.get("/robots/{ip}/logs/app-download")
 async def download_robot_app_logs(ip: str, port: int = setting.ROBOT_HEALTH_PORT):
-    """Download the robot's Opentrons service logs via its HTTP API as a zip.
-
-    The robot's ``GET /health`` response lists the log endpoints (for example
-    ``/logs/api.log``); each is fetched over HTTP and bundled into a single
-    archive so the browser can save it directly.
-    """
+    """Download the robot's App log bundle as a zip."""
     try:
         zip_bytes, filename = await run_in_threadpool(
             app_logs_service.collect_opentrons_app_logs, ip, port

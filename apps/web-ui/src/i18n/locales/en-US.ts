@@ -597,8 +597,8 @@ export default {
         progressFailed: 'Unable to load Log download progress: {error}', taskStarted: 'Log download task started', startFailed: 'Unable to start Log download: {error}',
         currentFailed: 'Log download failed for this device', currentWarning: 'Device Log download completed with cleanup warnings', currentSuccess: 'Device Log download completed',
         deviceStarted: 'Started a Log download task for {ip}',
-        appLogs: 'Download App Logs', appLogsHint: 'Fetch the robot\'s Opentrons service logs directly through its HTTP API and download them as an archive.', appLogsDownloading: 'Downloading App Logs…',
-        appLogsSuccess: 'App Logs downloaded', appLogsFailed: 'Unable to download App Logs: {error}',
+        appLogs: 'Download App Logs', appLogsHint: 'Package the robot\'s App logs into a zip on the backend, then download it in the browser.', appLogsDownloading: 'Downloading App Logs…',
+        appLogsSuccess: 'App Logs downloaded', appLogsPartial: 'Some App Logs downloaded: {success} succeeded, {failed} failed', appLogsFailed: 'Unable to download App Logs: {error}',
       },
       sshKeys: {
         currentTitle: 'Install Flex SSH Key on This Device', batchTitle: 'Install Flex SSH Keys in Batch',

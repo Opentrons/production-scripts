@@ -1,42 +1,47 @@
-"""Fetch Opentrons service logs from a robot over its HTTP API and zip them.
+"""Fetch Opentrons App logs from a robot over HTTP and bundle them into a zip.
 
-Mirrors the desktop Opentrons App's "Download Logs" behavior
-(app/src/organisms/Desktop/Devices/RobotSettings/AdvancedTab/Troubleshooting.tsx):
-read the ``GET /health`` ``logs`` list, fetch every log file over HTTP
-(``GET /logs/...``), and bundle them into a single archive the browser can save.
+The bundle includes the standard app logs used by the GRAV11 log package:
+``api.log``, ``can_bus.log``, ``serial.log``, ``touchscreen.log``,
+``update_server.log``, and ``server.log``.
 """
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import io
 import zipfile
 from datetime import datetime, timezone
 
 from modules.robots.api_client.client import OpentronsApiError, OpentronsHttpClient
 
-# Fallback syslog identifiers used when /health is unreachable or does not
-# report a logs list (see robot_server/service/legacy/routers/logs.py).
-FALLBACK_LOG_IDENTIFIERS = [
-    "api",
-    "api_server",
-    "server",
-    "serial",
-    "touchscreen",
-    "update_server",
-    "can",
-]
-FALLBACK_LOG_RECORDS = 10000
+STANDARD_LOG_IDENTIFIERS = (
+    "api.log",
+    "can_bus.log",
+    "serial.log",
+    "touchscreen.log",
+    "update_server.log",
+    "server.log",
+)
+
+# Robot log endpoints can take several minutes to build large journald
+# responses. Keep this separate from the normal API request timeout.
+APP_LOG_REQUEST_TIMEOUT = 5 * 60
 
 _ZIP_MEMBER_ROOT = "opentrons-logs"
 
 
+def _log_identifier(path: str) -> str:
+    name = path.strip().split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
+    if not name:
+        return ""
+    return name if name.endswith(".log") else f"{name}.log"
+
+
 def _safe_member_name(path: str) -> str:
     """Turn a robot log path like ``/logs/api.log`` into a safe zip member name."""
-    name = path.strip().rstrip("/").split("/")[-1]
+    name = _log_identifier(path)
     if not name:
         name = "opentrons.log"
-    if "." not in name:
-        name = f"{name}.log"
     return f"{_ZIP_MEMBER_ROOT}/{name}"
 
 
@@ -56,39 +61,31 @@ def _unique_member_name(member: str, used: set[str]) -> str:
 
 def _fetch_log_sources(
     client: OpentronsHttpClient,
-    health: dict,
 ) -> list[tuple[str, bytes]]:
-    """Collect (member_name, content) pairs for every log the robot exposes."""
-    sources: list[str] = []
-    if isinstance(health, dict):
-        logs = health.get("logs")
-        if isinstance(logs, list):
-            sources = [str(item) for item in logs if str(item).strip()]
+    """Collect (member_name, content) pairs from the fixed robot log endpoints."""
+    sources = [f"/logs/{identifier}" for identifier in STANDARD_LOG_IDENTIFIERS]
+
+    def fetch_one(path: str) -> tuple[str, bytes] | None:
+        try:
+            response = client.request_raw("GET", path, timeout=APP_LOG_REQUEST_TIMEOUT)
+        except OpentronsApiError:
+            # A single missing log must not fail the whole bundle.
+            return None
+        return _safe_member_name(path), response.content
+
+    # The robot spends most of the time querying journald for each endpoint.
+    # Fetch the independent endpoints concurrently, while executor.map keeps
+    # the archive order stable.
+    with ThreadPoolExecutor(max_workers=len(sources)) as executor:
+        fetched = executor.map(fetch_one, sources)
 
     entries: list[tuple[str, bytes]] = []
     used_members: set[str] = set()
-
-    if sources:
-        for path in sources:
-            try:
-                response = client.request_raw("GET", path)
-            except OpentronsApiError:
-                # A single missing log must not fail the whole bundle.
-                continue
-            entries.append((_unique_member_name(_safe_member_name(path), used_members), response.content))
-        return entries
-
-    # Fallback: pull recent journald records for each known service.
-    for identifier in FALLBACK_LOG_IDENTIFIERS:
-        try:
-            response = client.request_raw(
-                "GET",
-                f"/logs/{identifier}?format=text&records={FALLBACK_LOG_RECORDS}",
-            )
-        except OpentronsApiError:
+    for item in fetched:
+        if item is None:
             continue
-        member = _unique_member_name(f"{_ZIP_MEMBER_ROOT}/{identifier}.log", used_members)
-        entries.append((member, response.content))
+        member, content = item
+        entries.append((_unique_member_name(member, used_members), content))
     return entries
 
 
@@ -96,16 +93,10 @@ def collect_opentrons_app_logs(ip: str, port: int) -> tuple[bytes, str]:
     """Fetch the robot's Opentrons service logs and return ``(zip_bytes, filename)``.
 
     Raises:
-        OpentronsApiError: the robot HTTP API could not be reached at all.
         ValueError: no log content could be collected from the robot.
     """
     client = OpentronsHttpClient(ip, port=port)
-    try:
-        health = client.get_health()
-    except OpentronsApiError as exc:
-        raise OpentronsApiError(f"无法连接机器人 {ip} 的 HTTP API: {exc}") from exc
-
-    entries = _fetch_log_sources(client, health)
+    entries = _fetch_log_sources(client)
     if not entries:
         raise ValueError(f"机器人 {ip} 没有可下载的 Opentrons 服务日志")
 

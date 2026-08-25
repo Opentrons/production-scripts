@@ -597,8 +597,8 @@ export default {
         progressFailed: '获取 Log 下载进度失败：{error}', taskStarted: 'Log 下载任务已启动', startFailed: '启动 Log 下载失败：{error}',
         currentFailed: '当前设备 Log 下载失败', currentWarning: '当前设备 Log 下载完成，设备端清理存在警告', currentSuccess: '当前设备 Log 下载完成',
         deviceStarted: '已启动 {ip} 的 Log 下载任务',
-        appLogs: '下载 App 日志', appLogsHint: '通过机器人 HTTP API 直接获取 Opentrons 服务日志并打包下载。', appLogsDownloading: '正在下载 App 日志…',
-        appLogsSuccess: 'App 日志下载完成', appLogsFailed: '下载 App 日志失败：{error}',
+        appLogs: '下载 App 日志', appLogsHint: '通过后端打包 App 日志 zip，并在浏览器中下载。', appLogsDownloading: '正在下载 App 日志…',
+        appLogsSuccess: 'App 日志下载完成', appLogsPartial: 'App 日志部分下载完成：成功 {success} 个，失败 {failed} 个', appLogsFailed: '下载 App 日志失败：{error}',
       },
       sshKeys: {
         currentTitle: '安装当前设备 Flex SSH 密钥', batchTitle: '批量安装 Flex SSH 密钥',

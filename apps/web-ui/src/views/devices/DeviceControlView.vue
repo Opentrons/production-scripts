@@ -540,18 +540,25 @@
                   </div>
                 </div>
                 <div class="log-intro-actions">
-                  <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
-                  <el-tooltip :content="t('devices.workbench.logs.appLogsHint')" placement="top" :show-after="300">
-                    <el-button
-                      type="primary"
-                      :icon="Download"
-                      :loading="appLogsDownloading"
-                      :disabled="!selectedIp"
-                      @click="downloadAppLogs"
-                    >
-                      {{ t('devices.workbench.logs.appLogs') }}
-                    </el-button>
-                  </el-tooltip>
+                  <div class="app-log-download-stack">
+                    <el-tooltip :content="t('devices.workbench.logs.appLogsHint')" placement="top" :show-after="300">
+                      <el-button
+                        type="primary"
+                        :icon="Download"
+                        :loading="appLogsDownloading"
+                        :disabled="!selectedIp"
+                        @click="downloadAppLogs"
+                      >
+                        {{ t('devices.workbench.logs.appLogs') }}
+                      </el-button>
+                    </el-tooltip>
+                    <div v-if="appLogsDownloading || appLogsDownloadProgress > 0" class="app-log-download-status">
+                      <span>
+                        {{ appLogsDownloading ? t('devices.workbench.logs.appLogsDownloading') : t('devices.workbench.logs.appLogsSuccess') }}
+                      </span>
+                      <strong>{{ appLogsDownloadProgress }}%</strong>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -604,11 +611,7 @@
                     {{ getLogStatusLabel(singleActiveLogTask.status) }}
                   </el-tag>
                 </div>
-                <el-progress
-                  :percentage="singleActiveLogTask.progress"
-                  :status="getLogTaskProgressStatus(singleActiveLogTask)"
-                  :stroke-width="12"
-                />
+                <div class="log-progress-percent">{{ singleActiveLogTask.progress }}%</div>
                 <div class="log-task-stats">
                   <span>{{ t('devices.workbench.logs.success', { count: singleActiveLogTask.successful_devices }) }}</span>
                   <span>{{ t('devices.workbench.logs.warning', { count: singleActiveLogTask.warning_devices || 0 }) }}</span>
@@ -630,11 +633,7 @@
                         {{ getLogStatusLabel(device.status) }}
                       </el-tag>
                     </div>
-                    <el-progress
-                      :percentage="device.progress"
-                      :status="getRecordProgressStatus(device)"
-                      :stroke-width="8"
-                    />
+                    <div class="log-progress-percent">{{ device.progress }}%</div>
                     <div
                       class="log-device-step"
                       :class="{
@@ -977,7 +976,6 @@
                             {{ t('devices.workbench.logs.description') }}
                           </div>
                         </div>
-                        <div v-if="logDownloadRoot" class="log-root-path">{{ logDownloadRoot }}</div>
                       </div>
 
                       <div v-loading="logOptionsLoading" class="log-option-section">
@@ -1038,11 +1036,7 @@
                             {{ getLogStatusLabel(activeLogTask.status) }}
                           </el-tag>
                         </div>
-                        <el-progress
-                          :percentage="activeLogTask.progress"
-                          :status="getLogTaskProgressStatus(activeLogTask)"
-                          :stroke-width="12"
-                        />
+                        <div class="log-progress-percent">{{ activeLogTask.progress }}%</div>
                         <div class="log-task-stats">
                           <span>{{ t('devices.workbench.logs.success', { count: activeLogTask.successful_devices }) }}</span>
                           <span>{{ t('devices.workbench.logs.warning', { count: activeLogTask.warning_devices || 0 }) }}</span>
@@ -1065,11 +1059,7 @@
                                 {{ getLogStatusLabel(device.status) }}
                               </el-tag>
                             </div>
-                            <el-progress
-                              :percentage="device.progress"
-                              :status="getRecordProgressStatus(device)"
-                              :stroke-width="8"
-                            />
+                            <div class="log-progress-percent">{{ device.progress }}%</div>
                             <div
                               class="log-device-step"
                               :class="{
@@ -1593,7 +1583,7 @@ import { ArrowLeft, Download, Loading, Plus, Refresh, Tickets } from '@element-p
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'
-import { authenticatedFetch } from '@/scripts/api/http'
+import { refreshSession } from '@/scripts/api/http'
 import {
   robotApi,
   type RobotInfo,
@@ -1678,7 +1668,6 @@ const singleLogViewTab = ref('select')
 const logFolderOptions = ref<RobotLogFolderOption[]>([])
 const selectedLogFolderKeys = ref<string[]>([])
 const logOptionsLoading = ref(false)
-const logDownloadRoot = ref('')
 const logMaxConcurrency = ref(8)
 const logConcurrency = ref(4)
 const logTaskStarting = ref(false)
@@ -1686,6 +1675,7 @@ const activeLogTask = ref<RobotLogDownloadTask | null>(null)
 const singleLogTaskStarting = ref(false)
 const singleActiveLogTask = ref<RobotLogDownloadTask | null>(null)
 const appLogsDownloading = ref(false)
+const appLogsDownloadProgress = ref(0)
 let logPollTimer: ReturnType<typeof setTimeout> | null = null
 let singleLogPollTimer: ReturnType<typeof setTimeout> | null = null
 const singleHttpCommandPresetId = ref('')
@@ -1954,6 +1944,12 @@ const infoDrawerTitle = computed(() => {
   return selectedIp.value ? t('devices.infoTitle', { ip: selectedIp.value }) : t('devices.info')
 })
 
+watch(selectedIp, () => {
+  if (!appLogsDownloading.value) {
+    resetAppLogsDownloadState()
+  }
+})
+
 function syncRobotsFromStore() {
   const robots = robotScanStore.scanResult?.online_robots ?? []
   if (robots.length) {
@@ -2035,6 +2031,10 @@ function normalizeError(error: any): string {
     || error?.response?.data?.message
     || error?.message
     || t('errors.unknown')
+}
+
+function resetAppLogsDownloadState() {
+  appLogsDownloadProgress.value = 0
 }
 
 async function runForSelectedDevices(action: string, runner: (ip: string) => Promise<string>) {
@@ -2121,7 +2121,7 @@ async function runBatchUpload() {
   })
 }
 
-function parseDownloadFilename(contentDisposition: string | undefined, fallbackName: string): string {
+function parseDownloadFilename(contentDisposition: string | null | undefined, fallbackName: string): string {
   if (!contentDisposition) return fallbackName
   const match = contentDisposition.match(/filename="([^"]+)"/i)
   return match?.[1] ?? fallbackName
@@ -2132,8 +2132,10 @@ function saveBlob(blob: Blob, filename: string) {
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename
+  document.body.appendChild(anchor)
   anchor.click()
-  URL.revokeObjectURL(url)
+  anchor.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function basename(path: string): string {
@@ -2232,20 +2234,6 @@ function formatLogDate(value?: string | null) {
   }).format(date)
 }
 
-function getRecordProgressStatus(record: { status: RobotLogDownloadStatus }) {
-  if (record.status === 'failed') return 'exception'
-  if (record.status === 'warning') return 'warning'
-  if (record.status === 'success') return 'success'
-  return undefined
-}
-
-function getLogTaskProgressStatus(task: RobotLogDownloadTask) {
-  if (task.failed_devices) return 'exception'
-  if (task.warning_devices) return 'warning'
-  if (task.status === 'completed') return 'success'
-  return undefined
-}
-
 function formatCommandTime(value?: string | null) {
   if (!value) return '--:--:--'
   const date = new Date(value)
@@ -2283,7 +2271,6 @@ async function loadLogFolderOptions() {
     selectedLogFolderKeys.value = response.data.folders
       .filter(folder => folder.default_selected)
       .map(folder => folder.key)
-    logDownloadRoot.value = response.data.download_root
     logMaxConcurrency.value = response.data.max_concurrency
     logConcurrency.value = Math.min(logConcurrency.value, response.data.max_concurrency)
   } catch (error: any) {
@@ -2408,35 +2395,76 @@ async function downloadAppLogs() {
   if (!ip || appLogsDownloading.value) return
 
   appLogsDownloading.value = true
+  resetAppLogsDownloadState()
   try {
-    const response = await authenticatedFetch(robotApi.getAppLogDownloadUrl(ip), { cache: 'no-store' })
-    if (!response.ok) {
-      let message = ''
-      try {
-        const payload = await response.json() as { detail?: string | { message?: string } }
-        message = typeof payload.detail === 'string'
-          ? payload.detail
-          : payload.detail?.message || ''
-      } catch {
-        // Fall through to the HTTP status fallback below.
-      }
-      throw new Error(message || `HTTP ${response.status}`)
-    }
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `opentrons-app-logs-${ip}.zip`
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    URL.revokeObjectURL(url)
+    const port = currentDevice.value?.port ?? 31950
+    const response = await downloadAppLogsZip(robotApi.getAppLogDownloadUrl(ip, port))
+    const filename = parseDownloadFilename(
+      response.contentDisposition,
+      `opentrons-app-logs-${ip.replace(/:/g, '-')}.zip`
+    )
+    saveBlob(response.blob, filename)
+    appLogsDownloadProgress.value = 100
     ElMessage.success(t('devices.workbench.logs.appLogsSuccess'))
   } catch (error: any) {
+    resetAppLogsDownloadState()
     ElMessage.error(t('devices.workbench.logs.appLogsFailed', { error: normalizeError(error) }))
   } finally {
     appLogsDownloading.value = false
   }
+}
+
+function parseBlobErrorMessage(blob: Blob): Promise<string> {
+  return blob.text().then((text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return ''
+    try {
+      const payload = JSON.parse(trimmed) as { detail?: string | { message?: string } }
+      if (typeof payload.detail === 'string') return payload.detail
+      return payload.detail?.message || trimmed
+    } catch {
+      return trimmed
+    }
+  }).catch(() => '')
+}
+
+function downloadAppLogsZip(url: string, allowRetry = true): Promise<{ blob: Blob, contentDisposition: string | null }> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('GET', url)
+    request.withCredentials = true
+    request.responseType = 'blob'
+    request.setRequestHeader('Accept-Language', locale.value)
+    request.addEventListener('progress', (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        appLogsDownloadProgress.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
+      }
+    })
+    request.addEventListener('load', () => {
+      void (async () => {
+        const blob = request.response instanceof Blob ? request.response : new Blob()
+        if (request.status === 401 && allowRetry) {
+          void refreshSession()
+            .then(() => downloadAppLogsZip(url, false))
+            .then(resolve)
+            .catch(reject)
+          return
+        }
+        if (request.status < 200 || request.status >= 300) {
+          const message = await parseBlobErrorMessage(blob)
+          throw new Error(message || `HTTP ${request.status}`)
+        }
+        appLogsDownloadProgress.value = 100
+        resolve({
+          blob,
+          contentDisposition: request.getResponseHeader('Content-Disposition')
+        })
+      })().catch(reject)
+    })
+    request.addEventListener('error', () => reject(new Error(t('errors.network'))))
+    request.addEventListener('abort', () => reject(new Error(t('errors.unknown'))))
+    request.send()
+  })
 }
 
 function parseCommandBody(text: string): Record<string, unknown> | undefined {
@@ -4083,30 +4111,44 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.log-root-path {
-  max-width: 52%;
-  overflow: hidden;
-  padding: 7px 10px;
-  border: 1px solid var(--console-border);
-  border-radius: 5px;
-  background: var(--console-soft);
-  color: #475569;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .log-intro-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
   gap: 10px;
+  flex-wrap: wrap;
   min-width: 0;
 }
 
-.log-intro-actions .log-root-path {
-  max-width: 420px;
+.app-log-download-stack {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-log-download-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 360px;
+  color: var(--console-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.app-log-download-status strong,
+.log-progress-percent {
+  color: var(--console-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-progress-percent {
+  margin-top: 10px;
+  color: var(--console-muted);
+  font-size: 12px;
+  text-align: right;
 }
 
 .log-option-section {
@@ -4191,10 +4233,6 @@ onMounted(async () => {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--console-border);
-}
-
-.log-progress-panel > :deep(.el-progress) {
-  margin-top: 14px;
 }
 
 .log-task-stats {
@@ -4497,6 +4535,7 @@ onMounted(async () => {
   }
 
   .log-download-intro,
+  .log-intro-actions,
   .log-run-settings,
   .log-progress-header,
   .log-record-toolbar {
@@ -4504,9 +4543,18 @@ onMounted(async () => {
     flex-direction: column;
   }
 
-  .log-root-path {
-    max-width: 100%;
+  .log-intro-actions {
     width: 100%;
+  }
+
+  .app-log-download-stack {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .app-log-download-status {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .log-folder-grid,
