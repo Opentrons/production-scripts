@@ -1279,7 +1279,7 @@ export default {
       shortcutMeta: '执行历史 {history} · 当前告警 {warnings}', recentFailure: '最近失败', workflowList: '工作流列表', closeWorkflowList: '关闭工作流列表',
       loadingWorkflows: '正在加载工作流...', noWorkflows: '还没有工作流', running: '运行', idle: '空闲', historyCount: '历史 {count} 次', lastRun: '上一次运行 {time}',
       workflowActions: '工作流操作', copy: '复制', run: '运行', runHistory: '运行历史', noDescription: '暂无描述', detailNavigation: '工作流详情导航', editWorkflow: '编辑工作流', historicalRuns: '历史运行',
-      workflowName: '工作流名称', scheduledTrigger: '定时触发', minutes: '分钟', ignoreQuantityWarning: '忽略数量差异告警', ignoreQuantityHint: '仍显示数量差异，不计入警告', checkParentBom: '核对父菜单 BOM', checkParentBomOption: '包含有子菜单的父物料号', checkParentBomHint: '关闭时仅核对叶子物料，父物料号会列入已忽略。', checkSupplies: '核对辅料', checkSuppliesOption: '包含辅料物料号', checkSuppliesHint: '关闭时命中辅料表的 BOM 异常会列入已忽略。',
+      workflowName: '工作流名称', scheduledTrigger: '定时触发', minutes: '分钟', ignoreQuantityWarning: '忽略数量差异告警', ignoreQuantityHint: '仍显示数量差异，不计入警告', checkParentBom: '核对父菜单 BOM', checkSupplies: '核对辅料',
       statuses: { draft: '草稿', active: '启动', paused: '暂停' }, custom: '自定义', runStatuses: { queued: '等待执行', running: '执行中', succeeded: '执行成功', failed: '执行失败', skipped: '等待配置' },
       sopProducts: 'SOP 产品', manualRefresh: '手动刷新', sopSourceHint: '可按产品和工序筛选全部 SOP；默认使用全文料号引用，也可按下方工序 / SOP 切换为 BOM 物料汇总。', sopBomProcesses: '仅识别 SOP BOM 清单', sopBomProcessesPlaceholder: '选择 SOP 总表工序 / SOP', sopBomProcessesHint: '选中的工序 / SOP 使用 BOM 物料汇总，其余继续使用全文上下文引用。',
       filterProducts: '筛选产品', filterProcesses: '筛选工序', selectSops: '选择一个或多个 SOP', uncategorizedProduct: '未分类产品', unnamedProcess: '未命名工序', noDate: '无日期',

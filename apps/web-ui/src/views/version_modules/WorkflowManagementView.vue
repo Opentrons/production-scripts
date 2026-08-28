@@ -328,22 +328,16 @@
                     <em>{{ w('ignoreQuantityHint') }}</em>
                   </div>
                 </label>
-                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field parent-bom-field">
+                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field quantity-warning-field">
                   <span>{{ w('checkParentBom') }}</span>
-                  <div class="parent-bom-control">
-                    <el-checkbox v-model="sourceConfiguration.check_parent_bom">
-                      {{ w('checkParentBomOption') }}
-                    </el-checkbox>
-                    <em>{{ w('checkParentBomHint') }}</em>
+                  <div class="quantity-warning-control">
+                    <el-switch v-model="sourceConfiguration.check_parent_bom" />
                   </div>
                 </label>
-                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field parent-bom-field">
+                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field quantity-warning-field">
                   <span>{{ w('checkSupplies') }}</span>
-                  <div class="parent-bom-control">
-                    <el-checkbox v-model="sourceConfiguration.check_supplies">
-                      {{ w('checkSuppliesOption') }}
-                    </el-checkbox>
-                    <em>{{ w('checkSuppliesHint') }}</em>
+                  <div class="quantity-warning-control">
+                    <el-switch v-model="sourceConfiguration.check_supplies" />
                   </div>
                 </label>
               </section>
