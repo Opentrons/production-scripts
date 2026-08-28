@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from modules.agent.llm.models import SopSemanticDecision, SopSemanticMaterial, SopTextChunkRequest, SopTextMaterial
+from modules.sop.bom_analyzer import extract_part_number_matches
 
 
 MATERIAL_PART_NUMBER_PATTERN = re.compile(
@@ -46,24 +47,28 @@ GENERIC_MATERIAL_NAME_ALIASES = {
 def resolve_material_part_number(value: Any, source_text: str) -> str | None:
     """Accept only source part numbers and undo an adjacent quantity merge."""
     raw_value = re.sub(r"\s+", "", str(value or "")).upper()
-    source_matches = list(MATERIAL_PART_NUMBER_PATTERN.finditer(source_text))
-    source_part_numbers = {match.group(0).upper() for match in source_matches}
+    source_matches = extract_part_number_matches(source_text)
+    source_part_numbers = {match.part_number.upper() for match in source_matches}
     if raw_value in source_part_numbers:
         return raw_value
 
     candidates: set[str] = set()
     for match in source_matches:
-        part_number = match.group(0).upper()
+        part_number = match.part_number.upper()
         if raw_value.count(part_number) != 1:
             continue
         part_start = raw_value.find(part_number)
         prefix = raw_value[:part_start]
         suffix = raw_value[part_start + len(part_number):]
         source_prefix_is_quantity = bool(
-            re.search(r"\d{1,3}\s*[xX×*]\s*$", source_text[:match.start()])
+            re.search(r"\d{1,3}\s*[xX×*]\s*$", source_text[:match.start])
+            or (
+                match.quantity_concatenated
+                and re.search(r"[xX×*]\s*\d{1,3}\s*$", source_text[:match.start])
+            )
         )
         source_suffix_is_quantity = bool(
-            re.match(r"^\s*[xX×*]\s*\d{1,3}\b", source_text[match.end():])
+            re.match(r"^\s*[xX×*]\s*\d{1,3}\b", source_text[match.end:])
         )
         if prefix and (
             not re.fullmatch(r"\d{1,3}[xX×*]?", prefix)
@@ -457,7 +462,7 @@ class LLMService:
         if not self.api_key:
             raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
         expected_part_numbers = expected_part_numbers or sorted(
-            set(MATERIAL_PART_NUMBER_PATTERN.findall(text))
+            {match.part_number for match in extract_part_number_matches(text)}
         )
         evidence_scope = (
             "输入按“目标料号”分段，每段包含该料号或其已确认物料名称在整份 SOP 中的全部出现证据及相邻上下文。"
@@ -564,7 +569,9 @@ class LLMService:
         }
         evidence_by_part: dict[str, list[tuple[int, str]]] = {}
         for page_number, text in pages:
-            part_numbers = list(dict.fromkeys(MATERIAL_PART_NUMBER_PATTERN.findall(text)))
+            part_numbers = list(
+                dict.fromkeys(match.part_number for match in extract_part_number_matches(text))
+            )
             for part_number in part_numbers:
                 normalized_part_number = part_number.upper()
                 if targets and normalized_part_number not in targets:

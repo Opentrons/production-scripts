@@ -71,6 +71,16 @@ CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 LATIN_PATTERN = re.compile(r"[A-Za-z]")
 
 
+@dataclass(frozen=True)
+class PartNumberMatch:
+    """A part-number match after repairing PDF quantity concatenation."""
+
+    part_number: str
+    start: int
+    end: int
+    quantity_concatenated: bool = False
+
+
 @dataclass
 class _LanguageQuantity:
     occurrences: int = 0
@@ -135,7 +145,7 @@ def _looks_like_continued_table(text: str, require_part_numbers: bool) -> bool:
         and ("名称" in header_text or "name" in header_text or "description" in header_text)
         and ("数量" in header_text or "qty" in header_text or "quantity" in header_text)
     )
-    part_number_lines = sum(bool(PART_NUMBER_PATTERN.search(line)) for line in lines)
+    part_number_lines = sum(bool(extract_part_number_matches(line)) for line in lines)
     if require_part_numbers:
         return has_table_header or part_number_lines >= 3 and part_number_lines / len(lines) >= 0.5
     short_rows = sum(len(line) <= 100 for line in lines)
@@ -172,13 +182,13 @@ def analyze_part_references(
     page_quantities: dict[str, dict[int, _PagePartQuantity]] = {}
     for page_number, text in pages:
         for source_line in text.splitlines():
-            matches = list(PART_NUMBER_PATTERN.finditer(source_line))
+            matches = extract_part_number_matches(source_line)
             if not matches:
                 continue
             cleaned_line = source_line.strip()
             for part_match in matches:
-                part_number = part_match.group("part_number")
-                inferred_name = _infer_reference_name(source_line, part_match)
+                part_number = part_match.part_number
+                inferred_name = _infer_reference_name(source_line, part_match.start, part_match.end)
                 reference = references.get(part_number)
                 if reference is None:
                     reference = SopPartReference(
@@ -192,11 +202,13 @@ def analyze_part_references(
                     reference.name = inferred_name
 
                 reference.occurrences += 1
-                quantity_prefix = source_line[:part_match.start()]
-                quantity_match = (
-                    CONCATENATED_PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
-                    or PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
-                )
+                quantity_prefix = source_line[:part_match.start]
+                quantity_match = None
+                if not part_match.quantity_concatenated:
+                    quantity_match = (
+                        CONCATENATED_PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
+                        or PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
+                    )
                 explicit_quantity = int(quantity_match.group("quantity")) if quantity_match else None
                 quantities_for_part = page_quantities.setdefault(part_number, {})
                 page_quantity = quantities_for_part.setdefault(page_number, _PagePartQuantity())
@@ -232,7 +244,7 @@ def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]
         matching_lines = [
             source_line.strip()
             for source_line in text.splitlines()
-            if PART_NUMBER_PATTERN.search(source_line)
+            if extract_part_number_matches(source_line)
         ]
         if matching_lines:
             material_pages.append((page_number, "\n".join(matching_lines)))
@@ -349,9 +361,55 @@ def _looks_like_document_header(value: str) -> bool:
     return any(marker in normalized for marker in ("sop no", "page no", "otsz-sop"))
 
 
-def _infer_reference_name(source_line: str, part_match: re.Match[str]) -> str:
-    before = source_line[:part_match.start()].strip()
-    after = source_line[part_match.end():].strip()
+def extract_part_number_matches(text: str) -> list[PartNumberMatch]:
+    """Extract part numbers and repair a PDF's ``*quantity`` concatenation.
+
+    Some PDF text layers join ``415-00734*2`` and the following
+    ``415-00733`` into ``415-00734*2415-00733``. The generic regex sees the
+    latter as a valid four-digit part number. When a four-digit candidate is
+    immediately preceded by another part number and a multiplication marker,
+    treat its first digit as the previous part's quantity and recover the
+    following three-digit part number.
+    """
+
+    raw_matches = list(PART_NUMBER_PATTERN.finditer(text))
+    matches: list[PartNumberMatch] = []
+    for index, raw_match in enumerate(raw_matches):
+        part_number = raw_match.group("part_number")
+        start = raw_match.start()
+        quantity_concatenated = False
+        if index > 0 and _is_concatenated_quantity_part(text, raw_matches[index - 1], raw_match):
+            part_number = part_number[1:]
+            start += 1
+            quantity_concatenated = True
+        matches.append(
+            PartNumberMatch(
+                part_number=part_number,
+                start=start,
+                end=raw_match.end(),
+                quantity_concatenated=quantity_concatenated,
+            )
+        )
+    return matches
+
+
+def _is_concatenated_quantity_part(
+    text: str,
+    previous_match: re.Match[str],
+    current_match: re.Match[str],
+) -> bool:
+    current_part = current_match.group("part_number")
+    if len(current_part.split("-", 1)[0]) != 4:
+        return False
+    if not re.fullmatch(r"\d{3}-\d{5}", current_part[1:]):
+        return False
+    separator = text[previous_match.end():current_match.start()]
+    return bool(re.fullmatch(r"\s*[xX×*]\s*", separator))
+
+
+def _infer_reference_name(source_line: str, part_start: int, part_end: int) -> str:
+    before = source_line[:part_start].strip()
+    after = source_line[part_end:].strip()
     if REFERENCE_NAME_ACTION_PATTERN.search(before):
         before_segments = [item for item in re.split(r"[,，。；;]", before) if item.strip()]
         candidates = [*reversed(before_segments), after, before]

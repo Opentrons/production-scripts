@@ -1,7 +1,18 @@
 import asyncio
 
 from modules.agent.llm.models import SopTextChunkRequest
-from modules.agent.llm.service import LLMService, choose_material_name
+from modules.agent.llm.service import LLMService, choose_material_name, resolve_material_part_number
+
+
+def test_resolve_material_part_number_repairs_pdf_quantity_concatenation() -> None:
+    assert resolve_material_part_number(
+        "2415-00733",
+        "415-00734*2415-00733",
+    ) == "415-00733"
+
+
+def test_resolve_material_part_number_preserves_real_four_digit_part() -> None:
+    assert resolve_material_part_number("2415-00733", "2*2415-00733") == "2415-00733"
 
 
 def test_parse_json_accepts_markdown_and_provider_prose() -> None:
