@@ -263,6 +263,7 @@ sudo "$(command -v uv)" run --package production-backend \
 
 - **认证**：由 `PRODUCTION_PLATFORM_AUTH_STORAGE` 独立控制。本地默认写入 `apps/backend/db-storage/auth/auth.sqlite3`，生产默认写入 MongoDB `ProductionsMessage`。
 - **业务数据**：由 `apps/backend/db-storage/mode.json` 的 `simulating` 控制。`false` 写入 MongoDB，`true` 写入 `apps/backend/db-storage/simulating/` 下的 SQLite。
+- **辅料主数据**：本地开发或仿真模式使用 `supplementary_materials.sqlite3`；生产 `server` 模式使用 MongoDB `ProductionsMessage.supplementary_materials`。可用 `apps/backend/scripts/migrate_supplies_sqlite_to_mongodb.py` 从 SQLite 迁移。
 - **设备管理**：由 `PRODUCTION_PLATFORM_DEVICE_SCAN_MODE` 控制扫描来源。`real` 扫描网络设备，`simulated` 使用测试设备；旧的仿真开关打开时也会兼容使用测试设备。
 - **顶部健康状态**：开发环境的 Server / Google Drive / Slack 健康缓存写入本地 SQLite，避免业务 Mongo 不可达时状态栏显示未知；服务器环境写入 MongoDB。
 - **本地缓存**：Duro 和 SOP 缓存保存在 `apps/backend/db-storage/business/`，部署时保留。

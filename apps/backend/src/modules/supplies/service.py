@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from modules.supplies.models import (
     SupplementaryMaterial,
     SupplementaryMaterialCreate,
@@ -7,7 +9,6 @@ from modules.supplies.models import (
 )
 from modules.supplies.repository import (
     DuplicateSupplementaryMaterialError,
-    SupplementaryMaterialRepository,
 )
 
 
@@ -16,7 +17,7 @@ class SupplementaryMaterialNotFoundError(LookupError):
 
 
 class SupplementaryMaterialService:
-    def __init__(self, repository: SupplementaryMaterialRepository) -> None:
+    def __init__(self, repository: Any) -> None:
         self.repository = repository
 
     def list(self, query: str | None = None) -> list[SupplementaryMaterial]:
