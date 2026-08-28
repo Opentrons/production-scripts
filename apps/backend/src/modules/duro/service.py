@@ -49,7 +49,7 @@ class DuroService:
                 return cached[1].model_copy(update={"cached": True})
         if not refresh:
             disk_cached = self._get_disk_cached(
-                f"products:graphql-v2:{cache_key}", DuroProductSearchResponse
+                f"products:rest-v1:{cache_key}", DuroProductSearchResponse
             )
             if disk_cached is not None:
                 with self._lock:
@@ -59,7 +59,7 @@ class DuroService:
         response = self.client.search_products(payload)
         with self._lock:
             self._search_cache[cache_key] = (time.monotonic(), response)
-        self._set_disk_cached(f"products:graphql-v2:{cache_key}", response)
+        self._set_disk_cached(f"products:rest-v1:{cache_key}", response)
         return response
 
     def list_products(self, refresh: bool = False) -> DuroProductSearchResponse:
@@ -67,7 +67,7 @@ class DuroService:
 
     def get_product_bom(self, product_id: str, refresh: bool = False) -> DuroProductBomResponse:
         normalized_id = product_id.strip()
-        disk_key = f"product-bom:graphql-v1:{normalized_id}"
+        disk_key = f"product-bom:rest-v3:{normalized_id}"
         cached = self._get_cached(self._product_bom_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
@@ -80,16 +80,23 @@ class DuroService:
         product = self.client.get_product(normalized_id)
         product.setdefault("_id", normalized_id)
         children = self._map_children(product.get("children"), normalized_id)
+        material_total_count = self._count_leaf_materials(
+            children,
+            refresh=refresh,
+            ancestors=frozenset({normalized_id}),
+        )
         root = self._map_entity(
             product,
             node_type="product",
             children=children,
             has_children=bool(children),
+            child_count=len(children),
         )
         response = DuroProductBomResponse(
             product_id=normalized_id,
             root=root,
             direct_child_count=len(children),
+            material_total_count=material_total_count,
             source_url=self._product_source_url(normalized_id),
         )
         self._set_cached(self._product_bom_cache, normalized_id, response)
@@ -112,7 +119,7 @@ class DuroService:
         refresh: bool = False,
     ) -> DuroComponentChildrenResponse:
         normalized_id = component_id.strip()
-        disk_key = f"component:graphql-v1:{normalized_id}"
+        disk_key = f"component:rest-v2:{normalized_id}"
         cached = self._get_cached(self._component_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
@@ -132,6 +139,28 @@ class DuroService:
         self._set_cached(self._component_cache, normalized_id, response)
         self._set_disk_cached(disk_key, response)
         return response
+
+    def _count_leaf_materials(
+        self,
+        nodes: list[DuroBomNode],
+        refresh: bool,
+        ancestors: frozenset[str],
+    ) -> int:
+        # Count each BOM tree leaf once; the leaf relationship quantity is ignored.
+        total = 0
+        for node in nodes:
+            if node.has_children:
+                if node.id in ancestors:
+                    continue
+                children = self.get_component_children(node.id, refresh=refresh).children
+                total += self._count_leaf_materials(
+                    children,
+                    refresh=refresh,
+                    ancestors=ancestors | {node.id},
+                )
+                continue
+            total += 1
+        return total
 
     def search_product_bom(
         self,
@@ -254,6 +283,7 @@ class DuroService:
                 node_type="component",
                 relationship=relationship,
                 has_children=isinstance(children_hint, list) and bool(children_hint),
+                child_count=len(children_hint) if isinstance(children_hint, list) else None,
             )
             if not node.relationship_id:
                 node.relationship_id = f"{parent_id}:{node.id}:{index}"
@@ -267,6 +297,7 @@ class DuroService:
         relationship: dict[str, Any] | None = None,
         children: list[DuroBomNode] | None = None,
         has_children: bool = False,
+        child_count: int | None = None,
     ) -> DuroBomNode:
         relationship = relationship or {}
         entity_id = self._value(entity, "_id", "id")
@@ -298,6 +329,7 @@ class DuroService:
             )
             or self._value(entity, "unitOfMeasure", "unit_of_measure", "uom"),
             has_children=has_children,
+            child_count=child_count,
             children=children or [],
         )
 

@@ -122,6 +122,82 @@ class FakeGraphqlSession:
         )
 
 
+class FakeRestSession:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    @staticmethod
+    def _product() -> dict[str, object]:
+        return {
+            "_id": "product-id",
+            "name": "FLEX GRIPPER",
+            "revision": "C1.2",
+            "cpn": "999-00001",
+            "cpnVariant": "00",
+            "images": [{"_id": "image-id", "src": "https://example.test/product.png"}],
+            "children": [
+                {
+                    "quantity": 2,
+                    "component": {
+                        "_id": "component-id",
+                        "name": "Jaw",
+                        "revision": "A1.0",
+                        "cpn": "123-00001",
+                        "children": [{"component": {"_id": "leaf-id"}}],
+                    },
+                }
+            ],
+        }
+
+    def get(self, url: str, **kwargs: object) -> FakeGraphqlResponse:
+        self.calls.append({"method": "GET", "url": url, **kwargs})
+        if "/products/" in url:
+            body = {"success": True, "data": self._product()}
+        else:
+            body = {
+                "success": True,
+                "data": {
+                    "_id": "component-id",
+                    "name": "Jaw",
+                    "revision": "A1.0",
+                    "cpn": "123-00001",
+                    "children": [],
+                },
+            }
+        return FakeGraphqlResponse(body)
+
+    def post(self, url: str, **kwargs: object) -> FakeGraphqlResponse:
+        self.calls.append({"method": "POST", "url": url, **kwargs})
+        return FakeGraphqlResponse(
+            {
+                "success": True,
+                "data": {"count": 1, "results": [self._product()]},
+            }
+        )
+
+
+class RestSearchUnauthorizedSession(FakeGraphqlSession):
+    def post(self, url: str, **kwargs: object) -> FakeGraphqlResponse:
+        if url.endswith("/search/products"):
+            self.calls.append({"url": url, **kwargs})
+            return FakeGraphqlResponse(
+                {
+                    "success": False,
+                    "errors": [{"message": "You are not authorized to perform this action."}],
+                },
+                status_code=500,
+            )
+        return super().post(url, **kwargs)
+
+
+class CanonicalComponentRestSession(FakeRestSession):
+    def get(self, url: str, **kwargs: object) -> FakeGraphqlResponse:
+        response = super().get(url, **kwargs)
+        if "/components/" in url:
+            response.body["data"]["cpn"] = "438-00601"  # type: ignore[index]
+        return response
+
+
 class UnauthorizedSession(FakeGraphqlSession):
     def post(self, url: str, **kwargs: object) -> FakeGraphqlResponse:
         self.calls.append({"url": url, **kwargs})
@@ -131,13 +207,13 @@ class UnauthorizedSession(FakeGraphqlSession):
         )
 
 
-def test_api_key_uses_graphql_and_maps_product_fields(
+def test_api_key_uses_rest_and_maps_product_fields(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_API_KEY", raising=False)
     api_key = make_api_key(datetime.now(timezone.utc) + timedelta(days=30))
-    session = FakeGraphqlSession()
+    session = FakeRestSession()
     client = DuroClient(
         api_key=api_key,
         api_key_path=tmp_path / "missing-api-key",
@@ -153,10 +229,48 @@ def test_api_key_uses_graphql_and_maps_product_fields(
     assert response.products[0].revision == "C1.2"
     assert response.products[0].images[0]["_id"] == "image-id"
     call = session.calls[0]
-    assert call["url"] == "https://mfg-core-api.duro.app/graphql"
+    assert call["url"] == "https://mfgapi.duro.app/v1/search/products"
     assert call["headers"]["apiToken"] == api_key  # type: ignore[index]
     assert "authorization" not in call["headers"]  # type: ignore[operator]
-    assert call["json"]["variables"] == {"first": 100, "after": None}  # type: ignore[index]
+    assert call["json"] == DuroProductSearchRequest().model_dump(exclude_none=True)  # type: ignore[index]
+
+
+def test_product_search_falls_back_to_graphql_when_rest_search_is_forbidden(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_API_KEY", raising=False)
+    api_key = make_api_key(datetime.now(timezone.utc) + timedelta(days=30))
+    session = RestSearchUnauthorizedSession()
+    client = DuroClient(
+        api_key=api_key,
+        api_key_path=tmp_path / "missing-api-key",
+        session=session,  # type: ignore[arg-type]
+    )
+
+    response = client.search_products(DuroProductSearchRequest())
+
+    assert response.products[0].cpn == "999-00001"
+    assert session.calls[0]["url"] == "https://mfgapi.duro.app/v1/search/products"
+    assert session.calls[1]["url"] == "https://mfg-core-api.duro.app/graphql"
+
+
+def test_rest_component_preserves_canonical_cpn(tmp_path: Path) -> None:
+    session = CanonicalComponentRestSession()
+    client = DuroClient(
+        api_key=make_api_key(datetime.now(timezone.utc) + timedelta(days=30)),
+        api_key_path=tmp_path / "missing-api-key",
+        session=session,  # type: ignore[arg-type]
+    )
+
+    component = client.get_component("642336d81ee9c10008052c00")
+
+    assert component["_id"] == "component-id"
+    assert component["cpn"] == "438-00601"
+    assert session.calls[0]["url"] == (
+        "https://mfgapi.duro.app/v1/components/642336d81ee9c10008052c00"
+    )
+    assert session.calls[0]["params"] == {"include": "children", "lean": "true"}
 
 
 def test_missing_api_key_is_rejected_before_network_request(
@@ -164,7 +278,7 @@ def test_missing_api_key_is_rejected_before_network_request(
     tmp_path: Path,
 ) -> None:
     monkeypatch.delenv("PRODUCTION_PLATFORM_DURO_API_KEY", raising=False)
-    session = FakeGraphqlSession()
+    session = FakeRestSession()
     client = DuroClient(
         api_key_path=tmp_path / "missing-api-key",
         session=session,  # type: ignore[arg-type]
@@ -177,7 +291,7 @@ def test_missing_api_key_is_rejected_before_network_request(
 
 
 def test_expired_api_key_is_rejected_before_network_request(tmp_path: Path) -> None:
-    session = FakeGraphqlSession()
+    session = FakeRestSession()
     client = DuroClient(
         api_key=make_api_key(datetime.now(timezone.utc) - timedelta(minutes=1)),
         api_key_path=tmp_path / "missing-api-key",
@@ -215,7 +329,7 @@ def test_api_key_file_is_used_for_product_and_component_bom(
     api_key = make_api_key(datetime.now(timezone.utc) + timedelta(days=30))
     api_key_path = tmp_path / "duro-api-key.txt"
     api_key_path.write_text(api_key, encoding="utf-8")
-    session = FakeGraphqlSession()
+    session = FakeRestSession()
     client = DuroClient(
         api_key_path=api_key_path,
         session=session,  # type: ignore[arg-type]

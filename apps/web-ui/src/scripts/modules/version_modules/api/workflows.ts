@@ -10,6 +10,7 @@ export type WorkflowBomDifferenceStatus =
   | 'extra_in_duro'
   | 'quantity_mismatch'
   | 'quantity_unknown'
+  | 'parent_bom_ignored'
 
 export interface WorkflowStep {
   id: string
@@ -112,7 +113,7 @@ export interface WorkflowSopOccurrenceStep {
 }
 
 export interface WorkflowBomIgnoredItem extends WorkflowBomDifference {
-  ignore_type: 'sop_product_keyword' | 'part_number' | 'part_number_cleanup'
+  ignore_type: 'sop_product_keyword' | 'part_number' | 'part_number_cleanup' | 'parent_bom' | 'supply'
   ignore_value: string
   ignore_reason: string
   normalized_part_number: string | null

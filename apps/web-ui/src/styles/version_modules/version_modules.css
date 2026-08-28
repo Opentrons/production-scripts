@@ -941,6 +941,25 @@ textarea {
   line-height: 1.35;
 }
 
+.parent-bom-control {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parent-bom-control .el-checkbox {
+  margin-right: 0;
+  flex: 0 0 auto;
+}
+
+.parent-bom-control em {
+  color: #7d8992;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
 .workflow-source-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1296,6 +1315,28 @@ textarea {
 .source-selection-list span {
   color: #89959e;
   font-size: 9px;
+}
+
+.sop-bom-process-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.sop-bom-process-field > span {
+  color: #697681;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.sop-bom-process-field > .el-select {
+  width: 100%;
+}
+
+.sop-bom-process-field > small {
+  color: #87939b;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .flow-section,

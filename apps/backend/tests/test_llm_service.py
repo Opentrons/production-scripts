@@ -216,6 +216,45 @@ def test_extract_material_prompt_requires_nearest_entity_name(monkeypatch) -> No
     assert materials[0].name == "柱塞块"
 
 
+def test_extract_materials_keeps_multipliers_out_of_part_numbers(monkeypatch) -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"materials":['
+                                '{"part_number":"438-006012","name":"螺丝","quantity":2},'
+                                '{"part_number":"2*415-00390","name":"支架","quantity":2},'
+                                '{"part_number":"999-99999","name":"不存在","quantity":1}'
+                                "]}"
+                            )
+                        }
+                    }
+                ]
+            }
+
+    def fake_post(*args, **kwargs):
+        return FakeResponse()
+
+    monkeypatch.setattr("modules.agent.llm.service.httpx.post", fake_post)
+    service = LLMService()
+    service.api_key = "test-key"
+
+    materials = service.extract_sop_materials(
+        SopTextChunkRequest(text="Install 438-00601 *2 and 2*415-00390")
+    )
+
+    assert [(item.part_number, item.quantity) for item in materials] == [
+        ("438-00601", 2),
+        ("415-00390", 2),
+    ]
+
+
 def test_semantic_reference_prompt_classifies_added_and_reference_quantities(monkeypatch) -> None:
     captured: dict[str, object] = {}
 

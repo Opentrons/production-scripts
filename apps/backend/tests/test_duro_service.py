@@ -143,13 +143,16 @@ def test_product_bom_maps_relationship_fields_and_uses_cache() -> None:
     assert first.root.name == "OT-3"
     assert first.direct_child_count == 1
     assert first.root.children[0].id == "component-1"
+    assert first.root.child_count == 1
+    assert first.root.children[0].child_count == 1
+    assert first.material_total_count == 1
     assert first.root.children[0].quantity == 4
     assert first.root.children[0].item_number == 10
     assert first.root.children[0].reference_designators == ["M1", "M2", "M3", "M4"]
     assert first.root.children[0].has_children is True
     assert first.source_url == "https://mfg.duro.app/product/view/product-id"
     assert second.cached is True
-    assert client.call_count == 1
+    assert client.call_count == 2
 
 
 def test_product_bom_source_url_does_not_require_legacy_base_url() -> None:
@@ -169,5 +172,6 @@ def test_component_children_are_loaded_one_level_at_a_time() -> None:
 
     assert response.count == 1
     assert response.children[0].id == "component-2"
+    assert response.children[0].child_count == 0
     assert response.children[0].quantity == "2"
     assert response.children[0].has_children is False

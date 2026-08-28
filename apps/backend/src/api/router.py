@@ -16,6 +16,7 @@ from api.routers import (
     robot_logs,
     robot_protocols,
     robots,
+    supplies,
     system,
     test_management,
     uploads,
@@ -45,5 +46,6 @@ protected_router.include_router(robot_logs.router)
 protected_router.include_router(robot_control.router)
 protected_router.include_router(robot_files.router)
 protected_router.include_router(robot_protocols.router)
+protected_router.include_router(supplies.router)
 protected_router.include_router(versions.router)
 router.include_router(protected_router)

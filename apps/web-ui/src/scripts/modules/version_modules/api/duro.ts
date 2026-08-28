@@ -74,6 +74,7 @@ export interface DuroBomNode {
   waste: unknown
   unit_of_measure: unknown
   has_children: boolean
+  child_count?: number | null
   children: DuroBomNode[]
   ui_key?: string
 }
@@ -83,6 +84,7 @@ export interface DuroProductBomResponse {
   product_id: string
   root: DuroBomNode
   direct_child_count: number
+  material_total_count: number
   source_url: string
   cached: boolean
   fetched_at: string

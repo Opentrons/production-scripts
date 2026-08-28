@@ -39,7 +39,7 @@
           class="nav-item"
           :class="{ 'is-active': activeModule === 'workflows' }"
           type="button"
-          @click="activeModule = 'workflows'"
+          @click="selectVersionModule('workflows')"
         >
           <el-icon><Connection /></el-icon>
           {{ w('workflows') }}
@@ -48,7 +48,7 @@
           class="nav-item"
           :class="{ 'is-active': activeModule === 'sop' }"
           type="button"
-          @click="activeModule = 'sop'"
+          @click="selectVersionModule('sop')"
         >
           <el-icon><FolderOpened /></el-icon>
           SOP
@@ -57,10 +57,19 @@
           class="nav-item"
           :class="{ 'is-active': activeModule === 'duro' }"
           type="button"
-          @click="activeModule = 'duro'"
+          @click="selectVersionModule('duro')"
         >
           <el-icon><Box /></el-icon>
           Duro
+        </button>
+        <button
+          class="nav-item"
+          :class="{ 'is-active': activeModule === 'accessory-materials' }"
+          type="button"
+          @click="selectVersionModule('accessory-materials')"
+        >
+          <el-icon><Files /></el-icon>
+          {{ t('versions.supplies.title') }}
         </button>
       </nav>
 
@@ -319,6 +328,24 @@
                     <em>{{ w('ignoreQuantityHint') }}</em>
                   </div>
                 </label>
+                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field parent-bom-field">
+                  <span>{{ w('checkParentBom') }}</span>
+                  <div class="parent-bom-control">
+                    <el-checkbox v-model="sourceConfiguration.check_parent_bom">
+                      {{ w('checkParentBomOption') }}
+                    </el-checkbox>
+                    <em>{{ w('checkParentBomHint') }}</em>
+                  </div>
+                </label>
+                <label v-if="editForm.kind === 'duro_bom_check'" class="config-field parent-bom-field">
+                  <span>{{ w('checkSupplies') }}</span>
+                  <div class="parent-bom-control">
+                    <el-checkbox v-model="sourceConfiguration.check_supplies">
+                      {{ w('checkSuppliesOption') }}
+                    </el-checkbox>
+                    <em>{{ w('checkSuppliesHint') }}</em>
+                  </div>
+                </label>
               </section>
 
               <section v-if="editForm.kind === 'duro_bom_check'" class="workflow-source-grid">
@@ -392,6 +419,26 @@
                       <span>{{ entry.process }} · {{ entry.issue_date || w('noDate') }}</span>
                     </div>
                   </div>
+                  <label class="sop-bom-process-field">
+                    <span>{{ w('sopBomProcesses') }}</span>
+                    <el-select
+                      v-model="sourceConfiguration.sop_bom_processes"
+                      multiple
+                      filterable
+                      clearable
+                      collapse-tags
+                      :max-collapse-tags="2"
+                      :placeholder="w('sopBomProcessesPlaceholder')"
+                    >
+                      <el-option
+                        v-for="option in sopBomProcessOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                    <small>{{ w('sopBomProcessesHint') }}</small>
+                  </label>
                 </article>
 
                 <article class="workflow-source-card is-duro">
@@ -747,6 +794,7 @@
                           <el-option :label="w('filters.extra')" value="extra_in_duro" />
                           <el-option :label="w('filters.mismatch')" value="quantity_mismatch" />
                           <el-option :label="w('filters.unknown')" value="quantity_unknown" />
+                          <el-option :label="w('parentBomIgnored')" value="parent_bom_ignored" />
                         </el-select>
                       </div>
                     </nav>
@@ -1035,7 +1083,8 @@
       </footer>
     </main>
     <SopOverviewPanel v-else-if="activeModule === 'sop'" />
-    <DuroProductsPanel v-else :key="duroCredentialRevision" />
+    <DuroProductsPanel v-else-if="activeModule === 'duro'" :key="duroCredentialRevision" />
+    <SupplementaryMaterialsPanel v-else />
 
     <el-dialog v-model="createDialogVisible" :title="w('newWorkflow')" width="520px">
       <div class="dialog-form">
@@ -1175,7 +1224,7 @@
 <script setup lang="ts">
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip, type TableInstance } from 'element-plus'
 import {
   ArrowDown,
@@ -1199,6 +1248,7 @@ import {
 } from '@element-plus/icons-vue'
 import DuroProductsPanel from '@/views/version_modules/DuroProductsPanel.vue'
 import SopOverviewPanel from '@/views/version_modules/SopOverviewPanel.vue'
+import SupplementaryMaterialsPanel from '@/views/version_modules/SupplementaryMaterialsPanel.vue'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import { useAppLocale } from '@/i18n'
 import '@/styles/version_modules/version_modules.css'
@@ -1221,9 +1271,10 @@ import {
   type WorkflowStepKind
 } from '@/scripts/modules/version_modules/api/workflows'
 
-type VersionModule = 'workflows' | 'sop' | 'duro'
+type VersionModule = 'workflows' | 'sop' | 'duro' | 'accessory-materials'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const { locale } = useAppLocale()
 const w = (key: string, params?: Record<string, unknown>) => t(`versions.workflow.${key}`, params || {})
@@ -1236,6 +1287,7 @@ function versionModuleFromQuery(value: unknown): VersionModule {
   const module = Array.isArray(value) ? value[0] : value
   if (module === 'sop') return 'sop'
   if (module === 'duro' || module === 'ecn') return 'duro'
+  if (module === 'accessory-materials') return 'accessory-materials'
   return 'workflows'
 }
 
@@ -1244,6 +1296,16 @@ const activeModule = ref<VersionModule>(versionModuleFromQuery(route.query.modul
 watch(() => route.query.module, (value) => {
   activeModule.value = versionModuleFromQuery(value)
 })
+
+function selectVersionModule(module: VersionModule) {
+  activeModule.value = module
+  void router.replace({
+    query: {
+      ...route.query,
+      module: module === 'workflows' ? undefined : module,
+    },
+  })
+}
 const saving = ref(false)
 const creating = ref(false)
 const triggering = ref(false)
@@ -1359,6 +1421,7 @@ interface WorkflowSopSource {
 interface WorkflowSourceConfiguration extends Record<string, unknown> {
   sop_drive_file_ids?: string[]
   sop_sources?: WorkflowSopSource[]
+  sop_bom_processes?: string[]
   sop_drive_file_id?: string
   sop_project?: string
   sop_process?: string
@@ -1377,6 +1440,8 @@ interface WorkflowSourceConfiguration extends Record<string, unknown> {
   ignored_sop_product_keyword_reasons?: Record<string, string>
   ignored_part_number_reasons?: Record<string, string>
   ignore_quantity_mismatch_warning?: boolean
+  check_parent_bom?: boolean
+  check_supplies?: boolean
 }
 
 const createForm = reactive({
@@ -1406,7 +1471,7 @@ const runStatusText = computed<Record<WorkflowRunStatus, string>>(() => ({
 }))
 
 const differenceStatusText = computed<Record<WorkflowBomDifferenceStatus, string>>(() => ({
-  missing_in_duro: w('missing'), extra_in_duro: w('extra'), quantity_mismatch: w('quantityMismatch'), quantity_unknown: w('quantityUnknown')
+  missing_in_duro: w('missing'), extra_in_duro: w('extra'), quantity_mismatch: w('quantityMismatch'), quantity_unknown: w('quantityUnknown'), parent_bom_ignored: w('parentBomIgnored')
 }))
 
 const selectedWorkflow = computed(() =>
@@ -1465,6 +1530,18 @@ const sopProcessOptions = computed(() =>
       .map((entry) => entry.process || w('unnamedProcess'))
   )].sort((a, b) => a.localeCompare(b))
 )
+const sopBomProcessOptions = computed(() => {
+  const labels = new Map<string, string>()
+  for (const entry of allSopOptions.value) {
+    const label = entry.process.trim()
+    const value = normalizeSopProcess(label)
+    if (value && !labels.has(value)) labels.set(value, label)
+  }
+  if (!labels.has('packaging')) labels.set('packaging', 'packaging')
+  return [...labels.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label))
+})
 const filteredSopOptions = computed(() =>
   allSopOptions.value.filter((entry) =>
     (!sopProjectFilter.value || (entry.project || w('uncategorizedProduct')) === sopProjectFilter.value)
@@ -1545,6 +1622,10 @@ function cloneWorkflowPayload(workflow: Workflow): WorkflowPayload {
   }
 }
 
+function normalizeSopProcess(value: unknown) {
+  return String(value ?? '').trim().replace(/\s+/g, '').toLowerCase()
+}
+
 function normalizeWorkflowConfiguration(configuration: Record<string, unknown>): WorkflowSourceConfiguration {
   const singleFileId = typeof configuration.sop_drive_file_id === 'string'
     ? configuration.sop_drive_file_id.trim()
@@ -1556,6 +1637,10 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
   const configuredSources = Array.isArray(configuration.sop_sources)
     ? configuration.sop_sources.filter((item): item is WorkflowSopSource => Boolean(item && typeof item === 'object'))
     : []
+  const rawBomProcesses = configuration.sop_bom_processes
+  const bomProcesses = Array.isArray(rawBomProcesses)
+    ? [...new Set(rawBomProcesses.map(normalizeSopProcess).filter(Boolean))]
+    : ['packaging']
   const ignoredPartNumbers = Array.isArray(configuration.ignored_part_numbers)
     ? [...new Set(configuration.ignored_part_numbers.map((value) => String(value).trim().toUpperCase()).filter(Boolean))]
     : []
@@ -1589,6 +1674,7 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     ...configuration,
     sop_drive_file_ids: fileIds,
     sop_sources: configuredSources,
+    sop_bom_processes: bomProcesses,
     duro_submenu_ids: submenuIds,
     duro_submenus: submenus,
     ignored_sop_product_keywords: ignoredSopProductKeywords,
@@ -1599,7 +1685,9 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     ignored_part_number_reasons: Object.fromEntries(
       ignoredPartNumbers.map((partNumber) => [partNumber, String(partReasons[partNumber] || w('legacyReasonMissing'))])
     ),
-    ignore_quantity_mismatch_warning: Boolean(configuration.ignore_quantity_mismatch_warning)
+    ignore_quantity_mismatch_warning: Boolean(configuration.ignore_quantity_mismatch_warning),
+    check_parent_bom: Boolean(configuration.check_parent_bom),
+    check_supplies: Boolean(configuration.check_supplies)
   }
 }
 
@@ -2533,7 +2621,8 @@ function compactDifferenceLabel(status: string) {
     missing_in_duro: 'Missing',
     extra_in_duro: 'Extra',
     quantity_mismatch: 'Qty Mismatch',
-    quantity_unknown: 'Qty Unknown'
+    quantity_unknown: 'Qty Unknown',
+    parent_bom_ignored: 'Parent BOM'
   }
   return compactEnglishText(
     differenceLabel(status),
@@ -2542,10 +2631,12 @@ function compactDifferenceLabel(status: string) {
 }
 
 function ignoredDifferenceLabel(row: WorkflowBomIgnoredItem) {
+  if (row.ignore_type === 'parent_bom') return w('parentBomIgnored')
   return row.ignore_type === 'part_number_cleanup' ? w('materialCleanup') : differenceLabel(row.status)
 }
 
 function compactIgnoredDifferenceLabel(row: WorkflowBomIgnoredItem) {
+  if (row.ignore_type === 'parent_bom') return compactEnglishText(w('parentBomIgnored'), 'Parent BOM')
   return row.ignore_type === 'part_number_cleanup'
     ? compactEnglishText(w('materialCleanup'), 'Cleanup')
     : compactDifferenceLabel(row.status)
@@ -2554,13 +2645,15 @@ function compactIgnoredDifferenceLabel(row: WorkflowBomIgnoredItem) {
 function ignoredTypeLabel(ignoreType: string) {
   if (ignoreType === 'part_number_cleanup') return w('defaultPartCleanup')
   if (ignoreType === 'part_number') return w('ignoredPart')
+  if (ignoreType === 'parent_bom') return w('parentBom')
+  if (ignoreType === 'supply') return w('supply')
   return w('sopProductKeyword')
 }
 
 function compactIgnoredTypeLabel(ignoreType: string) {
   const abbreviatedText = ignoreType === 'part_number_cleanup'
     ? 'Part Cleanup'
-    : ignoreType === 'part_number' ? 'Part No.' : 'SOP Keyword'
+    : ignoreType === 'part_number' ? 'Part No.' : ignoreType === 'parent_bom' ? 'Parent BOM' : ignoreType === 'supply' ? 'Supply' : 'SOP Keyword'
   return compactEnglishText(ignoredTypeLabel(ignoreType), abbreviatedText)
 }
 

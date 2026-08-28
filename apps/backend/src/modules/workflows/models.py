@@ -17,6 +17,7 @@ WorkflowBomDifferenceStatus = Literal[
     "extra_in_duro",
     "quantity_mismatch",
     "quantity_unknown",
+    "parent_bom_ignored",
 ]
 
 
@@ -135,7 +136,7 @@ class WorkflowBomDifference(BaseModel):
 
 
 class WorkflowBomIgnoredItem(WorkflowBomDifference):
-    ignore_type: Literal["sop_product_keyword", "part_number", "part_number_cleanup"]
+    ignore_type: Literal["sop_product_keyword", "part_number", "part_number_cleanup", "parent_bom", "supply"]
     ignore_value: str
     ignore_reason: str
     normalized_part_number: str | None = None

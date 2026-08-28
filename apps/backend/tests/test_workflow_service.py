@@ -36,6 +36,9 @@ def test_initialize_creates_duro_bom_workflow(tmp_path: Path) -> None:
     assert workflows[0].configuration["sop_drive_file_id"] == ""
     assert workflows[0].configuration["duro_product_id"] == ""
     assert workflows[0].configuration["duro_submenu_ids"] == []
+    assert workflows[0].configuration["sop_bom_processes"] == ["packaging"]
+    assert workflows[0].configuration["check_parent_bom"] is False
+    assert workflows[0].configuration["check_supplies"] is False
     assert workflows[0].configuration["ignored_sop_product_keywords"] == []
     assert workflows[0].configuration["ignored_part_numbers"] == []
     assert [step.kind for step in workflows[0].steps] == ["bom_compare", "report"]
@@ -114,6 +117,9 @@ def test_workflow_persists_sop_and_duro_source_configuration(tmp_path: Path) -> 
                 "duro_submenus": [{"id": "submenu-a", "label": "930-00004"}],
                 "ignored_sop_product_keywords": [" Robot ", "robot", "Legacy"],
                 "ignored_part_numbers": [" 100-00001 ", "100-00001"],
+                "check_parent_bom": True,
+                "check_supplies": True,
+                "sop_bom_processes": [" Packaging ", "Assembly "],
             },
         )
     )
@@ -126,6 +132,9 @@ def test_workflow_persists_sop_and_duro_source_configuration(tmp_path: Path) -> 
     assert stored.configuration["duro_product_id"] == "duro-product-id"
     assert stored.configuration["target_revision"] == "A1"
     assert stored.configuration["duro_submenu_ids"] == ["submenu-a"]
+    assert stored.configuration["sop_bom_processes"] == ["packaging", "assembly"]
+    assert stored.configuration["check_parent_bom"] is True
+    assert stored.configuration["check_supplies"] is True
     assert stored.configuration["ignored_sop_product_keywords"] == ["Robot", "Legacy"]
     assert stored.configuration["ignored_part_numbers"] == ["100-00001"]
 
@@ -302,6 +311,36 @@ class FakeSopService:
         return SimpleNamespace(full_text_references=materials[file_id])
 
 
+class BomSelectionSopService:
+    def analyze_pdf(self, file_id: str, refresh: bool = False):
+        assert file_id == "sop-packaging"
+        assert refresh is True
+        return SimpleNamespace(
+            cached=False,
+            full_text_references=[
+                SimpleNamespace(
+                    part_number="100-00001",
+                    name="正文物料",
+                    quantity=2,
+                    occurrences=2,
+                    pages=[1],
+                    source_lines=["Install 2×100-00001"],
+                )
+            ],
+            bom_materials=[
+                SimpleNamespace(
+                    part_number="100-00001",
+                    name="BOM 物料",
+                    quantity=8,
+                    quantity_complete=True,
+                    occurrences=1,
+                    pages=[3],
+                    source_lines=["100-00001 8"],
+                )
+            ],
+        )
+
+
 class FakeDuroService:
     def list_products(self, refresh: bool = False):
         assert refresh is True
@@ -346,6 +385,11 @@ class FakeDuroService:
             ],
         }
         return SimpleNamespace(children=children[component_id])
+
+
+class FakeSuppliesService:
+    def list(self):
+        return [SimpleNamespace(material_number="100-00004")]
 
 
 class BlockingProductDuroService(FakeDuroService):
@@ -397,6 +441,25 @@ def test_workflow_adds_quantity_explanation_when_semantic_details_are_missing(tm
         "当前采用 SOP 正文规则统计数量 2"
     ]
     assert materials["100-00001"]["occurrence_count"] == 2
+
+
+def test_selected_sop_process_uses_bom_material_summary(tmp_path: Path) -> None:
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=BomSelectionSopService(),  # type: ignore[arg-type]
+    )
+
+    materials = service._collect_sop_references(
+        [{"drive_file_id": "sop-packaging", "project": "Robot", "process": "Packaging"}],
+        {"packaging"},
+    )
+
+    assert materials["100-00001"]["quantity"] == 8
+    assert materials["100-00001"]["quantity_known"] is True
+    assert materials["100-00001"]["occurrence_count"] == 1
+    assert materials["100-00001"]["quantity_explanations"] == [
+        "Robot / Packaging：使用 SOP BOM 物料汇总结果"
+    ]
 
 
 def test_workflow_maps_every_sop_occurrence_to_a_delta_step(tmp_path: Path) -> None:
@@ -656,6 +719,8 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
                     "100-00002": "该料号数量不参与核对",
                 },
                 "ignore_quantity_mismatch_warning": True,
+                "check_parent_bom": True,
+                "check_supplies": True,
             },
         )
     )
@@ -703,6 +768,58 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
         for item in current.report.differences
         if item.status != "missing_in_duro"
     )
+
+
+def test_default_duro_run_ignores_parent_bom_materials_and_audits_them(tmp_path: Path) -> None:
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=FakeSopService(),  # type: ignore[arg-type]
+        duro_service=FakeDuroService(),  # type: ignore[arg-type]
+        supplies_service=FakeSuppliesService(),  # type: ignore[arg-type]
+    )
+    workflow = service.create_workflow(
+        WorkflowCreate(
+            name="默认叶子 BOM 核对",
+            kind="duro_bom_check",
+            configuration={
+                "sop_sources": [
+                    {"drive_file_id": "sop-a", "project": "Robot", "process": "Assembly A"}
+                ],
+                "duro_product_id": "duro-product",
+                "duro_submenu_ids": ["assembly"],
+            },
+        )
+    )
+
+    run = service.trigger_workflow(workflow.id, "manual")
+    deadline = time.monotonic() + 2
+    current = run
+    while current.status in {"queued", "running"} and time.monotonic() < deadline:
+        time.sleep(0.01)
+        current = service.list_runs(workflow_id=workflow.id, limit=1)[0]
+
+    assert current.status == "succeeded"
+    assert current.report is not None
+    assert workflow.configuration["check_parent_bom"] is False
+    assert current.report.duro_material_count == 3
+    assert {item.part_number for item in current.report.differences} == {
+        "100-00001",
+        "100-00002",
+    }
+    supply_items = [
+        item for item in current.report.ignored_items if item.ignore_type == "supply"
+    ]
+    assert len(supply_items) == 1
+    assert supply_items[0].part_number == "100-00004"
+    assert supply_items[0].status == "extra_in_duro"
+    assert supply_items[0].ignore_reason == "命中辅料"
+    parent_items = [
+        item for item in current.report.ignored_items if item.ignore_type == "parent_bom"
+    ]
+    assert len(parent_items) == 1
+    assert parent_items[0].part_number == "200-00001"
+    assert parent_items[0].status == "parent_bom_ignored"
+    assert "未勾选“核对父菜单 BOM”" in parent_items[0].ignore_reason
 
 
 def test_default_part_number_cleanup_is_compared_and_audited(tmp_path: Path) -> None:

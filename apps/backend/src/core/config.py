@@ -317,6 +317,10 @@ SOP_PDF_MAX_BYTES = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_MAX_BYTES", str(3
 SOP_PDF_MAX_TEXT_CHARS = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_MAX_TEXT_CHARS", "500000"))
 SOP_PDF_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_SOP_PDF_CACHE_SECONDS", "1800"))
 
+DURO_BASE_URL = os.getenv(
+    "PRODUCTION_PLATFORM_DURO_BASE_URL",
+    "https://mfgapi.duro.app/v1",
+).rstrip("/")
 DURO_GRAPHQL_URL = os.getenv(
     "PRODUCTION_PLATFORM_DURO_GRAPHQL_URL",
     "https://mfg-core-api.duro.app/graphql",

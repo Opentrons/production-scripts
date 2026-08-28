@@ -43,6 +43,43 @@ GENERIC_MATERIAL_NAME_ALIASES = {
 }
 
 
+def resolve_material_part_number(value: Any, source_text: str) -> str | None:
+    """Accept only source part numbers and undo an adjacent quantity merge."""
+    raw_value = re.sub(r"\s+", "", str(value or "")).upper()
+    source_matches = list(MATERIAL_PART_NUMBER_PATTERN.finditer(source_text))
+    source_part_numbers = {match.group(0).upper() for match in source_matches}
+    if raw_value in source_part_numbers:
+        return raw_value
+
+    candidates: set[str] = set()
+    for match in source_matches:
+        part_number = match.group(0).upper()
+        if raw_value.count(part_number) != 1:
+            continue
+        part_start = raw_value.find(part_number)
+        prefix = raw_value[:part_start]
+        suffix = raw_value[part_start + len(part_number):]
+        source_prefix_is_quantity = bool(
+            re.search(r"\d{1,3}\s*[xX×*]\s*$", source_text[:match.start()])
+        )
+        source_suffix_is_quantity = bool(
+            re.match(r"^\s*[xX×*]\s*\d{1,3}\b", source_text[match.end():])
+        )
+        if prefix and (
+            not re.fullmatch(r"\d{1,3}[xX×*]?", prefix)
+            or not source_prefix_is_quantity
+        ):
+            continue
+        if suffix and (
+            not re.fullmatch(r"[xX×*]?\d{1,3}", suffix)
+            or not source_suffix_is_quantity
+        ):
+            continue
+        candidates.add(part_number)
+
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
 def normalize_material_name(value: Any) -> str:
     name = re.sub(r"\s+", " ", str(value or "")).strip()
     name = re.sub(r"^(?:物料名称|物料名|名称)\s*[:：]\s*", "", name)
@@ -277,6 +314,11 @@ class LLMService:
             "示例：“使用 415-00635 柱塞块进行安装”也应返回 name=“柱塞块”。\n"
             "重点识别数量写法：* 10、*10、x10、X22、× 4、Qty: 3、数量 5，以及表格中料号后面的数字。"
             "特别注意“卡簧 4×467-00004”表示料号 467-00004、数量 4；数字和 ×/x 在料号前，不是料号的一部分。"
+            "料号必须逐字复制原文中的连续料号（包括连字符），不能把数量表达式拼入料号。"
+            "例如“438-00601 *2”只能返回 part_number=438-00601、quantity=2；"
+            "“2*438-00601”只能返回 part_number=438-00601、quantity=2。"
+            "禁止返回 438-006012、2*438-00601 或 2×438-00601 作为 part_number；乘号两侧的数字永远是数量。"
+            "如果返回的料号无法在输入原文中逐字找到，放弃该条，不要猜测或拼接。"
         )
         payload = {"model": self.model, "temperature": 0, "response_format": {"type": "json_object"},
                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": request.text}]}
@@ -291,7 +333,10 @@ class LLMService:
         for item in data.get("materials", []) if isinstance(data, dict) else []:
             if not isinstance(item, dict) or not str(item.get("part_number", "")).strip():
                 continue
-            materials.append(SopTextMaterial(part_number=str(item["part_number"]).strip(), name=normalize_material_name(item.get("name")), quantity=item.get("quantity"), unit=item.get("unit"), confidence=item.get("confidence", 0), page_number=request.page_number, source=request.source))
+            part_number = resolve_material_part_number(item.get("part_number"), request.text)
+            if part_number is None:
+                continue
+            materials.append(SopTextMaterial(part_number=part_number, name=normalize_material_name(item.get("name")), quantity=item.get("quantity"), unit=item.get("unit"), confidence=item.get("confidence", 0), page_number=request.page_number, source=request.source))
         return materials
 
     def extract_sop_pages(self, pages: list[tuple[int, str]]) -> list[SopTextMaterial]:
@@ -449,6 +494,7 @@ class LLMService:
             "例如先把A安装到B，后来再取一个A安装到C，应是两个事件并累加2；如果正文明确把前面同一个A从B移动到C，则第二次是移动同一实体，不新增。\n"
             "同一事件的中文、英文、图片标注应分别在 decisions 中说明重复关系，或者合并为一个事件并在 reason 中说明已去除双语重复。\n"
             "步骤序号、页码、扭力、尺寸不是物料数量。不要为了接近任何外部结果而修改数量。\n"
+            "part_number 必须从目标料号标题或原文中原样复制，不能把数量表达式拼接进去；例如 438-00601 *2 和 2*438-00601 的料号都只能是 438-00601。\n"
             "例：Attach 4×415-00643 to plunger block 415-00845 with 4×438-00147："
             "415-00643 added=4，438-00147 added=4，415-00845 reference=1。\n"
             "例：Install 2×438-00147 后又 Tighten 2×438-00147：只在安装事件新增 2，锁紧事件新增 0。"
@@ -480,8 +526,8 @@ class LLMService:
         for raw_item in data.get("materials", []) if isinstance(data, dict) else []:
             if not isinstance(raw_item, dict):
                 continue
-            part_number = str(raw_item.get("part_number") or "").strip().upper()
-            if part_number not in expected_part_numbers:
+            part_number = resolve_material_part_number(raw_item.get("part_number"), text)
+            if part_number is None or part_number not in expected_part_numbers:
                 continue
             try:
                 materials.append(

@@ -16,12 +16,15 @@ STATUS_LABELS = {
     "extra_in_duro": "Duro 冗余",
     "quantity_mismatch": "数量差异",
     "quantity_unknown": "数量未知",
+    "parent_bom_ignored": "父菜单未核对",
 }
 
 IGNORE_TYPE_LABELS = {
     "sop_product_keyword": "SOP 产品关键字",
     "part_number": "料号",
     "part_number_cleanup": "默认料号清洗",
+    "parent_bom": "父菜单 BOM",
+    "supply": "辅料",
 }
 
 BASE_HEADERS = [

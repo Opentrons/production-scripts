@@ -9,6 +9,7 @@ from typing import Any
 from modules.duro.models import DuroBomNode
 from modules.duro.service import DuroService
 from modules.sop.service import SopService
+from modules.supplies.service import SupplementaryMaterialService
 
 from modules.workflows.models import (
     Workflow,
@@ -39,7 +40,7 @@ def build_duro_bom_steps() -> list[WorkflowStep]:
         WorkflowStep(
             name="核对 Duro BOM",
             kind="bom_compare",
-            description="汇总所选 SOP 的全文料号引用，并与 Duro BOM 核对料号和出现次数。",
+            description="汇总所选 SOP 的物料信息，并与 Duro BOM 核对料号和数量。",
         ),
         WorkflowStep(
             name="核对报告",
@@ -58,6 +59,7 @@ def build_duro_bom_workflow() -> Workflow:
         configuration={
             "sop_drive_file_ids": [],
             "sop_sources": [],
+            "sop_bom_processes": ["packaging"],
             "sop_drive_file_id": "",
             "sop_project": "",
             "sop_process": "",
@@ -76,6 +78,8 @@ def build_duro_bom_workflow() -> Workflow:
             "ignored_sop_product_keyword_reasons": {},
             "ignored_part_number_reasons": {},
             "ignore_quantity_mismatch_warning": False,
+            "check_parent_bom": False,
+            "check_supplies": False,
         },
         steps=build_duro_bom_steps(),
     )
@@ -87,10 +91,12 @@ class WorkflowService:
         repository: WorkflowRepository,
         sop_service: SopService | None = None,
         duro_service: DuroService | None = None,
+        supplies_service: SupplementaryMaterialService | None = None,
     ) -> None:
         self.repository = repository
         self.sop_service = sop_service
         self.duro_service = duro_service
+        self.supplies_service = supplies_service
         self._initialized = False
         self._initialize_lock = threading.Lock()
 
@@ -445,23 +451,35 @@ class WorkflowService:
                     run,
                 )
                 self._append_run_log(run, f"读取 {len(sop_sources)} 份 SOP。")
-                sop_materials = self._collect_sop_references(sop_sources)
+                sop_bom_processes = self._configured_sop_bom_processes(workflow)
+                sop_materials = self._collect_sop_references(
+                    sop_sources,
+                    sop_bom_processes,
+                )
                 sop_cleanup_items = self._normalize_material_part_numbers(sop_materials, "sop")
                 self._append_run_log(
                     run,
-                    f"SOP 全文引用汇总完成：{len(sop_materials)} 个料号。",
+                    f"SOP 物料提取汇总完成：{len(sop_materials)} 个料号。",
                 )
 
                 self._append_run_log(
                     run,
                     f"读取 Duro 产品：{workflow.configuration.get('duro_product_name') or duro_source}。",
                 )
-                duro_materials, duro_submenus = self._collect_duro_materials(duro_source, duro_submenu_ids)
+                duro_materials, duro_submenus, parent_bom_ignored_items = self._collect_duro_materials(
+                    duro_source,
+                    duro_submenu_ids,
+                    include_parent_bom=bool(workflow.configuration.get("check_parent_bom", False)),
+                )
                 duro_cleanup_items = self._normalize_material_part_numbers(duro_materials, "duro")
                 self._append_run_log(
                     run,
                     f"Duro BOM 展开完成：扫描 {len(duro_submenus)} 个子菜单，"
                     f"识别 {len(duro_materials)} 个料号。",
+                )
+                check_supplies = bool(workflow.configuration.get("check_supplies", False))
+                supply_part_numbers = (
+                    set() if check_supplies else self._current_supply_part_numbers()
                 )
 
                 report = self._build_bom_report(sop_sources, sop_materials, duro_materials, duro_submenus)
@@ -469,6 +487,7 @@ class WorkflowService:
                     item.part_number
                     for item in report.differences
                     if item.status == "quantity_mismatch"
+                    and self._clean_part_number(item.part_number) not in supply_part_numbers
                 }
                 if mismatch_part_numbers:
                     try:
@@ -500,6 +519,24 @@ class WorkflowService:
                             f"{str(exc)[:300]}",
                         )
                 report = self._apply_ignored_differences(workflow, report)
+                if supply_part_numbers:
+                    report = self._apply_supply_ignored_differences(report, supply_part_numbers)
+                supply_ignored_count = sum(
+                    item.ignore_type == "supply" for item in report.ignored_items
+                )
+                if supply_ignored_count:
+                    self._append_run_log(
+                        run,
+                        f"未勾选核对辅料：命中辅料表，已忽略 {supply_ignored_count} 项 BOM 异常。",
+                    )
+                if parent_bom_ignored_items:
+                    report.ignored_items.extend(parent_bom_ignored_items)
+                    report.total_ignored_count = len(report.ignored_items)
+                    self._append_run_log(
+                        run,
+                        "未勾选核对父菜单 BOM："
+                        f"已忽略 {len(parent_bom_ignored_items)} 个父物料号，仅核对叶子物料。",
+                    )
                 warning_difference_count = (
                     report.missing_in_duro_count
                     + report.extra_in_duro_count
@@ -522,7 +559,7 @@ class WorkflowService:
                 if report.ignored_items:
                     self._append_run_log(
                         run,
-                        f"已按配置忽略 {len(report.ignored_items)} 项 BOM 差异。",
+                        f"运行结果已记录 {len(report.ignored_items)} 项已忽略 BOM 记录。",
                     )
                 run.report = report
                 run.status = "succeeded"
@@ -636,6 +673,15 @@ class WorkflowService:
                 }
             ]
         configuration["sop_sources"] = sources
+        raw_bom_processes = configuration.get("sop_bom_processes")
+        bom_processes = raw_bom_processes if isinstance(raw_bom_processes, list) else ["packaging"]
+        configuration["sop_bom_processes"] = list(
+            dict.fromkeys(
+                normalized
+                for value in bom_processes
+                if (normalized := self._normalize_sop_product_text(value))
+            )
+        )
         raw_submenu_ids = configuration.get("duro_submenu_ids")
         submenu_ids = raw_submenu_ids if isinstance(raw_submenu_ids, list) else []
         configuration["duro_submenu_ids"] = list(
@@ -694,6 +740,8 @@ class WorkflowService:
         configuration["ignore_quantity_mismatch_warning"] = bool(
             configuration.get("ignore_quantity_mismatch_warning", False)
         )
+        configuration["check_parent_bom"] = bool(configuration.get("check_parent_bom", False))
+        configuration["check_supplies"] = bool(configuration.get("check_supplies", False))
         workflow.configuration = configuration
 
         desired_steps = build_duro_bom_steps()
@@ -717,7 +765,6 @@ class WorkflowService:
             normalized.append(source)
         if normalized:
             return normalized
-
         raw_ids = workflow.configuration.get("sop_drive_file_ids")
         file_ids = raw_ids if isinstance(raw_ids, list) else []
         single_file_id = str(workflow.configuration.get("sop_drive_file_id") or "").strip()
@@ -728,6 +775,15 @@ class WorkflowService:
             for file_id in file_ids
             if str(file_id).strip()
         ]
+
+    def _configured_sop_bom_processes(self, workflow: Workflow) -> set[str]:
+        raw_processes = workflow.configuration.get("sop_bom_processes")
+        processes = raw_processes if isinstance(raw_processes, list) else ["packaging"]
+        return {
+            normalized
+            for value in processes
+            if (normalized := self._normalize_sop_product_text(value))
+        }
 
     def _refresh_run_data_sources(
         self,
@@ -1111,9 +1167,14 @@ class WorkflowService:
             for step in steps
         ]
 
-    def _collect_sop_references(self, sources: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    def _collect_sop_references(
+        self,
+        sources: list[dict[str, Any]],
+        sop_bom_processes: set[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
         assert self.sop_service is not None
         materials: dict[str, dict[str, Any]] = {}
+        selected_bom_processes = sop_bom_processes or set()
         for source in sources:
             file_id = str(source["drive_file_id"])
             label = " / ".join(
@@ -1126,9 +1187,19 @@ class WorkflowService:
             analysis = self.sop_service.analyze_pdf(file_id, refresh=True)
             if bool(getattr(analysis, "cached", False)):
                 raise RuntimeError(f"SOP“{label}”强制刷新失败：服务返回了缓存分析")
-            if not analysis.full_text_references:
-                raise RuntimeError(f"SOP“{label}”未识别到全文料号引用，无法执行 BOM 核对")
-            for material in analysis.full_text_references:
+            use_bom_materials = (
+                self._normalize_sop_product_text(source.get("process"))
+                in selected_bom_processes
+            )
+            source_materials = (
+                list(getattr(analysis, "bom_materials", []) or [])
+                if use_bom_materials
+                else list(analysis.full_text_references or [])
+            )
+            if not source_materials:
+                source_kind = "BOM 物料汇总" if use_bom_materials else "全文料号引用"
+                raise RuntimeError(f"SOP“{label}”未识别到{source_kind}，无法执行 BOM 核对")
+            for material in source_materials:
                 current = materials.setdefault(
                     material.part_number,
                     {
@@ -1145,9 +1216,20 @@ class WorkflowService:
                         "source_labels": {},
                     },
                 )
-                material_quantity = float(getattr(material, "quantity", 0) or material.occurrences)
+                raw_quantity = getattr(material, "quantity", None)
                 material_occurrences = int(getattr(material, "occurrences", 0) or 0)
+                if use_bom_materials:
+                    material_quantity = (
+                        float(raw_quantity) if raw_quantity is not None else float(material_occurrences)
+                    )
+                    quantity_known = bool(
+                        getattr(material, "quantity_complete", raw_quantity is not None)
+                    )
+                else:
+                    material_quantity = float(raw_quantity or material_occurrences)
+                    quantity_known = True
                 current["quantity"] += material_quantity
+                current["quantity_known"] = bool(current["quantity_known"]) and quantity_known
                 current["occurrence_count"] += material_occurrences
                 current["source_quantities"][file_id] = material_quantity
                 current["source_occurrence_counts"][file_id] = material_occurrences
@@ -1159,6 +1241,8 @@ class WorkflowService:
                 if location not in current["locations"]:
                     current["locations"].append(location)
                 quantity_explanation = str(getattr(material, "quantity_explanation", "") or "")
+                if not quantity_explanation and use_bom_materials:
+                    quantity_explanation = "使用 SOP BOM 物料汇总结果"
                 if not quantity_explanation:
                     quantity_explanation = (
                         "大模型未返回该料号的完整语义累加明细，"
@@ -1270,7 +1354,12 @@ class WorkflowService:
         self,
         product_id: str,
         selected_submenu_ids: set[str],
-    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
+        include_parent_bom: bool = False,
+    ) -> tuple[
+        dict[str, dict[str, Any]],
+        list[dict[str, str]],
+        list[WorkflowBomIgnoredItem],
+    ]:
         assert self.duro_service is not None
         # A workflow run must compare against the current Duro BOM, not the
         # last page-view snapshot. The service refresh also updates SQLite.
@@ -1278,6 +1367,7 @@ class WorkflowService:
         if bool(getattr(response, "cached", False)):
             raise RuntimeError("Duro 产品 BOM 强制刷新失败：服务返回了缓存数据")
         materials: dict[str, dict[str, Any]] = {}
+        ignored_parent_materials: dict[str, dict[str, Any]] = {}
         visited_nodes = 0
 
         selected_submenus: list[dict[str, str]] = []
@@ -1301,7 +1391,12 @@ class WorkflowService:
             identity = node.cpn or node.name or node.id
             current_path = [*path, identity]
             if node.cpn:
-                current = materials.setdefault(
+                material_store = (
+                    ignored_parent_materials
+                    if node.has_children and not include_parent_bom
+                    else materials
+                )
+                current = material_store.setdefault(
                     node.cpn,
                     {
                         "name": node.name,
@@ -1354,7 +1449,26 @@ class WorkflowService:
         missing_ids = selected_submenu_ids - {item["id"] for item in selected_submenus}
         if missing_ids:
             raise RuntimeError(f"Duro 子菜单不存在或已失效：{', '.join(sorted(missing_ids))}")
-        return materials, selected_submenus
+        if not include_parent_bom:
+            for part_number in ignored_parent_materials:
+                materials.pop(part_number, None)
+        ignored_parent_items = [
+            WorkflowBomIgnoredItem(
+                status="parent_bom_ignored",
+                part_number=part_number,
+                name=str(material.get("name") or ""),
+                duro_quantity=self._rounded(material.get("quantity", 0)),
+                duro_paths=list(material.get("paths", [])),
+                duro_submenu_ids=list(material.get("submenu_ids", [])),
+                duro_submenu_labels=list(material.get("submenu_labels", [])),
+                ignore_type="parent_bom",
+                ignore_value=part_number,
+                ignore_reason="未勾选“核对父菜单 BOM”，该物料包含子菜单，已跳过父物料号，只核对叶子物料",
+                ignored_at=utc_now(),
+            )
+            for part_number, material in sorted(ignored_parent_materials.items())
+        ]
+        return materials, selected_submenus, ignored_parent_items
 
     def _build_bom_report(
         self,
@@ -1449,6 +1563,59 @@ class WorkflowService:
             quantity_unknown_count=sum(item.status == "quantity_unknown" for item in differences),
             duro_submenus=duro_submenus,
             differences=differences,
+        )
+
+    def _current_supply_part_numbers(self) -> set[str]:
+        if self.supplies_service is None:
+            return set()
+        return {
+            self._clean_part_number(str(material.material_number))
+            for material in self.supplies_service.list()
+            if str(material.material_number).strip()
+        }
+
+    def _apply_supply_ignored_differences(
+        self,
+        report: WorkflowBomReport,
+        supply_part_numbers: set[str],
+    ) -> WorkflowBomReport:
+        kept: list[WorkflowBomDifference] = []
+        ignored = list(report.ignored_items)
+        supply_ignored: list[WorkflowBomIgnoredItem] = []
+        for difference in report.differences:
+            if self._clean_part_number(difference.part_number) not in supply_part_numbers:
+                kept.append(difference)
+                continue
+            supply_ignored.append(
+                WorkflowBomIgnoredItem(
+                    **difference.model_dump(),
+                    ignore_type="supply",
+                    ignore_value=difference.part_number,
+                    ignore_reason="命中辅料",
+                    ignored_at=utc_now(),
+                )
+            )
+        ignored.extend(supply_ignored)
+        return report.model_copy(
+            update={
+                "differences": kept,
+                "sop_material_count": report.sop_material_count - sum(
+                    item.status != "extra_in_duro" for item in supply_ignored
+                ),
+                "duro_material_count": report.duro_material_count - sum(
+                    item.status != "missing_in_duro" for item in supply_ignored
+                ),
+                "missing_in_duro_count": sum(item.status == "missing_in_duro" for item in kept),
+                "extra_in_duro_count": sum(item.status == "extra_in_duro" for item in kept),
+                "quantity_mismatch_count": sum(
+                    item.status == "quantity_mismatch" for item in kept
+                ),
+                "quantity_unknown_count": sum(
+                    item.status == "quantity_unknown" for item in kept
+                ),
+                "ignored_items": ignored,
+                "total_ignored_count": len(ignored),
+            }
         )
 
     def _apply_ignored_differences(

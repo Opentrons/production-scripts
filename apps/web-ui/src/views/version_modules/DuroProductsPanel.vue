@@ -160,7 +160,7 @@
 
               <div v-if="bomResponse" class="bom-summary">
                 <article><span>{{ t('versions.duro.productRevision') }}</span><strong>{{ bomResponse.root.revision || '—' }}</strong></article>
-                <article><span>{{ t('versions.duro.directMaterials') }}</span><strong>{{ bomResponse.direct_child_count }}</strong></article>
+                <article><span>{{ t('versions.duro.materialTotalQuantity') }}</span><strong>{{ formatMaterialCount(bomResponse.material_total_count) }}</strong></article>
                 <article><span>{{ t('versions.common.source') }}</span><strong>{{ bomResponse.cached ? t('versions.common.sqliteCache') : 'Duro API' }}</strong></article>
                 <article><span>{{ t('versions.common.updateTime') }}</span><strong>{{ formatDate(bomResponse.fetched_at) }}</strong></article>
               </div>
@@ -199,6 +199,7 @@
                   <span>{{ t('versions.duro.partAndName') }}</span>
                   <span>Revision</span>
                   <span>{{ t('versions.common.quantity') }}</span>
+                  <span>{{ t('versions.duro.childComponentCount') }}</span>
                   <span>{{ t('versions.common.status') }}</span>
                 </div>
                 <el-tree
@@ -224,6 +225,7 @@
                       </div>
                       <span class="revision-pill">{{ data.revision || '—' }}</span>
                       <span class="bom-quantity">{{ displayQuantity(data) }}</span>
+                      <span class="bom-child-count">{{ displayChildCount(data) }}</span>
                       <span class="duro-status-pill" :class="`is-${(data.status || '').toLowerCase()}`">
                         {{ data.status || '—' }}
                       </span>
@@ -251,6 +253,7 @@
                       </div>
                       <span class="revision-pill">{{ data.revision || '—' }}</span>
                       <span class="bom-quantity">{{ displayQuantity(data) }}</span>
+                      <span class="bom-child-count">{{ displayChildCount(data) }}</span>
                       <span class="duro-status-pill" :class="`is-${(data.status || '').toLowerCase()}`">
                         {{ data.status || '—' }}
                       </span>
@@ -548,6 +551,18 @@ function displayQuantity(node: DuroBomNode) {
   return `${displayValue(node.quantity)}${unit}`
 }
 
+function displayChildCount(node: DuroBomNode) {
+  if (!node.has_children) return '—'
+  return node.child_count === null || node.child_count === undefined
+    ? '—'
+    : String(node.child_count)
+}
+
+function formatMaterialCount(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  return new Intl.NumberFormat(locale.value, { maximumFractionDigits: 6 }).format(value)
+}
+
 function duroProductUrl(productId: string) {
   return `https://mfg.duro.app/product/view/${encodeURIComponent(productId)}`
 }
@@ -765,7 +780,8 @@ onBeforeUnmount(() => {
 
 .drawer-product-title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  min-width: 0;
   gap: 11px;
 }
 
@@ -774,9 +790,18 @@ onBeforeUnmount(() => {
   height: 40px;
   display: grid;
   place-items: center;
+  flex: 0 0 40px;
   border-radius: 10px;
   background: #dff3ee;
   color: #258c75;
+}
+
+:deep(.duro-product-drawer .el-drawer__header) {
+  align-items: flex-start;
+}
+
+:deep(.duro-product-drawer .el-drawer__close-btn) {
+  margin-top: 1px;
 }
 
 .drawer-product-title span,
@@ -797,6 +822,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   color: #21303a;
   font-size: 15px;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -918,9 +944,9 @@ onBeforeUnmount(() => {
 }
 
 .bom-tree-columns {
-  min-width: 660px;
+  min-width: 750px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 82px 72px 98px;
+  grid-template-columns: minmax(260px, 1fr) 82px 72px 82px 98px;
   gap: 10px;
   padding: 9px 14px 9px 40px;
   border-bottom: 1px solid #e1e6e9;
@@ -932,7 +958,7 @@ onBeforeUnmount(() => {
 }
 
 .bom-tree {
-  min-width: 660px;
+  min-width: 750px;
   padding: 4px 0;
 }
 
@@ -955,7 +981,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 82px 72px 98px;
+  grid-template-columns: minmax(220px, 1fr) 82px 72px 82px 98px;
   gap: 10px;
 }
 
@@ -1002,23 +1028,36 @@ onBeforeUnmount(() => {
   font-weight: 750;
 }
 
+.bom-child-count {
+  color: #596a73;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .bom-inline-error {
   margin-top: 12px;
 }
 
 .product-hero {
-  height: 270px;
+  height: clamp(220px, 35vh, 360px);
+  min-height: 220px;
   display: grid;
   place-items: center;
   overflow: hidden;
+  box-sizing: border-box;
+  padding: 16px;
   border: 1px solid #dfe5e8;
   border-radius: 12px;
   background: #f6f8f9;
 }
 
 .product-hero img {
-  width: 100%;
-  height: 100%;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
 }
 
@@ -1126,7 +1165,9 @@ onBeforeUnmount(() => {
 
 .image-grid img {
   width: 100%;
-  height: 120px;
+  height: clamp(110px, 15vw, 160px);
+  box-sizing: border-box;
+  padding: 8px;
   object-fit: contain;
   border: 1px solid #e0e6e9;
   border-radius: 8px;

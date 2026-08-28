@@ -70,6 +70,7 @@ class DuroBomNode(BaseModel):
     waste: Any = None
     unit_of_measure: Any = None
     has_children: bool = False
+    child_count: int | None = None
     children: list["DuroBomNode"] = Field(default_factory=list)
 
 
@@ -78,6 +79,7 @@ class DuroProductBomResponse(BaseModel):
     product_id: str
     root: DuroBomNode
     direct_child_count: int = 0
+    material_total_count: int = 0
     source_url: str
     cached: bool = False
     fetched_at: datetime = Field(default_factory=utc_now)

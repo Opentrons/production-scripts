@@ -7,6 +7,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -19,6 +20,7 @@ from modules.duro.models import (
 )
 from core.config import (
     DURO_API_KEY_PATH,
+    DURO_BASE_URL,
     DURO_GRAPHQL_URL,
     DURO_REQUEST_TIMEOUT_SECONDS,
 )
@@ -52,51 +54,18 @@ class DuroClient:
           }
         }
     """
-    _PRODUCT_BY_ID_QUERY = """
-        query ProductionPlatformProduct($ids: [ID]) {
-          productsByIds(ids: $ids) {
-            id name alias description revisionValue status lastModified
-            cpn { displayValue variant }
-            children {
-              quantity itemNumber notes refDes waste
-              component {
-                id name alias revisionValue status unitOfMeasure
-                cpn { displayValue variant }
-                children { component { id } }
-              }
-              assemblyRevision { id revisionValue }
-            }
-          }
-        }
-    """
-    _COMPONENT_BY_ID_QUERY = """
-        query ProductionPlatformComponent($ids: [ID]) {
-          componentsByIds(ids: $ids) {
-            id name alias description revisionValue status lastModified unitOfMeasure
-            cpn { displayValue variant }
-            children {
-              quantity itemNumber notes refDes waste
-              component {
-                id name alias revisionValue status unitOfMeasure
-                cpn { displayValue variant }
-                children { component { id } }
-              }
-              assemblyRevision { id revisionValue }
-            }
-          }
-        }
-    """
-
     def __init__(
         self,
-        graphql_url: str = DURO_GRAPHQL_URL,
+        base_url: str = DURO_BASE_URL,
         api_key_path: Path = DURO_API_KEY_PATH,
         timeout_seconds: int = DURO_REQUEST_TIMEOUT_SECONDS,
         api_key: str | None = None,
         session: requests.Session | None = None,
+        graphql_url: str = DURO_GRAPHQL_URL,
     ) -> None:
+        self.base_url = base_url.rstrip("/")
         self.graphql_url = graphql_url.rstrip("/")
-        # Keep the user-facing Duro URL separate from the GraphQL endpoint.
+        # Keep the user-facing Duro URL separate from the REST endpoint.
         self.app_url = self._APP_URL
         self.api_key_path = Path(api_key_path)
         self.timeout_seconds = timeout_seconds
@@ -104,25 +73,23 @@ class DuroClient:
         self.session = session or requests.Session()
 
     def search_products(self, payload: DuroProductSearchRequest) -> DuroProductSearchResponse:
-        return self._search_products_graphql(payload, self._required_api_key())
+        api_key = self._required_api_key()
+        try:
+            return self._search_products_rest(payload, api_key)
+        except DuroAuthenticationError as rest_error:
+            # The current API key can read REST entities but may not have the
+            # legacy product-search permission. Keep the catalog available via
+            # GraphQL until that Duro permission is granted.
+            try:
+                return self._search_products_graphql(payload, api_key)
+            except DuroAuthenticationError:
+                raise rest_error
 
     def get_product(self, product_id: str) -> dict[str, Any]:
-        return self._get_graphql_entity(
-            product_id,
-            query=self._PRODUCT_BY_ID_QUERY,
-            response_key="productsByIds",
-            operation="Duro 产品 BOM",
-            api_key=self._required_api_key(),
-        )
+        return self._get_rest_entity("products", product_id, "Duro 产品 BOM")
 
     def get_component(self, component_id: str) -> dict[str, Any]:
-        return self._get_graphql_entity(
-            component_id,
-            query=self._COMPONENT_BY_ID_QUERY,
-            response_key="componentsByIds",
-            operation="Duro 组件 BOM",
-            api_key=self._required_api_key(),
-        )
+        return self._get_rest_entity("components", component_id, "Duro 组件 BOM")
 
     def connection_status(self) -> DuroConnectionStatus:
         api_key = self._api_key()
@@ -132,7 +99,7 @@ class DuroClient:
             api_key_valid=bool(api_key)
             and (expires_at is None or expires_at > datetime.now(timezone.utc)),
             api_key_expires_at=expires_at,
-            base_url=self.graphql_url,
+            base_url=self.base_url,
         )
 
     def update_api_key(self, api_key: str) -> DuroConnectionStatus:
@@ -195,6 +162,43 @@ class DuroClient:
             raise DuroAuthenticationError(f"Duro API Key 已过期: {expires_at.isoformat()}")
         return value
 
+    def _search_products_rest(
+        self,
+        payload: DuroProductSearchRequest,
+        api_key: str,
+    ) -> DuroProductSearchResponse:
+        data = self._rest_data(
+            self.session.post(
+                f"{self.base_url}/search/products",
+                headers={
+                    "accept": "application/json",
+                    "apiToken": api_key,
+                    "content-type": "application/json",
+                },
+                json=payload.model_dump(exclude_none=True),
+                timeout=self.timeout_seconds,
+            ),
+            "Duro 产品搜索",
+        )
+        if not isinstance(data, dict):
+            raise DuroApiError("Duro 产品接口缺少 data 对象")
+        results = data.get("results", [])
+        if not isinstance(results, list):
+            raise DuroApiError("Duro 产品接口 data.results 格式错误")
+        products = [
+            DuroProduct.model_validate(self._normalize_rest_entity(item))
+            for item in results
+            if isinstance(item, dict)
+        ]
+        products = self._sort_products(products, payload)
+        return DuroProductSearchResponse(
+            success=True,
+            count=int(data.get("count", len(products))),
+            products=products,
+            request=payload,
+            fetched_at=utc_now(),
+        )
+
     def _search_products_graphql(
         self,
         payload: DuroProductSearchRequest,
@@ -231,18 +235,9 @@ class DuroClient:
                 raise DuroApiError("Duro 产品 GraphQL 分页游标无效")
             after = next_cursor
 
-        sort_key = self._graphql_sort_key(payload.sort)
-        products.sort(
-            key=lambda item: (
-                item.get(sort_key) is not None,
-                str(item.get(sort_key) or "").casefold(),
-            ),
-            reverse=payload.reverse,
+        validated = self._sort_products(
+            [DuroProduct.model_validate(item) for item in products], payload
         )
-        if payload.limit:
-            start = (payload.page - 1) * payload.limit
-            products = products[start : start + payload.limit]
-        validated = [DuroProduct.model_validate(item) for item in products]
         return DuroProductSearchResponse(
             success=True,
             count=total_count or len(validated),
@@ -251,25 +246,78 @@ class DuroClient:
             fetched_at=utc_now(),
         )
 
-    def _get_graphql_entity(
+    def _get_rest_entity(
         self,
+        resource: str,
         entity_id: str,
-        *,
-        query: str,
-        response_key: str,
         operation: str,
-        api_key: str,
     ) -> dict[str, Any]:
-        normalized_id = entity_id.strip()
+        normalized_id = quote(entity_id.strip(), safe="")
         if not normalized_id:
             raise DuroApiError(f"{operation}缺少 ID")
-        data = self._graphql_data(query, {"ids": [normalized_id]}, operation, api_key)
-        entities = data.get(response_key)
-        if not isinstance(entities, list):
-            raise DuroApiError(f"{operation} GraphQL 接口缺少 {response_key} 数组")
-        if not entities or not isinstance(entities[0], dict):
-            raise DuroApiError(f"{operation}未找到 ID 为 {normalized_id} 的数据")
-        return self._normalize_graphql_entity(entities[0])
+        data = self._rest_data(
+            self.session.get(
+                f"{self.base_url}/{resource}/{normalized_id}",
+                headers={
+                    "accept": "application/json",
+                    "apiToken": self._required_api_key(),
+                },
+                params={"include": "children", "lean": "true"},
+                timeout=self.timeout_seconds,
+            ),
+            operation,
+        )
+        if not isinstance(data, dict):
+            raise DuroApiError(f"{operation}接口缺少 data 对象")
+        return self._normalize_rest_entity(data)
+
+    @staticmethod
+    def _sort_products(
+        products: list[DuroProduct],
+        payload: DuroProductSearchRequest,
+    ) -> list[DuroProduct]:
+        sort_key = DuroClient._graphql_sort_key(payload.sort)
+        sort_attribute = {
+            "_id": "id",
+            "lastModified": "last_modified",
+            "lastReleasePrdRev": "last_release_prd_rev",
+            "previousRevision": "previous_revision",
+            "previousStatus": "previous_status",
+        }.get(sort_key, sort_key)
+        products.sort(
+            key=lambda item: (
+                getattr(item, sort_attribute, None) is not None,
+                str(getattr(item, sort_attribute, None) or "").casefold(),
+            ),
+            reverse=payload.reverse,
+        )
+        if payload.limit:
+            start = (payload.page - 1) * payload.limit
+            return products[start : start + payload.limit]
+        return products
+
+    @staticmethod
+    def _rest_data(response: requests.Response, operation: str) -> Any:
+        if response.status_code in {401, 403}:
+            raise DuroAuthenticationError("Duro API Key 已失效或没有产品读取权限")
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        if isinstance(body, dict) and DuroClient._is_unauthorized(body):
+            raise DuroAuthenticationError("Duro API Key 未被接受或没有产品读取权限")
+        try:
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise DuroApiError(f"{operation}请求失败: HTTP {response.status_code}") from exc
+        if body is None:
+            try:
+                body = response.json()
+            except ValueError as exc:
+                raise DuroApiError(f"{operation}接口返回了无效 JSON") from exc
+        if not isinstance(body, dict) or body.get("success") is not True:
+            raise DuroApiError(DuroClient._response_error_message(body, operation))
+        return body.get("data")
 
     def _graphql_data(
         self,
@@ -349,6 +397,30 @@ class DuroClient:
             normalized["children"] = normalized_children
         return normalized
 
+    @classmethod
+    def _normalize_rest_entity(cls, entity: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(entity)
+        normalized["_id"] = str(entity.get("_id") or entity.get("id") or "")
+        normalized["revision"] = entity.get("revision") or entity.get("revisionValue")
+        cpn = entity.get("cpn")
+        if isinstance(cpn, dict):
+            normalized["cpn"] = cpn.get("displayValue")
+            normalized["cpnVariant"] = cpn.get("variant")
+        children = entity.get("children")
+        if isinstance(children, list):
+            normalized_children: list[Any] = []
+            for relationship in children:
+                if not isinstance(relationship, dict):
+                    normalized_children.append(relationship)
+                    continue
+                normalized_relationship = dict(relationship)
+                child = relationship.get("component")
+                if isinstance(child, dict):
+                    normalized_relationship["component"] = cls._normalize_rest_entity(child)
+                normalized_children.append(normalized_relationship)
+            normalized["children"] = normalized_children
+        return normalized
+
     @staticmethod
     def _graphql_sort_key(value: str) -> str:
         return {
@@ -390,8 +462,14 @@ class DuroClient:
                 elif isinstance(item, str):
                     values.append(item)
         return any(
-            "unauthorized" in value.lower() or "unauthenticated" in value.lower()
+            token in value.lower()
             for value in values
+            for token in (
+                "unauthorized",
+                "unauthenticated",
+                "not authorized",
+                "not authenticated",
+            )
         )
 
     @staticmethod
