@@ -1,5 +1,7 @@
+from modules.agent.llm.models import SopSemanticDecision, SopTextMaterial
 from modules.sop.models import SopPartReference, SopQuantityDecision
 from modules.sop.service import (
+    _apply_semantic_to_references,
     _enrich_reference_name_occurrences,
     _merge_part_references,
     _merge_semantic_part_references,
@@ -178,3 +180,72 @@ def test_name_occurrence_is_not_added_when_alias_belongs_to_another_material() -
 
     assert references[0].occurrences == 1
     assert references[0].pages == [14]
+
+
+def test_apply_semantic_to_references_runs_without_page_material_hits(monkeypatch) -> None:
+    def fake_semantic(pages, excluded_part_numbers=None, **kwargs):
+        assert pages == [(1, "Install 2×415-00390")]
+        return [
+            SopTextMaterial(
+                part_number="415-00390",
+                name="bracket",
+                quantity=2,
+                confidence=0.9,
+                quantity_explanation="安装 2 个支架",
+                quantity_decisions=[
+                    SopSemanticDecision(
+                        event_id="E1",
+                        page_numbers=[1],
+                        action="安装",
+                        target="框架",
+                        location="",
+                        quantity_delta=2,
+                        accumulate=True,
+                        duplicate_of=None,
+                        reason="新增安装",
+                        evidence="Install 2×415-00390",
+                    )
+                ],
+            )
+        ]
+
+    monkeypatch.setattr("modules.sop.service.llm_service.api_key", "test-key")
+    monkeypatch.setattr(
+        "modules.sop.service.llm_service.extract_sop_semantic_references",
+        fake_semantic,
+    )
+
+    local = [SopPartReference(part_number="415-00390", occurrences=5, quantity=5, pages=[1])]
+    merged, applied = _apply_semantic_to_references(local, [(1, "Install 2×415-00390")], set())
+
+    assert applied is True
+    assert merged[0].quantity == 2
+    assert merged[0].quantity_explanation == "安装 2 个支架"
+    assert merged[0].quantity_decisions[0].quantity_delta == 2
+
+
+def test_apply_semantic_to_references_skips_excluded_part_numbers(monkeypatch) -> None:
+    monkeypatch.setattr("modules.sop.service.llm_service.api_key", "test-key")
+    monkeypatch.setattr(
+        "modules.sop.service.llm_service.extract_sop_semantic_references",
+        lambda pages, excluded_part_numbers=None, **kwargs: [
+            SopTextMaterial(
+                part_number="242-00050",
+                name="zip tie",
+                quantity=2,
+                confidence=0.9,
+                quantity_explanation="忽略项不应进入结果",
+                quantity_decisions=[],
+            )
+        ],
+    )
+
+    local = [SopPartReference(part_number="242-00050", occurrences=2, quantity=2, pages=[1])]
+    merged, applied = _apply_semantic_to_references(
+        local,
+        [(1, "Stick zip tie 242-00050")],
+        {"242-00050"},
+    )
+
+    assert applied is False
+    assert merged == local

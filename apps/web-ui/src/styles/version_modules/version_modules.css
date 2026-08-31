@@ -1712,9 +1712,9 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
+  gap: 10px;
   margin-bottom: 10px;
-  padding: 7px 0 8px;
+  padding: 2px 0 3px;
   border-bottom: 1px solid #e2e7ea;
 }
 
@@ -1723,6 +1723,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  padding-bottom: 0;
 }
 
 .report-detail-nav-pages {
@@ -1736,7 +1737,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 2px;
+  padding: 4px 2px 2px;
   border: 0;
   background: transparent;
   color: #7d8993;
@@ -1749,7 +1750,7 @@ textarea {
   content: '';
   position: absolute;
   right: 0;
-  bottom: -1px;
+  bottom: 0;
   left: 0;
   height: 2px;
   background: transparent;
@@ -1769,6 +1770,8 @@ textarea {
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
+  margin: 0;
+  padding: 0 0 1px;
 }
 
 .report-detail-nav-main > .bom-report-filters {

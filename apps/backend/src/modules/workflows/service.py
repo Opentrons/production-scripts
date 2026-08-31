@@ -452,9 +452,18 @@ class WorkflowService:
                 )
                 self._append_run_log(run, f"读取 {len(sop_sources)} 份 SOP。")
                 sop_bom_processes = self._configured_sop_bom_processes(workflow)
+                check_supplies = bool(workflow.configuration.get("check_supplies", False))
+                supply_part_numbers = (
+                    set() if check_supplies else self._current_supply_part_numbers()
+                )
+                excluded_sop_part_numbers = self._workflow_excluded_part_numbers(
+                    workflow,
+                    supply_part_numbers=supply_part_numbers,
+                )
                 sop_materials = self._collect_sop_references(
                     sop_sources,
                     sop_bom_processes,
+                    excluded_sop_part_numbers,
                 )
                 sop_cleanup_items = self._normalize_material_part_numbers(sop_materials, "sop")
                 self._append_run_log(
@@ -476,10 +485,6 @@ class WorkflowService:
                     run,
                     f"Duro BOM 展开完成：扫描 {len(duro_submenus)} 个子菜单，"
                     f"识别 {len(duro_materials)} 个料号。",
-                )
-                check_supplies = bool(workflow.configuration.get("check_supplies", False))
-                supply_part_numbers = (
-                    set() if check_supplies else self._current_supply_part_numbers()
                 )
 
                 report = self._build_bom_report(sop_sources, sop_materials, duro_materials, duro_submenus)
@@ -996,6 +1001,22 @@ class WorkflowService:
             if (normalized := str(value).strip().upper())
         }
 
+    def _workflow_excluded_part_numbers(
+        self,
+        workflow: Workflow,
+        *,
+        supply_part_numbers: set[str] | None = None,
+    ) -> set[str]:
+        excluded = set(self._configured_ignored_part_numbers(workflow))
+        excluded.update(
+            self._clean_part_number(rule.part_number)
+            for rule in self.repository.list_ignored_part_rules(workflow.id)
+            if self._clean_part_number(rule.part_number)
+        )
+        if supply_part_numbers:
+            excluded.update(supply_part_numbers)
+        return {part_number for part_number in excluded if part_number}
+
     def _configured_ignored_sop_product_keywords(self, workflow: Workflow) -> list[str]:
         raw_values = workflow.configuration.get("ignored_sop_product_keywords")
         values = raw_values if isinstance(raw_values, list) else []
@@ -1171,6 +1192,7 @@ class WorkflowService:
         self,
         sources: list[dict[str, Any]],
         sop_bom_processes: set[str] | None = None,
+        excluded_part_numbers: set[str] | None = None,
     ) -> dict[str, dict[str, Any]]:
         assert self.sop_service is not None
         materials: dict[str, dict[str, Any]] = {}
@@ -1184,7 +1206,11 @@ class WorkflowService:
             ) or file_id
             # A workflow run is an explicit verification request: always
             # re-analyze the SOP and replace the persistent analysis cache.
-            analysis = self.sop_service.analyze_pdf(file_id, refresh=True)
+            analysis = self.sop_service.analyze_pdf(
+                file_id,
+                refresh=True,
+                excluded_part_numbers=excluded_part_numbers,
+            )
             if bool(getattr(analysis, "cached", False)):
                 raise RuntimeError(f"SOP“{label}”强制刷新失败：服务返回了缓存分析")
             use_bom_materials = (
@@ -1264,7 +1290,10 @@ class WorkflowService:
         target_part_numbers: set[str],
     ) -> int:
         assert self.sop_service is not None
-        refine = getattr(self.sop_service, "refine_semantic_quantities_with_names", None)
+        refine = getattr(self.sop_service, "refine_semantic_quantities_for_targets", None)
+        if not callable(refine):
+            # Keep older test doubles and deployments usable during rollout.
+            refine = getattr(self.sop_service, "refine_semantic_quantities_with_names", None)
         if not callable(refine):
             return 0
 

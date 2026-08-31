@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from core.google import GoogleDriveFile, GoogleDriver, GoogleDriverError, GoogleSheetData
 from core.config import (
+    SOP_FULL_SEMANTIC_MAX_REFERENCES,
     SOP_MASTER_SHEET_GID,
     SOP_MASTER_SPREADSHEET_ID,
     SOP_PDF_MAX_BYTES,
@@ -109,6 +110,68 @@ def _merge_semantic_part_references(
         current.quantity_explanation = item.quantity_explanation
         current.quantity_decisions = list(item.quantity_decisions)
     return list(merged.values())
+
+
+def _normalize_excluded_part_numbers(excluded_part_numbers: set[str] | None) -> set[str]:
+    return {
+        str(part_number).strip().upper()
+        for part_number in (excluded_part_numbers or set())
+        if str(part_number).strip()
+    }
+
+
+def _apply_semantic_to_references(
+    full_text_references: list[SopPartReference],
+    reference_text_pages: list[tuple[int, str]],
+    excluded_part_numbers: set[str],
+) -> tuple[list[SopPartReference], bool]:
+    """Run semantic quantity analysis and merge results into local references."""
+
+    if not reference_text_pages or not llm_service.api_key:
+        return full_text_references, False
+
+    ai_references = llm_service.extract_sop_semantic_references(
+        reference_text_pages,
+        excluded_part_numbers=excluded_part_numbers or None,
+    )
+    if not ai_references:
+        return full_text_references, False
+
+    local_reference_quantities = {
+        item.part_number.strip().upper(): item.quantity for item in full_text_references
+    }
+    ai_part_references: list[SopPartReference] = []
+    for item in ai_references:
+        part_number = item.part_number.strip().upper()
+        if part_number in excluded_part_numbers:
+            continue
+        local_quantity = local_reference_quantities.get(part_number)
+        use_semantic_quantity = item.confidence >= 0.5 or local_quantity is None
+        quantity = int(item.quantity or 0) if use_semantic_quantity else local_quantity
+        explanation = item.quantity_explanation
+        if not use_semantic_quantity:
+            explanation = (
+                f"{explanation or '大模型未返回完整语义判断'}；"
+                f"语义结果置信度不足，采用 SOP 正文规则统计数量 {quantity}"
+            ).strip("；")
+        ai_part_references.append(
+            SopPartReference(
+                part_number=item.part_number,
+                name=item.name,
+                occurrences=1,
+                quantity=quantity,
+                pages=[item.page_number] if item.page_number else [],
+                source_lines=[],
+                quantity_explanation=explanation,
+                quantity_decisions=[
+                    SopQuantityDecision.model_validate(decision.model_dump())
+                    for decision in item.quantity_decisions
+                ],
+            )
+        )
+    if not ai_part_references:
+        return full_text_references, False
+    return _merge_semantic_part_references(full_text_references, ai_part_references), True
 
 
 def _enrich_reference_name_occurrences(
@@ -221,7 +284,12 @@ class SopService:
         sheet_data = self.google_driver.read_sheet_by_gid(self.spreadsheet_id, self.sheet_gid)
         return self._build_master_sheet_response(sheet_data)
 
-    def analyze_pdf(self, file_id_or_url: str, refresh: bool = False) -> SopPdfAnalysisResponse:
+    def analyze_pdf(
+        self,
+        file_id_or_url: str,
+        refresh: bool = False,
+        excluded_part_numbers: set[str] | None = None,
+    ) -> SopPdfAnalysisResponse:
         cache_key = self.google_driver.parse_drive_file_id(file_id_or_url) or file_id_or_url
         with self._cache_lock:
             if not refresh:
@@ -280,11 +348,13 @@ class SopService:
 
         bom_sections, bom_materials = analyze_bom_pages(bom_layout_pages)
         full_text_references = analyze_part_references(reference_text_pages, bom_materials)
+        excluded = _normalize_excluded_part_numbers(excluded_part_numbers)
         ai_enabled = bool(llm_service.api_key)
         ai_used = False
         ai_fallback = False
         ai_error: str | None = None
         if ai_enabled:
+            ai_errors: list[str] = []
             try:
                 ai_material_pages = extract_material_lines(extracted_text_pages)
                 ai_materials = llm_service.extract_sop_pages(ai_material_pages)
@@ -304,53 +374,47 @@ class SopService:
                         for item in ai_materials
                     ]
                     bom_materials = _merge_bom_materials(bom_materials, ai_bom_materials)
-                    ai_references = (
-                        llm_service.extract_sop_semantic_references(reference_text_pages)
-                        if reference_text_pages
-                        else []
-                    )
-                    local_reference_quantities = {
-                        item.part_number.strip().upper(): item.quantity
-                        for item in full_text_references
-                    }
-                    ai_part_references: list[SopPartReference] = []
-                    for item in ai_references:
-                        part_number = item.part_number.strip().upper()
-                        local_quantity = local_reference_quantities.get(part_number)
-                        use_semantic_quantity = item.confidence >= 0.5 or local_quantity is None
-                        quantity = int(item.quantity or 0) if use_semantic_quantity else local_quantity
-                        explanation = item.quantity_explanation
-                        if not use_semantic_quantity:
-                            explanation = (
-                                f"{explanation or '大模型未返回完整语义判断'}；"
-                                f"语义结果置信度不足，采用 SOP 正文规则统计数量 {quantity}"
-                            ).strip("；")
-                        ai_part_references.append(
-                            SopPartReference(
-                                part_number=item.part_number,
-                                name=item.name,
-                                occurrences=1,
-                                quantity=quantity,
-                                pages=[item.page_number] if item.page_number else [],
-                                source_lines=[],
-                                quantity_explanation=explanation,
-                                quantity_decisions=[
-                                    SopQuantityDecision.model_validate(decision.model_dump())
-                                    for decision in item.quantity_decisions
-                                ],
-                            )
-                        )
-                    full_text_references = _merge_semantic_part_references(
-                        full_text_references, ai_part_references
-                    )
-                else:
-                    ai_fallback = True
-                    ai_error = "AI 未识别到物料，使用本地规则解析"
             except Exception as exc:
                 ai_fallback = True
-                ai_error = str(exc)[:500]
+                ai_errors.append(str(exc)[:500])
+
+            # Material extraction and semantic quantity analysis are independent
+            # passes. A slow or malformed BOM response must not suppress the
+            # semantic pass over instruction pages.
+            if reference_text_pages and len(full_text_references) <= SOP_FULL_SEMANTIC_MAX_REFERENCES:
+                try:
+                    full_text_references, semantic_applied = _apply_semantic_to_references(
+                        full_text_references,
+                        reference_text_pages,
+                        excluded,
+                    )
+                    if semantic_applied:
+                        ai_used = True
+                except Exception as exc:
+                    ai_fallback = True
+                    ai_errors.append(str(exc)[:500])
+            elif reference_text_pages:
+                ai_fallback = True
+                ai_errors.append(
+                    "SOP 料号数量超过全量语义阈值（"
+                    f"{len(full_text_references)}>{SOP_FULL_SEMANTIC_MAX_REFERENCES}），"
+                    "全量语义分析延后至工作流数量差异复核"
+                )
+
+            if not ai_used:
+                ai_fallback = True
+                if not ai_errors:
+                    ai_errors.append("AI 未识别到物料，使用本地规则解析")
+            if ai_errors:
+                ai_error = "；".join(error for error in ai_errors if error)[:500]
         elif not ai_enabled:
             ai_error = "未配置 PRODUCTION_PLATFORM_LLM_API_KEY，使用本地规则解析"
+        if excluded:
+            full_text_references = [
+                reference
+                for reference in full_text_references
+                if reference.part_number.strip().upper() not in excluded
+            ]
         pages = [
             SopPdfPage(
                 page_number=page_number,
@@ -406,14 +470,39 @@ class SopService:
         material_names: dict[str, str],
         target_part_numbers: set[str],
     ) -> list[SopPartReference]:
-        """Re-evaluate only existing quantity mismatches with confirmed-name evidence.
+        """Re-evaluate mismatches only when confirmed name-only evidence exists."""
 
-        The normal PDF analysis remains part-number-only. This second pass is
-        deliberately narrow: a result is returned only when at least one new
-        name-only occurrence exists and the semantic model returns a confident
-        record. Callers can therefore retain the first-pass quantity whenever
-        the refinement is incomplete.
-        """
+        return self._refine_semantic_quantities(
+            file_id_or_url,
+            material_names,
+            target_part_numbers,
+            require_name_evidence=True,
+        )
+
+    def refine_semantic_quantities_for_targets(
+        self,
+        file_id_or_url: str,
+        material_names: dict[str, str],
+        target_part_numbers: set[str],
+    ) -> list[SopPartReference]:
+        """Re-evaluate every requested mismatch part with semantic evidence."""
+
+        return self._refine_semantic_quantities(
+            file_id_or_url,
+            material_names,
+            target_part_numbers,
+            require_name_evidence=False,
+        )
+
+    def _refine_semantic_quantities(
+        self,
+        file_id_or_url: str,
+        material_names: dict[str, str],
+        target_part_numbers: set[str],
+        *,
+        require_name_evidence: bool,
+    ) -> list[SopPartReference]:
+        """Run a targeted semantic pass, optionally requiring name-only evidence."""
 
         if not llm_service.api_key:
             return []
@@ -448,17 +537,20 @@ class SopService:
             original_occurrences[part_number] = reference.occurrences
             references.append(reference)
 
-        confirmed_names = _enrich_reference_name_occurrences(
-            references,
-            pages,
-            known_material_names=normalized_names,
-        )
-        eligible_parts = {
-            reference.part_number.strip().upper()
-            for reference in references
-            if reference.occurrences > original_occurrences.get(reference.part_number.strip().upper(), 0)
-            and confirmed_names.get(reference.part_number.strip().upper())
-        }
+        if require_name_evidence:
+            confirmed_names = _enrich_reference_name_occurrences(
+                references,
+                pages,
+                known_material_names=normalized_names,
+            )
+            eligible_parts = {
+                reference.part_number.strip().upper()
+                for reference in references
+                if reference.occurrences > original_occurrences.get(reference.part_number.strip().upper(), 0)
+                and confirmed_names.get(reference.part_number.strip().upper())
+            }
+        else:
+            eligible_parts = set(targets)
         if not eligible_parts:
             return []
 

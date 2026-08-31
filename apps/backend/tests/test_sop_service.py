@@ -105,6 +105,51 @@ def test_pdf_analysis_reads_drive_pdf() -> None:
     assert response.metadata["Title"] == "SOP Example"
 
 
+def test_pdf_analysis_runs_semantic_pass_when_material_pass_times_out(monkeypatch) -> None:
+    class FakePage:
+        def extract_text(self, extraction_mode: str | None = None) -> str:
+            return "Install 2x415-00390 into 415-00845"
+
+    class FakeReader:
+        pages = [FakePage()]
+        is_encrypted = False
+        metadata = {}
+
+    monkeypatch.setattr("modules.sop.service.PdfReader", lambda _stream: FakeReader())
+    monkeypatch.setattr(llm_service, "api_key", "test-key")
+    monkeypatch.setattr(
+        llm_service,
+        "extract_sop_pages",
+        lambda _pages: (_ for _ in ()).throw(RuntimeError("material pass timed out")),
+    )
+    semantic_calls: list[list[tuple[int, str]]] = []
+
+    def fake_semantic(pages, excluded_part_numbers=None, **_kwargs):
+        semantic_calls.append(pages)
+        return [
+            SopTextMaterial(
+                part_number="415-00390",
+                name="bracket",
+                quantity=2,
+                confidence=0.9,
+                quantity_explanation="语义识别到安装 2 个",
+            )
+        ]
+
+    monkeypatch.setattr(llm_service, "extract_sop_semantic_references", fake_semantic)
+
+    service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
+    response = service.analyze_pdf("pdf-file-id", refresh=True)
+
+    assert semantic_calls == [[(1, "Install 2x415-00390 into 415-00845")]]
+    assert response.ai_used is True
+    assert response.ai_fallback is True
+    assert "material pass timed out" in (response.ai_error or "")
+    reference = next(item for item in response.full_text_references if item.part_number == "415-00390")
+    assert reference.quantity == 2
+    assert reference.quantity_explanation == "语义识别到安装 2 个"
+
+
 def test_concurrent_master_sheet_requests_share_one_google_read() -> None:
     driver = FakeGoogleDriver()
     original_read = driver.read_sheet_by_gid
@@ -240,3 +285,36 @@ def test_quantity_refinement_keeps_first_pass_when_no_name_only_evidence(monkeyp
     )
 
     assert refined == []
+
+
+def test_quantity_refinement_for_targets_runs_without_name_only_evidence(monkeypatch) -> None:
+    service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
+    service._instruction_pages_cache["pdf-file-id"] = [
+        (14, "Install 1×242-00052 around the harness"),
+        (15, "Inspect unrelated cable routing"),
+    ]
+
+    monkeypatch.setattr(llm_service, "api_key", "test-key")
+    monkeypatch.setattr(
+        llm_service,
+        "extract_sop_semantic_references",
+        lambda _pages, **_kwargs: [
+            SopTextMaterial(
+                part_number="242-00052",
+                name="扎带/zip-tie",
+                quantity=2,
+                confidence=0.9,
+                quantity_explanation="语义确认数量为 2",
+            )
+        ],
+    )
+
+    refined = service.refine_semantic_quantities_for_targets(
+        "pdf-file-id",
+        {"242-00052": "扎带/zip-tie"},
+        {"242-00052"},
+    )
+
+    assert len(refined) == 1
+    assert refined[0].quantity == 2
+    assert "二次复核" in refined[0].quantity_explanation
