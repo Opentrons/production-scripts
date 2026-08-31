@@ -127,6 +127,7 @@ def test_concatenated_layout_quantity_does_not_create_four_digit_part_number() -
     )
 
     assert [item.part_number for item in references] == ["415-00734", "415-00733"]
+    assert [item.quantity for item in references] == [2, 1]
     assert all(item.part_number != "2415-00733" for item in references)
 
 
@@ -137,6 +138,31 @@ def test_real_four_digit_part_after_quantity_marker_is_preserved() -> None:
     )
 
     assert [item.part_number for item in references] == ["2415-00733"]
+    assert [item.quantity for item in references] == [2]
+
+
+def test_spaced_suffix_quantity_is_not_summed_as_explicit_quantity() -> None:
+    """``料号*N`` reminders are common on instruction pages; do not treat them
+    as explicit per-page quantities or multi-page totals explode.
+    """
+
+    references = analyze_part_references(
+        [(7, "415-00734*2 415-00733")],
+        [],
+    )
+
+    assert [item.part_number for item in references] == ["415-00734", "415-00733"]
+    assert [item.quantity for item in references] == [1, 1]
+
+
+def test_prefix_quantity_still_wins_over_glued_trailing_digit() -> None:
+    references = analyze_part_references(
+        [(7, "4×415-00734*2415-00733")],
+        [],
+    )
+
+    assert [item.part_number for item in references] == ["415-00734", "415-00733"]
+    assert [item.quantity for item in references] == [4, 1]
 
 
 def test_quantity_before_part_number_is_used_without_double_counting_translation() -> None:

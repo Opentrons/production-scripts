@@ -726,71 +726,80 @@
                       <article class="is-ignored"><span>{{ w('ignored') }}</span><strong>{{ run.report.total_ignored_count }}</strong></article>
                     </div>
                     <nav class="report-detail-nav" :aria-label="w('reportNavigation')">
-                      <div class="report-detail-nav-pages">
-                        <button
-                          type="button"
-                          :class="{ 'is-active': reportView(run.id) === 'differences' }"
-                          @click="setReportView(run.id, 'differences')"
-                        >{{ w('differenceDetails') }} <small>{{ w('showingItems', { total: run.report.total_difference_count, shown: filteredReportDifferences(run).length }) }}</small></button>
-                        <button
-                          type="button"
-                          :class="{ 'is-active': reportView(run.id) === 'ignored' }"
-                          @click="setReportView(run.id, 'ignored')"
-                        >{{ w('ignored') }} <small>{{ w('showingItems', { total: run.report.total_ignored_count, shown: filteredReportIgnoredItems(run).length }) }}</small></button>
-                      </div>
-                      <div class="bom-report-filters">
-                        <el-button
-                          class="report-export-button"
-                          :icon="Download"
-                          :loading="Boolean(runExporting[run.id])"
-                          @click="exportWorkflowRun(run)"
-                        >{{ w('exportExcel') }}</el-button>
-                        <el-input
-                          :model-value="reportSearchText(run.id)"
-                          class="report-search-input"
-                          :prefix-icon="Search"
-                          clearable
-                          :placeholder="w('searchPartOrName')"
-                          @input="setReportSearchText(run.id, String($event))"
-                        />
-                        <el-select
-                          v-if="run.report.duro_submenus.length"
-                          :model-value="reportSubmenuFilter(run.id)"
-                          class="submenu-filter-select"
-                          multiple
-                          clearable
-                          collapse-tags
-                          :max-collapse-tags="2"
-                          popper-class="submenu-filter-popper"
-                          :placeholder="w('allChildBom')"
-                          @change="setReportSubmenuFilter(run.id, $event)"
-                        >
-                          <el-option
-                            v-for="submenu in run.report.duro_submenus"
-                            :key="submenu.id"
-                            :label="reportSubmenuLabel(submenu)"
-                            :value="submenu.id"
+                      <div class="report-detail-nav-main">
+                        <div class="report-detail-nav-pages">
+                          <button
+                            type="button"
+                            :class="{ 'is-active': reportView(run.id) === 'differences' }"
+                            @click="setReportView(run.id, 'differences')"
+                          >{{ w('differenceDetails') }}</button>
+                          <button
+                            type="button"
+                            :class="{ 'is-active': reportView(run.id) === 'ignored' }"
+                            @click="setReportView(run.id, 'ignored')"
+                          >{{ w('ignored') }}</button>
+                        </div>
+                        <div class="bom-report-filters">
+                          <el-button
+                            class="report-export-button"
+                            :icon="Download"
+                            :loading="Boolean(runExporting[run.id])"
+                            @click="exportWorkflowRun(run)"
+                          >{{ w('exportExcel') }}</el-button>
+                          <el-input
+                            :model-value="reportSearchText(run.id)"
+                            class="report-search-input"
+                            :prefix-icon="Search"
+                            clearable
+                            :placeholder="w('searchPartOrName')"
+                            @input="setReportSearchText(run.id, String($event))"
+                          />
+                          <el-select
+                            v-if="run.report.duro_submenus.length"
+                            :model-value="reportSubmenuFilter(run.id)"
+                            class="submenu-filter-select"
+                            multiple
+                            clearable
+                            collapse-tags
+                            :max-collapse-tags="2"
+                            popper-class="submenu-filter-popper"
+                            :placeholder="w('allChildBom')"
+                            @change="setReportSubmenuFilter(run.id, $event)"
                           >
-                            <div class="report-submenu-option">
-                              <strong>{{ submenu.label }}</strong>
-                              <span>{{ submenu.name || w('unnamedSubmenu') }}</span>
-                            </div>
-                          </el-option>
-                        </el-select>
-                        <el-select
-                          :model-value="reportFilter(run.id)"
-                          class="difference-filter-select"
-                          @change="setReportFilter(run.id, $event)"
-                        >
-                          <el-option :label="w('filters.all')" value="all" />
-                          <el-option :label="w('filters.structure')" value="structure" />
-                          <el-option :label="w('filters.missing')" value="missing_in_duro" />
-                          <el-option :label="w('filters.extra')" value="extra_in_duro" />
-                          <el-option :label="w('filters.mismatch')" value="quantity_mismatch" />
-                          <el-option :label="w('filters.unknown')" value="quantity_unknown" />
-                          <el-option :label="w('parentBomIgnored')" value="parent_bom_ignored" />
-                        </el-select>
+                            <el-option
+                              v-for="submenu in run.report.duro_submenus"
+                              :key="submenu.id"
+                              :label="reportSubmenuLabel(submenu)"
+                              :value="submenu.id"
+                            >
+                              <div class="report-submenu-option">
+                                <strong>{{ submenu.label }}</strong>
+                                <span>{{ submenu.name || w('unnamedSubmenu') }}</span>
+                              </div>
+                            </el-option>
+                          </el-select>
+                          <el-select
+                            :model-value="reportFilter(run.id)"
+                            class="difference-filter-select"
+                            @change="setReportFilter(run.id, $event)"
+                          >
+                            <el-option :label="w('filters.all')" value="all" />
+                            <el-option :label="w('filters.structure')" value="structure" />
+                            <el-option :label="w('filters.missing')" value="missing_in_duro" />
+                            <el-option :label="w('filters.extra')" value="extra_in_duro" />
+                            <el-option :label="w('filters.mismatch')" value="quantity_mismatch" />
+                            <el-option :label="w('filters.unknown')" value="quantity_unknown" />
+                            <el-option :label="w('parentBomIgnored')" value="parent_bom_ignored" />
+                          </el-select>
+                        </div>
                       </div>
+                      <small class="report-detail-nav-summary">
+                        {{
+                          reportView(run.id) === 'ignored'
+                            ? w('showingItems', { total: run.report.total_ignored_count, shown: filteredReportIgnoredItems(run).length })
+                            : w('showingItems', { total: run.report.total_difference_count, shown: filteredReportDifferences(run).length })
+                        }}
+                      </small>
                     </nav>
                     <template v-if="reportView(run.id) === 'differences'">
                     <el-table
@@ -2139,19 +2148,20 @@ async function loadRuns(workflowId: string) {
       workflowRuns.value = response.data.items.map((summary) => {
         const current = currentRuns.get(summary.id)
         const statusChanged = Boolean(current && current.status !== summary.status)
-        if (statusChanged) {
-          // 历史列表只返回摘要（差异数组为空）。运行结束后必须让旧的运行中明细失效，
+        const canReuseDetail =
+          Boolean(current?.report) &&
+          Boolean(summary.report) &&
+          Boolean(runDetailLoaded[summary.id]) &&
+          current?.status === summary.status &&
+          !runDetailLooksIncomplete(current)
+        if (statusChanged || (runDetailLoaded[summary.id] && !canReuseDetail)) {
+          // 历史列表只返回摘要（差异数组为空）。运行结束后或明细实际为空时必须失效，
           // 否则展开项会一直把空摘要当成已经加载完成的明细。
           runDetailLoaded[summary.id] = false
           runDetailErrors[summary.id] = ''
           if (expandedRunIds.has(summary.id)) detailRunIdsToReload.add(summary.id)
         }
-        if (
-          current?.report &&
-          summary.report &&
-          runDetailLoaded[summary.id] &&
-          current.status === summary.status
-        ) {
+        if (canReuseDetail && current?.report && summary.report) {
           return {
             ...summary,
             report: {
@@ -2169,9 +2179,13 @@ async function loadRuns(workflowId: string) {
         if (['queued', 'running'].includes(run.status)) {
           setWorkflowRunning(workflowId, true)
           startPollingWorkflowRun(workflowId, run.id)
-          if (expandedRunIds.has(run.id) && !runDetailLoaded[run.id]) {
-            void loadRunDetail(run.id)
-          }
+        }
+        // 已展开项无论状态如何都要补拉完整明细（含刚结束的 succeeded）
+        if (
+          expandedRunIds.has(run.id) &&
+          (!runDetailLoaded[run.id] || runDetailLooksIncomplete(run))
+        ) {
+          detailRunIdsToReload.add(run.id)
         }
       }
       for (const runId of detailRunIdsToReload) {
@@ -2261,10 +2275,24 @@ async function handleHistoryDeleteButton() {
   }
 }
 
+function runDetailLooksIncomplete(run: WorkflowRun | undefined): boolean {
+  const report = run?.report
+  if (!report) return false
+  const missingDiffs =
+    Number(report.total_difference_count || 0) > 0 && (report.differences?.length || 0) === 0
+  const missingIgnored =
+    Number(report.total_ignored_count || 0) > 0 && (report.ignored_items?.length || 0) === 0
+  return missingDiffs || missingIgnored
+}
+
 function handleRunCollapseChange(activeNames: string | number | Array<string | number>) {
   const names = Array.isArray(activeNames) ? activeNames.map(String) : [String(activeNames)]
   for (const runId of names) {
-    if (runId && !runDetailLoaded[runId] && !runDetailLoading[runId]) {
+    if (!runId) continue
+    const run = workflowRuns.value.find((item) => item.id === runId)
+    if (runDetailLooksIncomplete(run)) {
+      void loadRunDetail(runId, true)
+    } else if (!runDetailLoaded[runId] && !runDetailLoading[runId]) {
       void loadRunDetail(runId)
     }
   }
@@ -2454,7 +2482,10 @@ async function triggerWorkflow(workflow: Workflow) {
     ElMessage.success(w('messages.triggered'))
     if (editorVisible.value && selectedWorkflowId.value === workflow.id) {
       builderTab.value = 'history'
+      // 程序展开不会触发 collapse @change，先刷新列表再显式拉明细
       activeRunIds.value = [response.data.id]
+      await loadRuns(workflow.id)
+      void loadRunDetail(response.data.id)
     }
     startPollingWorkflowRun(workflow.id, response.data.id)
     await loadWorkflows()
@@ -2515,6 +2546,7 @@ function mergePolledWorkflowRun(run: WorkflowRun | undefined) {
   const index = workflowRuns.value.findIndex((item) => item.id === run.id)
   if (index < 0) return
   const current = workflowRuns.value[index]
+  // 轮询只更新运行态字段，不把 limit=1 的局部 report 当成完整明细已加载
   workflowRuns.value[index] = {
     ...current,
     status: run.status,
@@ -2522,10 +2554,6 @@ function mergePolledWorkflowRun(run: WorkflowRun | undefined) {
     logs: run.logs,
     started_at: run.started_at,
     finished_at: run.finished_at
-  }
-  if (activeRunIds.value.includes(run.id)) {
-    runDetailLoaded[run.id] = true
-    runDetailErrors[run.id] = ''
   }
 }
 

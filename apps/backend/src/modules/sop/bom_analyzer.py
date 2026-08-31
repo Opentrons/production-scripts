@@ -79,6 +79,9 @@ class PartNumberMatch:
     start: int
     end: int
     quantity_concatenated: bool = False
+    # Quantity glued after this part when the next token was repaired from
+    # ``415-00734*2415-00733`` → previous gets trailing_quantity=2.
+    trailing_quantity: int | None = None
 
 
 @dataclass
@@ -202,14 +205,7 @@ def analyze_part_references(
                     reference.name = inferred_name
 
                 reference.occurrences += 1
-                quantity_prefix = source_line[:part_match.start]
-                quantity_match = None
-                if not part_match.quantity_concatenated:
-                    quantity_match = (
-                        CONCATENATED_PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
-                        or PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
-                    )
-                explicit_quantity = int(quantity_match.group("quantity")) if quantity_match else None
+                explicit_quantity = _explicit_quantity_for_match(source_line, part_match)
                 quantities_for_part = page_quantities.setdefault(part_number, {})
                 page_quantity = quantities_for_part.setdefault(page_number, _PagePartQuantity())
                 page_quantity.add(_reference_line_language(source_line), explicit_quantity)
@@ -379,9 +375,18 @@ def extract_part_number_matches(text: str) -> list[PartNumberMatch]:
         start = raw_match.start()
         quantity_concatenated = False
         if index > 0 and _is_concatenated_quantity_part(text, raw_matches[index - 1], raw_match):
+            trailing_quantity = int(part_number[0])
             part_number = part_number[1:]
             start += 1
             quantity_concatenated = True
+            previous = matches[-1]
+            matches[-1] = PartNumberMatch(
+                part_number=previous.part_number,
+                start=previous.start,
+                end=previous.end,
+                quantity_concatenated=previous.quantity_concatenated,
+                trailing_quantity=trailing_quantity,
+            )
         matches.append(
             PartNumberMatch(
                 part_number=part_number,
@@ -405,6 +410,31 @@ def _is_concatenated_quantity_part(
         return False
     separator = text[previous_match.end():current_match.start()]
     return bool(re.fullmatch(r"\s*[xX×*]\s*", separator))
+
+
+def _explicit_quantity_for_match(source_line: str, part_match: PartNumberMatch) -> int | None:
+    """Resolve explicit quantity from prefix or repaired PDF concatenation.
+
+    Do not treat a general trailing ``料号*N`` as quantity here. Instruction
+    pages often repeat the same ``part*N`` reminder; summing that across pages
+    massively inflates SOP quantities. The PDF glue case
+    ``415-00734*2415-00733`` is handled via ``trailing_quantity`` instead.
+    """
+
+    quantities: list[int] = []
+    if not part_match.quantity_concatenated:
+        quantity_prefix = source_line[: part_match.start]
+        quantity_match = (
+            CONCATENATED_PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
+            or PREFIX_QUANTITY_PATTERN.search(quantity_prefix)
+        )
+        if quantity_match:
+            quantities.append(int(quantity_match.group("quantity")))
+
+    if part_match.trailing_quantity is not None:
+        quantities.append(part_match.trailing_quantity)
+
+    return max(quantities) if quantities else None
 
 
 def _infer_reference_name(source_line: str, part_start: int, part_end: int) -> str:

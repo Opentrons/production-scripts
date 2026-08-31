@@ -1710,13 +1710,19 @@ textarea {
 
 .report-detail-nav {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  margin-bottom: 10px;
+  padding: 7px 0 8px;
+  border-bottom: 1px solid #e2e7ea;
+}
+
+.report-detail-nav-main {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 58px;
-  margin-bottom: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid #e2e7ea;
 }
 
 .report-detail-nav-pages {
@@ -1757,14 +1763,15 @@ textarea {
   background: #258c75;
 }
 
-.report-detail-nav button small {
+.report-detail-nav-summary {
   color: #8b969f;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
-.report-detail-nav > .bom-report-filters {
+.report-detail-nav-main > .bom-report-filters {
   flex: 0 0 auto;
 }
 
