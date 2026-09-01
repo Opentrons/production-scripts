@@ -94,6 +94,50 @@ class DuroComponentChildrenResponse(BaseModel):
     fetched_at: datetime = Field(default_factory=utc_now)
 
 
+class DuroVersionComponent(BaseModel):
+    id: str
+    cpn: str | None = None
+    name: str = ""
+    revision: str | None = None
+    status: str | None = None
+    category: str | None = None
+    quantity: Any = None
+    description: str = ""
+    app_version: str | None = None
+    firmware_version: str | None = None
+    test_commit_hash: str | None = None
+    test_tag: str | None = None
+    path: list[str] = Field(default_factory=list)
+    specs: list[dict[str, Any]] = Field(default_factory=list)
+    custom_specs: list[dict[str, Any]] = Field(default_factory=list)
+    custom_properties: list[dict[str, Any]] = Field(default_factory=list)
+    source_text: str = ""
+
+
+class DuroVersionGroup(BaseModel):
+    product_id: str
+    product_cpn: str | None = None
+    product_name: str = ""
+    product_revision: str | None = None
+    parent_id: str
+    parent_cpn: str | None = None
+    parent_name: str = ""
+    parent_revision: str | None = None
+    parent_description: str = ""
+    children: list[DuroVersionComponent] = Field(default_factory=list)
+
+
+class DuroVersionCatalogResponse(BaseModel):
+    success: bool = True
+    products_scanned: int = 0
+    matched_products: int = 0
+    parent_menu_count: int = 0
+    child_component_count: int = 0
+    groups: list[DuroVersionGroup] = Field(default_factory=list)
+    cached: bool = False
+    fetched_at: datetime = Field(default_factory=utc_now)
+
+
 class DuroConnectionStatus(BaseModel):
     configured: bool
     api_key_valid: bool

@@ -41,6 +41,12 @@ const routes: RouteRecordRaw[] = [
     meta: { standalone: true, titleKey: 'titles.versions', favicon: VERSION_FAVICON },
   },
   {
+    path: '/test-versions',
+    name: 'TestVersions',
+    component: () => import('@/views/version_modules/TestVersionsView.vue'),
+    meta: { standalone: true, titleKey: 'titles.testVersions', favicon: VERSION_FAVICON },
+  },
+  {
     path: '/agent',
     name: 'ProductionAgent',
     component: () => import('@/views/agent/ProductionAgentView.vue'),

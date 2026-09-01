@@ -19,6 +19,7 @@ from api.routers import (
     supplies,
     system,
     test_management,
+    test_versions,
     uploads,
     versions,
 )
@@ -37,6 +38,7 @@ protected_router.include_router(agent_router)
 protected_router.include_router(protocol_monitor_router)
 protected_router.include_router(resources.router)
 protected_router.include_router(test_management.router)
+protected_router.include_router(test_versions.router)
 protected_router.include_router(system.router)
 protected_router.include_router(data.router)
 protected_router.include_router(uploads.router)
