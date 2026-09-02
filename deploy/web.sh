@@ -199,13 +199,10 @@ EOF
         try_files \$uri =404;
     }
 
-    location @login_redirect {
-        return 302 /login?redirect=\$uri;
-    }
-
     location / {
-        auth_request /_auth;
-        error_page 401 = @login_redirect;
+        # Serve the SPA before authentication so its refresh-token flow can
+        # renew an expired short-lived access cookie. FastAPI still protects
+        # every non-public API route.
         # Do not use \$uri/ — a public/ folder matching a Vue route (e.g. /agent)
         # would otherwise 403 as a directory index instead of serving the SPA.
         try_files \$uri /index.html;
@@ -278,13 +275,9 @@ EOF
         try_files \$uri =404;
     }
 
-    location @login_redirect {
-        return 302 /login?redirect=\$uri;
-    }
-
     location / {
-        auth_request /_auth;
-        error_page 401 = @login_redirect;
+        # Authentication and access-cookie renewal are handled by the SPA and
+        # FastAPI. Nginx must not redirect before refresh-token recovery runs.
         # Do not use \$uri/ — avoids 403 when a static folder collides with a SPA route.
         try_files \$uri /index.html;
     }
