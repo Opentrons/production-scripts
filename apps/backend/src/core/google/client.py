@@ -4,12 +4,15 @@ import io
 import re
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qs, urlparse
 
 from google.auth.exceptions import TransportError
+from google.auth.credentials import Credentials as GoogleCredentials
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
@@ -23,6 +26,7 @@ from core.google.proxy_manager import google_proxy_manager
 from core.config import (
     GOOGLE_CREDENTIALS_PATH,
     GOOGLE_INTERACTIVE_AUTH,
+    GOOGLE_SERVICE_ACCOUNT_PATH,
     GOOGLE_TOKEN_PATH,
 )
 
@@ -56,6 +60,7 @@ class GoogleSheetData:
     sheet_id: int
     title: str
     cells: list[list[GoogleSheetCell]] = field(default_factory=list)
+    document_title: str = ""
 
     @property
     def values(self) -> list[list[str]]:
@@ -68,8 +73,15 @@ class GoogleDriveFile:
     name: str
     mime_type: str
     size: int | None = None
+    created_time: str | None = None
     modified_time: str | None = None
     web_view_link: str | None = None
+    description: str | None = None
+    parent_path: str = ""
+    resource_key: str | None = None
+    shortcut_id: str | None = None
+    target_mime_type: str | None = None
+    target_resource_key: str | None = None
 
 
 class GoogleDriver:
@@ -77,13 +89,17 @@ class GoogleDriver:
         self,
         token_path: Path = GOOGLE_TOKEN_PATH,
         credentials_path: Path = GOOGLE_CREDENTIALS_PATH,
+        service_account_path: Path | None = GOOGLE_SERVICE_ACCOUNT_PATH,
         allow_interactive_auth: bool = GOOGLE_INTERACTIVE_AUTH,
     ) -> None:
         self.token_path = Path(token_path)
         self.credentials_path = Path(credentials_path)
+        self.service_account_path = (
+            Path(service_account_path) if service_account_path is not None else None
+        )
         self.allow_interactive_auth = allow_interactive_auth
         self._lock = threading.RLock()
-        self._credentials: Credentials | None = None
+        self._credentials: GoogleCredentials | None = None
         self._drive_service = None
         self._sheets_service = None
         self._proxy_url: str | None = None
@@ -160,7 +176,9 @@ class GoogleDriver:
         response = self._execute(
             lambda: self._drive_service.files().get(
                 fileId=file_id,
-                fields="id,name,mimeType,size,modifiedTime,webViewLink",
+                fields=(
+                    "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,resourceKey"
+                ),
                 supportsAllDrives=True,
             )
         )
@@ -170,9 +188,237 @@ class GoogleDriver:
             name=response.get("name", file_id),
             mime_type=response.get("mimeType", "application/octet-stream"),
             size=int(size) if size is not None else None,
+            created_time=response.get("createdTime"),
             modified_time=response.get("modifiedTime"),
             web_view_link=response.get("webViewLink"),
+            description=response.get("description"),
+            resource_key=response.get("resourceKey"),
         )
+
+    def read_spreadsheet_values(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "A1:CC200",
+    ) -> list[list[str]]:
+        """Read a bounded range from the first sheet in a spreadsheet."""
+        response = self._execute(
+            lambda: self._sheets_service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                majorDimension="ROWS",
+                valueRenderOption="FORMATTED_VALUE",
+            )
+        )
+        return [
+            [str(value or "") for value in row]
+            for row in response.get("values", [])
+        ]
+
+    def read_spreadsheet_preview(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "A1:CC200",
+    ) -> GoogleSheetData:
+        """Read display values and the first sheet gid in one API request."""
+        response = self._execute(
+            lambda: self._sheets_service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id,
+                ranges=[range_name],
+                includeGridData=True,
+                fields=(
+                    "properties(title),sheets(properties(sheetId,title,index),"
+                    "data(rowData(values(formattedValue))))"
+                ),
+            )
+        )
+        sheets = response.get("sheets", [])
+        if not sheets:
+            raise GoogleDriverError(f"Google Sheet 不包含工作表: {spreadsheet_id}")
+        selected = min(
+            sheets,
+            key=lambda sheet: int(sheet.get("properties", {}).get("index", 0)),
+        )
+        properties = selected.get("properties", {})
+        data = selected.get("data", [])
+        row_data = data[0].get("rowData", []) if data else []
+        cells = [
+            [
+                GoogleSheetCell(value=str(cell.get("formattedValue") or ""))
+                for cell in row.get("values", [])
+            ]
+            for row in row_data
+        ]
+        return GoogleSheetData(
+            spreadsheet_id=spreadsheet_id,
+            sheet_id=int(properties.get("sheetId", 0)),
+            title=str(properties.get("title") or ""),
+            cells=cells,
+            document_title=str(response.get("properties", {}).get("title") or ""),
+        )
+
+    def read_spreadsheet_previews(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "A1:CC200",
+    ) -> list[GoogleSheetData]:
+        """Read a bounded preview from every grid sheet in a spreadsheet."""
+        metadata_response = self._execute(
+            lambda: self._sheets_service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id,
+                fields=(
+                    "properties(title),"
+                    "sheets(properties(sheetId,title,index,sheetType))"
+                ),
+            )
+        )
+        sheet_properties = sorted(
+            (
+                dict(sheet.get("properties", {}))
+                for sheet in metadata_response.get("sheets", [])
+                if str(sheet.get("properties", {}).get("sheetType") or "GRID") == "GRID"
+            ),
+            key=lambda properties: int(properties.get("index", 0)),
+        )
+        if not sheet_properties:
+            raise GoogleDriverError(f"Google Sheet 不包含工作表: {spreadsheet_id}")
+
+        ranges = [
+            f"{self._quote_sheet_title(str(properties.get('title') or ''))}!{range_name}"
+            for properties in sheet_properties
+        ]
+        values_response = self._execute(
+            lambda: self._sheets_service.spreadsheets().values().batchGet(
+                spreadsheetId=spreadsheet_id,
+                ranges=ranges,
+                majorDimension="ROWS",
+                valueRenderOption="FORMATTED_VALUE",
+            )
+        )
+        value_ranges = list(values_response.get("valueRanges", []))
+        document_title = str(metadata_response.get("properties", {}).get("title") or "")
+        previews: list[GoogleSheetData] = []
+        for index, properties in enumerate(sheet_properties):
+            raw_values = value_ranges[index].get("values", []) if index < len(value_ranges) else []
+            cells = [
+                [GoogleSheetCell(value=str(value or "")) for value in row]
+                for row in raw_values
+            ]
+            previews.append(
+                GoogleSheetData(
+                    spreadsheet_id=spreadsheet_id,
+                    sheet_id=int(properties.get("sheetId", 0)),
+                    title=str(properties.get("title") or ""),
+                    cells=cells,
+                    document_title=document_title,
+                )
+            )
+        return previews
+
+    def list_files_in_folder(
+        self,
+        folder_id_or_url: str,
+        *,
+        year: int | None = None,
+        recursive: bool = True,
+    ) -> list[GoogleDriveFile]:
+        """List non-folder files below a Drive folder.
+
+        When ``year`` is provided, only files created during that year are
+        returned. Folder traversal itself is never filtered by year.
+        """
+        root_id = self.parse_drive_file_id(folder_id_or_url)
+        if not root_id:
+            raise GoogleDriverError("无法解析 Google Drive 文件夹 ID")
+
+        start = datetime(year, 1, 1, tzinfo=timezone.utc) if year is not None else None
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc) if year is not None else None
+        pending: list[tuple[str, str]] = [(root_id, "")]
+        visited: set[str] = set()
+        file_ids: set[str] = set()
+        files: list[GoogleDriveFile] = []
+
+        while pending:
+            folder_id, parent_path = pending.pop(0)
+            if folder_id in visited:
+                continue
+            visited.add(folder_id)
+            page_token: str | None = None
+            while True:
+                query = f"'{folder_id}' in parents and trashed = false"
+                response = self._execute(
+                    lambda query=query, page_token=page_token: self._drive_service.files().list(
+                        q=query,
+                        pageSize=1000,
+                        pageToken=page_token,
+                        orderBy="createdTime desc",
+                        fields=(
+                            "nextPageToken,files("
+                            "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,parents,resourceKey,"
+                            "shortcutDetails(targetId,targetMimeType,targetResourceKey))"
+                        ),
+                        supportsAllDrives=True,
+                        includeItemsFromAllDrives=True,
+                    )
+                )
+                for item in response.get("files", []):
+                    mime_type = str(item.get("mimeType") or "application/octet-stream")
+                    item_name = str(item.get("name") or item.get("id") or "")
+                    item_path = f"{parent_path} / {item_name}" if parent_path else item_name
+                    shortcut = item.get("shortcutDetails") or {}
+                    target_id = str(shortcut.get("targetId") or item.get("id") or "")
+                    target_mime_type = str(shortcut.get("targetMimeType") or "")
+                    target_resource_key = str(shortcut.get("targetResourceKey") or "")
+                    if mime_type == "application/vnd.google-apps.folder":
+                        if recursive and item.get("id"):
+                            pending.append((str(item["id"]), item_path))
+                        continue
+                    if (
+                        mime_type == "application/vnd.google-apps.shortcut"
+                        and target_mime_type == "application/vnd.google-apps.folder"
+                    ):
+                        if recursive and target_id:
+                            pending.append((target_id, item_path))
+                        continue
+                    created_time = item.get("createdTime")
+                    if year is not None:
+                        if not created_time:
+                            continue
+                        try:
+                            created_at = datetime.fromisoformat(str(created_time).replace("Z", "+00:00"))
+                        except ValueError:
+                            continue
+                        if created_at.tzinfo is None:
+                            created_at = created_at.replace(tzinfo=timezone.utc)
+                        if start is None or end is None or not (start <= created_at < end):
+                            continue
+                    item_id = target_id
+                    if not item_id or item_id in file_ids:
+                        continue
+                    file_ids.add(item_id)
+                    size = item.get("size")
+                    files.append(
+                        GoogleDriveFile(
+                            id=item_id,
+                            name=item_name,
+                            mime_type=mime_type,
+                            size=int(size) if size is not None else None,
+                            created_time=str(created_time),
+                            modified_time=item.get("modifiedTime"),
+                            web_view_link=item.get("webViewLink"),
+                            description=item.get("description"),
+                            parent_path=parent_path,
+                            resource_key=item.get("resourceKey"),
+                            shortcut_id=str(item.get("id")) if mime_type == "application/vnd.google-apps.shortcut" else None,
+                            target_mime_type=target_mime_type or None,
+                            target_resource_key=target_resource_key or None,
+                        )
+                    )
+                page_token = response.get("nextPageToken")
+                if not page_token:
+                    break
+
+        files.sort(key=lambda item: item.created_time or "", reverse=True)
+        return files
 
     def download_file_bytes(
         self,
@@ -237,7 +483,13 @@ class GoogleDriver:
                 proxy_url=self._proxy_url,
             )
 
-    def _load_credentials(self, proxy_url: str | None) -> Credentials:
+    def _load_credentials(self, proxy_url: str | None) -> GoogleCredentials:
+        if self.service_account_path is not None and self.service_account_path.exists():
+            return ServiceAccountCredentials.from_service_account_file(
+                str(self.service_account_path),
+                scopes=GOOGLE_SCOPES,
+            )
+
         credentials: Credentials | None = None
         if self.token_path.exists():
             credentials = Credentials.from_authorized_user_file(self.token_path, GOOGLE_SCOPES)
@@ -251,8 +503,8 @@ class GoogleDriver:
 
         if not self.allow_interactive_auth:
             raise GoogleConfigurationError(
-                f"Google token 不存在或无效: {self.token_path}. "
-                "请复制 auth/token.json，或启用 PRODUCTION_PLATFORM_GOOGLE_INTERACTIVE_AUTH。"
+                "Google API 凭据不存在或无效。请配置服务账号 "
+                f"{self.service_account_path}，或 OAuth token {self.token_path}。"
             )
         if not self.credentials_path.exists():
             raise GoogleConfigurationError(f"Google OAuth credentials 不存在: {self.credentials_path}")

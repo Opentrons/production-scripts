@@ -53,6 +53,26 @@
                 </a>
               </div>
             </div>
+            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'engineering-changes' }">
+              <button
+                class="top-link top-dropdown-trigger"
+                type="button"
+                :aria-expanded="openNavigationMenu === 'engineering-changes'"
+                @click.stop="toggleNavigationMenu('engineering-changes')"
+              >
+                <FileText class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.engineeringChanges }}</span>
+                <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+              </button>
+              <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.ecn }}
+                </a>
+                <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.contactLetters }}
+                </a>
+              </div>
+            </div>
             <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
               <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
               <span>{{ copy.nav.productionAgent }}</span>
@@ -331,6 +351,26 @@
                   </a>
                 </div>
               </div>
+              <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'engineering-changes' }">
+                <button
+                  class="top-link top-dropdown-trigger"
+                  type="button"
+                  :aria-expanded="openNavigationMenu === 'engineering-changes'"
+                  @click.stop="toggleNavigationMenu('engineering-changes')"
+                >
+                  <FileText class="top-menu-icon" :size="16" aria-hidden="true" />
+                  <span>{{ copy.nav.engineeringChanges }}</span>
+                  <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+                </button>
+                <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                  <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.ecn }}
+                  </a>
+                  <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.contactLetters }}
+                  </a>
+                </div>
+              </div>
               <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
                 <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
                 <span>{{ copy.nav.productionAgent }}</span>
@@ -523,6 +563,7 @@ import {
   Download,
   ExternalLink,
   FileArchive,
+  FileText,
   Folder,
   FolderKanban,
   FolderPlus,
@@ -656,7 +697,7 @@ const productionAgentBaseUrl = productionAgentUrl ? withTrailingSlash(production
 const projects = ref<ResourceProject[]>([])
 const expandedProjectIds = ref(new Set<string>())
 const openMenuVersionId = ref('')
-type NavigationMenu = '' | 'product-tests' | 'version-checks' | 'online-tools'
+type NavigationMenu = '' | 'product-tests' | 'version-checks' | 'engineering-changes' | 'online-tools'
 const openNavigationMenu = ref<NavigationMenu>('')
 const isLoading = ref(false)
 const isFormOpen = ref(false)

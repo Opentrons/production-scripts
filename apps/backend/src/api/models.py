@@ -181,6 +181,27 @@ class FileResourceDeleteResponse(BaseModel):
     deleted_version_id: str
 
 
+class InformationFile(BaseModel):
+    id: str
+    number: str
+    subject: str
+    product_model: str | None = None
+    effective_date: str | None = None
+    web_view_link: str
+
+
+class InformationFilesResponse(BaseModel):
+    kind: Literal["ecn", "contact"]
+    year: int
+    source_url: str
+    files: list[InformationFile] = Field(default_factory=list)
+    total: int = 0
+    refreshed_at: datetime | None = None
+    cached: bool = False
+    quality_checked: bool = False
+    error: str | None = None
+
+
 class DataLinksResponse(BaseModel):
     environment: str | None = None
     config_file: str | None = None

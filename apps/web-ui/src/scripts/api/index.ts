@@ -27,7 +27,9 @@ import type {
   UploadFinishSettingsResponse,
   UploadRecordFilterOptionsResponse,
   UploadRecordStatsResponse,
-  UploadRecordsResponse
+  UploadRecordsResponse,
+  InformationKind,
+  InformationFilesResponse
 } from '@/scripts/types'
 
 const api = createApiClient(15000)
@@ -830,6 +832,13 @@ export const collectionApi = {
 
 export const dataLinksApi = {
   getDataLinks: () => api.get<DataLinksResponse>('/data-links')
+}
+
+export const informationApi = {
+  getFiles: (kind: InformationKind, refresh = false) =>
+    api.get<InformationFilesResponse>(`/information/${kind}`, {
+      params: refresh ? { refresh: true } : undefined
+    })
 }
 
 export const dataAnalysisApi = {
