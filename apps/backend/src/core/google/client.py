@@ -74,6 +74,8 @@ class GoogleDriveFile:
     web_view_link: str | None = None
     description: str | None = None
     parent_path: str = ""
+    shortcut_id: str | None = None
+    target_mime_type: str | None = None
 
 
 class GoogleDriver:
@@ -238,7 +240,8 @@ class GoogleDriver:
                         orderBy="createdTime desc",
                         fields=(
                             "nextPageToken,files("
-                            "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,parents)"
+                            "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,parents,"
+                            "shortcutDetails(targetId,targetMimeType))"
                         ),
                         supportsAllDrives=True,
                         includeItemsFromAllDrives=True,
@@ -248,9 +251,19 @@ class GoogleDriver:
                     mime_type = str(item.get("mimeType") or "application/octet-stream")
                     item_name = str(item.get("name") or item.get("id") or "")
                     item_path = f"{parent_path} / {item_name}" if parent_path else item_name
+                    shortcut = item.get("shortcutDetails") or {}
+                    target_id = str(shortcut.get("targetId") or item.get("id") or "")
+                    target_mime_type = str(shortcut.get("targetMimeType") or "")
                     if mime_type == "application/vnd.google-apps.folder":
                         if recursive and item.get("id"):
                             pending.append((str(item["id"]), item_path))
+                        continue
+                    if (
+                        mime_type == "application/vnd.google-apps.shortcut"
+                        and target_mime_type == "application/vnd.google-apps.folder"
+                    ):
+                        if recursive and target_id:
+                            pending.append((target_id, item_path))
                         continue
                     created_time = item.get("createdTime")
                     if year is not None:
@@ -264,7 +277,7 @@ class GoogleDriver:
                             created_at = created_at.replace(tzinfo=timezone.utc)
                         if start is None or end is None or not (start <= created_at < end):
                             continue
-                    item_id = str(item.get("id") or "")
+                    item_id = target_id
                     if not item_id or item_id in file_ids:
                         continue
                     file_ids.add(item_id)
@@ -280,6 +293,8 @@ class GoogleDriver:
                             web_view_link=item.get("webViewLink"),
                             description=item.get("description"),
                             parent_path=parent_path,
+                            shortcut_id=str(item.get("id")) if mime_type == "application/vnd.google-apps.shortcut" else None,
+                            target_mime_type=target_mime_type or None,
                         )
                     )
                 page_token = response.get("nextPageToken")

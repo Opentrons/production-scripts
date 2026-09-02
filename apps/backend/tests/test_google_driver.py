@@ -104,3 +104,63 @@ def test_list_files_in_folder_without_year_returns_all_files() -> None:
     files = driver.list_files_in_folder("https://drive.google.com/drive/folders/root")
 
     assert [file.name for file in files] == ["current.pdf", "nested.doc", "old.pdf"]
+
+
+class _ShortcutDriveFiles:
+    def list(self, **kwargs):
+        folder_id = kwargs["q"].split("'")[1]
+        if folder_id == "root":
+            return _FakeRequest(
+                {
+                    "files": [
+                        {
+                            "id": "folder-shortcut",
+                            "name": "2026",
+                            "mimeType": "application/vnd.google-apps.shortcut",
+                            "shortcutDetails": {
+                                "targetId": "nested-folder",
+                                "targetMimeType": "application/vnd.google-apps.folder",
+                            },
+                        }
+                    ]
+                }
+            )
+        if folder_id == "nested-folder":
+            return _FakeRequest(
+                {
+                    "files": [
+                        {
+                            "id": "sheet-shortcut",
+                            "name": "ENG-2026001",
+                            "mimeType": "application/vnd.google-apps.shortcut",
+                            "createdTime": "2026-01-26T00:00:00Z",
+                            "shortcutDetails": {
+                                "targetId": "real-sheet",
+                                "targetMimeType": "application/vnd.google-apps.spreadsheet",
+                            },
+                        }
+                    ]
+                }
+            )
+        return _FakeRequest({"files": []})
+
+
+class _ShortcutDriveService:
+    def __init__(self) -> None:
+        self.files_api = _ShortcutDriveFiles()
+
+    def files(self) -> _ShortcutDriveFiles:
+        return self.files_api
+
+
+def test_list_files_in_folder_resolves_shortcut_folders_and_sheets() -> None:
+    driver = GoogleDriver(allow_interactive_auth=False)
+    driver._drive_service = _ShortcutDriveService()
+    driver._execute = lambda factory: factory().execute()  # type: ignore[method-assign]
+
+    files = driver.list_files_in_folder("https://drive.google.com/drive/folders/root")
+
+    assert len(files) == 1
+    assert files[0].id == "real-sheet"
+    assert files[0].shortcut_id == "sheet-shortcut"
+    assert files[0].target_mime_type == "application/vnd.google-apps.spreadsheet"

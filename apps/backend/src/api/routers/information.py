@@ -128,7 +128,11 @@ def _parse_file(
         effective_date = str(file.created_time)[:10]
 
     file_id = file.id
-    web_view_link = file.web_view_link or f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
+    is_google_sheet = file.mime_type == GOOGLE_SHEET_MIME_TYPE or file.target_mime_type == GOOGLE_SHEET_MIME_TYPE
+    if is_google_sheet:
+        web_view_link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
+    else:
+        web_view_link = file.web_view_link or f"https://drive.google.com/open?id={file_id}"
     return InformationFile(
         id=file_id,
         number=number or "-",
@@ -148,7 +152,7 @@ def _list_information(kind: FolderKind) -> InformationFilesResponse:
     files = google_driver.list_files_in_folder(folder_id)
     serialized: list[InformationFile] = []
     for file in files:
-        if file.mime_type != GOOGLE_SHEET_MIME_TYPE:
+        if file.mime_type == "application/vnd.google-apps.folder":
             continue
         try:
             sheet_values = google_driver.read_spreadsheet_values(file.id)
