@@ -1,7 +1,26 @@
 import asyncio
 
 from modules.agent.llm.models import SopTextChunkRequest
-from modules.agent.llm.service import LLMService, choose_material_name, resolve_material_part_number
+from modules.agent.llm.service import (
+    LLMService,
+    choose_material_name,
+    resolve_material_part_number,
+)
+
+
+def test_openai_environment_variables_configure_service(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.bridgefloods.com")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5.6-sol")
+    monkeypatch.setenv("PRODUCTION_PLATFORM_LLM_API_KEY", "legacy-key")
+    monkeypatch.setenv("PRODUCTION_PLATFORM_LLM_BASE_URL", "https://legacy.example/v1")
+    monkeypatch.setenv("PRODUCTION_PLATFORM_LLM_MODEL", "legacy-model")
+
+    service = LLMService()
+
+    assert service.api_key == "openai-key"
+    assert service.base_url == "https://api.bridgefloods.com/v1"
+    assert service.model == "gpt-5.6-sol"
 
 
 def test_resolve_material_part_number_repairs_pdf_quantity_concatenation() -> None:
@@ -80,6 +99,51 @@ def test_stream_chat_parses_openai_compatible_sse(monkeypatch) -> None:
     }
 
 
+def test_stream_chat_ignores_usage_only_sse_frame(monkeypatch) -> None:
+    class FakeResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        async def aiter_lines(self):
+            yield 'data: {"choices":[{"delta":{"content":"OK"}}]}'
+            yield 'data: {"choices":[],"usage":{"total_tokens":1}}'
+            yield "data: [DONE]"
+
+    class FakeClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, *_args, **_kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr("modules.agent.llm.service.httpx.AsyncClient", FakeClient)
+    service = LLMService()
+    service.api_key = "test-key"
+
+    async def collect() -> list[str]:
+        return [
+            chunk
+            async for chunk in service.stream_chat(
+                [{"role": "user", "content": "测试"}],
+                system_prompt="系统提示",
+            )
+        ]
+
+    assert asyncio.run(collect()) == ["OK"]
+
+
 def test_stream_tool_round_reassembles_fragmented_tool_calls(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
@@ -144,6 +208,55 @@ def test_stream_tool_round_reassembles_fragmented_tool_calls(monkeypatch) -> Non
     ]
     assert captured["json"]["tools"] == tools  # type: ignore[index]
     assert captured["json"]["tool_choice"] == "auto"  # type: ignore[index]
+
+
+def test_stream_tool_round_ignores_usage_only_sse_frame(monkeypatch) -> None:
+    class FakeResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        async def aiter_lines(self):
+            yield 'data: {"choices":[{"delta":{"content":"完成"}}]}'
+            yield 'data: {"choices":[],"usage":{"total_tokens":1}}'
+            yield "data: [DONE]"
+
+    class FakeClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, *_args, **_kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr("modules.agent.llm.service.httpx.AsyncClient", FakeClient)
+    service = LLMService()
+    service.api_key = "test-key"
+
+    async def collect() -> list[dict]:
+        return [
+            event
+            async for event in service.stream_tool_round(
+                [{"role": "user", "content": "测试"}],
+                system_prompt="系统提示",
+                tools=[],
+            )
+        ]
+
+    assert asyncio.run(collect()) == [
+        {"type": "chunk", "content": "完成"},
+        {"type": "round_done", "message": {"role": "assistant", "content": "完成"}},
+    ]
 
 
 def test_parse_json_repairs_trailing_commas_and_empty_values() -> None:
@@ -220,6 +333,7 @@ def test_extract_material_prompt_requires_nearest_entity_name(monkeypatch) -> No
 
     payload = captured["json"]
     system_prompt = payload["messages"][0]["content"]  # type: ignore[index]
+    assert payload["max_tokens"] == service.sop_max_tokens  # type: ignore[index]
     assert "最短、最具体的物料实体名" in system_prompt
     assert "柱塞块 415-00635" in system_prompt
     assert "只按英文描述计算数量" in system_prompt
@@ -326,6 +440,23 @@ def test_semantic_reference_prompt_classifies_added_and_reference_quantities(mon
     assert "两者不一致时采用整篇上下文语义总数" in bracket.quantity_explanation
     assert bracket.quantity_decisions[0].quantity_delta == 4
     assert bracket.quantity_decisions[0].accumulate is True
+
+
+def test_semantic_evidence_groups_skip_excluded_part_numbers() -> None:
+    service = LLMService()
+
+    groups = service._build_part_evidence_groups(
+        [
+            (1, "Install 2×438-00147 into 415-00845"),
+            (2, "Stick zip tie 242-00050 around harness"),
+        ],
+        max_chars=10000,
+        excluded_part_numbers={"242-00050"},
+    )
+
+    part_numbers = {part_number for _, parts in groups for part_number in parts}
+    assert part_numbers == {"438-00147", "415-00845"}
+    assert "242-00050" not in part_numbers
 
 
 def test_semantic_evidence_groups_keep_all_occurrences_of_a_part_together() -> None:

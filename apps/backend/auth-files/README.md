@@ -19,3 +19,16 @@ the backend does not start a browser or retain browser cookies. Override its loc
 `PRODUCTION_PLATFORM_DURO_API_KEY_PATH`, or override the REST base URL with
 `PRODUCTION_PLATFORM_DURO_BASE_URL`. The product catalog falls back to the legacy GraphQL
 catalog query when the API key lacks Duro's REST product-search permission.
+
+## Bridgefloods GPT token
+
+The Bridge token module uses these git-ignored files in this directory:
+
+- `bridgefloods.env`: Bridge access/refresh credentials and email settings.
+- `bridgefloods_whitelist.csv`: enabled users, key matching, and reminder recipients.
+- `bridge-gmail-token.json`: Gmail OAuth state used for reminders and administrator alerts.
+- `bridge-main-balance-alert-state.json`: state retained from the standalone automation migration.
+
+Keep every file at mode `600`. `bridgefloods.env` must contain a non-empty
+`BRIDGEFLOODS_ACCESS_TOKEN` or `BRIDGEFLOODS_REFRESH_TOKEN`; variable names without values do
+not configure the service. The application-level paths are set in `apps/backend/.env`.

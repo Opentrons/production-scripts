@@ -12,6 +12,7 @@ interface DashboardMessages {
   simulatingOff: string
   simulatingEnabled: string
   simulatingDisabled: string
+  sqliteFallbackEnabled: string
   simulatingUpdateFailed: string
   brandAria: string
   navigationAria: string
@@ -29,6 +30,8 @@ interface DashboardMessages {
     contactLetters: string
     productionAgent: string
     downloads: string
+    onlineTools: string
+    bridgeGptToken: string
   }
   status: {
     active: string
@@ -136,6 +139,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
     simulatingOff: '关',
     simulatingEnabled: '已启用 Simulating（SQLite）',
     simulatingDisabled: '已关闭 Simulating（MongoDB）',
+    sqliteFallbackEnabled: 'MongoDB 不可用，已切换 SQLite 兜底',
     simulatingUpdateFailed: '更新 Simulating 失败',
     brandAria: '打开生产测试',
     navigationAria: '生产测试导航',
@@ -153,6 +157,8 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       contactLetters: '联络函',
       productionAgent: '生产助手',
       downloads: '资源下载',
+      onlineTools: '在线工具',
+      bridgeGptToken: 'Bridge GPT Token',
     },
     status: {
       active: '可用',
@@ -270,6 +276,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
     simulatingOff: 'Off',
     simulatingEnabled: 'Simulating enabled (SQLite)',
     simulatingDisabled: 'Simulating disabled (MongoDB)',
+    sqliteFallbackEnabled: 'MongoDB unavailable; using SQLite fallback',
     simulatingUpdateFailed: 'Failed to update simulating mode',
     brandAria: 'Open Productions testing',
     navigationAria: 'Productions testing navigation',
@@ -287,6 +294,8 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       contactLetters: 'Contact letters',
       productionAgent: 'Production Agent',
       downloads: 'Downloads',
+      onlineTools: 'Online Tools',
+      bridgeGptToken: 'Bridge GPT Token',
     },
     status: {
       active: 'Active',

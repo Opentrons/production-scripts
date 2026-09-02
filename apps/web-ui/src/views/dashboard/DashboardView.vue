@@ -77,6 +77,23 @@
               <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
               <span>{{ copy.nav.productionAgent }}</span>
             </a>
+            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
+              <button
+                class="top-link top-dropdown-trigger"
+                type="button"
+                :aria-expanded="openNavigationMenu === 'online-tools'"
+                @click.stop="toggleNavigationMenu('online-tools')"
+              >
+                <Wrench class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.onlineTools }}</span>
+                <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+              </button>
+              <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                <a href="/tools/bridge-gpt-token" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.bridgeGptToken }}
+                </a>
+              </div>
+            </div>
             <a class="top-link is-active" href="/downloads">
               <Download class="top-menu-icon" :size="16" aria-hidden="true" />
               <span>{{ copy.nav.downloads }}</span>
@@ -332,40 +349,57 @@
                   <a href="/versions?module=ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.ecnCheck }}
                   </a>
+                </div>
               </div>
-            </div>
-            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'engineering-changes' }">
-              <button
-                class="top-link top-dropdown-trigger"
-                type="button"
-                :aria-expanded="openNavigationMenu === 'engineering-changes'"
-                @click.stop="toggleNavigationMenu('engineering-changes')"
-              >
-                <FileText class="top-menu-icon" :size="16" aria-hidden="true" />
-                <span>{{ copy.nav.engineeringChanges }}</span>
-                <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
-              </button>
-              <div class="top-dropdown-menu is-right" role="menu" @click.stop>
-                <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
-                  {{ copy.nav.ecn }}
-                </a>
-                <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
-                  {{ copy.nav.contactLetters }}
-                </a>
+              <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'engineering-changes' }">
+                <button
+                  class="top-link top-dropdown-trigger"
+                  type="button"
+                  :aria-expanded="openNavigationMenu === 'engineering-changes'"
+                  @click.stop="toggleNavigationMenu('engineering-changes')"
+                >
+                  <FileText class="top-menu-icon" :size="16" aria-hidden="true" />
+                  <span>{{ copy.nav.engineeringChanges }}</span>
+                  <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+                </button>
+                <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                  <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.ecn }}
+                  </a>
+                  <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.contactLetters }}
+                  </a>
+                </div>
               </div>
-            </div>
-            <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
-              <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
-              <span>{{ copy.nav.productionAgent }}</span>
-            </a>
-            <a class="top-link" href="/downloads">
-              <Download class="top-menu-icon" :size="16" aria-hidden="true" />
-              <span>{{ copy.nav.downloads }}</span>
-            </a>
-          </nav>
-          <LocaleSwitcher variant="surface" />
-          <AuthUserMenu />
-        </div>
+              <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
+                <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
+                <span>{{ copy.nav.productionAgent }}</span>
+              </a>
+              <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
+                <button
+                  class="top-link top-dropdown-trigger"
+                  type="button"
+                  :aria-expanded="openNavigationMenu === 'online-tools'"
+                  @click.stop="toggleNavigationMenu('online-tools')"
+                >
+                  <Wrench class="top-menu-icon" :size="16" aria-hidden="true" />
+                  <span>{{ copy.nav.onlineTools }}</span>
+                  <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+                </button>
+                <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                  <a href="/tools/bridge-gpt-token" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.bridgeGptToken }}
+                  </a>
+                </div>
+              </div>
+              <a class="top-link" href="/downloads">
+                <Download class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.downloads }}</span>
+              </a>
+            </nav>
+            <LocaleSwitcher variant="surface" />
+            <AuthUserMenu />
+          </div>
         </header>
 
         <div class="hero-stage">
@@ -580,11 +614,17 @@ const simulatingSaving = ref(false)
 const simulatingHint = ref('')
 const appVersion = reactive<AppVersion>({ version: 'N/A', updated_at: null, commit: null })
 
+function persistenceHint(status: { simulating: boolean; sqlite_fallback?: boolean }): string {
+  if (status.simulating) return copy.value.simulatingEnabled
+  if (status.sqlite_fallback) return copy.value.sqliteFallbackEnabled
+  return copy.value.simulatingDisabled
+}
+
 async function loadSimulatingStatus(): Promise<void> {
   try {
     const { data } = await settingsApi.getSimulatingStatus()
     simulatingEnabled.value = data.simulating
-    simulatingHint.value = data.simulating ? copy.value.simulatingEnabled : copy.value.simulatingDisabled
+    simulatingHint.value = persistenceHint(data)
   } catch {
     // Keep the default off state when the API is unavailable.
   }
@@ -597,7 +637,7 @@ async function toggleSimulating(): Promise<void> {
   try {
     const { data } = await settingsApi.updateSimulatingStatus(nextValue)
     simulatingEnabled.value = data.simulating
-    simulatingHint.value = data.simulating ? copy.value.simulatingEnabled : copy.value.simulatingDisabled
+    simulatingHint.value = persistenceHint(data)
   } catch (error) {
     simulatingHint.value = error instanceof Error ? error.message : copy.value.simulatingUpdateFailed
   } finally {
@@ -657,7 +697,8 @@ const productionAgentBaseUrl = productionAgentUrl ? withTrailingSlash(production
 const projects = ref<ResourceProject[]>([])
 const expandedProjectIds = ref(new Set<string>())
 const openMenuVersionId = ref('')
-const openNavigationMenu = ref<'' | 'product-tests' | 'version-checks' | 'engineering-changes'>('')
+type NavigationMenu = '' | 'product-tests' | 'version-checks' | 'engineering-changes' | 'online-tools'
+const openNavigationMenu = ref<NavigationMenu>('')
 const isLoading = ref(false)
 const isFormOpen = ref(false)
 const isSubmitting = ref(false)
@@ -701,7 +742,7 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 }
 
-function toggleNavigationMenu(menu: 'product-tests' | 'version-checks' | 'engineering-changes'): void {
+function toggleNavigationMenu(menu: Exclude<NavigationMenu, ''>): void {
   openNavigationMenu.value = openNavigationMenu.value === menu ? '' : menu
 }
 

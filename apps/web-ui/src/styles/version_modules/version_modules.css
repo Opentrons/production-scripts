@@ -1710,13 +1710,20 @@ textarea {
 
 .report-detail-nav {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 2px 0 3px;
+  border-bottom: 1px solid #e2e7ea;
+}
+
+.report-detail-nav-main {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 58px;
-  margin-bottom: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid #e2e7ea;
+  padding-bottom: 0;
 }
 
 .report-detail-nav-pages {
@@ -1730,7 +1737,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 2px;
+  padding: 4px 2px 2px;
   border: 0;
   background: transparent;
   color: #7d8993;
@@ -1743,7 +1750,7 @@ textarea {
   content: '';
   position: absolute;
   right: 0;
-  bottom: -1px;
+  bottom: 0;
   left: 0;
   height: 2px;
   background: transparent;
@@ -1757,14 +1764,17 @@ textarea {
   background: #258c75;
 }
 
-.report-detail-nav button small {
+.report-detail-nav-summary {
   color: #8b969f;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
+  margin: 0;
+  padding: 0 0 1px;
 }
 
-.report-detail-nav > .bom-report-filters {
+.report-detail-nav-main > .bom-report-filters {
   flex: 0 0 auto;
 }
 

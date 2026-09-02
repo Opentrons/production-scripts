@@ -1,4 +1,4 @@
-"""Unified document persistence: MongoDB outside simulating, SQLite inside simulating."""
+"""Unified document persistence with simulation and dev SQLite fallback."""
 
 from __future__ import annotations
 
@@ -41,8 +41,8 @@ def get_message_database():
 def get_document_collection(name: str):
     """Return a Mongo-like collection for business documents.
 
-    - simulating → local platform.sqlite3 collection
-    - production → MongoDB ProductionsMessage.<name>
+    - normal operation -> MongoDB ProductionsMessage.<name>
+    - simulating or dev connection fallback -> local platform.sqlite3 collection
     """
     if setting.use_sqlite_persistence():
         from core.sqlite_store import get_platform_store

@@ -70,6 +70,10 @@ apps/backend/ghelper-test/skill_config.json
 **/auth-files/slack.yaml
 **/auth-files/duro-api*.txt
 **/auth-files/robot_key
+**/auth-files/bridgefloods.env
+**/auth-files/bridgefloods_whitelist.csv
+**/auth-files/bridge-gmail-token.json
+**/auth-files/bridge-main-balance-alert-state.json
 **/configs/robot_key
 **/configs/slack.yaml
 **/configs/slack.local.yaml

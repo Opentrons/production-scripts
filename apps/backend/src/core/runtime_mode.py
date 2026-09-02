@@ -11,6 +11,8 @@ logger = get_logger(__name__)
 
 _LOCK = RLock()
 _SIMULATING: bool | None = None
+_SQLITE_FALLBACK = False
+_SQLITE_FALLBACK_REASON = ""
 
 
 def _mode_file() -> Path:
@@ -46,6 +48,33 @@ def is_simulating() -> bool:
         return bool(_SIMULATING)
 
 
+def is_sqlite_fallback() -> bool:
+    with _LOCK:
+        return bool(_SQLITE_FALLBACK)
+
+
+def sqlite_fallback_reason() -> str:
+    with _LOCK:
+        return _SQLITE_FALLBACK_REASON
+
+
+def set_sqlite_fallback(enabled: bool, *, reason: str = "") -> bool:
+    """Select transient SQLite fallback without enabling simulation fixtures."""
+
+    global _SQLITE_FALLBACK, _SQLITE_FALLBACK_REASON
+    value = bool(enabled)
+    with _LOCK:
+        _SQLITE_FALLBACK = value
+        _SQLITE_FALLBACK_REASON = reason.strip() if value else ""
+    log = logger.warning if value else logger.info
+    log(
+        "SQLite business fallback %s%s",
+        "enabled" if value else "disabled",
+        f": {_SQLITE_FALLBACK_REASON}" if _SQLITE_FALLBACK_REASON else "",
+    )
+    return value
+
+
 def set_simulating(enabled: bool) -> bool:
     global _SIMULATING
     value = bool(enabled)
@@ -64,10 +93,13 @@ def set_simulating(enabled: bool) -> bool:
 
 def get_simulating_status() -> dict:
     simulating = is_simulating()
+    fallback = is_sqlite_fallback()
     active_dir = setting.get_active_db_dir()
     return {
         "simulating": simulating,
-        "persistence": "sqlite" if simulating else "mongodb",
+        "persistence": "sqlite" if setting.use_sqlite_persistence() else "mongodb",
+        "sqlite_fallback": fallback,
+        "sqlite_fallback_reason": sqlite_fallback_reason(),
         "auth_persistence": setting.AUTH_STORAGE,
         "device_scan_mode": "simulated" if setting.use_simulated_device_scan() else "real",
         "db_root": str(setting.DB_ROOT),

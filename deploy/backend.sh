@@ -13,6 +13,11 @@ AUTH_ENV_FILE="${AUTH_ENV_FILE:-/etc/production-platform.env}"
 AUTH_COOKIE_SECURE="${AUTH_COOKIE_SECURE:-true}"
 AUTH_REFRESH_TOKEN_HOURS="${AUTH_REFRESH_TOKEN_HOURS:-24}"
 AUTH_ACCESS_TOKEN_MINUTES="${AUTH_ACCESS_TOKEN_MINUTES:-5}"
+BRIDGE_AUTH_DIR="${BRIDGE_AUTH_DIR:-$API_ROOT/auth-files}"
+BRIDGE_ENV_FILE="${BRIDGE_ENV_FILE:-$BRIDGE_AUTH_DIR/bridgefloods.env}"
+BRIDGE_WHITELIST_PATH="${BRIDGE_WHITELIST_PATH:-$BRIDGE_AUTH_DIR/bridgefloods_whitelist.csv}"
+BRIDGE_GMAIL_TOKEN_PATH="${BRIDGE_GMAIL_TOKEN_PATH:-$BRIDGE_AUTH_DIR/bridge-gmail-token.json}"
+BRIDGE_AUTOMATION_ENABLED="${BRIDGE_AUTOMATION_ENABLED:-false}"
 VERSION_SOURCE="$REPOSITORY_ROOT/apps/version.json"
 VERSION_FILE="$API_ROOT/data/app-version.json"
 
@@ -22,6 +27,13 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 mkdir -p "$API_ROOT/data" "$API_ROOT/auth-files" "$API_ROOT/db-storage/auth"
+
+for bridge_file in "$BRIDGE_ENV_FILE" "$BRIDGE_WHITELIST_PATH" "$BRIDGE_GMAIL_TOKEN_PATH"; do
+    if [ ! -s "$bridge_file" ]; then
+        echo "Required Bridgefloods auth file is missing or empty: $bridge_file"
+        exit 1
+    fi
+done
 
 touch "$AUTH_ENV_FILE"
 chmod 600 "$AUTH_ENV_FILE"
@@ -84,6 +96,10 @@ Environment=PRODUCTION_PLATFORM_RUN_ENV=server
 Environment=PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb
 Environment=PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real
 Environment=PRODUCTION_PLATFORM_AUTH_COOKIE_SECURE=$AUTH_COOKIE_SECURE
+Environment=PRODUCTION_PLATFORM_BRIDGE_ENV_FILE=$BRIDGE_ENV_FILE
+Environment=PRODUCTION_PLATFORM_BRIDGE_WHITELIST_PATH=$BRIDGE_WHITELIST_PATH
+Environment=PRODUCTION_PLATFORM_BRIDGE_GMAIL_TOKEN_PATH=$BRIDGE_GMAIL_TOKEN_PATH
+Environment=PRODUCTION_PLATFORM_BRIDGE_AUTOMATION_ENABLED=$BRIDGE_AUTOMATION_ENABLED
 Environment=PYTHONUNBUFFERED=1
 ExecStart=$UV_BIN run --package production-backend uvicorn app:app --host 127.0.0.1 --port $API_PORT
 Restart=always

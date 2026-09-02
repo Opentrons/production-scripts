@@ -16,6 +16,8 @@ data_center_client_router = APIRouter()
 class SimulatingStatusResponse(BaseModel):
     simulating: bool
     persistence: str
+    sqlite_fallback: bool = False
+    sqlite_fallback_reason: str = ""
     auth_persistence: str
     device_scan_mode: str
     db_root: str

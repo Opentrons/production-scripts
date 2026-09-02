@@ -7,6 +7,7 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import AsyncIterator
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -165,15 +166,46 @@ class LLMConfigurationError(RuntimeError):
     pass
 
 
+def normalize_llm_base_url(value: str) -> str:
+    """Normalize an OpenAI-compatible origin to the chat API base path."""
+
+    base_url = value.strip().rstrip("/")
+    if not base_url:
+        return base_url
+    parsed = urlsplit(base_url)
+    if parsed.scheme and parsed.netloc and parsed.path in {"", "/"}:
+        return f"{base_url}/v1"
+    return base_url
+
+
 class LLMService:
     """Stateless OpenAI-compatible chat client; no conversation is retained."""
 
     def __init__(self) -> None:
-        self.api_key = os.getenv("PRODUCTION_PLATFORM_LLM_API_KEY", "")
-        self.base_url = os.getenv("PRODUCTION_PLATFORM_LLM_BASE_URL", "https://api.deepseek.com/v1").rstrip("/")
-        self.model = os.getenv("PRODUCTION_PLATFORM_LLM_MODEL", "deepseek-chat")
-        self.timeout = float(os.getenv("PRODUCTION_PLATFORM_LLM_TIMEOUT_SECONDS", "90"))
-        self.sop_chunk_chars = max(4000, int(os.getenv("PRODUCTION_PLATFORM_LLM_SOP_CHUNK_CHARS", "30000")))
+        # Accept the conventional OpenAI variable names as well as the
+        # platform-specific names used by older deployments.  Prefer OPENAI_*
+        # when both are present so an explicit provider override is honored.
+        self.api_key = (
+            os.getenv("OPENAI_API_KEY", "").strip()
+            or os.getenv("PRODUCTION_PLATFORM_LLM_API_KEY", "").strip()
+        )
+        self.base_url = normalize_llm_base_url(
+            os.getenv("OPENAI_BASE_URL", "").strip()
+            or os.getenv("PRODUCTION_PLATFORM_LLM_BASE_URL", "https://api.deepseek.com/v1").strip()
+        )
+        self.model = (
+            os.getenv("OPENAI_MODEL", "").strip()
+            or os.getenv("PRODUCTION_PLATFORM_LLM_MODEL", "deepseek-chat").strip()
+        )
+        self.timeout = float(os.getenv("PRODUCTION_PLATFORM_LLM_TIMEOUT_SECONDS", "180"))
+        self.sop_chunk_chars = max(
+            4000,
+            int(os.getenv("PRODUCTION_PLATFORM_LLM_SOP_CHUNK_CHARS", "16000")),
+        )
+        self.sop_max_tokens = max(
+            1024,
+            int(os.getenv("PRODUCTION_PLATFORM_LLM_SOP_MAX_TOKENS", "8192")),
+        )
         self.semantic_max_workers = max(1, min(4, int(os.getenv("PRODUCTION_PLATFORM_LLM_SEMANTIC_MAX_WORKERS", "3"))))
 
     @property
@@ -215,7 +247,10 @@ class LLMService:
                         if not raw_data or raw_data == "[DONE]":
                             continue
                         data = json.loads(raw_data)
-                        content = data["choices"][0].get("delta", {}).get("content")
+                        choices = data.get("choices") or []
+                        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+                            continue
+                        content = choices[0].get("delta", {}).get("content")
                         if content:
                             yield str(content)
         except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
@@ -266,7 +301,10 @@ class LLMService:
                         if not raw_data or raw_data == "[DONE]":
                             continue
                         data = json.loads(raw_data)
-                        delta = data["choices"][0].get("delta") or {}
+                        choices = data.get("choices") or []
+                        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+                            continue
+                        delta = choices[0].get("delta") or {}
                         content = delta.get("content")
                         if content:
                             text = str(content)
@@ -325,8 +363,16 @@ class LLMService:
             "禁止返回 438-006012、2*438-00601 或 2×438-00601 作为 part_number；乘号两侧的数字永远是数量。"
             "如果返回的料号无法在输入原文中逐字找到，放弃该条，不要猜测或拼接。"
         )
-        payload = {"model": self.model, "temperature": 0, "response_format": {"type": "json_object"},
-                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": request.text}]}
+        payload = {
+            "model": self.model,
+            "temperature": 0,
+            "max_tokens": self.sop_max_tokens,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": request.text},
+            ],
+        }
         try:
             response = httpx.post(f"{self.base_url}/chat/completions", headers={"Authorization": f"Bearer {self.api_key}"}, json=payload, timeout=self.timeout)
             response.raise_for_status()
@@ -366,6 +412,7 @@ class LLMService:
         pages: list[tuple[int, str]],
         material_names: dict[str, str] | None = None,
         target_part_numbers: set[str] | None = None,
+        excluded_part_numbers: set[str] | None = None,
     ) -> list[SopTextMaterial]:
         """Estimate final quantities using all instruction evidence for each part.
 
@@ -374,16 +421,23 @@ class LLMService:
         the entire SOP instead of making isolated page-level decisions.
         """
 
+        excluded = {
+            str(part_number).strip().upper()
+            for part_number in (excluded_part_numbers or set())
+            if str(part_number).strip()
+        }
         evidence_groups = self._build_part_evidence_groups(
             pages,
             max_chars=min(max(self.sop_chunk_chars, 8000), 12000),
             material_names=material_names,
             target_part_numbers=target_part_numbers,
+            excluded_part_numbers=excluded or None,
         )
         expected_part_numbers = {
             part_number
             for _, part_numbers in evidence_groups
             for part_number in part_numbers
+            if part_number not in excluded
         }
         merged: dict[str, SopSemanticMaterial] = {}
         with ThreadPoolExecutor(
@@ -396,6 +450,7 @@ class LLMService:
                     index + 1,
                     part_numbers,
                     bool(material_names),
+                    excluded,
                 ): part_numbers
                 for index, (evidence, part_numbers) in enumerate(evidence_groups)
             }
@@ -409,6 +464,8 @@ class LLMService:
 
         materials: list[SopTextMaterial] = []
         for part_number in sorted(expected_part_numbers):
+            if part_number in excluded:
+                continue
             item = merged.get(part_number)
             if item is None:
                 quantity = 1.0
@@ -458,12 +515,25 @@ class LLMService:
         chunk_number: int,
         expected_part_numbers: list[str] | None = None,
         include_material_names: bool = False,
+        excluded_part_numbers: set[str] | None = None,
     ) -> list[SopSemanticMaterial]:
         if not self.api_key:
             raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
-        expected_part_numbers = expected_part_numbers or sorted(
-            {match.part_number for match in extract_part_number_matches(text)}
-        )
+        excluded = {
+            str(part_number).strip().upper()
+            for part_number in (excluded_part_numbers or set())
+            if str(part_number).strip()
+        }
+        expected_part_numbers = [
+            part_number
+            for part_number in (
+                expected_part_numbers
+                or sorted({match.part_number for match in extract_part_number_matches(text)})
+            )
+            if part_number.strip().upper() not in excluded
+        ]
+        if not expected_part_numbers:
+            return []
         evidence_scope = (
             "输入按“目标料号”分段，每段包含该料号或其已确认物料名称在整份 SOP 中的全部出现证据及相邻上下文。"
             "即使某页只出现物料名称而没有料号，也必须纳入跨页数量判断。"
@@ -504,6 +574,14 @@ class LLMService:
             "415-00643 added=4，438-00147 added=4，415-00845 reference=1。\n"
             "例：Install 2×438-00147 后又 Tighten 2×438-00147：只在安装事件新增 2，锁紧事件新增 0。"
         )
+        if excluded:
+            system += (
+                "\n已忽略料号（"
+                f"{', '.join(sorted(excluded))}"
+                "）属于核对范围外物料：不得为其返回 materials 记录，不得统计 final_quantity、"
+                "added_quantity 或 reference_quantity。证据里若同时出现已忽略料号和其他目标料号，"
+                "只分析未忽略的目标料号。"
+            )
         user = (
             f"证据组 {chunk_number} 必须返回的目标料号：{', '.join(expected_part_numbers)}\n\n"
             f"各目标料号的全文证据：\n{text}"
@@ -511,6 +589,7 @@ class LLMService:
         payload = {
             "model": self.model,
             "temperature": 0,
+            "max_tokens": self.sop_max_tokens,
             "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
@@ -561,10 +640,16 @@ class LLMService:
         max_chars: int,
         material_names: dict[str, str] | None = None,
         target_part_numbers: set[str] | None = None,
+        excluded_part_numbers: set[str] | None = None,
     ) -> list[tuple[str, list[str]]]:
         targets = {
             str(part_number).strip().upper()
             for part_number in (target_part_numbers or set())
+            if str(part_number).strip()
+        }
+        excluded = {
+            str(part_number).strip().upper()
+            for part_number in (excluded_part_numbers or set())
             if str(part_number).strip()
         }
         evidence_by_part: dict[str, list[tuple[int, str]]] = {}
@@ -574,6 +659,8 @@ class LLMService:
             )
             for part_number in part_numbers:
                 normalized_part_number = part_number.upper()
+                if normalized_part_number in excluded:
+                    continue
                 if targets and normalized_part_number not in targets:
                     continue
                 evidence_by_part.setdefault(normalized_part_number, []).append((page_number, text.strip()))
@@ -583,6 +670,8 @@ class LLMService:
             for page_number, text in pages
         ]
         for part_number, aliases in build_unique_material_aliases(material_names or {}).items():
+            if part_number in excluded:
+                continue
             if targets and part_number not in targets:
                 continue
             if not aliases:

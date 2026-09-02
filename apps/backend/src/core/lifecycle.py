@@ -4,11 +4,21 @@ import os
 
 from fastapi import FastAPI
 
-from core.config import IS_DEV_ENV, MONGO_HOST, MONGO_URI
+from core.config import (
+    DEV_SQLITE_FALLBACK_ENABLED,
+    IS_DEV_ENV,
+    MONGO_HOST,
+    MONGO_URI,
+    use_sqlite_persistence,
+)
 from core.database import mongodb
 from core.google.proxy_manager import google_proxy_manager
 from core.logging import get_logger
-from core.runtime_mode import ensure_db_layout, is_simulating
+from core.runtime_mode import (
+    ensure_db_layout,
+    is_simulating,
+    set_sqlite_fallback,
+)
 from modules.system.health import start_health_refresh_scheduler, stop_health_refresh_scheduler
 from api.routers.information import (
     start_information_refresh_scheduler,
@@ -32,8 +42,18 @@ from modules.uploads.handler.drivers.google_drive import (
 from modules.uploads.handler.utils import runtime_config
 from modules.uploads.upload import shutdown_upload_service
 from modules.uploads.scheduler import upload_scheduler
-from modules.workflows.runtime import workflow_scheduler, workflow_service
+from modules.workflows.runtime import (
+    configure_workflow_repository,
+    workflow_scheduler,
+    workflow_service,
+)
 from modules.agent.schedules import agent_schedule_scheduler
+from modules.bridge_tokens.runtime import (
+    bridge_token_configuration_service,
+    bridge_token_scheduler,
+    bridge_token_service,
+)
+from modules.supplies.runtime import configure_supplementary_material_repository
 
 
 logger = get_logger(__name__)
@@ -48,10 +68,14 @@ def should_refresh_proxy_on_startup() -> bool:
 async def lifespan(_: FastAPI):
     ensure_db_layout()
     get_auth_service().initialize()
-    if is_simulating():
+    simulating = is_simulating()
+    if simulating:
         ensure_simulating_seed()
-    mongo_available = is_simulating() or mongodb.connect()
-    if not mongo_available:
+        set_sqlite_fallback(False)
+        mongo_available = False
+    else:
+        mongo_available = mongodb.connect()
+    if not mongo_available and not simulating:
         target = "PRODUCTION_PLATFORM_MONGO_URI" if MONGO_URI else f"{MONGO_HOST}:27017"
         if not IS_DEV_ENV:
             raise RuntimeError(
@@ -59,28 +83,47 @@ async def lifespan(_: FastAPI):
                 f"unavailable ({target}). Start MongoDB or set "
                 "PRODUCTION_PLATFORM_MONGO_URI to a reachable server."
             )
-        logger.error(
-            "MongoDB is unavailable (%s). Starting in degraded local mode: "
-            "SQLite authentication and real device scanning remain available; "
-            "Mongo-backed business features are paused until MongoDB recovers.",
-            target,
-        )
+        if DEV_SQLITE_FALLBACK_ENABLED:
+            set_sqlite_fallback(True, reason=f"MongoDB unavailable ({target})")
+            logger.warning(
+                "MongoDB is unavailable (%s). Development business persistence "
+                "is using SQLite fallback for this process.",
+                target,
+            )
+        else:
+            set_sqlite_fallback(False)
+            logger.error(
+                "MongoDB is unavailable (%s). Development SQLite fallback is disabled; "
+                "Mongo-backed business features are paused.",
+                target,
+            )
+    elif mongo_available:
+        set_sqlite_fallback(False)
+
+    configure_supplementary_material_repository()
+    configure_workflow_repository()
+    business_persistence_available = mongo_available or use_sqlite_persistence()
+
     if mongo_available:
         fail_interrupted_diagnostic_log_downloads()
         resume_pending_diagnostic_log_cleanups()
     start_robot_scan_scheduler()
     google_proxy_manager.start()
-    if mongo_available or IS_DEV_ENV:
+    if business_persistence_available or IS_DEV_ENV:
         start_health_refresh_scheduler()
     start_information_refresh_scheduler()
-    if mongo_available:
+    if business_persistence_available:
         workflow_service.initialize()
+        bridge_token_service.initialize()
+        if mongo_available:
+            bridge_token_configuration_service.initialize()
         workflow_scheduler.start()
+        bridge_token_scheduler.start()
         agent_schedule_scheduler.start()
         upload_scheduler.start()
     else:
         logger.warning(
-            "Mongo-backed workflow and Agent schedulers are disabled "
+            "Business workflow and Agent schedulers are disabled "
             "for this process"
         )
 
@@ -99,6 +142,7 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         upload_scheduler.stop()
+        bridge_token_scheduler.stop()
         workflow_scheduler.stop()
         agent_schedule_scheduler.stop()
         stop_information_refresh_scheduler()

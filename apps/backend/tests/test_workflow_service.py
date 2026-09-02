@@ -295,7 +295,7 @@ class FakeSopService:
             ],
         )
 
-    def analyze_pdf(self, file_id: str, refresh: bool = False):
+    def analyze_pdf(self, file_id: str, refresh: bool = False, excluded_part_numbers=None):
         assert refresh is True
         materials = {
             "sop-a": [
@@ -312,7 +312,7 @@ class FakeSopService:
 
 
 class BomSelectionSopService:
-    def analyze_pdf(self, file_id: str, refresh: bool = False):
+    def analyze_pdf(self, file_id: str, refresh: bool = False, excluded_part_numbers=None):
         assert file_id == "sop-packaging"
         assert refresh is True
         return SimpleNamespace(
@@ -421,7 +421,7 @@ class EmptySopService:
             ],
         )
 
-    def analyze_pdf(self, file_id: str, refresh: bool = False):
+    def analyze_pdf(self, file_id: str, refresh: bool = False, excluded_part_numbers=None):
         assert refresh is True
         return SimpleNamespace(full_text_references=[])
 
@@ -582,7 +582,7 @@ class CleanupMatchSopService:
             ],
         )
 
-    def analyze_pdf(self, file_id: str, refresh: bool = False):
+    def analyze_pdf(self, file_id: str, refresh: bool = False, excluded_part_numbers=None):
         assert refresh is True
         return SimpleNamespace(
             full_text_references=[
@@ -666,7 +666,7 @@ class RefreshedSourceSopService(CleanupMatchSopService):
             ],
         )
 
-    def analyze_pdf(self, file_id: str, refresh: bool = False):
+    def analyze_pdf(self, file_id: str, refresh: bool = False, excluded_part_numbers=None):
         assert file_id == "sop-current"
         return super().analyze_pdf(file_id, refresh)
 

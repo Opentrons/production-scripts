@@ -27,3 +27,12 @@ workflow_service = WorkflowService(
     supplies_service=supplementary_material_service,
 )
 workflow_scheduler = WorkflowScheduler(workflow_service, SCHEDULER_POLL_SECONDS)
+
+
+def configure_workflow_repository() -> WorkflowRepository | MongoWorkflowRepository:
+    """Apply the persistence backend selected during application startup."""
+
+    global workflow_repository
+    workflow_repository = create_workflow_repository()
+    workflow_service.set_repository(workflow_repository)
+    return workflow_repository
