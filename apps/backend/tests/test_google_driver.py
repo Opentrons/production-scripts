@@ -83,6 +83,68 @@ def test_read_spreadsheet_preview_returns_values_and_gid() -> None:
     assert preview.values == [["产品型号", "", "Heater shaker"]]
 
 
+class _FakeMultiSheetValues:
+    def batchGet(self, **kwargs):
+        assert kwargs["ranges"] == ["'Cover'!A1:CC200", "'ECN'!A1:CC200"]
+        return _FakeRequest(
+            {
+                "valueRanges": [
+                    {"values": [["说明", "归档页"]]},
+                    {"values": [["产品型号", "", "Heater shaker"]]},
+                ]
+            }
+        )
+
+
+class _FakeMultiSheetSpreadsheets:
+    def get(self, **kwargs):
+        assert "ranges" not in kwargs
+        return _FakeRequest(
+            {
+                "properties": {"title": "ECN-0571 436-00159 Drawing Update"},
+                "sheets": [
+                    {
+                        "properties": {
+                            "sheetId": 1,
+                            "title": "Cover",
+                            "index": 0,
+                            "sheetType": "GRID",
+                        }
+                    },
+                    {
+                        "properties": {
+                            "sheetId": 104681895,
+                            "title": "ECN",
+                            "index": 1,
+                            "sheetType": "GRID",
+                        }
+                    },
+                ],
+            }
+        )
+
+    def values(self) -> _FakeMultiSheetValues:
+        return _FakeMultiSheetValues()
+
+
+class _FakeMultiSheetService:
+    def spreadsheets(self) -> _FakeMultiSheetSpreadsheets:
+        return _FakeMultiSheetSpreadsheets()
+
+
+def test_read_spreadsheet_previews_returns_every_grid_sheet() -> None:
+    driver = GoogleDriver(allow_interactive_auth=False)
+    driver._sheets_service = _FakeMultiSheetService()
+    driver._execute = lambda factory: factory().execute()  # type: ignore[method-assign]
+
+    previews = driver.read_spreadsheet_previews("sheet-id")
+
+    assert [preview.sheet_id for preview in previews] == [1, 104681895]
+    assert [preview.title for preview in previews] == ["Cover", "ECN"]
+    assert previews[1].document_title == "ECN-0571 436-00159 Drawing Update"
+    assert previews[1].values == [["产品型号", "", "Heater shaker"]]
+
+
 class _FakeDriveFiles:
     def list(self, **kwargs):
         folder_id = kwargs["q"].split("'")[1]

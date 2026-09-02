@@ -256,6 +256,64 @@ class GoogleDriver:
             document_title=str(response.get("properties", {}).get("title") or ""),
         )
 
+    def read_spreadsheet_previews(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "A1:CC200",
+    ) -> list[GoogleSheetData]:
+        """Read a bounded preview from every grid sheet in a spreadsheet."""
+        metadata_response = self._execute(
+            lambda: self._sheets_service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id,
+                fields=(
+                    "properties(title),"
+                    "sheets(properties(sheetId,title,index,sheetType))"
+                ),
+            )
+        )
+        sheet_properties = sorted(
+            (
+                dict(sheet.get("properties", {}))
+                for sheet in metadata_response.get("sheets", [])
+                if str(sheet.get("properties", {}).get("sheetType") or "GRID") == "GRID"
+            ),
+            key=lambda properties: int(properties.get("index", 0)),
+        )
+        if not sheet_properties:
+            raise GoogleDriverError(f"Google Sheet 不包含工作表: {spreadsheet_id}")
+
+        ranges = [
+            f"{self._quote_sheet_title(str(properties.get('title') or ''))}!{range_name}"
+            for properties in sheet_properties
+        ]
+        values_response = self._execute(
+            lambda: self._sheets_service.spreadsheets().values().batchGet(
+                spreadsheetId=spreadsheet_id,
+                ranges=ranges,
+                majorDimension="ROWS",
+                valueRenderOption="FORMATTED_VALUE",
+            )
+        )
+        value_ranges = list(values_response.get("valueRanges", []))
+        document_title = str(metadata_response.get("properties", {}).get("title") or "")
+        previews: list[GoogleSheetData] = []
+        for index, properties in enumerate(sheet_properties):
+            raw_values = value_ranges[index].get("values", []) if index < len(value_ranges) else []
+            cells = [
+                [GoogleSheetCell(value=str(value or "")) for value in row]
+                for row in raw_values
+            ]
+            previews.append(
+                GoogleSheetData(
+                    spreadsheet_id=spreadsheet_id,
+                    sheet_id=int(properties.get("sheetId", 0)),
+                    title=str(properties.get("title") or ""),
+                    cells=cells,
+                    document_title=document_title,
+                )
+            )
+        return previews
+
     def list_files_in_folder(
         self,
         folder_id_or_url: str,

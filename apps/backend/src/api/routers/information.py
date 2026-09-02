@@ -17,7 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from api.models import InformationFile, InformationFilesResponse
 from core.config import INFORMATION_CACHE_PATH, INFORMATION_REFRESH_SECONDS
-from core.google import GoogleDriveFile, GoogleDriver, GoogleDriverError
+from core.google import GoogleDriveFile, GoogleDriver, GoogleDriverError, GoogleSheetData
 from core.logging import get_logger
 
 
@@ -222,6 +222,34 @@ def _parse_file(
     )
 
 
+def _select_source_sheet(
+    kind: FolderKind,
+    previews: list[GoogleSheetData],
+) -> GoogleSheetData:
+    if not previews:
+        raise InformationDataError("Google Sheet 不包含可读取的工作表")
+
+    def score(item: tuple[int, GoogleSheetData]) -> tuple[int, int, int, int, int]:
+        index, preview = item
+        rows = preview.values
+        number = _normalize_number(_labeled_value(rows, NUMBER_LABELS), kind, allow_bare=True)
+        required_value = _labeled_value(
+            rows,
+            PRODUCT_MODEL_LABELS if kind == "ecn" else SUBJECT_LABELS,
+        )
+        date = _labeled_value(rows, DATE_LABELS)
+        populated_cells = sum(bool(_clean_cell(cell)) for row in rows for cell in row)
+        return (
+            int(bool(required_value)),
+            int(bool(number)),
+            int(bool(date)),
+            populated_cells,
+            -index,
+        )
+
+    return max(enumerate(previews), key=score)[1]
+
+
 def _number_sort_key(file: InformationFile) -> tuple[tuple[int, ...], str, str]:
     number_parts = tuple(int(part) for part in re.findall(r"\d+", file.number))
     return number_parts, file.effective_date or "", file.number
@@ -308,20 +336,21 @@ def _list_information(
             continue
         if not _is_google_sheet(file):
             continue
-        sheet_values: list[list[str]] = []
-        sheet_gid: int | None = None
-        document_title = ""
         try:
-            sheet_preview = active_driver.read_spreadsheet_preview(file.id)
-            sheet_values = sheet_preview.values
-            sheet_gid = sheet_preview.sheet_id
-            document_title = sheet_preview.document_title
+            sheet_previews = active_driver.read_spreadsheet_previews(file.id)
+            sheet_preview = _select_source_sheet(kind, sheet_previews)
         except GoogleDriverError as exc:
             filename_number = _normalize_number(file.name, kind)
             if not filename_number:
                 continue
             raise InformationDataError(f"{filename_number}: 无法读取源文件: {exc}") from exc
-        parsed = _parse_file(kind, file, sheet_values, sheet_gid, document_title)
+        parsed = _parse_file(
+            kind,
+            file,
+            sheet_preview.values,
+            sheet_preview.sheet_id,
+            sheet_preview.document_title,
+        )
         if parsed.number != "-":
             serialized.append(parsed)
     serialized.sort(key=_number_sort_key, reverse=True)
@@ -497,11 +526,13 @@ _information_scheduler_task: asyncio.Task[None] | None = None
 
 async def _information_refresh_scheduler() -> None:
     while True:
+        next_refresh_seconds = INFORMATION_REFRESH_SECONDS
         try:
             await asyncio.to_thread(information_service.refresh_all)
         except Exception:
             logger.exception("Scheduled information refresh failed")
-        await asyncio.sleep(INFORMATION_REFRESH_SECONDS)
+            next_refresh_seconds = min(300, INFORMATION_REFRESH_SECONDS)
+        await asyncio.sleep(next_refresh_seconds)
 
 
 def start_information_refresh_scheduler() -> None:

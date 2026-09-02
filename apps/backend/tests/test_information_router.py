@@ -11,6 +11,7 @@ from api.routers.information import (
     _number_sort_key,
     _parse_file,
     _quality_issues,
+    _select_source_sheet,
 )
 from core.google import (
     GoogleDriveFile,
@@ -26,7 +27,7 @@ class FakeInformationDriver:
             information_module.FOLDERS["ecn"][0]: [],
             information_module.FOLDERS["contact"][0]: [],
         }
-        self.sheets: dict[str, GoogleSheetData] = {}
+        self.sheets: dict[str, GoogleSheetData | list[GoogleSheetData]] = {}
         self.list_error: Exception | None = None
 
     def list_files_in_folder(self, folder_id: str) -> list[GoogleDriveFile]:
@@ -34,8 +35,9 @@ class FakeInformationDriver:
             raise self.list_error
         return list(self.files[folder_id])
 
-    def read_spreadsheet_preview(self, spreadsheet_id: str) -> GoogleSheetData:
-        return self.sheets[spreadsheet_id]
+    def read_spreadsheet_previews(self, spreadsheet_id: str) -> list[GoogleSheetData]:
+        sheet = self.sheets[spreadsheet_id]
+        return sheet if isinstance(sheet, list) else [sheet]
 
 
 def _sheet(spreadsheet_id: str, gid: int, rows: list[list[str]]) -> GoogleSheetData:
@@ -180,6 +182,28 @@ def test_parse_contact_letter_reads_subject_beyond_column_z() -> None:
         "https://docs.google.com/spreadsheets/d/"
         "1usLK_UEgirWxi7MWm3cI0D_zsUvgZebzgpfiun_Y02s/edit?gid=0#gid=0"
     )
+
+
+@pytest.mark.parametrize(
+    ("kind", "required_row", "expected_gid"),
+    [
+        ("ecn", ["产品型号", "Flex 8-Channel Pipette"], 22),
+        ("contact", ["主题", "关于Pipette装配方法变更通知"], 23),
+    ],
+)
+def test_select_source_sheet_scans_past_blank_first_tab(
+    kind: str,
+    required_row: list[str],
+    expected_gid: int,
+) -> None:
+    previews = [
+        _sheet("sheet-id", 1, [["说明", "归档页"]]),
+        _sheet("sheet-id", expected_gid, [["编号", "0572"], required_row, ["生效日期", "2026/8/24"]]),
+    ]
+
+    selected = _select_source_sheet(kind, previews)  # type: ignore[arg-type]
+
+    assert selected.sheet_id == expected_gid
 
 
 def test_information_files_sort_by_number_with_latest_first() -> None:
@@ -386,3 +410,20 @@ def test_daily_scheduler_refreshes_both_lists(monkeypatch) -> None:
         asyncio.run(_information_refresh_scheduler())
 
     assert refresh_calls == ["ecn", "contact"]
+
+
+def test_scheduler_retries_failed_google_refresh_after_five_minutes(monkeypatch) -> None:
+    class FailingService:
+        def refresh_all(self):
+            raise GoogleDriverError("proxy is not ready")
+
+    async def stop_after_retry_delay(seconds: int) -> None:
+        assert seconds == 300
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(information_module, "information_service", FailingService())
+    monkeypatch.setattr(information_module, "INFORMATION_REFRESH_SECONDS", 86400)
+    monkeypatch.setattr(information_module.asyncio, "sleep", stop_after_retry_delay)
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(_information_refresh_scheduler())
