@@ -196,6 +196,9 @@ class InformationFilesResponse(BaseModel):
     source_url: str
     files: list[InformationFile] = Field(default_factory=list)
     total: int = 0
+    refreshed_at: datetime | None = None
+    cached: bool = False
+    quality_checked: bool = False
     error: str | None = None
 
 

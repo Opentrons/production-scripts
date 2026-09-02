@@ -98,6 +98,9 @@ export interface InformationFilesResponse {
   source_url: string
   files: InformationFile[]
   total: number
+  refreshed_at?: string | null
+  cached?: boolean
+  quality_checked?: boolean
   error?: string | null
 }
 

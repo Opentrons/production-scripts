@@ -17,7 +17,7 @@
             <FolderOpen :size="17" aria-hidden="true" />
             <span>{{ t('information.openFolder') }}</span>
           </a>
-          <button class="refresh-button" type="button" :disabled="isLoading" @click="loadFiles">
+          <button class="refresh-button" type="button" :disabled="isLoading" @click="loadFiles(true)">
             <RefreshCw :size="17" :class="{ 'is-spinning': isLoading }" aria-hidden="true" />
             <span>{{ t('information.refresh') }}</span>
           </button>
@@ -41,7 +41,7 @@
           <CircleAlert :size="24" aria-hidden="true" />
           <strong>{{ t('information.loadFailed') }}</strong>
           <span>{{ loadError }}</span>
-          <button type="button" @click="loadFiles">{{ t('information.retry') }}</button>
+          <button type="button" @click="loadFiles(true)">{{ t('information.retry') }}</button>
         </div>
         <div v-else-if="!files.length" class="information-state">
           <FileText :size="28" aria-hidden="true" />
@@ -143,12 +143,12 @@ function errorMessage(error: unknown): string {
   return response?.data?.detail || response?.data?.message || (error instanceof Error ? error.message : t('information.loadFailed'))
 }
 
-async function loadFiles(): Promise<void> {
+async function loadFiles(refresh = false): Promise<void> {
   if (isLoading.value) return
   isLoading.value = true
   loadError.value = ''
   try {
-    const response = await informationApi.getFiles(props.kind)
+    const response = await informationApi.getFiles(props.kind, refresh)
     files.value = Array.isArray(response.data.files) ? response.data.files : []
     year.value = response.data.year || year.value
     sourceUrl.value = response.data.source_url || defaultSourceUrls[props.kind]
@@ -162,11 +162,11 @@ async function loadFiles(): Promise<void> {
 watch(() => props.kind, () => {
   files.value = []
   sourceUrl.value = defaultSourceUrls[props.kind]
-  void loadFiles()
+  void loadFiles(false)
 })
 
 onMounted(() => {
-  void loadFiles()
+  void loadFiles(false)
 })
 </script>
 

@@ -835,8 +835,10 @@ export const dataLinksApi = {
 }
 
 export const informationApi = {
-  getFiles: (kind: InformationKind) =>
-    api.get<InformationFilesResponse>(`/information/${kind}`)
+  getFiles: (kind: InformationKind, refresh = false) =>
+    api.get<InformationFilesResponse>(`/information/${kind}`, {
+      params: refresh ? { refresh: true } : undefined
+    })
 }
 
 export const dataAnalysisApi = {

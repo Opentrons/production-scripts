@@ -1,4 +1,11 @@
+from pathlib import Path
+
+from core.config import GOOGLE_TOKEN_PATH, TOKEN_PATH
 from core.google.client import GoogleDriver
+
+
+def test_information_google_client_reuses_upload_account_token() -> None:
+    assert GOOGLE_TOKEN_PATH == Path(TOKEN_PATH)
 
 
 def test_parse_drive_file_id_from_supported_urls() -> None:
@@ -28,8 +35,10 @@ class _FakeSpreadsheets:
     def get(self, **kwargs):
         assert kwargs["ranges"] == ["A1:CC200"]
         assert kwargs["includeGridData"] is True
+        assert "properties(title)" in kwargs["fields"]
         return _FakeRequest(
             {
+                "properties": {"title": "ECN-0571 436-00159 Drawing Update"},
                 "sheets": [
                     {
                         "properties": {
@@ -70,6 +79,7 @@ def test_read_spreadsheet_preview_returns_values_and_gid() -> None:
 
     assert preview.sheet_id == 104681895
     assert preview.title == "ECN"
+    assert preview.document_title == "ECN-0571 436-00159 Drawing Update"
     assert preview.values == [["产品型号", "", "Heater shaker"]]
 
 

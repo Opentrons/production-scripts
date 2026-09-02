@@ -10,7 +10,9 @@ from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qs, urlparse
 
 from google.auth.exceptions import TransportError
+from google.auth.credentials import Credentials as GoogleCredentials
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
@@ -24,6 +26,7 @@ from core.google.proxy_manager import google_proxy_manager
 from core.config import (
     GOOGLE_CREDENTIALS_PATH,
     GOOGLE_INTERACTIVE_AUTH,
+    GOOGLE_SERVICE_ACCOUNT_PATH,
     GOOGLE_TOKEN_PATH,
 )
 
@@ -57,6 +60,7 @@ class GoogleSheetData:
     sheet_id: int
     title: str
     cells: list[list[GoogleSheetCell]] = field(default_factory=list)
+    document_title: str = ""
 
     @property
     def values(self) -> list[list[str]]:
@@ -85,13 +89,17 @@ class GoogleDriver:
         self,
         token_path: Path = GOOGLE_TOKEN_PATH,
         credentials_path: Path = GOOGLE_CREDENTIALS_PATH,
+        service_account_path: Path | None = GOOGLE_SERVICE_ACCOUNT_PATH,
         allow_interactive_auth: bool = GOOGLE_INTERACTIVE_AUTH,
     ) -> None:
         self.token_path = Path(token_path)
         self.credentials_path = Path(credentials_path)
+        self.service_account_path = (
+            Path(service_account_path) if service_account_path is not None else None
+        )
         self.allow_interactive_auth = allow_interactive_auth
         self._lock = threading.RLock()
-        self._credentials: Credentials | None = None
+        self._credentials: GoogleCredentials | None = None
         self._drive_service = None
         self._sheets_service = None
         self._proxy_url: str | None = None
@@ -218,7 +226,7 @@ class GoogleDriver:
                 ranges=[range_name],
                 includeGridData=True,
                 fields=(
-                    "sheets(properties(sheetId,title,index),"
+                    "properties(title),sheets(properties(sheetId,title,index),"
                     "data(rowData(values(formattedValue))))"
                 ),
             )
@@ -245,6 +253,7 @@ class GoogleDriver:
             sheet_id=int(properties.get("sheetId", 0)),
             title=str(properties.get("title") or ""),
             cells=cells,
+            document_title=str(response.get("properties", {}).get("title") or ""),
         )
 
     def list_files_in_folder(
@@ -416,7 +425,13 @@ class GoogleDriver:
                 proxy_url=self._proxy_url,
             )
 
-    def _load_credentials(self, proxy_url: str | None) -> Credentials:
+    def _load_credentials(self, proxy_url: str | None) -> GoogleCredentials:
+        if self.service_account_path is not None and self.service_account_path.exists():
+            return ServiceAccountCredentials.from_service_account_file(
+                str(self.service_account_path),
+                scopes=GOOGLE_SCOPES,
+            )
+
         credentials: Credentials | None = None
         if self.token_path.exists():
             credentials = Credentials.from_authorized_user_file(self.token_path, GOOGLE_SCOPES)
@@ -430,8 +445,8 @@ class GoogleDriver:
 
         if not self.allow_interactive_auth:
             raise GoogleConfigurationError(
-                f"Google token 不存在或无效: {self.token_path}. "
-                "请复制 auth/token.json，或启用 PRODUCTION_PLATFORM_GOOGLE_INTERACTIVE_AUTH。"
+                "Google API 凭据不存在或无效。请配置服务账号 "
+                f"{self.service_account_path}，或 OAuth token {self.token_path}。"
             )
         if not self.credentials_path.exists():
             raise GoogleConfigurationError(f"Google OAuth credentials 不存在: {self.credentials_path}")
