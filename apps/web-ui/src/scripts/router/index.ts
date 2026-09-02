@@ -125,6 +125,20 @@ const routes: RouteRecordRaw[] = [
     meta: productionTestingMeta,
   },
   {
+    path: '/information/ecn',
+    name: 'InformationEcn',
+    component: () => import('@/views/information/InformationView.vue'),
+    props: { kind: 'ecn' },
+    meta: productionTestingMeta,
+  },
+  {
+    path: '/information/contact-letters',
+    name: 'InformationContactLetters',
+    component: () => import('@/views/information/InformationView.vue'),
+    props: { kind: 'contact' },
+    meta: productionTestingMeta,
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/dashboard/SettingsView.vue'),

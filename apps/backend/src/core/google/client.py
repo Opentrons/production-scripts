@@ -4,6 +4,7 @@ import io
 import re
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qs, urlparse
@@ -68,8 +69,11 @@ class GoogleDriveFile:
     name: str
     mime_type: str
     size: int | None = None
+    created_time: str | None = None
     modified_time: str | None = None
     web_view_link: str | None = None
+    description: str | None = None
+    parent_path: str = ""
 
 
 class GoogleDriver:
@@ -160,7 +164,7 @@ class GoogleDriver:
         response = self._execute(
             lambda: self._drive_service.files().get(
                 fileId=file_id,
-                fields="id,name,mimeType,size,modifiedTime,webViewLink",
+                fields="id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description",
                 supportsAllDrives=True,
             )
         )
@@ -170,9 +174,120 @@ class GoogleDriver:
             name=response.get("name", file_id),
             mime_type=response.get("mimeType", "application/octet-stream"),
             size=int(size) if size is not None else None,
+            created_time=response.get("createdTime"),
             modified_time=response.get("modifiedTime"),
             web_view_link=response.get("webViewLink"),
+            description=response.get("description"),
         )
+
+    def read_spreadsheet_values(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "A1:Z100",
+    ) -> list[list[str]]:
+        """Read a bounded range from the first sheet in a spreadsheet."""
+        response = self._execute(
+            lambda: self._sheets_service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                majorDimension="ROWS",
+                valueRenderOption="FORMATTED_VALUE",
+            )
+        )
+        return [
+            [str(value or "") for value in row]
+            for row in response.get("values", [])
+        ]
+
+    def list_files_in_folder(
+        self,
+        folder_id_or_url: str,
+        *,
+        year: int | None = None,
+        recursive: bool = True,
+    ) -> list[GoogleDriveFile]:
+        """List non-folder files below a Drive folder.
+
+        When ``year`` is provided, only files created during that year are
+        returned. Folder traversal itself is never filtered by year.
+        """
+        root_id = self.parse_drive_file_id(folder_id_or_url)
+        if not root_id:
+            raise GoogleDriverError("无法解析 Google Drive 文件夹 ID")
+
+        start = datetime(year, 1, 1, tzinfo=timezone.utc) if year is not None else None
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc) if year is not None else None
+        pending: list[tuple[str, str]] = [(root_id, "")]
+        visited: set[str] = set()
+        file_ids: set[str] = set()
+        files: list[GoogleDriveFile] = []
+
+        while pending:
+            folder_id, parent_path = pending.pop(0)
+            if folder_id in visited:
+                continue
+            visited.add(folder_id)
+            page_token: str | None = None
+            while True:
+                query = f"'{folder_id}' in parents and trashed = false"
+                response = self._execute(
+                    lambda query=query, page_token=page_token: self._drive_service.files().list(
+                        q=query,
+                        pageSize=1000,
+                        pageToken=page_token,
+                        orderBy="createdTime desc",
+                        fields=(
+                            "nextPageToken,files("
+                            "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,parents)"
+                        ),
+                        supportsAllDrives=True,
+                        includeItemsFromAllDrives=True,
+                    )
+                )
+                for item in response.get("files", []):
+                    mime_type = str(item.get("mimeType") or "application/octet-stream")
+                    item_name = str(item.get("name") or item.get("id") or "")
+                    item_path = f"{parent_path} / {item_name}" if parent_path else item_name
+                    if mime_type == "application/vnd.google-apps.folder":
+                        if recursive and item.get("id"):
+                            pending.append((str(item["id"]), item_path))
+                        continue
+                    created_time = item.get("createdTime")
+                    if year is not None:
+                        if not created_time:
+                            continue
+                        try:
+                            created_at = datetime.fromisoformat(str(created_time).replace("Z", "+00:00"))
+                        except ValueError:
+                            continue
+                        if created_at.tzinfo is None:
+                            created_at = created_at.replace(tzinfo=timezone.utc)
+                        if start is None or end is None or not (start <= created_at < end):
+                            continue
+                    item_id = str(item.get("id") or "")
+                    if not item_id or item_id in file_ids:
+                        continue
+                    file_ids.add(item_id)
+                    size = item.get("size")
+                    files.append(
+                        GoogleDriveFile(
+                            id=item_id,
+                            name=item_name,
+                            mime_type=mime_type,
+                            size=int(size) if size is not None else None,
+                            created_time=str(created_time),
+                            modified_time=item.get("modifiedTime"),
+                            web_view_link=item.get("webViewLink"),
+                            description=item.get("description"),
+                            parent_path=parent_path,
+                        )
+                    )
+                page_token = response.get("nextPageToken")
+                if not page_token:
+                    break
+
+        files.sort(key=lambda item: item.created_time or "", reverse=True)
+        return files
 
     def download_file_bytes(
         self,

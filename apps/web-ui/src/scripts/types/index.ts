@@ -81,6 +81,24 @@ export interface CollectionFilterOptionsResponse {
   error?: string
 }
 
+export type InformationKind = 'ecn' | 'contact'
+
+export interface InformationFile {
+  id: string
+  number: string
+  subject: string
+  effective_date?: string | null
+  web_view_link: string
+}
+
+export interface InformationFilesResponse {
+  kind: InformationKind
+  source_url: string
+  files: InformationFile[]
+  total: number
+  error?: string | null
+}
+
 export interface UploadFileInfo {
   path: string
   name: string

@@ -53,6 +53,26 @@
                 </a>
               </div>
             </div>
+            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'engineering-changes' }">
+              <button
+                class="top-link top-dropdown-trigger"
+                type="button"
+                :aria-expanded="openNavigationMenu === 'engineering-changes'"
+                @click.stop="toggleNavigationMenu('engineering-changes')"
+              >
+                <FileText class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.engineeringChanges }}</span>
+                <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+              </button>
+              <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.ecn }}
+                </a>
+                <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.contactLetters }}
+                </a>
+              </div>
+            </div>
             <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
               <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
               <span>{{ copy.nav.productionAgent }}</span>
@@ -312,20 +332,40 @@
                   <a href="/versions?module=ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.ecnCheck }}
                   </a>
-                </div>
               </div>
-              <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
-                <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
-                <span>{{ copy.nav.productionAgent }}</span>
-              </a>
-              <a class="top-link" href="/downloads">
-                <Download class="top-menu-icon" :size="16" aria-hidden="true" />
-                <span>{{ copy.nav.downloads }}</span>
-              </a>
-            </nav>
-            <LocaleSwitcher variant="surface" />
-            <AuthUserMenu />
-          </div>
+            </div>
+            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'engineering-changes' }">
+              <button
+                class="top-link top-dropdown-trigger"
+                type="button"
+                :aria-expanded="openNavigationMenu === 'engineering-changes'"
+                @click.stop="toggleNavigationMenu('engineering-changes')"
+              >
+                <FileText class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.engineeringChanges }}</span>
+                <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
+              </button>
+              <div class="top-dropdown-menu is-right" role="menu" @click.stop>
+                <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.ecn }}
+                </a>
+                <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.contactLetters }}
+                </a>
+              </div>
+            </div>
+            <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
+              <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
+              <span>{{ copy.nav.productionAgent }}</span>
+            </a>
+            <a class="top-link" href="/downloads">
+              <Download class="top-menu-icon" :size="16" aria-hidden="true" />
+              <span>{{ copy.nav.downloads }}</span>
+            </a>
+          </nav>
+          <LocaleSwitcher variant="surface" />
+          <AuthUserMenu />
+        </div>
         </header>
 
         <div class="hero-stage">
@@ -489,6 +529,7 @@ import {
   Download,
   ExternalLink,
   FileArchive,
+  FileText,
   Folder,
   FolderKanban,
   FolderPlus,
@@ -616,7 +657,7 @@ const productionAgentBaseUrl = productionAgentUrl ? withTrailingSlash(production
 const projects = ref<ResourceProject[]>([])
 const expandedProjectIds = ref(new Set<string>())
 const openMenuVersionId = ref('')
-const openNavigationMenu = ref<'' | 'product-tests' | 'version-checks'>('')
+const openNavigationMenu = ref<'' | 'product-tests' | 'version-checks' | 'engineering-changes'>('')
 const isLoading = ref(false)
 const isFormOpen = ref(false)
 const isSubmitting = ref(false)
@@ -660,7 +701,7 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 }
 
-function toggleNavigationMenu(menu: 'product-tests' | 'version-checks'): void {
+function toggleNavigationMenu(menu: 'product-tests' | 'version-checks' | 'engineering-changes'): void {
   openNavigationMenu.value = openNavigationMenu.value === menu ? '' : menu
 }
 
