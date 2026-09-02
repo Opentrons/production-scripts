@@ -137,6 +137,7 @@ class _ShortcutDriveFiles:
                             "shortcutDetails": {
                                 "targetId": "real-sheet",
                                 "targetMimeType": "application/vnd.google-apps.spreadsheet",
+                                "targetResourceKey": "sheet-resource-key",
                             },
                         }
                     ]
@@ -164,3 +165,4 @@ def test_list_files_in_folder_resolves_shortcut_folders_and_sheets() -> None:
     assert files[0].id == "real-sheet"
     assert files[0].shortcut_id == "sheet-shortcut"
     assert files[0].target_mime_type == "application/vnd.google-apps.spreadsheet"
+    assert files[0].target_resource_key == "sheet-resource-key"

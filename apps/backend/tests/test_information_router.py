@@ -9,7 +9,7 @@ def test_parse_contact_letter_fields_from_sheet_values() -> None:
         name="ENG-2026001 联络函",
         mime_type="application/vnd.google-apps.spreadsheet",
         created_time="2026-01-25T08:00:00Z",
-        web_view_link="https://docs.google.com/spreadsheets/d/sheet-id/edit",
+        web_view_link="https://docs.google.com/spreadsheets/d/sheet-id/edit?resourcekey=drive-resource-key",
     )
 
     parsed = _parse_file(
@@ -25,7 +25,9 @@ def test_parse_contact_letter_fields_from_sheet_values() -> None:
     assert parsed.number == "ENG-2026001"
     assert parsed.subject.startswith("关于 HS 基板415-00138")
     assert parsed.effective_date == "2026-01-26"
-    assert parsed.web_view_link == "https://docs.google.com/spreadsheets/d/sheet-id/edit"
+    assert parsed.web_view_link == (
+        "https://docs.google.com/spreadsheets/d/sheet-id/edit?resourcekey=drive-resource-key"
+    )
 
 
 def test_parse_file_uses_filename_and_created_date_as_fallbacks() -> None:
@@ -43,6 +45,23 @@ def test_parse_file_uses_filename_and_created_date_as_fallbacks() -> None:
     assert parsed.subject == "Heater Shaker bracket update"
     assert parsed.effective_date == "2026-03-09"
     assert parsed.web_view_link == "https://docs.google.com/spreadsheets/d/sheet-id/edit"
+
+
+def test_parse_file_keeps_shortcut_target_resource_key() -> None:
+    file = GoogleDriveFile(
+        id="shortcut-target-sheet-id",
+        name="ECN-0571 Drawing Update",
+        mime_type="application/vnd.google-apps.shortcut",
+        target_mime_type="application/vnd.google-apps.spreadsheet",
+        target_resource_key="shortcut-resource-key",
+    )
+
+    parsed = _parse_file("ecn", file, [])
+
+    assert parsed.web_view_link == (
+        "https://docs.google.com/spreadsheets/d/shortcut-target-sheet-id/edit"
+        "?resourcekey=shortcut-resource-key"
+    )
 
 
 def test_information_files_sort_by_number_with_latest_first() -> None:

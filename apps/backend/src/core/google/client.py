@@ -74,8 +74,10 @@ class GoogleDriveFile:
     web_view_link: str | None = None
     description: str | None = None
     parent_path: str = ""
+    resource_key: str | None = None
     shortcut_id: str | None = None
     target_mime_type: str | None = None
+    target_resource_key: str | None = None
 
 
 class GoogleDriver:
@@ -166,7 +168,9 @@ class GoogleDriver:
         response = self._execute(
             lambda: self._drive_service.files().get(
                 fileId=file_id,
-                fields="id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description",
+                fields=(
+                    "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,resourceKey"
+                ),
                 supportsAllDrives=True,
             )
         )
@@ -180,6 +184,7 @@ class GoogleDriver:
             modified_time=response.get("modifiedTime"),
             web_view_link=response.get("webViewLink"),
             description=response.get("description"),
+            resource_key=response.get("resourceKey"),
         )
 
     def read_spreadsheet_values(
@@ -240,8 +245,8 @@ class GoogleDriver:
                         orderBy="createdTime desc",
                         fields=(
                             "nextPageToken,files("
-                            "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,parents,"
-                            "shortcutDetails(targetId,targetMimeType))"
+                            "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,description,parents,resourceKey,"
+                            "shortcutDetails(targetId,targetMimeType,targetResourceKey))"
                         ),
                         supportsAllDrives=True,
                         includeItemsFromAllDrives=True,
@@ -254,6 +259,7 @@ class GoogleDriver:
                     shortcut = item.get("shortcutDetails") or {}
                     target_id = str(shortcut.get("targetId") or item.get("id") or "")
                     target_mime_type = str(shortcut.get("targetMimeType") or "")
+                    target_resource_key = str(shortcut.get("targetResourceKey") or "")
                     if mime_type == "application/vnd.google-apps.folder":
                         if recursive and item.get("id"):
                             pending.append((str(item["id"]), item_path))
@@ -293,8 +299,10 @@ class GoogleDriver:
                             web_view_link=item.get("webViewLink"),
                             description=item.get("description"),
                             parent_path=parent_path,
+                            resource_key=item.get("resourceKey"),
                             shortcut_id=str(item.get("id")) if mime_type == "application/vnd.google-apps.shortcut" else None,
                             target_mime_type=target_mime_type or None,
+                            target_resource_key=target_resource_key or None,
                         )
                     )
                 page_token = response.get("nextPageToken")

@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -137,7 +138,12 @@ def _parse_file(
     file_id = file.id
     is_google_sheet = file.mime_type == GOOGLE_SHEET_MIME_TYPE or file.target_mime_type == GOOGLE_SHEET_MIME_TYPE
     if is_google_sheet:
-        web_view_link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
+        web_view_link = file.web_view_link
+        if not web_view_link:
+            web_view_link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
+            resource_key = file.target_resource_key or file.resource_key
+            if resource_key:
+                web_view_link = f"{web_view_link}?resourcekey={quote(resource_key, safe='')}"
     else:
         web_view_link = file.web_view_link or f"https://drive.google.com/open?id={file_id}"
     return InformationFile(
