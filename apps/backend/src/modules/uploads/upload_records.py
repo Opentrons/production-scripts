@@ -50,9 +50,11 @@ def to_mongo_safe(value: Any) -> Any:
 def get_upload_record_collection():
     if setting.use_sqlite_persistence():
         from core.sqlite_store import get_platform_store
-        from modules.system import simulating_seed
 
-        simulating_seed.ensure_simulating_seed()
+        if setting.use_simulated_device_scan():
+            from modules.system import simulating_seed
+
+            simulating_seed.ensure_simulating_seed()
         return get_platform_store()[setting.DATA_UPLOAD_RECORD_COLLECTION]
     if mongodb.client is None and not mongodb.connect():
         raise RuntimeError("Upload record database connection failed")

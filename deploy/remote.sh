@@ -20,6 +20,16 @@ SSL_CERTIFICATE="${SSL_CERTIFICATE:-/etc/ssl/production-platform/production-plat
 SSL_CERTIFICATE_KEY="${SSL_CERTIFICATE_KEY:-/etc/ssl/production-platform/production-platform.key}"
 DURO_API_KEY_PATH="${DURO_API_KEY_PATH:-$REPOSITORY_ROOT/apps/backend/auth-files/duro-api-key.txt}"
 REMOTE_DURO_API_KEY_PATH="${REMOTE_DURO_API_KEY_PATH:-/configs/duro-api-key.txt}"
+BRIDGE_AUTH_DIR="${BRIDGE_AUTH_DIR:-$REPOSITORY_ROOT/apps/backend/auth-files}"
+BRIDGE_ENV_FILE="${BRIDGE_ENV_FILE:-$BRIDGE_AUTH_DIR/bridgefloods.env}"
+BRIDGE_WHITELIST_PATH="${BRIDGE_WHITELIST_PATH:-$BRIDGE_AUTH_DIR/bridgefloods_whitelist.csv}"
+BRIDGE_GMAIL_TOKEN_PATH="${BRIDGE_GMAIL_TOKEN_PATH:-$BRIDGE_AUTH_DIR/bridge-gmail-token.json}"
+BRIDGE_ALERT_STATE_PATH="${BRIDGE_ALERT_STATE_PATH:-$BRIDGE_AUTH_DIR/bridge-main-balance-alert-state.json}"
+REMOTE_BRIDGE_AUTH_DIR="${REMOTE_BRIDGE_AUTH_DIR:-$REMOTE_ROOT/apps/backend/auth-files}"
+REMOTE_BRIDGE_ENV_FILE="$REMOTE_BRIDGE_AUTH_DIR/bridgefloods.env"
+REMOTE_BRIDGE_WHITELIST_PATH="$REMOTE_BRIDGE_AUTH_DIR/bridgefloods_whitelist.csv"
+REMOTE_BRIDGE_GMAIL_TOKEN_PATH="$REMOTE_BRIDGE_AUTH_DIR/bridge-gmail-token.json"
+REMOTE_BRIDGE_ALERT_STATE_PATH="$REMOTE_BRIDGE_AUTH_DIR/bridge-main-balance-alert-state.json"
 
 for command_name in ssh rsync mktemp npm; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -58,6 +68,12 @@ if [ ! -s "$DURO_API_KEY_PATH" ]; then
     echo "Error: Duro API Key file is missing or empty: $DURO_API_KEY_PATH"
     exit 1
 fi
+for bridge_file in "$BRIDGE_ENV_FILE" "$BRIDGE_WHITELIST_PATH" "$BRIDGE_GMAIL_TOKEN_PATH" "$BRIDGE_ALERT_STATE_PATH"; do
+    if [ ! -s "$bridge_file" ]; then
+        echo "Error: Bridgefloods auth file is missing or empty: $bridge_file"
+        exit 1
+    fi
+done
 if [[ ! "$REMOTE_DURO_API_KEY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
     echo "Error: REMOTE_DURO_API_KEY_PATH must be an absolute path without spaces"
     exit 1
@@ -65,6 +81,16 @@ fi
 case "$REMOTE_DURO_API_KEY_PATH" in
     /|*/../*|*/..|*//*|*/)
         echo "Error: REMOTE_DURO_API_KEY_PATH must identify a file"
+        exit 1
+        ;;
+esac
+if [[ ! "$REMOTE_BRIDGE_AUTH_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
+    echo "Error: REMOTE_BRIDGE_AUTH_DIR must be an absolute path without spaces"
+    exit 1
+fi
+case "$REMOTE_BRIDGE_AUTH_DIR" in
+    /|*/../*|*/..|*//*|*/)
+        echo "Error: REMOTE_BRIDGE_AUTH_DIR must identify a dedicated directory"
         exit 1
         ;;
 esac
@@ -101,6 +127,24 @@ rsync -az -e "$RSYNC_SSH" \
     "$REMOTE_TARGET:$remote_duro_key_temp"
 ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
     "chown root:root '$remote_duro_key_temp' && chmod 600 '$remote_duro_key_temp' && mv -f '$remote_duro_key_temp' '$REMOTE_DURO_API_KEY_PATH'"
+
+echo "Installing Bridgefloods auth files..."
+ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+    "install -d -o root -g root -m 700 '$REMOTE_BRIDGE_AUTH_DIR'"
+
+install_remote_secret() {
+    local source_file="$1"
+    local remote_file="$2"
+    local remote_temp="${remote_file}.deploying"
+    rsync -az -e "$RSYNC_SSH" "$source_file" "$REMOTE_TARGET:$remote_temp"
+    ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+        "chown root:root '$remote_temp' && chmod 600 '$remote_temp' && mv -f '$remote_temp' '$remote_file'"
+}
+
+install_remote_secret "$BRIDGE_ENV_FILE" "$REMOTE_BRIDGE_ENV_FILE"
+install_remote_secret "$BRIDGE_WHITELIST_PATH" "$REMOTE_BRIDGE_WHITELIST_PATH"
+install_remote_secret "$BRIDGE_GMAIL_TOKEN_PATH" "$REMOTE_BRIDGE_GMAIL_TOKEN_PATH"
+install_remote_secret "$BRIDGE_ALERT_STATE_PATH" "$REMOTE_BRIDGE_ALERT_STATE_PATH"
 
 echo "Syncing backend code..."
 rsync -az --delete \
@@ -144,7 +188,9 @@ echo "Restarting the remote backend and reloading Nginx..."
 ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" bash -s -- \
     "$REMOTE_ROOT" "$REMOTE_UV_BIN" "$API_PORT" "$WEB_HTTP_PORT" "$WEB_HTTPS_PORT" \
     "$DATA_CENTER_HTTP_PORT" "$DATA_CENTER_ALLOWED_CIDRS" \
-    "$SERVER_NAME" "$SSL_CERTIFICATE" "$SSL_CERTIFICATE_KEY" <<'REMOTE_SCRIPT'
+    "$SERVER_NAME" "$SSL_CERTIFICATE" "$SSL_CERTIFICATE_KEY" \
+    "$REMOTE_BRIDGE_AUTH_DIR" "$REMOTE_BRIDGE_ENV_FILE" \
+    "$REMOTE_BRIDGE_WHITELIST_PATH" "$REMOTE_BRIDGE_GMAIL_TOKEN_PATH" <<'REMOTE_SCRIPT'
 set -euo pipefail
 
 remote_root="$1"
@@ -157,9 +203,20 @@ data_center_allowed_cidrs="$7"
 server_name="$8"
 ssl_certificate="$9"
 ssl_certificate_key="${10}"
+bridge_auth_dir="${11}"
+bridge_env_file="${12}"
+bridge_whitelist_path="${13}"
+bridge_gmail_token_path="${14}"
 
 cd "$remote_root"
-UV_BIN="$uv_bin" API_PORT="$api_port" bash deploy/backend.sh
+UV_BIN="$uv_bin" \
+API_PORT="$api_port" \
+BRIDGE_AUTH_DIR="$bridge_auth_dir" \
+BRIDGE_ENV_FILE="$bridge_env_file" \
+BRIDGE_WHITELIST_PATH="$bridge_whitelist_path" \
+BRIDGE_GMAIL_TOKEN_PATH="$bridge_gmail_token_path" \
+BRIDGE_AUTOMATION_ENABLED=false \
+bash deploy/backend.sh
 API_PORT="$api_port" \
 WEB_HTTP_PORT="$web_http_port" \
 WEB_HTTPS_PORT="$web_https_port" \

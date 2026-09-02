@@ -14,6 +14,7 @@ def test_simulating_mode_switches_active_db_dir(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setattr(setting, "DB_BUSINESS_DIR", db_root / "business")
     monkeypatch.setattr(setting, "DB_SIMULATING_DIR", db_root / "simulating")
     runtime_mode._SIMULATING = None
+    runtime_mode.set_sqlite_fallback(False)
 
     assert runtime_mode.is_simulating() is False
     assert setting.get_active_db_dir() == db_root / "business"
@@ -25,6 +26,31 @@ def test_simulating_mode_switches_active_db_dir(tmp_path: Path, monkeypatch) -> 
 
     runtime_mode.set_simulating(False)
     assert setting.use_sqlite_persistence() is False
+
+
+def test_dev_fallback_uses_business_sqlite_without_simulating(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_root = tmp_path / "db"
+    monkeypatch.setattr(setting, "DB_ROOT", db_root)
+    monkeypatch.setattr(setting, "DB_BUSINESS_DIR", db_root / "business")
+    monkeypatch.setattr(setting, "DB_SIMULATING_DIR", db_root / "simulating")
+    monkeypatch.setattr(setting, "DEVICE_SCAN_MODE", "real")
+    runtime_mode._SIMULATING = False
+    runtime_mode.set_sqlite_fallback(True, reason="MongoDB unavailable in test")
+
+    try:
+        status = runtime_mode.get_simulating_status()
+        assert setting.use_sqlite_persistence() is True
+        assert setting.get_active_db_dir() == db_root / "business"
+        assert setting.use_simulated_device_scan() is False
+        assert status["simulating"] is False
+        assert status["persistence"] == "sqlite"
+        assert status["sqlite_fallback"] is True
+        assert status["sqlite_fallback_reason"] == "MongoDB unavailable in test"
+    finally:
+        runtime_mode.set_sqlite_fallback(False)
 
 
 def test_sqlite_platform_store_round_trip(tmp_path: Path, monkeypatch) -> None:

@@ -1651,6 +1651,30 @@ h3 {
   opacity: 0.58;
 }
 
+@media (max-width: 1120px) {
+  .dashboard-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .top-links {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .top-link {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 980px) {
   .hero {
     min-height: 70vh;
@@ -1729,6 +1753,11 @@ h3 {
 
   .top-dropdown-menu {
     width: min(228px, calc(100vw - 36px));
+  }
+
+  .top-dropdown-menu.is-right {
+    right: auto;
+    left: 0;
   }
 
   .hero {

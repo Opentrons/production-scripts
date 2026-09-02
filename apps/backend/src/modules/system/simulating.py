@@ -16,6 +16,11 @@ def get_status() -> dict:
 
 def set_enabled(enabled: bool) -> dict:
     runtime_mode.set_simulating(enabled)
+    from modules.supplies.runtime import configure_supplementary_material_repository
+    from modules.workflows.runtime import configure_workflow_repository
+
+    configure_supplementary_material_repository()
+    configure_workflow_repository()
     if enabled:
         seed_result = simulating_seed.ensure_simulating_seed()
     else:

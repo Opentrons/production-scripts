@@ -100,6 +100,13 @@ class WorkflowService:
         self._initialized = False
         self._initialize_lock = threading.Lock()
 
+    def set_repository(self, repository: Any) -> None:
+        """Switch storage before initialization or after a runtime mode change."""
+
+        with self._initialize_lock:
+            self.repository = repository
+            self._initialized = False
+
     def initialize(self) -> None:
         with self._initialize_lock:
             if self._initialized:

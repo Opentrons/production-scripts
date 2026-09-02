@@ -33,6 +33,29 @@ def _load_local_env() -> None:
 
 _load_local_env()
 
+
+def _load_bridge_env() -> None:
+    """Optionally reuse the existing Bridgefloods automation env file."""
+
+    configured_path = os.getenv("PRODUCTION_PLATFORM_BRIDGE_ENV_FILE", "").strip()
+    if not configured_path:
+        return
+    env_path = Path(configured_path).expanduser()
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
+_load_bridge_env()
+
 APP_VERSION_PATH = Path(
     os.getenv("PRODUCTION_PLATFORM_APP_VERSION_PATH", APPS_ROOT / "version.json")
 )
@@ -72,10 +95,10 @@ def resolve_sqlite_path(filename: str, *, env_var: str | None = None) -> Path:
 
 
 def use_sqlite_persistence() -> bool:
-    """Whether Mongo-backed features should use local sqlite instead."""
-    from core.runtime_mode import is_simulating
+    """Whether business documents should use local SQLite in this process."""
+    from core.runtime_mode import is_simulating, is_sqlite_fallback
 
-    return is_simulating()
+    return is_simulating() or is_sqlite_fallback()
 
 
 RUN_ENV = os.getenv("PRODUCTION_PLATFORM_RUN_ENV", "dev" if IS_WINDOWS or IS_MAC else "server").lower()
@@ -116,7 +139,9 @@ def use_simulated_device_scan() -> bool:
     test data and the admin toggle keep their previous behavior. New setups
     should use DEVICE_SCAN_MODE explicitly when they need simulated devices.
     """
-    return DEVICE_SCAN_MODE == "simulated" or use_sqlite_persistence()
+    from core.runtime_mode import is_simulating
+
+    return DEVICE_SCAN_MODE == "simulated" or is_simulating()
 
 AUTH_JWT_SECRET = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_SECRET", "").strip()
 AUTH_JWT_ISSUER = os.getenv("PRODUCTION_PLATFORM_AUTH_JWT_ISSUER", "production-platform")
@@ -208,6 +233,10 @@ MONGO_HOST = os.getenv(
     "127.0.0.1" if IS_DEV_ENV else API_HOST,
 )
 MONGO_URI = os.getenv("PRODUCTION_PLATFORM_MONGO_URI", "")
+DEV_SQLITE_FALLBACK_ENABLED = os.getenv(
+    "PRODUCTION_PLATFORM_DEV_SQLITE_FALLBACK_ENABLED",
+    "true",
+).strip().lower() in {"1", "true", "yes", "on"}
 
 # google driver
 TOKEN_PATH = os.path.join(GOOGLE_AUTH_DIR, "token.json") 
@@ -218,7 +247,10 @@ ENVIRONMENT = "production"  # debug or production
 # database
 DATA_DB_NAME = "ProductionsData2026"  # 数据库名称
 EXPIRE_DAYS = 10  # 数据过期时间，默认1天过期
-MESSAGE_COLLECTION = "ProductionsMessage"
+MESSAGE_COLLECTION = (
+    os.getenv("PRODUCTION_PLATFORM_MESSAGE_DATABASE", "ProductionsMessage").strip()
+    or "ProductionsMessage"
+)
 DATA_UPLOAD_STATUS_COLLECTION = "data_upload_status"
 DATA_UPLOAD_RECORD_COLLECTION = "data_upload_records"
 PRODUCT_MANAGEMENT_COLLECTION = "product_management"
@@ -340,6 +372,133 @@ DURO_PRODUCT_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_DURO_PRODUCT_CAC
 DURO_CACHE_PATH = Path(
     os.getenv("PRODUCTION_PLATFORM_DURO_CACHE_PATH", DB_BUSINESS_DIR / "duro_cache.sqlite3")
 )
+
+# Bridgefloods GPT token monitoring and allocation.
+BRIDGEFLOODS_BASE_URL = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_BASE_URL",
+    os.getenv("BRIDGEFLOODS_BASE_URL", "https://api.bridgefloods.com/api/v1"),
+).rstrip("/")
+BRIDGEFLOODS_ACCESS_TOKEN = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_ACCESS_TOKEN",
+    os.getenv("BRIDGEFLOODS_ACCESS_TOKEN", ""),
+).strip()
+BRIDGEFLOODS_REFRESH_TOKEN = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_REFRESH_TOKEN",
+    os.getenv("BRIDGEFLOODS_REFRESH_TOKEN", ""),
+).strip()
+BRIDGEFLOODS_WHITELIST_PATH = Path(
+    os.getenv(
+        "PRODUCTION_PLATFORM_BRIDGE_WHITELIST_PATH",
+        os.getenv(
+            "BRIDGEFLOODS_WHITELIST_PATH",
+            API_ROOT / "configs" / "bridgefloods_whitelist.csv",
+        ),
+    )
+).expanduser()
+BRIDGEFLOODS_TIMEZONE = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_TIMEZONE",
+    os.getenv("TIMEZONE", "Asia/Shanghai"),
+).strip() or "Asia/Shanghai"
+BRIDGEFLOODS_PAGE_SIZE = max(
+    1,
+    int(os.getenv("PRODUCTION_PLATFORM_BRIDGE_PAGE_SIZE", "100")),
+)
+BRIDGEFLOODS_REQUEST_TIMEOUT_SECONDS = max(
+    1.0,
+    float(os.getenv("PRODUCTION_PLATFORM_BRIDGE_TIMEOUT_SECONDS", "30")),
+)
+BRIDGEFLOODS_QUOTA_THRESHOLD = float(
+    os.getenv("PRODUCTION_PLATFORM_BRIDGE_QUOTA_THRESHOLD", os.getenv("QUOTA_THRESHOLD", "50"))
+)
+BRIDGEFLOODS_QUOTA_INCREMENT = float(
+    os.getenv("PRODUCTION_PLATFORM_BRIDGE_QUOTA_INCREMENT", os.getenv("QUOTA_INCREMENT", "100"))
+)
+BRIDGEFLOODS_MAIN_BALANCE_ALERT_THRESHOLD = float(
+    os.getenv(
+        "PRODUCTION_PLATFORM_BRIDGE_MAIN_BALANCE_THRESHOLD",
+        os.getenv("MAIN_BALANCE_ALERT_THRESHOLD", "50"),
+    )
+)
+BRIDGEFLOODS_WEEKLY_TOKEN_BUDGET = float(
+    os.getenv(
+        "PRODUCTION_PLATFORM_BRIDGE_WEEKLY_BUDGET",
+        os.getenv("WEEKLY_TOKEN_BUDGET", "2000"),
+    )
+)
+BRIDGEFLOODS_ALLOCATION_LOOKBACK_DAYS = max(
+    1,
+    int(
+        os.getenv(
+            "PRODUCTION_PLATFORM_BRIDGE_LOOKBACK_DAYS",
+            os.getenv("ALLOCATION_LOOKBACK_DAYS", "14"),
+        )
+    ),
+)
+BRIDGEFLOODS_MIN_WEEKLY_ALLOCATION = float(
+    os.getenv(
+        "PRODUCTION_PLATFORM_BRIDGE_MIN_WEEKLY_ALLOCATION",
+        os.getenv("MIN_WEEKLY_ALLOCATION", "50"),
+    )
+)
+BRIDGEFLOODS_MIN_REBALANCE_REMAINING = float(
+    os.getenv(
+        "PRODUCTION_PLATFORM_BRIDGE_MIN_REBALANCE_REMAINING",
+        os.getenv("MIN_REBALANCE_REMAINING", "20"),
+    )
+)
+BRIDGEFLOODS_REMINDER_SUBJECT = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_REMINDER_SUBJECT",
+    os.getenv("REMINDER_SUBJECT", "Bridgefloods API token 使用提醒"),
+)
+BRIDGEFLOODS_ADMIN_EMAIL = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_ADMIN_EMAIL",
+    os.getenv("ADMIN_EMAIL", ""),
+).strip()
+BRIDGEFLOODS_AUTOMATION_ENABLED = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_AUTOMATION_ENABLED",
+    "false",
+).strip().lower() in {"1", "true", "yes", "on"}
+BRIDGEFLOODS_SCHEDULER_POLL_SECONDS = max(
+    5.0,
+    float(os.getenv("PRODUCTION_PLATFORM_BRIDGE_SCHEDULER_POLL_SECONDS", "30")),
+)
+BRIDGEFLOODS_EMAIL_PROVIDER = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_EMAIL_PROVIDER",
+    os.getenv("EMAIL_PROVIDER", "gmail"),
+).strip().lower()
+BRIDGEFLOODS_EMAIL_FROM = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_EMAIL_FROM",
+    os.getenv("SMTP_FROM", ""),
+).strip()
+BRIDGEFLOODS_GMAIL_TOKEN_PATH = Path(
+    os.getenv(
+        "PRODUCTION_PLATFORM_BRIDGE_GMAIL_TOKEN_PATH",
+        os.getenv("GMAIL_TOKEN_PATH", Path(GOOGLE_AUTH_DIR) / "bridge-gmail-token.json"),
+    )
+).expanduser()
+BRIDGEFLOODS_SMTP_HOST = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_SMTP_HOST",
+    os.getenv("SMTP_HOST", ""),
+).strip()
+BRIDGEFLOODS_SMTP_PORT = int(
+    os.getenv("PRODUCTION_PLATFORM_BRIDGE_SMTP_PORT", os.getenv("SMTP_PORT", "587"))
+)
+BRIDGEFLOODS_SMTP_USERNAME = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_SMTP_USERNAME",
+    os.getenv("SMTP_USER", ""),
+)
+BRIDGEFLOODS_SMTP_PASSWORD = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_SMTP_PASSWORD",
+    os.getenv("SMTP_PASSWORD", ""),
+)
+BRIDGEFLOODS_SMTP_USE_SSL = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_SMTP_SSL",
+    os.getenv("SMTP_SSL", "false"),
+).strip().lower() in {"1", "true", "yes", "on"}
+BRIDGEFLOODS_SMTP_STARTTLS = os.getenv(
+    "PRODUCTION_PLATFORM_BRIDGE_SMTP_STARTTLS",
+    os.getenv("SMTP_STARTTLS", "true"),
+).strip().lower() in {"1", "true", "yes", "on"}
 
 # Robot 设备配置
 ROBOT_HEALTH_PORT = 31950

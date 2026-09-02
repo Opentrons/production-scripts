@@ -1008,6 +1008,8 @@ export const settingsApi = {
 export interface SimulatingStatusResponse {
   simulating: boolean
   persistence: string
+  sqlite_fallback?: boolean
+  sqlite_fallback_reason?: string
   auth_persistence?: string
   device_scan_mode?: string
   db_root: string

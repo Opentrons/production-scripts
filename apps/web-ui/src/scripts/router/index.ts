@@ -47,6 +47,12 @@ const routes: RouteRecordRaw[] = [
     meta: { standalone: true, titleKey: 'titles.agent', favicon: AGENT_FAVICON },
   },
   {
+    path: '/tools/bridge-gpt-token',
+    name: 'BridgeGptToken',
+    component: () => import('@/views/tools/BridgeGptTokenView.vue'),
+    meta: { standalone: true, titleKey: 'titles.bridgeGptToken', favicon: DEFAULT_FAVICON },
+  },
+  {
     path: '/home',
     name: 'Home',
     component: () => import('@/views/dashboard/HomeView.vue'),
