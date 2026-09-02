@@ -98,7 +98,7 @@ export default {
   information: {
     backHome: 'Back to homepage',
     eyebrow: 'Engineering changes',
-    listTitle: 'Change records',
+    listTitle: 'Change records from {year}',
     listDescription: 'Open a record to view the original Google Sheet.',
     recordCount: '{count} records',
     openFolder: 'Open Drive folder',

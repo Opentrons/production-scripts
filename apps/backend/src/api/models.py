@@ -191,6 +191,7 @@ class InformationFile(BaseModel):
 
 class InformationFilesResponse(BaseModel):
     kind: Literal["ecn", "contact"]
+    year: int
     source_url: str
     files: list[InformationFile] = Field(default_factory=list)
     total: int = 0

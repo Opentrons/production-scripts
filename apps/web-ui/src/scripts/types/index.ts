@@ -93,6 +93,7 @@ export interface InformationFile {
 
 export interface InformationFilesResponse {
   kind: InformationKind
+  year: number
   source_url: string
   files: InformationFile[]
   total: number

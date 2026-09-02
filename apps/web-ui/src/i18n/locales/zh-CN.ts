@@ -98,7 +98,7 @@ export default {
   information: {
     backHome: '返回主页',
     eyebrow: '工程变更',
-    listTitle: '变更信息列表',
+    listTitle: '{year} 年变更信息列表',
     listDescription: '点击任意记录直接打开对应的 Google Sheet。',
     recordCount: '共 {count} 条',
     openFolder: '打开 Drive 文件夹',

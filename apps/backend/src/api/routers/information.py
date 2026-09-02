@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -33,6 +34,10 @@ NUMBER_PATTERN = re.compile(
     r"(?<![A-Za-z0-9])(?:ENG|ECN)[\s\-_－—]*\d{3,}(?:[\-_－—]\d+)*",
     re.IGNORECASE,
 )
+NUMBER_PATTERNS: dict[str, re.Pattern[str]] = {
+    "ecn": re.compile(r"(?<![A-Za-z0-9])ECN[\s\-_－—]*\d{3,}(?:[\-_－—]\d+)*", re.IGNORECASE),
+    "contact": re.compile(r"(?<![A-Za-z0-9])ENG[\s\-_－—]*\d{3,}(?:[\-_－—]\d+)*", re.IGNORECASE),
+}
 DATE_PATTERN = re.compile(r"(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})\s*日?")
 US_DATE_PATTERN = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(20\d{2})(?!\d)")
 NUMBER_LABELS = ("编号", "ECN编号", "联络函编号", "工程变更编号")
@@ -74,12 +79,14 @@ def _labeled_value(rows: list[list[str]], labels: tuple[str, ...]) -> str:
     return ""
 
 
-def _normalize_number(raw_value: str, kind: FolderKind) -> str:
-    match = NUMBER_PATTERN.search(raw_value)
+def _normalize_number(raw_value: str, kind: FolderKind, *, allow_bare: bool = False) -> str:
+    match = NUMBER_PATTERNS[kind].search(raw_value)
     if match:
         value = match.group(0).upper()
         value = re.sub(r"[\s_－—-]+", "-", value)
         return value.strip("-")
+    if not allow_bare:
+        return ""
     digits = re.search(r"(?<!\d)\d{3,}(?:[-_－—]\d+)*(?!\d)", raw_value)
     if not digits:
         return ""
@@ -108,7 +115,7 @@ def _parse_file(
 ) -> InformationFile:
     flattened = "\n".join(_clean_cell(cell) for row in sheet_values for cell in row if _clean_cell(cell))
     labeled_number = _labeled_value(sheet_values, NUMBER_LABELS)
-    number = _normalize_number(labeled_number, kind)
+    number = _normalize_number(labeled_number, kind, allow_bare=True)
     if not number:
         number = _normalize_number(f"{file.name}\n{flattened}", kind)
 
@@ -124,8 +131,8 @@ def _parse_file(
 
     raw_date = _labeled_value(sheet_values, DATE_LABELS)
     effective_date = _normalize_date(raw_date) if raw_date else ""
-    if not effective_date and file.created_time:
-        effective_date = str(file.created_time)[:10]
+    if not effective_date:
+        effective_date = str(file.modified_time or file.created_time or "")[:10]
 
     file_id = file.id
     is_google_sheet = file.mime_type == GOOGLE_SHEET_MIME_TYPE or file.target_mime_type == GOOGLE_SHEET_MIME_TYPE
@@ -147,21 +154,35 @@ def _number_sort_key(file: InformationFile) -> tuple[tuple[int, ...], str, str]:
     return number_parts, file.effective_date or "", file.number
 
 
-def _list_information(kind: FolderKind) -> InformationFilesResponse:
+def _belongs_to_year(file: GoogleDriveFile, year: int) -> bool:
+    for segment in file.parent_path.split(" / "):
+        if re.match(rf"^{year}(?:\D|$)", segment.strip()):
+            return True
+    fallback_date = str(file.modified_time or file.created_time or "")
+    return fallback_date.startswith(f"{year}-")
+
+
+def _list_information(kind: FolderKind, year: int | None = None) -> InformationFilesResponse:
     folder_id, source_url = FOLDERS[kind]
+    selected_year = year or datetime.now(timezone.utc).year
     files = google_driver.list_files_in_folder(folder_id)
     serialized: list[InformationFile] = []
     for file in files:
+        if not _belongs_to_year(file, selected_year):
+            continue
         if file.mime_type == "application/vnd.google-apps.folder":
             continue
         try:
             sheet_values = google_driver.read_spreadsheet_values(file.id)
         except GoogleDriverError:
             sheet_values = []
-        serialized.append(_parse_file(kind, file, sheet_values))
+        parsed = _parse_file(kind, file, sheet_values)
+        if parsed.number != "-":
+            serialized.append(parsed)
     serialized.sort(key=_number_sort_key, reverse=True)
     return InformationFilesResponse(
         kind=kind,
+        year=selected_year,
         source_url=source_url,
         files=serialized,
         total=len(serialized),

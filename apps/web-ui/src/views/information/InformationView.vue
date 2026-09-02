@@ -27,7 +27,7 @@
       <section class="records-section" :aria-labelledby="`${props.kind}-records-title`">
         <header class="records-heading">
           <div>
-            <h2 :id="`${props.kind}-records-title`">{{ t('information.listTitle') }}</h2>
+            <h2 :id="`${props.kind}-records-title`">{{ t('information.listTitle', { year }) }}</h2>
             <p>{{ t('information.listDescription') }}</p>
           </div>
           <span class="record-count">{{ t('information.recordCount', { count: files.length }) }}</span>
@@ -106,6 +106,7 @@ const { locale } = useAppLocale()
 
 const files = ref<InformationFile[]>([])
 const sourceUrl = ref('')
+const year = ref(new Date().getFullYear())
 const isLoading = ref(false)
 const loadError = ref('')
 const defaultSourceUrls: Record<InformationKind, string> = {
@@ -143,6 +144,7 @@ async function loadFiles(): Promise<void> {
   try {
     const response = await informationApi.getFiles(props.kind)
     files.value = Array.isArray(response.data.files) ? response.data.files : []
+    year.value = response.data.year || year.value
     sourceUrl.value = response.data.source_url || defaultSourceUrls[props.kind]
   } catch (error) {
     loadError.value = errorMessage(error)
