@@ -29,6 +29,7 @@ class FakeInformationDriver:
         }
         self.sheets: dict[str, GoogleSheetData | list[GoogleSheetData]] = {}
         self.list_error: Exception | None = None
+        self.preview_calls: list[str] = []
 
     def list_files_in_folder(self, folder_id: str) -> list[GoogleDriveFile]:
         if self.list_error is not None:
@@ -36,6 +37,7 @@ class FakeInformationDriver:
         return list(self.files[folder_id])
 
     def read_spreadsheet_previews(self, spreadsheet_id: str) -> list[GoogleSheetData]:
+        self.preview_calls.append(spreadsheet_id)
         sheet = self.sheets[spreadsheet_id]
         return sheet if isinstance(sheet, list) else [sheet]
 
@@ -305,6 +307,18 @@ def test_service_reads_and_qa_checks_every_source_record(tmp_path) -> None:
     assert _quality_issues(contacts) == []
     assert ecn.quality_checked is True
     assert contacts.quality_checked is True
+    assert driver.preview_calls == [
+        "ecn-sheet-571",
+        "ecn-sheet-572",
+        "contact-sheet-13",
+        "contact-sheet-14",
+    ]
+
+    driver.preview_calls.clear()
+    driver.sheets.clear()
+    assert service.get_files("ecn", refresh=True).total == 2
+    assert service.get_files("contact", refresh=True).total == 2
+    assert driver.preview_calls == []
 
 
 def test_quality_gate_rejects_missing_subject_product_model_and_wrong_links() -> None:
@@ -365,8 +379,10 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
     service = InformationService(driver, cache_path=cache_path)  # type: ignore[arg-type]
 
     assert service.get_files("contact", refresh=True).total == 1
+    assert driver.preview_calls == ["contact-sheet-13"]
 
-    driver.files[folder_id].append(second)
+    driver.sheets.pop("contact-sheet-13")
+    driver.files[folder_id] = [second]
     driver.sheets["contact-sheet-14"] = _sheet(
         "contact-sheet-14",
         14,
@@ -376,6 +392,17 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
 
     assert refreshed.total == 2
     assert [item.number for item in refreshed.files] == ["ENG-2026014", "ENG-2026013"]
+    assert driver.preview_calls == ["contact-sheet-13", "contact-sheet-14"]
+
+    restarted_driver = FakeInformationDriver()
+    restarted_driver.files[folder_id] = [second]
+    restarted = InformationService(
+        restarted_driver,  # type: ignore[arg-type]
+        cache_path=cache_path,
+    )
+    persisted = restarted.get_files("contact", refresh=True)
+    assert persisted.total == 2
+    assert restarted_driver.preview_calls == []
 
     failing_driver = FakeInformationDriver()
     failing_driver.list_error = GoogleDriverError("Drive unavailable")

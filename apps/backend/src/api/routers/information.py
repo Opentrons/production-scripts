@@ -325,16 +325,25 @@ def _list_information(
     kind: FolderKind,
     year: int | None = None,
     driver: GoogleDriver | None = None,
+    previous: InformationFilesResponse | None = None,
 ) -> InformationFilesResponse:
     folder_id, source_url = FOLDERS[kind]
     selected_year = year or datetime.now(ZoneInfo("Asia/Shanghai")).year
     active_driver = driver or google_driver
+    previous_by_id = (
+        {file.id: file for file in previous.files}
+        if previous is not None and previous.kind == kind and previous.year == selected_year
+        else {}
+    )
     files = active_driver.list_files_in_folder(folder_id)
-    serialized: list[InformationFile] = []
+    serialized = list(previous_by_id.values())
     for file in files:
         if not _belongs_to_year(file, selected_year):
             continue
         if not _is_google_sheet(file):
+            continue
+        existing = previous_by_id.get(file.id)
+        if existing is not None:
             continue
         try:
             sheet_previews = active_driver.read_spreadsheet_previews(file.id)
@@ -402,7 +411,11 @@ class InformationService:
         try:
             refreshed_at = datetime.now(timezone.utc)
             with self._driver_lock:
-                live_response = _list_information(kind, driver=self.driver)
+                live_response = _list_information(
+                    kind,
+                    driver=self.driver,
+                    previous=cached,
+                )
             response = live_response.model_copy(
                 update={
                     "refreshed_at": refreshed_at,
