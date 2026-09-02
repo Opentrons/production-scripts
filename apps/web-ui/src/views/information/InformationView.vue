@@ -49,9 +49,10 @@
           <span>{{ t('information.emptyDescription') }}</span>
         </div>
         <div v-else class="records-table" role="table" :aria-label="pageTitle">
-          <div class="records-table-header" role="row">
+          <div class="records-table-header" :class="{ 'has-product-model': props.kind === 'ecn' }" role="row">
             <span role="columnheader">{{ t('information.columns.number') }}</span>
             <span role="columnheader">{{ t('information.columns.subject') }}</span>
+            <span v-if="props.kind === 'ecn'" role="columnheader">{{ t('information.columns.productModel') }}</span>
             <span role="columnheader">{{ dateColumnLabel }}</span>
             <span aria-hidden="true"></span>
           </div>
@@ -59,6 +60,7 @@
             v-for="file in files"
             :key="file.id"
             class="record-row"
+            :class="{ 'has-product-model': props.kind === 'ecn' }"
             :href="file.web_view_link"
             target="_blank"
             rel="noopener noreferrer"
@@ -72,6 +74,10 @@
             <span class="record-subject" role="cell">
               <span class="mobile-label">{{ t('information.columns.subject') }}</span>
               <strong>{{ file.subject }}</strong>
+            </span>
+            <span v-if="props.kind === 'ecn'" class="record-product-model" role="cell">
+              <span class="mobile-label">{{ t('information.columns.productModel') }}</span>
+              <strong>{{ file.product_model || t('information.notAvailable') }}</strong>
             </span>
             <span class="record-date" role="cell">
               <span class="mobile-label">{{ dateColumnLabel }}</span>
@@ -318,6 +324,16 @@ onMounted(() => {
   gap: 18px;
 }
 
+.records-table-header.has-product-model,
+.record-row.has-product-model {
+  grid-template-columns:
+    minmax(120px, 0.8fr)
+    minmax(260px, 2.5fr)
+    minmax(150px, 1.15fr)
+    minmax(125px, 0.8fr)
+    24px;
+}
+
 .records-table-header {
   min-height: 42px;
   padding: 0 20px;
@@ -371,6 +387,18 @@ onMounted(() => {
   color: #526168;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+.record-product-model {
+  min-width: 0;
+  color: #34484d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.record-product-model strong {
+  overflow-wrap: anywhere;
+  font-weight: 700;
 }
 
 .record-open {
@@ -475,6 +503,7 @@ onMounted(() => {
 
   .record-number,
   .record-subject,
+  .record-product-model,
   .record-date {
     display: grid;
     grid-column: 1;
@@ -485,6 +514,10 @@ onMounted(() => {
   .record-open {
     grid-column: 2;
     grid-row: 1 / span 3;
+  }
+
+  .record-row.has-product-model .record-open {
+    grid-row: 1 / span 4;
   }
 
   .mobile-label {

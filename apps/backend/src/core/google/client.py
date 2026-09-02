@@ -190,7 +190,7 @@ class GoogleDriver:
     def read_spreadsheet_values(
         self,
         spreadsheet_id: str,
-        range_name: str = "A1:Z100",
+        range_name: str = "A1:CC200",
     ) -> list[list[str]]:
         """Read a bounded range from the first sheet in a spreadsheet."""
         response = self._execute(
@@ -205,6 +205,47 @@ class GoogleDriver:
             [str(value or "") for value in row]
             for row in response.get("values", [])
         ]
+
+    def read_spreadsheet_preview(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "A1:CC200",
+    ) -> GoogleSheetData:
+        """Read display values and the first sheet gid in one API request."""
+        response = self._execute(
+            lambda: self._sheets_service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id,
+                ranges=[range_name],
+                includeGridData=True,
+                fields=(
+                    "sheets(properties(sheetId,title,index),"
+                    "data(rowData(values(formattedValue))))"
+                ),
+            )
+        )
+        sheets = response.get("sheets", [])
+        if not sheets:
+            raise GoogleDriverError(f"Google Sheet 不包含工作表: {spreadsheet_id}")
+        selected = min(
+            sheets,
+            key=lambda sheet: int(sheet.get("properties", {}).get("index", 0)),
+        )
+        properties = selected.get("properties", {})
+        data = selected.get("data", [])
+        row_data = data[0].get("rowData", []) if data else []
+        cells = [
+            [
+                GoogleSheetCell(value=str(cell.get("formattedValue") or ""))
+                for cell in row.get("values", [])
+            ]
+            for row in row_data
+        ]
+        return GoogleSheetData(
+            spreadsheet_id=spreadsheet_id,
+            sheet_id=int(properties.get("sheetId", 0)),
+            title=str(properties.get("title") or ""),
+            cells=cells,
+        )
 
     def list_files_in_folder(
         self,

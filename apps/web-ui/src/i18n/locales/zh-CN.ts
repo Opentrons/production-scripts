@@ -113,6 +113,7 @@ export default {
     columns: {
       number: '编号',
       subject: '主题',
+      productModel: '产品型号',
       issuedAt: '下发时间',
       effectiveDate: '生效日期',
     },

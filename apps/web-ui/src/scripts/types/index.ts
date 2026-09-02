@@ -87,6 +87,7 @@ export interface InformationFile {
   id: string
   number: string
   subject: string
+  product_model?: string | null
   effective_date?: string | null
   web_view_link: string
 }

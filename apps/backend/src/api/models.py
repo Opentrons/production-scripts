@@ -185,6 +185,7 @@ class InformationFile(BaseModel):
     id: str
     number: str
     subject: str
+    product_model: str | None = None
     effective_date: str | None = None
     web_view_link: str
 

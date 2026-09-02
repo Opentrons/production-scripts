@@ -113,6 +113,7 @@ export default {
     columns: {
       number: 'Number',
       subject: 'Subject',
+      productModel: 'Product model',
       issuedAt: 'Issued date',
       effectiveDate: 'Effective date',
     },

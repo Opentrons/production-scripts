@@ -24,6 +24,7 @@ def test_parse_contact_letter_fields_from_sheet_values() -> None:
 
     assert parsed.number == "ENG-2026001"
     assert parsed.subject.startswith("关于 HS 基板415-00138")
+    assert parsed.product_model is None
     assert parsed.effective_date == "2026-01-26"
     assert parsed.web_view_link == (
         "https://docs.google.com/spreadsheets/d/sheet-id/edit?resourcekey=drive-resource-key"
@@ -42,7 +43,7 @@ def test_parse_file_uses_filename_and_created_date_as_fallbacks() -> None:
     parsed = _parse_file("ecn", file, [])
 
     assert parsed.number == "ECN-2026012"
-    assert parsed.subject == "Heater Shaker bracket update"
+    assert parsed.subject == "ECN-2026012 - Heater Shaker bracket update"
     assert parsed.effective_date == "2026-03-09"
     assert parsed.web_view_link == "https://docs.google.com/spreadsheets/d/sheet-id/edit"
 
@@ -61,6 +62,64 @@ def test_parse_file_keeps_shortcut_target_resource_key() -> None:
     assert parsed.web_view_link == (
         "https://docs.google.com/spreadsheets/d/shortcut-target-sheet-id/edit"
         "?resourcekey=shortcut-resource-key"
+    )
+
+
+def test_parse_ecn_uses_file_title_product_model_and_sheet_gid() -> None:
+    file = GoogleDriveFile(
+        id="1jhby4yUmWvMuAyx0UB8adcrXRsvnwFdJiT53l-7FbRo",
+        name="ECN-0571 436-00159 Drawing Update",
+        mime_type="application/vnd.google-apps.spreadsheet",
+    )
+
+    parsed = _parse_file(
+        "ecn",
+        file,
+        [
+            ["产品型号\nProduct number", "", "Heater shaker"],
+            ["ECN 单号\nECN No.", "", "ECN-0571"],
+            ["发出日期\nSend Date", "", "7/21/2026"],
+        ],
+        sheet_gid=104681895,
+    )
+
+    assert parsed.number == "ECN-0571"
+    assert parsed.subject == "ECN-0571 436-00159 Drawing Update"
+    assert parsed.product_model == "Heater shaker"
+    assert parsed.effective_date == "2026-07-21"
+    assert parsed.web_view_link == (
+        "https://docs.google.com/spreadsheets/d/"
+        "1jhby4yUmWvMuAyx0UB8adcrXRsvnwFdJiT53l-7FbRo/"
+        "edit?gid=104681895#gid=104681895"
+    )
+
+
+def test_parse_contact_letter_reads_subject_beyond_column_z() -> None:
+    file = GoogleDriveFile(
+        id="1usLK_UEgirWxi7MWm3cI0D_zsUvgZebzgpfiun_Y02s",
+        name="ENG-2026013",
+        mime_type="application/vnd.google-apps.spreadsheet",
+    )
+    subject_row = ["主题", *([""] * 35), "关于Stacker图纸变更通知"]
+
+    parsed = _parse_file(
+        "contact",
+        file,
+        [
+            ["联络编号", "ENG-2026013"],
+            ["生效日期", "2026/8/24"],
+            subject_row,
+        ],
+        sheet_gid=0,
+    )
+
+    assert parsed.number == "ENG-2026013"
+    assert parsed.subject == "关于Stacker图纸变更通知"
+    assert parsed.product_model is None
+    assert parsed.effective_date == "2026-08-24"
+    assert parsed.web_view_link == (
+        "https://docs.google.com/spreadsheets/d/"
+        "1usLK_UEgirWxi7MWm3cI0D_zsUvgZebzgpfiun_Y02s/edit?gid=0#gid=0"
     )
 
 

@@ -24,6 +24,55 @@ class _FakeRequest:
         return self.payload
 
 
+class _FakeSpreadsheets:
+    def get(self, **kwargs):
+        assert kwargs["ranges"] == ["A1:CC200"]
+        assert kwargs["includeGridData"] is True
+        return _FakeRequest(
+            {
+                "sheets": [
+                    {
+                        "properties": {
+                            "sheetId": 104681895,
+                            "title": "ECN",
+                            "index": 0,
+                        },
+                        "data": [
+                            {
+                                "rowData": [
+                                    {
+                                        "values": [
+                                            {"formattedValue": "产品型号"},
+                                            {},
+                                            {"formattedValue": "Heater shaker"},
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+
+class _FakeSheetsService:
+    def spreadsheets(self) -> _FakeSpreadsheets:
+        return _FakeSpreadsheets()
+
+
+def test_read_spreadsheet_preview_returns_values_and_gid() -> None:
+    driver = GoogleDriver(allow_interactive_auth=False)
+    driver._sheets_service = _FakeSheetsService()
+    driver._execute = lambda factory: factory().execute()  # type: ignore[method-assign]
+
+    preview = driver.read_spreadsheet_preview("sheet-id")
+
+    assert preview.sheet_id == 104681895
+    assert preview.title == "ECN"
+    assert preview.values == [["产品型号", "", "Heater shaker"]]
+
+
 class _FakeDriveFiles:
     def list(self, **kwargs):
         folder_id = kwargs["q"].split("'")[1]
