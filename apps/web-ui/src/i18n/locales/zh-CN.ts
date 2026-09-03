@@ -1381,7 +1381,7 @@ export default {
       workflowActions: '工作流操作', copy: '复制', run: '运行', runHistory: '运行历史', noDescription: '暂无描述', detailNavigation: '工作流详情导航', editWorkflow: '编辑工作流', historicalRuns: '历史运行',
       workflowName: '工作流名称', scheduledTrigger: '定时触发', minutes: '分钟', ignoreQuantityWarning: '忽略数量差异告警', ignoreQuantityHint: '仍显示数量差异，不计入警告', checkParentBom: '核对父菜单 BOM', checkSupplies: '核对辅料',
       statuses: { draft: '草稿', active: '启动', paused: '暂停' }, custom: '自定义', runStatuses: { queued: '等待执行', running: '执行中', succeeded: '执行成功', failed: '执行失败', skipped: '等待配置' },
-      sopProducts: 'SOP 产品', manualRefresh: '手动刷新', sopSourceHint: '可按产品和工序筛选全部 SOP；默认使用全文料号引用，也可按下方工序 / SOP 切换为 BOM 物料汇总。', sopBomProcesses: '仅识别 SOP BOM 清单', sopBomProcessesPlaceholder: '选择 SOP 总表工序 / SOP', sopBomProcessesHint: '选中的工序 / SOP 使用 BOM 物料汇总，其余继续使用全文上下文引用。',
+      sopProducts: 'SOP 产品', manualRefresh: '手动刷新', sopSourceHint: '可按产品和工序筛选全部 SOP；默认使用全文料号引用，也可按下方工序 / SOP 切换为显式 BOM 汇总并补充上下文引用。', sopBomProcesses: '仅识别 SOP BOM 清单', sopBomProcessesPlaceholder: '选择 SOP 总表工序 / SOP', sopBomProcessesHint: '选中的工序 / SOP 使用显式 BOM 汇总，并补充 BOM 页之外的上下文引用；重复料号不会重复计数。',
       filterProducts: '筛选产品', filterProcesses: '筛选工序', selectSops: '选择一个或多个 SOP', uncategorizedProduct: '未分类产品', unnamedProcess: '未命名工序', noDate: '无日期',
       duroProducts: 'Duro 产品', duroSourceHint: '通过当前 Duro 产品 API 加载产品、料号及当前 Revision。', selectDuroProduct: '选择 Duro 产品', noRevision: '无 Revision',
       selectSubprojects: '选择子项目', selectedItems: '已选择 {count} 项', subprojectHint: '子项目仅用于限定扫描范围，本身不参与核对；只扫描其下级 BOM 料号。',

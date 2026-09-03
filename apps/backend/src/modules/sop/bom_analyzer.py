@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Literal
@@ -48,11 +49,14 @@ ACTION_PATTERN = re.compile(
 )
 PART_NUMBER_PATTERN = re.compile(
     r"(?<!\d)(?P<part_number>(?:\d{3}-0\d{5}(?![xX×*])|\d{3,4}-\d{5}))"
-    r"(?:(?!\d)|(?=\d{1,3}[xX×*]\d{3,4}-))"
+    r"(?:(?!\d)|(?=\d{1,3}[xX×*]\d{3,4}-)|(?=\d{3,4}-\d{5}))"
 )
 PREFIX_QUANTITY_PATTERN = re.compile(r"(?P<quantity>\d+)\s*[xX×*]\s*$")
 CONCATENATED_PREFIX_QUANTITY_PATTERN = re.compile(
     r"\d{3,4}-\d{5}(?P<quantity>\d{1,3})\s*[xX×*]\s*$"
+)
+ADJACENT_PART_NUMBERS_PATTERN = re.compile(
+    r"(?<!\d)(?P<first>\d{3,4}-\d{5})(?P<second>\d{3,4}-\d{5})"
 )
 QUANTITY_PATTERN = re.compile(r"^\s+(?P<quantity>\d+(?:\.\d+)?)\b(?P<note>.*)$")
 LEADING_SEQUENCE_PATTERN = re.compile(r"^\s*(?P<sequence>\d{1,3})\s+(?P<name>.+)$")
@@ -82,6 +86,13 @@ class PartNumberMatch:
     # Quantity glued after this part when the next token was repaired from
     # ``415-00734*2415-00733`` → previous gets trailing_quantity=2.
     trailing_quantity: int | None = None
+
+
+@dataclass(frozen=True)
+class _RawPartMatch:
+    part_number: str
+    start: int
+    end: int
 
 
 @dataclass
@@ -184,6 +195,7 @@ def analyze_part_references(
     references: OrderedDict[str, SopPartReference] = OrderedDict()
     page_quantities: dict[str, dict[int, _PagePartQuantity]] = {}
     for page_number, text in pages:
+        text = normalize_pdf_part_number_text(text)
         for source_line in text.splitlines():
             matches = extract_part_number_matches(source_line)
             if not matches:
@@ -237,6 +249,7 @@ def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]
 
     material_pages: list[tuple[int, str]] = []
     for page_number, text in pages:
+        text = normalize_pdf_part_number_text(text)
         matching_lines = [
             source_line.strip()
             for source_line in text.splitlines()
@@ -248,6 +261,7 @@ def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]
 
 
 def _parse_bom_page(page_number: int, text: str) -> SopBomSection:
+    text = normalize_pdf_part_number_text(text)
     section_name = _section_name(text, page_number)
     materials: list[SopBomMaterial] = []
     for source_line in text.splitlines():
@@ -262,7 +276,7 @@ def _parse_material_line(
     section_name: str,
     page_number: int,
 ) -> SopBomMaterial | None:
-    line = source_line.rstrip()
+    line = normalize_pdf_part_number_text(source_line.rstrip())
     part_match = PART_NUMBER_PATTERN.search(line)
     if part_match is None:
         return None
@@ -368,11 +382,48 @@ def extract_part_number_matches(text: str) -> list[PartNumberMatch]:
     following three-digit part number.
     """
 
-    raw_matches = list(PART_NUMBER_PATTERN.finditer(text))
+    text = normalize_pdf_part_number_text(text)
+    raw_matches = [
+        _RawPartMatch(
+            part_number=match.group("part_number"),
+            start=match.start(),
+            end=match.end(),
+        )
+        for match in PART_NUMBER_PATTERN.finditer(text)
+    ]
+    # Some image/PDF exporters concatenate neighboring callouts without any
+    # delimiter, e.g. ``920-00112920-00113``. The normal boundary check must
+    # reject the first token's trailing digit, so add the second strict token
+    # explicitly and let the normal quantity-repair pass handle the rest.
+    adjacent_matches: list[_RawPartMatch] = []
+    for adjacent in ADJACENT_PART_NUMBERS_PATTERN.finditer(text):
+        adjacent_matches.extend(
+            [
+                _RawPartMatch(
+                    adjacent.group("first"),
+                    adjacent.start("first"),
+                    adjacent.end("first"),
+                ),
+                _RawPartMatch(
+                    adjacent.group("second"),
+                    adjacent.start("second"),
+                    adjacent.end("second"),
+                ),
+            ]
+        )
+    raw_spans = {(match.start, match.end) for match in raw_matches}
+    extra_matches = [
+        match
+        for match in adjacent_matches
+        if (match.start, match.end) not in raw_spans
+    ]
+    if extra_matches:
+        raw_matches.extend(extra_matches)
+        raw_matches.sort(key=lambda match: match.start)
     matches: list[PartNumberMatch] = []
     for index, raw_match in enumerate(raw_matches):
-        part_number = raw_match.group("part_number")
-        start = raw_match.start()
+        part_number = raw_match.part_number
+        start = raw_match.start
         quantity_concatenated = False
         if index > 0 and _is_concatenated_quantity_part(text, raw_matches[index - 1], raw_match):
             trailing_quantity = int(part_number[0])
@@ -391,24 +442,45 @@ def extract_part_number_matches(text: str) -> list[PartNumberMatch]:
             PartNumberMatch(
                 part_number=part_number,
                 start=start,
-                end=raw_match.end(),
+                end=raw_match.end,
                 quantity_concatenated=quantity_concatenated,
             )
         )
     return matches
 
 
+def normalize_pdf_part_number_text(text: str) -> str:
+    """Repair common PDF text-box spacing before applying the part-number regex.
+
+    PDF producers often emit a hyphen and its two numeric groups as separate
+    text objects. ``extract_text()`` then returns forms such as ``920-\n00118``
+    or ``920 - 00118`` even though the page visibly shows one part number.
+    Normalize only the strict ``3/4 digits - 5 digits`` shape so ordinary
+    prose whitespace and quantities remain untouched.
+    """
+
+    normalized = str(text or "").translate(
+        str.maketrans("０１２３４５６７８９", "0123456789")
+    )
+    normalized = normalized.replace("\u00ad", "").replace("－", "-")
+    return re.sub(
+        r"(?<!\d)(\d{3,4})\s*-\s*(\d{5})(?!\d)",
+        r"\1-\2",
+        normalized,
+    )
+
+
 def _is_concatenated_quantity_part(
     text: str,
-    previous_match: re.Match[str],
-    current_match: re.Match[str],
+    previous_match: _RawPartMatch,
+    current_match: _RawPartMatch,
 ) -> bool:
-    current_part = current_match.group("part_number")
+    current_part = current_match.part_number
     if len(current_part.split("-", 1)[0]) != 4:
         return False
     if not re.fullmatch(r"\d{3}-\d{5}", current_part[1:]):
         return False
-    separator = text[previous_match.end():current_match.start()]
+    separator = text[previous_match.end:current_match.start]
     return bool(re.fullmatch(r"\s*[xX×*]\s*", separator))
 
 

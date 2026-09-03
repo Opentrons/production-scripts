@@ -26,7 +26,7 @@ def make_service(tmp_path: Path) -> AuthService:
         issuer="test-production-platform",
         audience="test-production-web",
         access_token_minutes=5,
-        refresh_token_hours=24,
+        refresh_token_hours=24 * 15,
     )
     service.initialize()
     return service
@@ -52,7 +52,7 @@ def test_auth_service_issues_rotates_and_revokes_session(tmp_path: Path) -> None
         ip_address="127.0.0.1",
     )
     assert session.session_expires_at - session.access_expires_at == timedelta(
-        hours=23,
+        hours=359,
         minutes=55,
     )
     verified_user, claims = service.verify_access_token(session.access_token)

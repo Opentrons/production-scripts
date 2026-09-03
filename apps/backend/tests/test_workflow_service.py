@@ -325,7 +325,15 @@ class BomSelectionSopService:
                     occurrences=2,
                     pages=[1],
                     source_lines=["Install 2×100-00001"],
-                )
+                ),
+                SimpleNamespace(
+                    part_number="920-00084",
+                    name="Motor cable",
+                    quantity=1,
+                    occurrences=1,
+                    pages=[62],
+                    source_lines=["920-00084"],
+                ),
             ],
             bom_materials=[
                 SimpleNamespace(
@@ -459,6 +467,10 @@ def test_selected_sop_process_uses_bom_material_summary(tmp_path: Path) -> None:
     assert materials["100-00001"]["occurrence_count"] == 1
     assert materials["100-00001"]["quantity_explanations"] == [
         "Robot / Packaging：使用 SOP BOM 物料汇总结果"
+    ]
+    assert materials["920-00084"]["quantity"] == 1
+    assert materials["920-00084"]["quantity_explanations"] == [
+        "Robot / Packaging：使用 SOP 上下文引用（非物料清单页）"
     ]
 
 

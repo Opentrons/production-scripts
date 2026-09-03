@@ -1224,15 +1224,35 @@ class WorkflowService:
                 self._normalize_sop_product_text(source.get("process"))
                 in selected_bom_processes
             )
-            source_materials = (
-                list(getattr(analysis, "bom_materials", []) or [])
-                if use_bom_materials
-                else list(analysis.full_text_references or [])
-            )
+            if use_bom_materials:
+                bom_materials = list(getattr(analysis, "bom_materials", []) or [])
+                bom_part_numbers = {
+                    self._clean_part_number(str(material.part_number))
+                    for material in bom_materials
+                }
+                # A BOM table is authoritative for parts it contains, while
+                # instruction/photo callouts can contain additional real parts.
+                # Keep those context-only references without double-counting
+                # parts already present in the explicit BOM table.
+                context_materials = [
+                    material
+                    for material in list(getattr(analysis, "full_text_references", []) or [])
+                    if self._clean_part_number(str(material.part_number)) not in bom_part_numbers
+                ]
+                source_materials = [
+                    (material, False) for material in bom_materials
+                ] + [
+                    (material, True) for material in context_materials
+                ]
+            else:
+                source_materials = [
+                    (material, False)
+                    for material in list(analysis.full_text_references or [])
+                ]
             if not source_materials:
                 source_kind = "BOM 物料汇总" if use_bom_materials else "全文料号引用"
                 raise RuntimeError(f"SOP“{label}”未识别到{source_kind}，无法执行 BOM 核对")
-            for material in source_materials:
+            for material, is_context_reference in source_materials:
                 current = materials.setdefault(
                     material.part_number,
                     {
@@ -1251,7 +1271,7 @@ class WorkflowService:
                 )
                 raw_quantity = getattr(material, "quantity", None)
                 material_occurrences = int(getattr(material, "occurrences", 0) or 0)
-                if use_bom_materials:
+                if use_bom_materials and not is_context_reference:
                     material_quantity = (
                         float(raw_quantity) if raw_quantity is not None else float(material_occurrences)
                     )
@@ -1274,7 +1294,9 @@ class WorkflowService:
                 if location not in current["locations"]:
                     current["locations"].append(location)
                 quantity_explanation = str(getattr(material, "quantity_explanation", "") or "")
-                if not quantity_explanation and use_bom_materials:
+                if not quantity_explanation and is_context_reference:
+                    quantity_explanation = "使用 SOP 上下文引用（非物料清单页）"
+                elif not quantity_explanation and use_bom_materials:
                     quantity_explanation = "使用 SOP BOM 物料汇总结果"
                 if not quantity_explanation:
                     quantity_explanation = (

@@ -4,6 +4,7 @@ from modules.sop.bom_analyzer import (
     classify_sop_page,
     extract_material_lines,
     is_bom_page,
+    normalize_pdf_part_number_text,
 )
 from modules.sop.models import SopPdfPage
 
@@ -99,6 +100,39 @@ def test_part_number_pattern_does_not_match_inside_longer_numbers() -> None:
     references = analyze_part_references([(1, "无效 1415-003900；有效 415-00390")], [])
 
     assert [item.part_number for item in references] == ["415-00390"]
+
+
+def test_text_box_line_breaks_are_repaired_before_part_matching() -> None:
+    text = (
+        "线材920-\n00118接于 PCBA。\n"
+        "螺丝4 X 438 - 00205 固定盖子 415 - 00376。\n"
+        "920 - 00084\n920-00085\n920-00083"
+    )
+
+    normalized = normalize_pdf_part_number_text(text)
+    references = analyze_part_references([(62, text)], [])
+
+    assert "920-00118" in normalized
+    assert "415-00376" in normalized
+    assert {
+        item.part_number for item in references
+    } == {
+        "920-00118",
+        "438-00205",
+        "415-00376",
+        "920-00084",
+        "920-00085",
+        "920-00083",
+    }
+
+
+def test_adjacent_image_callout_part_numbers_are_split() -> None:
+    references = analyze_part_references(
+        [(83, "920-00112920-00113")],
+        [],
+    )
+
+    assert [item.part_number for item in references] == ["920-00112", "920-00113"]
 
 
 def test_part_number_pattern_keeps_cleanup_candidates_for_workflow_audit() -> None:
