@@ -65,10 +65,10 @@
                 <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
               </button>
               <div class="top-dropdown-menu is-right" role="menu" @click.stop>
-                <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                <a href="/information/ecn" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.ecn }}
                 </a>
-                <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                <a href="/information/contact-letters" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.contactLetters }}
                 </a>
               </div>
@@ -80,6 +80,7 @@
             <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
               <button
                 class="top-link top-dropdown-trigger"
+                :class="{ 'is-active': isDownloadsView }"
                 type="button"
                 :aria-expanded="openNavigationMenu === 'online-tools'"
                 @click.stop="toggleNavigationMenu('online-tools')"
@@ -92,12 +93,11 @@
                 <a href="/tools/bridge-gpt-token" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.bridgeGptToken }}
                 </a>
+                <a href="/downloads" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.downloads }}
+                </a>
               </div>
             </div>
-            <a class="top-link is-active" href="/downloads">
-              <Download class="top-menu-icon" :size="16" aria-hidden="true" />
-              <span>{{ copy.nav.downloads }}</span>
-            </a>
           </nav>
           <LocaleSwitcher />
           <AuthUserMenu />
@@ -363,10 +363,10 @@
                   <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
                 </button>
                 <div class="top-dropdown-menu is-right" role="menu" @click.stop>
-                  <a href="/information/ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  <a href="/information/ecn" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.ecn }}
                   </a>
-                  <a href="/information/contact-letters" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  <a href="/information/contact-letters" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.contactLetters }}
                   </a>
                 </div>
@@ -378,6 +378,7 @@
               <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
                 <button
                   class="top-link top-dropdown-trigger"
+                  :class="{ 'is-active': isDownloadsView }"
                   type="button"
                   :aria-expanded="openNavigationMenu === 'online-tools'"
                   @click.stop="toggleNavigationMenu('online-tools')"
@@ -390,12 +391,11 @@
                   <a href="/tools/bridge-gpt-token" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.bridgeGptToken }}
                   </a>
+                  <a href="/downloads" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.downloads }}
+                  </a>
                 </div>
               </div>
-              <a class="top-link" href="/downloads">
-                <Download class="top-menu-icon" :size="16" aria-hidden="true" />
-                <span>{{ copy.nav.downloads }}</span>
-              </a>
             </nav>
             <LocaleSwitcher variant="surface" />
             <AuthUserMenu />

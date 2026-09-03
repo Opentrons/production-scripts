@@ -135,14 +135,14 @@ const routes: RouteRecordRaw[] = [
     name: 'InformationEcn',
     component: () => import('@/views/information/InformationView.vue'),
     props: { kind: 'ecn' },
-    meta: productionTestingMeta,
+    meta: { standalone: true, titleKey: 'titles.ecn', favicon: DEFAULT_FAVICON },
   },
   {
     path: '/information/contact-letters',
     name: 'InformationContactLetters',
     component: () => import('@/views/information/InformationView.vue'),
     props: { kind: 'contact' },
-    meta: productionTestingMeta,
+    meta: { standalone: true, titleKey: 'titles.contactLetters', favicon: DEFAULT_FAVICON },
   },
   {
     path: '/settings',
