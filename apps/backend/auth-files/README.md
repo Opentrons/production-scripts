@@ -1,6 +1,10 @@
 # Google credentials
 
-Put `credentials.json` and `token.json` in this directory. These files are ignored by git. Override the location with `PRODUCTIONS_VERSIONS_GOOGLE_AUTH_DIR` when credentials are mounted externally.
+Put `credentials.json` and `token.json` in this directory for user OAuth, or put
+`service-account.json` here for unattended server-side Google API access. These
+files are ignored by git. Server deployments read `/configs/service-account.json`
+by default; override it with `PRODUCTION_PLATFORM_GOOGLE_SERVICE_ACCOUNT_PATH`.
+Share the required Drive folders with the service account as Viewer.
 
 Duro BOM and component reads use the REST API and its `apiToken` header. Put the raw API key in
 `duro-api-key.txt` in this directory, or configure it in `apps/backend/.env`:

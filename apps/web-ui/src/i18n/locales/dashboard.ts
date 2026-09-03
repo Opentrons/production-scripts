@@ -25,6 +25,9 @@ interface DashboardMessages {
     versionChecks: string
     sopDuroCheck: string
     ecnCheck: string
+    engineeringChanges: string
+    ecn: string
+    contactLetters: string
     productionAgent: string
     downloads: string
     onlineTools: string
@@ -149,6 +152,9 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       versionChecks: 'BOM版本',
       sopDuroCheck: 'SOP&DURO核对',
       ecnCheck: 'ECN核对',
+      engineeringChanges: '工程变更',
+      ecn: 'ECN',
+      contactLetters: '联络函',
       productionAgent: '生产助手',
       downloads: '资源下载',
       onlineTools: '在线工具',
@@ -283,6 +289,9 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       versionChecks: 'BOM Versions',
       sopDuroCheck: 'SOP & DURO Check',
       ecnCheck: 'ECN Check',
+      engineeringChanges: 'Engineering Changes',
+      ecn: 'ECN',
+      contactLetters: 'Contact letters',
       productionAgent: 'Production Agent',
       downloads: 'Downloads',
       onlineTools: 'Online Tools',

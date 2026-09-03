@@ -20,6 +20,10 @@ from core.runtime_mode import (
     set_sqlite_fallback,
 )
 from modules.system.health import start_health_refresh_scheduler, stop_health_refresh_scheduler
+from api.routers.information import (
+    start_information_refresh_scheduler,
+    stop_information_refresh_scheduler,
+)
 from modules.auth.dependencies import get_auth_service
 from modules.system.simulating_seed import ensure_simulating_seed
 from modules.robots.diagnostic_logs import (
@@ -107,6 +111,7 @@ async def lifespan(_: FastAPI):
     google_proxy_manager.start()
     if business_persistence_available or IS_DEV_ENV:
         start_health_refresh_scheduler()
+    start_information_refresh_scheduler()
     if business_persistence_available:
         workflow_service.initialize()
         bridge_token_service.initialize()
@@ -140,6 +145,7 @@ async def lifespan(_: FastAPI):
         bridge_token_scheduler.stop()
         workflow_scheduler.stop()
         agent_schedule_scheduler.stop()
+        stop_information_refresh_scheduler()
         stop_health_refresh_scheduler()
         google_proxy_manager.stop()
         shutdown_robot_service()
