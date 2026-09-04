@@ -100,6 +100,7 @@ export interface InformationFilesResponse {
   total: number
   refreshed_at?: string | null
   cached?: boolean
+  refreshing?: boolean
   quality_checked?: boolean
   error?: string | null
 }

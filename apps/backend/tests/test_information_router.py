@@ -1,4 +1,6 @@
 import asyncio
+import sqlite3
+import threading
 
 import pytest
 
@@ -290,8 +292,8 @@ def test_service_reads_and_qa_checks_every_source_record(tmp_path) -> None:
         cache_path=tmp_path / "information.sqlite3",
     )
 
-    ecn = service.get_files("ecn", refresh=True)
-    contacts = service.get_files("contact", refresh=True)
+    ecn = service.refresh_files("ecn")
+    contacts = service.refresh_files("contact")
 
     assert [item.product_model for item in ecn.files] == [
         "Flex 8-Channel Pipette",
@@ -316,8 +318,8 @@ def test_service_reads_and_qa_checks_every_source_record(tmp_path) -> None:
 
     driver.preview_calls.clear()
     driver.sheets.clear()
-    assert service.get_files("ecn", refresh=True).total == 2
-    assert service.get_files("contact", refresh=True).total == 2
+    assert service.refresh_files("ecn").total == 2
+    assert service.refresh_files("contact").total == 2
     assert driver.preview_calls == []
 
 
@@ -378,8 +380,16 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
     cache_path = tmp_path / "information.sqlite3"
     service = InformationService(driver, cache_path=cache_path)  # type: ignore[arg-type]
 
-    assert service.get_files("contact", refresh=True).total == 1
+    assert service.refresh_files("contact").total == 1
     assert driver.preview_calls == ["contact-sheet-13"]
+    with sqlite3.connect(cache_path) as connection:
+        table_names = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+    assert table_names == {"engineering_information_index"}
 
     driver.sheets.pop("contact-sheet-13")
     driver.files[folder_id] = [second]
@@ -388,7 +398,7 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
         14,
         [["联络编号", "ENG-2026014"], ["主题", "关于Pipette装配方法变更通知"]],
     )
-    refreshed = service.get_files("contact", refresh=True)
+    refreshed = service.refresh_files("contact")
 
     assert refreshed.total == 2
     assert [item.number for item in refreshed.files] == ["ENG-2026014", "ENG-2026013"]
@@ -400,7 +410,7 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
         restarted_driver,  # type: ignore[arg-type]
         cache_path=cache_path,
     )
-    persisted = restarted.get_files("contact", refresh=True)
+    persisted = restarted.refresh_files("contact")
     assert persisted.total == 2
     assert restarted_driver.preview_calls == []
 
@@ -410,11 +420,79 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
         failing_driver,  # type: ignore[arg-type]
         cache_path=cache_path,
     )
-    fallback = restarted.get_files("contact", refresh=True)
+    fallback = restarted.refresh_files("contact")
     assert fallback.total == 2
     assert fallback.cached is True
     assert fallback.quality_checked is True
     assert "已保留上次完整数据" in str(fallback.error)
+
+
+def test_page_reads_return_while_google_refresh_is_still_running(tmp_path) -> None:
+    class BlockingInformationDriver(FakeInformationDriver):
+        def __init__(self) -> None:
+            super().__init__()
+            self.list_started = threading.Event()
+            self.release_list = threading.Event()
+
+        def list_files_in_folder(self, folder_id: str) -> list[GoogleDriveFile]:
+            self.list_started.set()
+            if not self.release_list.wait(timeout=2):
+                raise GoogleDriverError("test scan was not released")
+            return super().list_files_in_folder(folder_id)
+
+    driver = BlockingInformationDriver()
+    folder_id = information_module.FOLDERS["contact"][0]
+    driver.files[folder_id] = [_source_file("contact-sheet-13", "ENG-2026013")]
+    driver.sheets["contact-sheet-13"] = _sheet(
+        "contact-sheet-13",
+        0,
+        [["联络编号", "ENG-2026013"], ["主题", "关于Stacker图纸变更通知"]],
+    )
+    service = InformationService(
+        driver,  # type: ignore[arg-type]
+        cache_path=tmp_path / "engineering_information.sqlite3",
+    )
+
+    assert service.request_refresh("contact") is True
+    assert driver.list_started.wait(timeout=1)
+
+    while_scanning = service.get_files("contact", refresh=True)
+    assert while_scanning.total == 0
+    assert while_scanning.refreshing is True
+
+    driver.release_list.set()
+    with service._condition:
+        assert service._condition.wait_for(
+            lambda: "contact" not in service._refreshing,
+            timeout=2,
+        )
+
+    completed = service.get_files("contact")
+    assert completed.total == 1
+    assert completed.files[0].subject == "关于Stacker图纸变更通知"
+    assert completed.refreshing is False
+
+
+def test_empty_index_queues_background_initialization_without_google_wait(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    service = InformationService(
+        FakeInformationDriver(),  # type: ignore[arg-type]
+        cache_path=tmp_path / "engineering_information.sqlite3",
+    )
+    queued: list[str] = []
+    monkeypatch.setattr(
+        service,
+        "request_refresh",
+        lambda kind: queued.append(kind) or True,
+    )
+
+    response = service.get_files("ecn")
+
+    assert response.total == 0
+    assert response.cached is True
+    assert queued == ["ecn"]
 
 
 def test_daily_scheduler_refreshes_both_lists(monkeypatch) -> None:
