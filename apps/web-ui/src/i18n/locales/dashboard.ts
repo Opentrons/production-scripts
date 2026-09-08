@@ -29,6 +29,7 @@ interface DashboardMessages {
     ecn: string
     contactLetters: string
     productionAgent: string
+    testVersions: string
     downloads: string
     onlineTools: string
     bridgeGptToken: string
@@ -59,6 +60,7 @@ interface DashboardMessages {
       versions: ModuleCopy
       downloads: ModuleCopy
       agent: ModuleCopy
+      testVersions: ModuleCopy
     }
     routes: {
       devices: string
@@ -156,6 +158,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       ecn: 'ECN',
       contactLetters: '联络函',
       productionAgent: '生产助手',
+      testVersions: 'Test Versions',
       downloads: '资源下载',
       onlineTools: '在线工具',
       bridgeGptToken: 'Bridge GPT Token',
@@ -197,6 +200,10 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
         agent: {
           name: '生产智能助手',
           summary: '面向生产自动化、辅助操作和队列工作流的智能助手空间。',
+        },
+        testVersions: {
+          name: 'Test Versions',
+          summary: '查看 Duro 软件、固件和测试提交版本，并对照现场测试版本记录。',
         },
       },
       routes: {
@@ -293,6 +300,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       ecn: 'ECN',
       contactLetters: 'Contact letters',
       productionAgent: 'Production Agent',
+      testVersions: 'Test Versions',
       downloads: 'Downloads',
       onlineTools: 'Online Tools',
       bridgeGptToken: 'Bridge GPT Token',
@@ -334,6 +342,10 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
         agent: {
           name: 'Production Agent',
           summary: 'Agent workspace for production automation, assisted operations, and queue-based workflows.',
+        },
+        testVersions: {
+          name: 'Test Versions',
+          summary: 'Track Duro software, firmware, and test commit versions alongside captured test records.',
         },
       },
       routes: {

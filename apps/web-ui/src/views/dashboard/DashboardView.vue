@@ -77,6 +77,10 @@
               <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
               <span>{{ copy.nav.productionAgent }}</span>
             </a>
+            <a class="top-link" href="/test-versions" target="_blank" rel="noopener noreferrer">
+              <GitBranch class="top-menu-icon" :size="16" aria-hidden="true" />
+              <span>{{ copy.nav.testVersions }}</span>
+            </a>
             <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
               <button
                 class="top-link top-dropdown-trigger"
@@ -375,6 +379,10 @@
                 <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
                 <span>{{ copy.nav.productionAgent }}</span>
               </a>
+              <a class="top-link" href="/test-versions" target="_blank" rel="noopener noreferrer">
+                <GitBranch class="top-menu-icon" :size="16" aria-hidden="true" />
+                <span>{{ copy.nav.testVersions }}</span>
+              </a>
               <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
                 <button
                   class="top-link top-dropdown-trigger"
@@ -567,6 +575,7 @@ import {
   Folder,
   FolderKanban,
   FolderPlus,
+  GitBranch,
   MessageSquare,
   Monitor,
   MoreHorizontal,
@@ -1028,6 +1037,14 @@ const modules = computed<DashboardModule[]>(() => [
     href: '/versions',
     openInNewTab: true,
     iconSrc: '/versions-favicon.svg',
+  },
+  {
+    ...copy.value.dashboard.modules.testVersions,
+    status: copy.value.status.active,
+    statusClass: 'status-active',
+    href: '/test-versions',
+    openInNewTab: true,
+    icon: GitBranch,
   },
   {
     ...copy.value.dashboard.modules.downloads,

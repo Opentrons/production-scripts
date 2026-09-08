@@ -70,6 +70,82 @@ class AppUrlOnlyDuroClient(FakeDuroClient):
         self.app_url = "https://mfg.duro.app"
 
 
+class VersionDuroClient(FakeDuroClient):
+    def search_products(self, payload: DuroProductSearchRequest) -> DuroProductSearchResponse:
+        self.call_count += 1
+        return DuroProductSearchResponse(
+            count=1,
+            products=[
+                DuroProduct.model_validate(
+                    {"_id": "product-id", "name": "OT3", "cpn": "999-00191", "revision": "D1.3"}
+                )
+            ],
+            request=payload,
+        )
+
+    def get_product(self, product_id: str):
+        self.call_count += 1
+        return {
+            "_id": product_id,
+            "name": "OT3",
+            "cpn": "999-00191",
+            "revision": "D1.3",
+            "children": [
+                {
+                    "quantity": 1,
+                    "component": {
+                        "_id": "version-parent",
+                        "name": "FLEX ROBOT SOFTWARE FIRMWARE TOUCHPOINTS",
+                        "cpn": "991-00147",
+                    },
+                }
+            ],
+        }
+
+    def get_component(self, component_id: str):
+        self.call_count += 1
+        if component_id == "version-parent":
+            return {
+                "_id": component_id,
+                "name": "FLEX ROBOT SOFTWARE FIRMWARE TOUCHPOINTS",
+                "cpn": "991-00147",
+                "revision": "A7.8",
+                "description": "Software and firmware touchpoints",
+                "children": [
+                    {
+                        "quantity": 1,
+                        "component": {
+                            "_id": "child-component",
+                            "name": "FLEX ROBOT - Z STAGE TEST",
+                            "cpn": "710-00047",
+                            "revision": "A1.4",
+                            "category": "Firmware",
+                            "description": (
+                                "Desktop App: Opentrons-v8.8.0-win.exe\n"
+                                "Robot Firmware: V67\n"
+                                "Test Commit Hash: abcdef1234567\n"
+                                "Hardware Testing Tag: robot.diagnostic-25-12.26"
+                            ),
+                            "specs": [{"key": "Owner", "value": "Test"}],
+                            "children": [
+                                {
+                                    "quantity": 2,
+                                    "component": {
+                                        "_id": "nested-component",
+                                        "name": "Nested test script",
+                                        "cpn": "710-00048",
+                                        "description": "Software Version: 1.2.3",
+                                        "children": [],
+                                    },
+                                }
+                            ],
+                        },
+                    }
+                ],
+            }
+        return {"_id": component_id, "name": "Unknown", "children": []}
+
+
 def test_product_search_uses_cache() -> None:
     client = FakeDuroClient()
     service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]
@@ -175,3 +251,31 @@ def test_component_children_are_loaded_one_level_at_a_time() -> None:
     assert response.children[0].child_count == 0
     assert response.children[0].quantity == "2"
     assert response.children[0].has_children is False
+
+
+def test_version_catalog_finds_software_parents_and_extracts_child_details() -> None:
+    client = VersionDuroClient()
+    service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]
+
+    response = service.get_version_catalog(refresh=True)
+
+    assert response.products_scanned == 1
+    assert response.matched_products == 1
+    assert response.parent_menu_count == 1
+    assert response.child_component_count == 2
+    group = response.groups[0]
+    assert group.product_cpn == "999-00191"
+    assert group.parent_cpn == "991-00147"
+    child = group.children[0]
+    assert child.cpn == "710-00047"
+    assert child.app_version == "v8.8.0"
+    assert child.firmware_version == "V67"
+    assert child.test_commit_hash == "abcdef1234567"
+    assert child.test_tag == "robot.diagnostic-25-12.26"
+    assert group.children[1].app_version == "v1.2.3"
+
+
+def test_version_parent_requires_both_software_and_firmware_keywords() -> None:
+    assert DuroService._is_version_parent({"name": "Software touchpoints"}) is False
+    assert DuroService._is_version_parent({"name": "Firmware touchpoints"}) is False
+    assert DuroService._is_version_parent({"name": "Software / Firmware touchpoints"}) is True
