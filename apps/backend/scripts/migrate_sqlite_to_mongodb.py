@@ -56,6 +56,7 @@ PLATFORM_COLLECTIONS = (
     _cfg("FILE_RESOURCE_PROJECTS_COLLECTION", "file_resource_projects"),
     _cfg("FILE_RESOURCE_VERSIONS_COLLECTION", "file_resource_versions"),
     _cfg("ROBOT_LOG_DOWNLOAD_COLLECTION", "robot_log_download_records"),
+    _cfg("ROBOT_APP_LOG_ANALYSIS_COLLECTION", "robot_app_log_analysis_records"),
     _cfg("PRODUCT_MANAGEMENT_COLLECTION", "product_management"),
     _cfg("UNIT_TRACKER_COLLECTION", "unit_tracker_rows"),
 )

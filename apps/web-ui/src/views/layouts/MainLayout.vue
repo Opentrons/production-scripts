@@ -41,6 +41,15 @@
             @click="refreshHealth"
             :loading="healthStore.loading"
           />
+          <el-tooltip :content="t('layout.openLogs')" placement="bottom">
+            <el-button
+              :icon="Memo"
+              circle
+              size="small"
+              :aria-label="t('layout.openLogs')"
+              @click="openLogs"
+            />
+          </el-tooltip>
           <el-badge :value="unreadMessageCount" :hidden="unreadMessageCount === 0" :max="99">
             <el-button
               :icon="Bell"
@@ -262,6 +271,10 @@ const openMessages = () => {
   router.push('/messages')
 }
 
+const openLogs = () => {
+  router.push('/devices/logs')
+}
+
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
@@ -474,7 +487,47 @@ onUnmounted(() => {
 
 .sidebar-menu :deep(.el-menu-item),
 .sidebar-menu :deep(.el-sub-menu__title) {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 48px;
+  padding-right: 16px;
   color: #aebdcb;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.sidebar-menu :deep(.el-menu-item) {
+  padding-left: 16px;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title) {
+  padding-left: 16px;
+}
+
+.sidebar-menu :deep(.el-menu-item .el-icon),
+.sidebar-menu :deep(.el-sub-menu__title .el-icon) {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-right: 12px;
+  font-size: 18px;
+}
+
+.sidebar-menu :deep(.el-menu-item .el-icon svg),
+.sidebar-menu :deep(.el-sub-menu__title .el-icon svg) {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-menu :deep(.el-menu-item > span),
+.sidebar-menu :deep(.el-sub-menu__title > span) {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-menu :deep(.el-menu-item:hover),

@@ -280,35 +280,22 @@ class DuroService:
         return str(entity.get("_id") or entity.get("id") or "").strip()
 
     @staticmethod
-    def _extract_version(text: str, kind: str) -> str | None:
-        if kind == "app":
-            patterns = (
-                r"(?:desktop\s+app|app(?:lication)?\s+version|software\s+version)\s*[:=\-]?\s*(?:v)?([0-9]+(?:\.[0-9]+){1,3})\b",
-                r"Opentrons-v([0-9]+(?:\.[0-9]+){1,3})\b",
-            )
-        else:
-            patterns = (
-                r"(?:robot\s+)?firmware(?:\s+version)?\s*[:=\-]?\s*(v?[0-9]+(?:\.[0-9]+){0,3}(?:[-+][A-Za-z0-9._-]+)?)",
-                r"ot3-firmware/releases/(?:download|tag)/v?([0-9]+(?:\.[0-9]+){0,3})",
-            )
-        for pattern in patterns:
-            match = re.search(pattern, text, flags=re.IGNORECASE)
-            if match:
-                value = match.group(1).strip()
-                return value if value.lower().startswith("v") else f"v{value}"
-        return None
+    def _extract_version(text: str, kind: str) -> str:
+        label = "App" if kind == "app" else r"(?:FW|Firmware)"
+        match = re.search(
+            rf"^\s*{label}\s*[:：]\s*([vV]?\d+(?:\.\d+){{0,3}}(?:[-+][A-Za-z0-9._-]+)?)\b",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if not match:
+            return ""
+        value = match.group(1).strip()
+        return f"v{value.lstrip('vV')}"
 
     @staticmethod
     def _extract_commit_hash(text: str) -> str | None:
-        patterns = (
-            r"(?:test\s+)?commit(?:\s+hash)?\s*[:=#\-]\s*([0-9a-f]{7,40})\b",
-            r"/commit/([0-9a-f]{7,40})\b",
-        )
-        for pattern in patterns:
-            match = re.search(pattern, text, flags=re.IGNORECASE)
-            if match:
-                return match.group(1)
-        return None
+        match = re.search(r"^\s*Tag\s*[:：]\s*(\S+)", text, flags=re.IGNORECASE | re.MULTILINE)
+        return match.group(1).strip() if match else None
 
     @staticmethod
     def _extract_test_tag(text: str) -> str | None:

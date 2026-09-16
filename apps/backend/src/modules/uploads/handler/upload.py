@@ -193,6 +193,9 @@ class UploadData:
             return file_desc, f"Failed to get file description: {file_desc.error}"
 
         file_desc.attach_upload_context(zip_file=zip_file)
+        from modules.uploads.handler.repositories.config_repository import ConfigRepository
+
+        self.config_repo = ConfigRepository.from_environment(file_desc.get("config_environment") or ENVIRONMENT)
 
         require_finished = upload_settings_service.should_require_finished(
             file_desc.get("model"),

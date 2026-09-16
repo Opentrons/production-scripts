@@ -71,6 +71,12 @@ const routes: RouteRecordRaw[] = [
     meta: productionTestingMeta,
   },
   {
+    path: '/devices/logs',
+    name: 'robot-logs',
+    component: () => import('@/views/devices/RobotLogsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/devices/control',
     name: 'DeviceControl',
     component: () => import('@/views/devices/DeviceControlView.vue'),

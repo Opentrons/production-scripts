@@ -121,10 +121,9 @@ class VersionDuroClient(FakeDuroClient):
                             "revision": "A1.4",
                             "category": "Firmware",
                             "description": (
-                                "Desktop App: Opentrons-v8.8.0-win.exe\n"
-                                "Robot Firmware: V67\n"
-                                "Test Commit Hash: abcdef1234567\n"
-                                "Hardware Testing Tag: robot.diagnostic-25-12.26"
+                                "App: v8.8.0\n"
+                                "Firmware: V67\n"
+                                "Tag: abcdef1234567"
                             ),
                             "specs": [{"key": "Owner", "value": "Test"}],
                             "children": [
@@ -134,7 +133,7 @@ class VersionDuroClient(FakeDuroClient):
                                         "_id": "nested-component",
                                         "name": "Nested test script",
                                         "cpn": "710-00048",
-                                        "description": "Software Version: 1.2.3",
+                                        "description": "App: v1.2.3",
                                         "children": [],
                                     },
                                 }
@@ -269,10 +268,19 @@ def test_version_catalog_finds_software_parents_and_extracts_child_details() -> 
     child = group.children[0]
     assert child.cpn == "710-00047"
     assert child.app_version == "v8.8.0"
-    assert child.firmware_version == "V67"
+    assert child.firmware_version == "v67"
     assert child.test_commit_hash == "abcdef1234567"
-    assert child.test_tag == "robot.diagnostic-25-12.26"
+    assert child.test_tag is None
     assert group.children[1].app_version == "v1.2.3"
+
+
+def test_version_details_only_extract_app_and_fw_labels() -> None:
+    assert DuroService._extract_version("App: v8.8.0", "app") == "v8.8.0"
+    assert DuroService._extract_version("FW：V67", "firmware") == "v67"
+    assert DuroService._extract_version("Firmware: 67", "firmware") == "v67"
+    assert DuroService._extract_version("Desktop App: v8.8.0", "app") == ""
+    assert DuroService._extract_version("Robot Firmware: V67", "firmware") == ""
+    assert DuroService._extract_version("No version here", "app") == ""
 
 
 def test_version_parent_requires_both_software_and_firmware_keywords() -> None:

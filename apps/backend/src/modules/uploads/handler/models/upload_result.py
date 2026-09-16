@@ -76,6 +76,8 @@ class UploadResultFields(TypedDict, total=False):
     # --- 测试结果（Pass / Fail 字符串）---
     total_result: str
 
+    failures: str
+
     """本次上传 workflow 的总测试结果；为空时跳过 Unit Tracker 粘贴步骤。"""
 
 
@@ -257,6 +259,7 @@ class UploadResult:
     gantry_stress_test: bool | None = None
     leveling_test: bool | None = None
     total_result: str | None = None
+    failures: str = "N/A"
     extra_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -297,6 +300,7 @@ class UploadResult:
         upload_ok: bool,
         result: str = "",
         total_result: str = "",
+        failures: str | None = None,
     ) -> UploadResult:
         """Set upload status and the unified total result."""
         if upload_flag_field:
@@ -307,6 +311,8 @@ class UploadResult:
         final_result = total_result or result
         if final_result:
             self.total_result = final_result
+        if failures is not None:
+            self.failures = failures
 
         return self
 

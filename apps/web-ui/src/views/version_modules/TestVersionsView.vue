@@ -310,31 +310,18 @@ function refreshActive(): void {
 }
 
 function buildTree(group: DuroVersionGroup): VersionTreeNode {
-  const product: VersionTreeNode = {
-    key: `product:${group.product_id}:${group.parent_id}`,
-    nodeType: 'product',
-    nodeTypeLabel: 'Product',
-    id: group.product_id,
-    cpn: group.product_cpn,
-    name: group.product_name,
-    revision: group.product_revision,
-    description: '',
-    source_text: '',
-    children: [],
-  }
   const parent: VersionTreeNode = {
     key: `parent:${group.product_id}:${group.parent_id}`,
     nodeType: 'parent',
     nodeTypeLabel: 'Version parent',
     id: group.parent_id,
-    cpn: group.parent_cpn,
-    name: group.parent_name,
-    revision: group.parent_revision,
+    cpn: `${group.product_cpn || group.product_id} -> ${group.parent_cpn || group.parent_id}`,
+    name: `${group.product_name || 'Product'} -> ${group.parent_name || 'Version parent'}`,
+    revision: group.parent_revision || group.product_revision,
     description: group.parent_description,
     source_text: group.parent_description,
     children: [],
   }
-  product.children = [parent]
   const componentNodes = new Map<string, VersionTreeNode>()
   for (const child of group.children) {
     const path = child.path.length > 2 ? child.path.slice(2) : [child.cpn || child.id]
@@ -370,14 +357,11 @@ function buildTree(group: DuroVersionGroup): VersionTreeNode {
     })
   }
   const keyword = duroSearch.value.trim().toLocaleLowerCase()
-  return keyword ? (filterTree(product, keyword) || product) : product
+  return keyword ? (filterTree(parent, keyword) || parent) : parent
 }
 
 function defaultExpandedKeys(group: DuroVersionGroup): string[] {
-  return [
-    `product:${group.product_id}:${group.parent_id}`,
-    `parent:${group.parent_id}`,
-  ]
+  return [`parent:${group.product_id}:${group.parent_id}`]
 }
 
 function filterTree(node: VersionTreeNode, keyword: string, ancestorMatched = false): VersionTreeNode | null {

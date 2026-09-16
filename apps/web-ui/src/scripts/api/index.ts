@@ -486,6 +486,51 @@ export interface RobotLogDownloadRecordsResponse {
   page_size: number
 }
 
+export interface RobotAppLogAnalysisSummary {
+  time?: string | null
+  error?: string | null
+  code?: string | null
+  code_name?: string | null
+  exception?: string | null
+  protocol?: string | null
+  file?: string | null
+  line?: number | null
+  run?: string | null
+  test?: string | null
+  robot?: string | null
+  ip?: string | null
+  archive?: string | null
+  category?: string | null
+  trigger?: string | null
+  run_id?: string | null
+  command_id?: string | null
+  evidence?: string[]
+  time_range?: { first?: string | null; last?: string | null } | null
+  error_count?: number | null
+  ignored_error_count?: number | null
+  warnings?: string[]
+  source_lookup?: Record<string, unknown> | null
+}
+
+export interface RobotAppLogAnalysisRecord {
+  _id: string
+  robot_ip: string
+  device_name: string
+  archive_name?: string | null
+  status: 'completed' | 'failed' | string
+  error?: string | null
+  summary?: RobotAppLogAnalysisSummary | null
+  created_at: string
+  updated_at?: string | null
+}
+
+export interface RobotAppLogAnalysisRecordsResponse {
+  records: RobotAppLogAnalysisRecord[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export const healthApi = {
   getHealth: () => api.get<HealthCheckResponse>('/health'),
   refreshHealth: () => api.post<HealthCheckResponse>('/health/refresh')
@@ -625,8 +670,34 @@ export const robotApi = {
     }),
   getServerLogDownloadUrl: (recordId: string) =>
     `/api/robots/log-downloads/records/${encodeURIComponent(recordId)}/file`,
-  getAppLogDownloadUrl: (ip: string, port?: number) =>
-    `/api/robots/${encodeURIComponent(ip)}/logs/app-download${port ? `?port=${port}` : ''}`,
+  getAppLogDownloadUrl: (
+    ip: string,
+    port?: number,
+    options?: { analyze?: boolean; deviceName?: string | null }
+  ) => {
+    const params = new URLSearchParams()
+    if (port) params.set('port', String(port))
+    if (options?.analyze) params.set('analyze', 'true')
+    if (options?.deviceName) params.set('device_name', options.deviceName)
+    const query = params.toString()
+    return `/api/robots/${encodeURIComponent(ip)}/logs/app-download${query ? `?${query}` : ''}`
+  },
+  getAppLogAnalysisRecords: (params?: { page?: number; pageSize?: number; robotIp?: string }) =>
+    api.get<RobotAppLogAnalysisRecordsResponse>('/robots/log-analyses/records', {
+      params: { page: params?.page, page_size: params?.pageSize, robot_ip: params?.robotIp },
+    }),
+  getAppLogAnalysisRecord: (recordId: string) =>
+    api.get<RobotAppLogAnalysisRecord>(`/robots/log-analyses/records/${encodeURIComponent(recordId)}`),
+  uploadAppLogForAnalysis: (zipFile: File, robotIp = 'manual', deviceName?: string) => {
+    const formData = new FormData()
+    formData.append('zip_file', zipFile)
+    formData.append('robot_ip', robotIp)
+    if (deviceName) formData.append('device_name', deviceName)
+    return api.post<RobotAppLogAnalysisRecord>('/robots/log-analyses/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
+    })
+  },
   deleteServerLog: (recordId: string) =>
     api.delete<{
       success: boolean
@@ -1004,8 +1075,10 @@ export const uploadRecordApi = {
 }
 
 export const settingsApi = {
-  getUploadFinishSettings: () =>
-    api.get<UploadFinishSettingsResponse>('/settings/upload/finish'),
+  getUploadFinishSettings: (environment = 'production', syncFromProduction = false) =>
+    api.get<UploadFinishSettingsResponse>('/settings/upload/finish', {
+      params: { environment, sync_from_production: syncFromProduction }
+    }),
   updateUploadFinishSetting: (payload: UploadFinishSettingPayload) =>
     api.put<UploadFinishSettingItem>('/settings/upload/finish', payload),
   getSimulatingStatus: () =>

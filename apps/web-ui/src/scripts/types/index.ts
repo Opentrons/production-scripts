@@ -332,10 +332,23 @@ export interface UploadFinishSettingOption {
   test_type: string
   config_key: string
   test_display_name: string
+  oem_options?: string[]
 }
 
 export interface UploadFinishSettingItem extends UploadFinishSettingOption {
+  oem: string
+  oem_options: string[]
   require_finished: boolean
+  copytemplate: string
+  result_cell: string
+  total_result_cell: string
+  failures: string
+  csv_range: string[]
+  summary_source_sheet_name: string
+  copy_range: string[]
+  pastefileid: string
+  paste_start: string
+  paste_end: string
   source?: 'default' | 'database' | string
   updated_at?: string | null
 }
@@ -344,13 +357,29 @@ export interface UploadFinishSettingsResponse {
   options: UploadFinishSettingOption[]
   settings: UploadFinishSettingItem[]
   database_available: boolean
+  environment: string
+  config_file?: string | null
+  last_row?: string
   error?: string | null
 }
 
 export interface UploadFinishSettingPayload {
   model: string
   test_type: string
+  environment: string
+  oem: string
   require_finished: boolean
+  copytemplate: string
+  result_cell: string
+  total_result_cell: string
+  failures: string
+  csv_range: string[]
+  summary_source_sheet_name: string
+  copy_range: string[]
+  pastefileid: string
+  paste_start: string
+  paste_end: string
+  last_row: string
 }
 
 export interface DataLinkItem {

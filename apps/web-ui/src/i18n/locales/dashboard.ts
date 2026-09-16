@@ -22,6 +22,7 @@ interface DashboardMessages {
     deviceManagement: string
     testManagement: string
     dataManagement: string
+    versionManagement: string
     versionChecks: string
     sopDuroCheck: string
     ecnCheck: string
@@ -151,6 +152,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       deviceManagement: '设备管理',
       testManagement: '测试管理',
       dataManagement: '数据管理',
+      versionManagement: '版本管理',
       versionChecks: 'BOM版本',
       sopDuroCheck: 'SOP&DURO核对',
       ecnCheck: 'ECN核对',
@@ -293,6 +295,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       deviceManagement: 'Device Management',
       testManagement: 'Test Management',
       dataManagement: 'Data Management',
+      versionManagement: 'Version Management',
       versionChecks: 'BOM Versions',
       sopDuroCheck: 'SOP & DURO Check',
       ecnCheck: 'ECN Check',

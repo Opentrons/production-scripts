@@ -10,6 +10,8 @@ class UploadDataRequest(BaseModel):
     csv_file_path: str
     zip_file_path: str | None = None
     record_id: str | None = None
+    environment: str | None = None
+    oem: str | None = None
 
 
 class UploadRecordStartRequest(BaseModel):
@@ -41,13 +43,29 @@ class UploadDataResponse(BaseModel):
 class UploadFinishSettingUpdateRequest(BaseModel):
     model: str
     test_type: str
+    environment: str = "production"
+    oem: str = "Opentrons"
     require_finished: bool
+    copytemplate: str | None = None
+    result_cell: str | None = None
+    total_result_cell: str | None = None
+    failures: str = "N/A"
+    csv_range: list[str] = Field(default_factory=list)
+    summary_source_sheet_name: str | None = None
+    copy_range: list[str] = Field(default_factory=list)
+    pastefileid: str | None = None
+    paste_start: str | None = None
+    paste_end: str | None = None
+    last_row: str | None = None
 
 
 class UploadFinishSettingResponse(BaseModel):
     options: list[dict[str, Any]] = Field(default_factory=list)
     settings: list[dict[str, Any]] = Field(default_factory=list)
     database_available: bool = True
+    environment: str = "production"
+    config_file: str | None = None
+    last_row: str = "F:I"
     error: str | None = None
 
 

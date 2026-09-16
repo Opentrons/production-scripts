@@ -1,3 +1,4 @@
+last_row: F:I
 1ch_update_volume:
 - ifupdate: true
   spreadsheet_strategy: always_new
@@ -13,6 +14,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Volume
+    failures: N/A
     copyRange:
     - '!I2:AR2'
   ifpaste:
@@ -51,7 +53,67 @@
     10: 1vsAz97Qe7-TH02L5bIJhOcuFdE_oaeji
     11: 1vsAz97Qe7-TH02L5bIJhOcuFdE_oaeji
     12: 1vsAz97Qe7-TH02L5bIJhOcuFdE_oaeji
-
+  oem:
+    Opentrons:
+      copytemplate: 1uRGOQCDJuiUvbC_yQ8uL3j1nkoz6w8H-EcSrumdU-vo
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AR2'
+      pastefileid: 1LGMVu8F7NR3lT7lVk-ENHs0XR6Q4RJNZqFvEXszcyMo
+      pastelineRange:
+        star: E
+        end: AO
+        note: AD
+    Ultima:
+      copytemplate: 1uRGOQCDJuiUvbC_yQ8uL3j1nkoz6w8H-EcSrumdU-vo
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AR2'
+      pastefileid: 1LGMVu8F7NR3lT7lVk-ENHs0XR6Q4RJNZqFvEXszcyMo
+      pastelineRange:
+        star: E
+        end: AO
+        note: AD
+    BD:
+      copytemplate: 1uRGOQCDJuiUvbC_yQ8uL3j1nkoz6w8H-EcSrumdU-vo
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AR2'
+      pastefileid: 1LGMVu8F7NR3lT7lVk-ENHs0XR6Q4RJNZqFvEXszcyMo
+      pastelineRange:
+        star: E
+        end: AO
+        note: AD
+    Millipore:
+      copytemplate: 1uRGOQCDJuiUvbC_yQ8uL3j1nkoz6w8H-EcSrumdU-vo
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AR2'
+      pastefileid: 1LGMVu8F7NR3lT7lVk-ENHs0XR6Q4RJNZqFvEXszcyMo
+      pastelineRange:
+        star: E
+        end: AO
+        note: AD
+    Sf:
+      copytemplate: 1uRGOQCDJuiUvbC_yQ8uL3j1nkoz6w8H-EcSrumdU-vo
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AR2'
+      pastefileid: 1LGMVu8F7NR3lT7lVk-ENHs0XR6Q4RJNZqFvEXszcyMo
+      pastelineRange:
+        star: E
+        end: AO
+        note: AD
 1ch_update_assembly_qc:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -74,6 +136,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Assembly QC
+    failures: N/A
     copyRange:
     - '!M11:AV11'
   ifpaste:
@@ -111,7 +174,62 @@
     10: 1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY
     11: 1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY
     12: 1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY
-
+  oem:
+    Opentrons:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    Ultima:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    BD:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    Millipore:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    Sf:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
 1ch_update_current_speed:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -133,6 +251,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Assembly QC
+    failures: N/A
     copyRange:
     - '!M11:AV11'
   ifpaste:
@@ -170,7 +289,62 @@
     10: 1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY
     11: 1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY
     12: 1YqLeB_qxlCih_LXyKMM164LfDJh7xfsY
-
+  oem:
+    Opentrons:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!AQ11:AQ11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    Ultima:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!BO11:BO11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    BD:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!AQ11:AQ11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    Millipore:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!AQ11:AQ11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
+    Sf:
+      copytemplate: 1jR2iXKq7UkMp74SnpX98GPVgg0-UfF2qS8wJjfFB-ys
+      result_cell: '!AQ11:AQ11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:AV11'
+      pastefileid: 1eHeq3W0Mr-X6nC0MkNZuuS3DLW097Xtwl2pTkIEpSOU
+      pastelineRange:
+        star: D
+        end: AO
 8ch_update_volume:
 - ifupdate: true
   spreadsheet_strategy: always_new
@@ -186,6 +360,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Volume
+    failures: N/A
     copyRange:
     - '!I2:AQ2'
   ifpaste:
@@ -216,7 +391,67 @@
     10: 15KEcpQPqZ_rQHMZc0AS3i_QPOrSliuKj
     11: 15KEcpQPqZ_rQHMZc0AS3i_QPOrSliuKj
     12: 15KEcpQPqZ_rQHMZc0AS3i_QPOrSliuKj
-
+  oem:
+    Opentrons:
+      copytemplate: 1n2BAdlGSLbxxDdR2VYQT9_7DqkZ087jn7XJPNL2-aZw
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AQ2'
+      pastefileid: 10P63UWumQR8imQzcXb2XAaCDny5z1wzwn5Kjx9596Ig
+      pastelineRange:
+        star: F
+        end: AO
+        note: AU
+    Ultima:
+      copytemplate: 1n2BAdlGSLbxxDdR2VYQT9_7DqkZ087jn7XJPNL2-aZw
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AQ2'
+      pastefileid: 10P63UWumQR8imQzcXb2XAaCDny5z1wzwn5Kjx9596Ig
+      pastelineRange:
+        star: F
+        end: AO
+        note: AU
+    BD:
+      copytemplate: 1n2BAdlGSLbxxDdR2VYQT9_7DqkZ087jn7XJPNL2-aZw
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AQ2'
+      pastefileid: 10P63UWumQR8imQzcXb2XAaCDny5z1wzwn5Kjx9596Ig
+      pastelineRange:
+        star: F
+        end: AO
+        note: AU
+    Millipore:
+      copytemplate: 1n2BAdlGSLbxxDdR2VYQT9_7DqkZ087jn7XJPNL2-aZw
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AQ2'
+      pastefileid: 10P63UWumQR8imQzcXb2XAaCDny5z1wzwn5Kjx9596Ig
+      pastelineRange:
+        star: F
+        end: AO
+        note: AU
+    Sf:
+      copytemplate: 1n2BAdlGSLbxxDdR2VYQT9_7DqkZ087jn7XJPNL2-aZw
+      result_cell: '!K2:K2'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!I2:AQ2'
+      pastefileid: 10P63UWumQR8imQzcXb2XAaCDny5z1wzwn5Kjx9596Ig
+      pastelineRange:
+        star: F
+        end: AO
+        note: AU
 8ch_update_assembly_qc:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -240,6 +475,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Assembly QC
+    failures: N/A
     copyRange:
     - '!M11:BS11'
     UltimacopyRange:
@@ -283,7 +519,62 @@
     10: 1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i
     11: 1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i
     12: 1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i
-
+  oem:
+    Opentrons:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
+    Ultima:
+      copytemplate: 1uW0LXQMenvAfKNX-C0PhU5XhsTsbMgnGx2VLnHSenQY
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:CC11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: BL
+    BD:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
+    Millipore:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
+    Sf:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!P11:P11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
 8ch_update_current_speed:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -304,6 +595,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Assembly QC
+    failures: N/A
     copyRange:
     - '!M11:BS11'
     UltimacopyRange:
@@ -347,7 +639,62 @@
     10: 1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i
     11: 1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i
     12: 1RGwkTB_bEmpqJ7YyZBhI4M994gkoJY7i
-
+  oem:
+    Opentrons:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!BO11:BO11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
+    Ultima:
+      copytemplate: 1uW0LXQMenvAfKNX-C0PhU5XhsTsbMgnGx2VLnHSenQY
+      result_cell: '!BO11:BO11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:CC11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: BL
+    BD:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!BO11:BO11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
+    Millipore:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!BO11:BO11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
+    Sf:
+      copytemplate: 1l_Eute92i2IkqgAPBBEs1TQgCaiZCxBcZblbPQby3zY
+      result_cell: '!BO11:BO11'
+      total_result_cell: '!O11:O11'
+      failures: N/A
+      copyRange:
+      - '!M11:BS11'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: D
+        end: BK
 96_p1000_update_qc:
 - ifupdate: true
   spreadsheet_strategy: always_new
@@ -366,6 +713,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Analysis
+    failures: N/A
     copyRange:
     - '!C3:AV3'
   ifpaste:
@@ -403,7 +751,62 @@
     10: 1wdjGHnRal1GzL8_IPPqY1GXgr3HpjylP
     11: 1wdjGHnRal1GzL8_IPPqY1GXgr3HpjylP
     12: 1wdjGHnRal1GzL8_IPPqY1GXgr3HpjylP
-
+  oem:
+    Opentrons:
+      copytemplate: 17eRE-kgpPDnqlNxUPDzT4LGcMN3ljnShYdUJvBfId7U
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1Jx17F8WLawWsqlFkkpnnSkg4-NhIRwIG2mkh7dhMGUs
+      pastelineRange:
+        star: I
+        end: BB
+    Ultima:
+      copytemplate: 17eRE-kgpPDnqlNxUPDzT4LGcMN3ljnShYdUJvBfId7U
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1Jx17F8WLawWsqlFkkpnnSkg4-NhIRwIG2mkh7dhMGUs
+      pastelineRange:
+        star: I
+        end: BB
+    BD:
+      copytemplate: 17eRE-kgpPDnqlNxUPDzT4LGcMN3ljnShYdUJvBfId7U
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1Jx17F8WLawWsqlFkkpnnSkg4-NhIRwIG2mkh7dhMGUs
+      pastelineRange:
+        star: I
+        end: BB
+    Millipore:
+      copytemplate: 17eRE-kgpPDnqlNxUPDzT4LGcMN3ljnShYdUJvBfId7U
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1Jx17F8WLawWsqlFkkpnnSkg4-NhIRwIG2mkh7dhMGUs
+      pastelineRange:
+        star: I
+        end: BB
+    Sf:
+      copytemplate: 17eRE-kgpPDnqlNxUPDzT4LGcMN3ljnShYdUJvBfId7U
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1Jx17F8WLawWsqlFkkpnnSkg4-NhIRwIG2mkh7dhMGUs
+      pastelineRange:
+        star: I
+        end: BB
 96_p200_update_qc:
 - ifupdate: true
   spreadsheet_strategy: always_new
@@ -422,6 +825,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Analysis
+    failures: N/A
     copyRange:
     - '!C3:AV3'
   ifpaste:
@@ -459,7 +863,62 @@
     10: 1OOxOl2WaTzkdZBvtmL-3SqQ0ygeHfJa7
     11: 1OOxOl2WaTzkdZBvtmL-3SqQ0ygeHfJa7
     12: 1OOxOl2WaTzkdZBvtmL-3SqQ0ygeHfJa7
-
+  oem:
+    Opentrons:
+      copytemplate: 1-LQS0WsrjxwdL-3A-tdTAVsmbyCQGF7Fm0mYZ1P0kBY
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1UWscYoFXzArgRTkJUBBqx4yvFf2G2-r2Lh12_hIsVPA
+      pastelineRange:
+        star: I
+        end: BB
+    Ultima:
+      copytemplate: 1-LQS0WsrjxwdL-3A-tdTAVsmbyCQGF7Fm0mYZ1P0kBY
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1UWscYoFXzArgRTkJUBBqx4yvFf2G2-r2Lh12_hIsVPA
+      pastelineRange:
+        star: I
+        end: BB
+    BD:
+      copytemplate: 1-LQS0WsrjxwdL-3A-tdTAVsmbyCQGF7Fm0mYZ1P0kBY
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1UWscYoFXzArgRTkJUBBqx4yvFf2G2-r2Lh12_hIsVPA
+      pastelineRange:
+        star: I
+        end: BB
+    Millipore:
+      copytemplate: 1-LQS0WsrjxwdL-3A-tdTAVsmbyCQGF7Fm0mYZ1P0kBY
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1UWscYoFXzArgRTkJUBBqx4yvFf2G2-r2Lh12_hIsVPA
+      pastelineRange:
+        star: I
+        end: BB
+    Sf:
+      copytemplate: 1-LQS0WsrjxwdL-3A-tdTAVsmbyCQGF7Fm0mYZ1P0kBY
+      result_cell: '!C6:C6'
+      total_result_cell: '!C6:C6'
+      failures: N/A
+      copyRange:
+      - '!C3:AV3'
+      pastefileid: 1UWscYoFXzArgRTkJUBBqx4yvFf2G2-r2Lh12_hIsVPA
+      pastelineRange:
+        star: I
+        end: BB
 8ch_update_burn_in_result:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -477,6 +936,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!C10:L10'
   ifpaste:
@@ -485,7 +945,7 @@
     pastelineRange:
       star: E
       end: O
-    unit_tracker_tab: 'Ultima P1000M Burn in'
+    unit_tracker_tab: Ultima P1000M Burn in
   unit_tracker_sheet:
     fumulu: 1MYSYEfohTK_ST-diEWBWLQiviOfuW-z9
     1: 1O0revpBhHDVgNPrmPKazQik0wEx5prjx
@@ -514,7 +974,62 @@
     10: 1SoMlhTl00kYvdxf7atQWBOR8Oc-1whdN
     11: 1SoMlhTl00kYvdxf7atQWBOR8Oc-1whdN
     12: 1SoMlhTl00kYvdxf7atQWBOR8Oc-1whdN
-
+  oem:
+    Opentrons:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H14:H14'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    Ultima:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H14:H14'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    BD:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H14:H14'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    Millipore:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H14:H14'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    Sf:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H14:H14'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
 8ch_update_burn_in_records:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -535,6 +1050,7 @@
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!C10:L10'
   ifpaste:
@@ -543,7 +1059,7 @@
     pastelineRange:
       star: E
       end: O
-    unit_tracker_tab: 'Ultima P1000M Burn in'
+    unit_tracker_tab: Ultima P1000M Burn in
   unit_tracker_sheet:
     fumulu: 1MYSYEfohTK_ST-diEWBWLQiviOfuW-z9
     1: 1O0revpBhHDVgNPrmPKazQik0wEx5prjx
@@ -572,8 +1088,62 @@
     10: 1SoMlhTl00kYvdxf7atQWBOR8Oc-1whdN
     11: 1SoMlhTl00kYvdxf7atQWBOR8Oc-1whdN
     12: 1SoMlhTl00kYvdxf7atQWBOR8Oc-1whdN
-
-
+  oem:
+    Opentrons:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H15:H15'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    Ultima:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H15:H15'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    BD:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H15:H15'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    Millipore:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H15:H15'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
+    Sf:
+      copytemplate: 1-ulTq_8bajiINc8cZ2tn16CgKyKGeUV9G0NWTgD_OrY
+      result_cell: '!H15:H15'
+      total_result_cell: '!F10:F10'
+      failures: N/A
+      copyRange:
+      - '!C10:L10'
+      pastefileid: 16GY8f7p788fbwxxIEH_Azn1RB-NWl3N7cRZzz-6SA_E
+      pastelineRange:
+        star: E
+        end: O
 robot_update_z_stage:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -593,6 +1163,7 @@ robot_update_z_stage:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!B4:Z4'
   ifpaste:
@@ -630,7 +1201,62 @@ robot_update_z_stage:
     10: 1fhYxOJ-7YHuvdxqrPXtC87Vb0mYRik3Y
     11: 1fhYxOJ-7YHuvdxqrPXtC87Vb0mYRik3Y
     12: 1fhYxOJ-7YHuvdxqrPXtC87Vb0mYRik3Y
-
+  oem:
+    Opentrons:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!B18:B18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Ultima:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!B18:B18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    BD:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!B18:B18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Millipore:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!B18:B18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Sf:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!B18:B18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
 robot_update_diagnostic:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -650,6 +1276,7 @@ robot_update_diagnostic:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!B4:Z4'
   ifpaste:
@@ -687,7 +1314,62 @@ robot_update_diagnostic:
     10: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     11: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     12: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
-
+  oem:
+    Opentrons:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!C18:C18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Ultima:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!C18:C18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    BD:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!C18:C18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Millipore:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!C18:C18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Sf:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!C18:C18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
 robot_update_xy_belt_calibration:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -705,6 +1387,7 @@ robot_update_xy_belt_calibration:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!B4:Z4'
   ifpaste:
@@ -742,7 +1425,62 @@ robot_update_xy_belt_calibration:
     10: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     11: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     12: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
-
+  oem:
+    Opentrons:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!D18:D18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Ultima:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!D18:D18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    BD:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!D18:D18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Millipore:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!D18:D18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Sf:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!D18:D18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
 robot_update_gantry_stress:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -769,6 +1507,7 @@ robot_update_gantry_stress:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!B4:Z4'
   ifpaste:
@@ -806,7 +1545,62 @@ robot_update_gantry_stress:
     10: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     11: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     12: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
-
+  oem:
+    Opentrons:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!E18:E18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Ultima:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!E18:E18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    BD:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!E18:E18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Millipore:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!E18:E18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Sf:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!E18:E18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
 robot_update_leveling:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -820,6 +1614,7 @@ robot_update_leveling:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!B4:Z4'
   ifpaste:
@@ -857,7 +1652,62 @@ robot_update_leveling:
     10: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     11: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     12: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
-
+  oem:
+    Opentrons:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Ultima:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    BD:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Millipore:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Sf:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
 gripper_update_diagnostic:
 - ifupdate: true
   spreadsheet_strategy: reuse_within_workflow
@@ -881,6 +1731,7 @@ gripper_update_diagnostic:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
+    failures: N/A
     copyRange:
     - '!B4:Z4'
   ifpaste:
@@ -918,3 +1769,59 @@ gripper_update_diagnostic:
     10: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     11: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
     12: 1W0bSr1zhy4CoVzmIIijGC29bnQbK85ch
+  oem:
+    Opentrons:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Ultima:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    BD:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Millipore:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI
+    Sf:
+      copytemplate: 1Qze4xZGfzlQuAgTAGPNNFWoWnrzW1XzwsMKXPK1S7rw
+      result_cell: '!F18:F18'
+      total_result_cell: '!A18:A18'
+      failures: N/A
+      copyRange:
+      - '!B4:Z4'
+      pastefileid: 1PxE4dxvg9krkytGMjsYI_haqicYVD--WwZeItCDf1DU
+      pastelineRange:
+        star: J
+        end: AI

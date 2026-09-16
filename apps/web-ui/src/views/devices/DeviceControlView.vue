@@ -541,17 +541,22 @@
                 </div>
                 <div class="log-intro-actions">
                   <div class="app-log-download-stack">
-                    <el-tooltip :content="t('devices.workbench.logs.appLogsHint')" placement="top" :show-after="300">
-                      <el-button
-                        type="primary"
-                        :icon="Download"
-                        :loading="appLogsDownloading"
-                        :disabled="!selectedIp"
-                        @click="downloadAppLogs"
-                      >
-                        {{ t('devices.workbench.logs.appLogs') }}
-                      </el-button>
-                    </el-tooltip>
+                    <div class="app-log-download-row">
+                      <el-checkbox v-model="analyzeAppLogsAfterDownload" :disabled="appLogsDownloading">
+                        {{ t('devices.workbench.logs.appLogsAnalyze') }}
+                      </el-checkbox>
+                      <el-tooltip :content="t('devices.workbench.logs.appLogsHint')" placement="top" :show-after="300">
+                        <el-button
+                          type="primary"
+                          :icon="Download"
+                          :loading="appLogsDownloading"
+                          :disabled="!selectedIp"
+                          @click="downloadAppLogs"
+                        >
+                          {{ t('devices.workbench.logs.appLogs') }}
+                        </el-button>
+                      </el-tooltip>
+                    </div>
                     <div v-if="appLogsDownloading || appLogsDownloadProgress > 0" class="app-log-download-status">
                       <span>
                         {{ appLogsDownloading ? t('devices.workbench.logs.appLogsDownloading') : t('devices.workbench.logs.appLogsSuccess') }}
@@ -668,6 +673,9 @@
 
                 <el-tab-pane :label="t('devices.workbench.logs.records')" name="records" lazy>
                   <DeviceLogHistoryPanel :robot-ip="selectedIp" />
+                </el-tab-pane>
+                <el-tab-pane :label="t('devices.workbench.logs.analysisRecords')" name="analysis" lazy>
+                  <DeviceAppLogAnalysisPanel :robot-ip="selectedIp" :device-name="currentDeviceName" />
                 </el-tab-pane>
               </el-tabs>
             </template>
@@ -1094,6 +1102,9 @@
 
                     <el-tab-pane :label="t('devices.workbench.logs.records')" name="records" lazy>
                       <DeviceLogHistoryPanel />
+                    </el-tab-pane>
+                    <el-tab-pane :label="t('devices.workbench.logs.analysisRecords')" name="analysis" lazy>
+                      <DeviceAppLogAnalysisPanel />
                     </el-tab-pane>
                   </el-tabs>
                 </el-tab-pane>
@@ -1612,6 +1623,7 @@ import DeviceFilesPanel from '@/views/devices/components/DeviceFilesPanel.vue'
 import DeviceTestingDataPanel from '@/views/devices/components/DeviceTestingDataPanel.vue'
 import DeviceInfoPanel from '@/views/devices/components/DeviceInfoPanel.vue'
 import DeviceLogHistoryPanel from '@/views/devices/components/DeviceLogHistoryPanel.vue'
+import DeviceAppLogAnalysisPanel from '@/views/devices/components/DeviceAppLogAnalysisPanel.vue'
 import DeviceCodeFlashPanel from '@/views/devices/components/DeviceCodeFlashPanel.vue'
 
 const route = useRoute()
@@ -1676,6 +1688,7 @@ const singleLogTaskStarting = ref(false)
 const singleActiveLogTask = ref<RobotLogDownloadTask | null>(null)
 const appLogsDownloading = ref(false)
 const appLogsDownloadProgress = ref(0)
+const analyzeAppLogsAfterDownload = ref(true)
 let logPollTimer: ReturnType<typeof setTimeout> | null = null
 let singleLogPollTimer: ReturnType<typeof setTimeout> | null = null
 const singleHttpCommandPresetId = ref('')
@@ -2398,14 +2411,29 @@ async function downloadAppLogs() {
   resetAppLogsDownloadState()
   try {
     const port = currentDevice.value?.port ?? 31950
-    const response = await downloadAppLogsZip(robotApi.getAppLogDownloadUrl(ip, port))
+    const response = await downloadAppLogsZip(
+      robotApi.getAppLogDownloadUrl(ip, port, {
+        analyze: analyzeAppLogsAfterDownload.value,
+        deviceName: currentDeviceName.value || currentDevice.value?.name || null,
+      })
+    )
     const filename = parseDownloadFilename(
       response.contentDisposition,
       `opentrons-app-logs-${ip.replace(/:/g, '-')}.zip`
     )
     saveBlob(response.blob, filename)
     appLogsDownloadProgress.value = 100
-    ElMessage.success(t('devices.workbench.logs.appLogsSuccess'))
+    if (analyzeAppLogsAfterDownload.value) {
+      if (response.analysisStatus === 'completed') {
+        ElMessage.success(t('devices.workbench.logs.appLogsAnalyzedSuccess'))
+      } else if (response.analysisStatus === 'failed') {
+        ElMessage.warning(t('devices.workbench.logs.appLogsAnalyzedFailed'))
+      } else {
+        ElMessage.success(t('devices.workbench.logs.appLogsSuccess'))
+      }
+    } else {
+      ElMessage.success(t('devices.workbench.logs.appLogsSuccess'))
+    }
   } catch (error: any) {
     resetAppLogsDownloadState()
     ElMessage.error(t('devices.workbench.logs.appLogsFailed', { error: normalizeError(error) }))
@@ -2428,7 +2456,15 @@ function parseBlobErrorMessage(blob: Blob): Promise<string> {
   }).catch(() => '')
 }
 
-function downloadAppLogsZip(url: string, allowRetry = true): Promise<{ blob: Blob, contentDisposition: string | null }> {
+function downloadAppLogsZip(
+  url: string,
+  allowRetry = true
+): Promise<{
+  blob: Blob
+  contentDisposition: string | null
+  analysisId: string | null
+  analysisStatus: string | null
+}> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
     request.open('GET', url)
@@ -2457,7 +2493,9 @@ function downloadAppLogsZip(url: string, allowRetry = true): Promise<{ blob: Blo
         appLogsDownloadProgress.value = 100
         resolve({
           blob,
-          contentDisposition: request.getResponseHeader('Content-Disposition')
+          contentDisposition: request.getResponseHeader('Content-Disposition'),
+          analysisId: request.getResponseHeader('X-App-Log-Analysis-Id'),
+          analysisStatus: request.getResponseHeader('X-App-Log-Analysis-Status'),
         })
       })().catch(reject)
     })
@@ -4127,6 +4165,12 @@ onMounted(async () => {
   min-width: 0;
 }
 
+.app-log-download-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .app-log-download-status {
   display: flex;
   align-items: center;
@@ -4550,6 +4594,12 @@ onMounted(async () => {
   .app-log-download-stack {
     width: 100%;
     justify-items: stretch;
+  }
+
+  .app-log-download-row {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .app-log-download-status {

@@ -23,6 +23,11 @@ if config.AUTH_ALLOWED_ORIGINS:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "Accept-Language"],
+        expose_headers=[
+            "Content-Disposition",
+            "X-App-Log-Analysis-Id",
+            "X-App-Log-Analysis-Status",
+        ],
     )
 
 app.include_router(api_router, prefix="/api")

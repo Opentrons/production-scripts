@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 
 from core.logging import get_logger
 logger = get_logger(__name__)
@@ -7,13 +8,21 @@ logger = get_logger(__name__)
 class UploadCommonMixin:
     """Shared helpers for product-specific upload workflows."""
 
+    OEM_CONFIG_KEYS = {
+        "Opentrons": "Opentrons",
+        "Ultima": "Ultima",
+        "BD": "BD",
+        "Millipore": "Millipore",
+        "Sf": "Sf",
+    }
+
     # ------------------------------------------------------------------
     # File description / config helpers
     # ------------------------------------------------------------------
 
     @staticmethod
     def normalize_oem_type(file_desc: dict) -> str:
-        kind = file_desc.get("kind_oem_type")
+        kind = file_desc.get("oem") or file_desc.get("kind_oem_type")
         if not kind or kind == "NA":
             return "Opentrons"
         return kind
@@ -21,6 +30,52 @@ class UploadCommonMixin:
     @staticmethod
     def is_ultima_oem(kind_oem_type: str) -> bool:
         return "Ultima" in kind_oem_type
+
+    @classmethod
+    def normalize_oem_config_key(cls, kind_oem_type: str | None) -> str:
+        kind = kind_oem_type or "Opentrons"
+        for key in cls.OEM_CONFIG_KEYS:
+            if key.lower() in str(kind).lower():
+                return key
+        return "Opentrons"
+
+    @classmethod
+    def apply_oem_config(cls, yaml_cfg: dict, kind_oem_type: str | None) -> dict:
+        oem_configs = yaml_cfg.get("oem")
+        if not isinstance(oem_configs, dict):
+            return yaml_cfg
+
+        oem_key = cls.normalize_oem_config_key(kind_oem_type)
+        selected = oem_configs.get(oem_key) or oem_configs.get("Opentrons") or {}
+        if not isinstance(selected, dict):
+            return yaml_cfg
+
+        if "copytemplate" in selected:
+            yaml_cfg["ifcopytemplate"] = {"default": selected.get("copytemplate") or ""}
+        for field in ("result_cell", "total_result_cell"):
+            if field in selected:
+                yaml_cfg[field] = selected.get(field) or ""
+
+        if yaml_cfg.get("ifcopydata"):
+            copy_cfg = yaml_cfg["ifcopydata"][0]
+            if "copyRange" in selected:
+                copy_cfg["copyRange"] = selected.get("copyRange") or []
+            if "failures" in selected:
+                copy_cfg["failures"] = selected.get("failures") or "N/A"
+            if oem_key == "Ultima":
+                copy_cfg["UltimacopyRange"] = copy_cfg.get("copyRange", [])
+                copy_cfg["Ultimafailures"] = copy_cfg.get("failures", "N/A")
+
+        if yaml_cfg.get("ifpaste"):
+            paste_cfg = yaml_cfg["ifpaste"][0]
+            if "pastefileid" in selected:
+                paste_cfg["pastefileid"] = selected.get("pastefileid") or ""
+            if "pastelineRange" in selected:
+                paste_cfg["pastelineRange"] = selected.get("pastelineRange") or {}
+            if oem_key == "Ultima":
+                paste_cfg["Ultimapastefileid"] = paste_cfg.get("pastefileid", "")
+                paste_cfg["UltimapastelineRange"] = paste_cfg.get("pastelineRange", {})
+        return yaml_cfg
 
     @staticmethod
     def build_tracker_sheet_name(kind_oem_type: str, model: str) -> str:
@@ -35,7 +90,11 @@ class UploadCommonMixin:
 
     @staticmethod
     def pick_config_value(cfg: dict, key: str, ultima_key: str, is_ultima: bool):
-        return cfg[ultima_key] if is_ultima else cfg[key]
+        selected_key = ultima_key if is_ultima else key
+        if selected_key in cfg:
+            return cfg[selected_key]
+        # OEM-specific settings fall back to the common/default setting.
+        return cfg.get(key)
 
     def resolve_template_id(self, template_cfg: dict, file_desc: dict) -> str:
         """Resolve template id by OEM name, falling back to default."""
@@ -330,6 +389,34 @@ class UploadCommonMixin:
         if not values:
             return None
         return len(values)
+
+    def get_first_blank_tracker_row(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        row_range: str = "F:I",
+    ) -> int | None:
+        """Find the first row where every column in the configured range is empty."""
+        match = re.fullmatch(r"\s*([A-Z]+)\s*:\s*([A-Z]+)\s*", str(row_range).upper())
+        if not match:
+            raise ValueError(f"Invalid last row range: {row_range}")
+        start, end = match.groups()
+        start_number = self._column_to_number(start)
+        end_number = self._column_to_number(end)
+        if start_number > end_number:
+            raise ValueError(f"Invalid last row range: {row_range}")
+
+        values = self.gdrive.get_excel_sheet(
+            spreadsheetId=spreadsheet_id,
+            range=f"{self.quote_sheet_name(sheet_name)}!{start}:{end}",
+        ) or []
+        width = end_number - start_number + 1
+        for row_number, row in enumerate(values, start=1):
+            cells = list(row or [])[:width]
+            cells.extend([""] * (width - len(cells)))
+            if all(value is None or str(value).strip() == "" for value in cells):
+                return row_number
+        return len(values) + 1
 
     def ensure_tracker_row_capacity(
         self,
