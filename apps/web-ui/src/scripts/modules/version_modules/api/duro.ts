@@ -111,6 +111,7 @@ export interface DuroVersionComponent {
   app_version?: string | null
   firmware_version?: string | null
   test_commit_hash?: string | null
+  test_commit_id?: string | null
   test_tag?: string | null
   path: string[]
   specs: Record<string, unknown>[]

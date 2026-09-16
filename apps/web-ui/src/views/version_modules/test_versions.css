@@ -110,6 +110,25 @@
 .test-versions-toolbar { display: flex; align-items: center; margin: 20px 0 14px; }
 .test-versions-toolbar h3 { margin: 3px 0 0; font-size: 18px; }
 .test-versions-toolbar .el-input { width: min(350px, 100%); }
+.test-versions-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.test-versions-toolbar-actions .el-input {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: 350px;
+  min-width: 180px;
+}
+.test-versions-toolbar-actions .el-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .test-versions-state { min-height: 260px; display: grid; place-items: center; align-content: center; gap: 10px; color: #73838d; text-align: center; }
 .test-versions-state strong { color: #34444d; font-size: 15px; }
 .test-versions-state span { max-width: 480px; font-size: 13px; }
@@ -130,7 +149,7 @@
 .test-version-tree-head,
 .test-version-tree-node {
   display: grid;
-  grid-template-columns: minmax(230px, 2.1fr) minmax(82px, .75fr) minmax(86px, .8fr) minmax(86px, .8fr) minmax(145px, 1.2fr) minmax(74px, .7fr) minmax(180px, 1.6fr);
+  grid-template-columns: minmax(230px, 2.1fr) minmax(82px, .75fr) minmax(86px, .8fr) minmax(86px, .8fr) minmax(145px, 1.2fr) minmax(110px, .95fr) minmax(74px, .7fr) minmax(180px, 1.6fr);
   align-items: center;
   gap: 12px;
 }
@@ -193,6 +212,13 @@
 .test-version-tree-node > span.version-value { width: max-content; }
 .tree-node-commit { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .tree-node-commit small { overflow: hidden; max-width: 100%; color: #8c6b34; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.commit-id-link {
+  color: #0b6bcb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  text-decoration: none;
+}
+.commit-id-link:hover { text-decoration: underline; }
 .test-version-tree-node .description-cell { overflow: hidden; color: #65747d; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
 
 .test-version-table-wrap { overflow-x: auto; }
@@ -208,6 +234,16 @@
 .test-version-table td:nth-child(5) { width: 17%; }
 .test-version-table td:nth-child(6) { width: 9%; }
 .test-version-table td:nth-child(7) { width: 22%; }
+.test-barcode-table { min-width: 1180px; }
+.test-barcode-table td:nth-child(1) { width: 14%; }
+.test-barcode-table td:nth-child(2) { width: 14%; }
+.test-barcode-table td:nth-child(3) { width: 18%; }
+.test-barcode-table td:nth-child(4),
+.test-barcode-table td:nth-child(5),
+.test-barcode-table td:nth-child(6) { width: 11%; }
+.test-barcode-table td:nth-child(7) { width: 12%; }
+.test-barcode-table td:nth-child(8) { width: 12%; }
+.test-field-select { width: 100%; min-width: 160px; }
 .test-version-table td strong, .test-version-table td span { display: block; }
 .test-version-table td strong { color: #253640; font-size: 12px; }
 .test-version-table td span { margin-top: 4px; color: #81909a; line-height: 1.4; }
@@ -218,6 +254,64 @@
 .test-versions-footer { display: flex; justify-content: space-between; gap: 16px; margin-top: 13px; color: #87949c; font-size: 11px; }
 .test-versions-inline-error { margin-top: 14px; }
 
+.add-version-form {
+  display: grid;
+  gap: 14px;
+}
+.add-version-field {
+  display: grid;
+  gap: 6px;
+}
+.add-version-field > span {
+  color: #52636e;
+  font-size: 12px;
+  font-weight: 700;
+}
+.add-version-field small {
+  color: #7d8b94;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.add-version-device-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.add-version-device-select { flex: 1; min-width: 0; }
+.add-version-reference {
+  padding: 12px 14px;
+  border: 1px solid #d9e4e1;
+  background: #f5faf8;
+}
+.add-version-reference p {
+  margin: 0 0 8px;
+  color: #3d6b61;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.add-version-reference ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.add-version-reference li {
+  display: grid;
+  gap: 2px;
+}
+.add-version-reference strong {
+  color: #24343d;
+  font-size: 12px;
+}
+.add-version-reference span {
+  color: #6d7f88;
+  font-size: 11px;
+}
+.add-version-alert { margin-top: 2px; }
+
 @media (max-width: 760px) {
   .test-versions-header { align-items: flex-start; flex-direction: column; gap: 13px; }
   .test-versions-actions { width: 100%; justify-content: space-between; }
@@ -225,8 +319,16 @@
   .test-versions-intro { align-items: flex-start; flex-direction: column; gap: 15px; }
   .test-versions-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .test-versions-toolbar { align-items: stretch; flex-direction: column; }
-  .test-versions-toolbar .el-input { width: 100%; }
+  .test-versions-toolbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .test-versions-toolbar-actions .el-input {
+    max-width: none;
+    min-width: 0;
+  }
   .test-version-group-header { align-items: flex-start; flex-direction: column; }
   .group-parent { min-width: 0; }
   .test-versions-footer { align-items: flex-start; flex-direction: column; }
+  .add-version-device-row { flex-direction: column; align-items: stretch; }
 }

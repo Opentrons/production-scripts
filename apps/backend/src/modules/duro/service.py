@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -9,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+import requests
 from pydantic import BaseModel
 
 from modules.duro.client import DuroApiError, DuroClient
@@ -24,6 +26,9 @@ from modules.duro.models import (
     utc_now,
 )
 from core.config import DURO_PRODUCT_CACHE_SECONDS
+
+OPENTRONS_GITHUB_REPO = "Opentrons/opentrons"
+OPENTRONS_COMMITS_URL = f"https://github.com/{OPENTRONS_GITHUB_REPO}/commits"
 
 
 class DuroService:
@@ -41,6 +46,7 @@ class DuroService:
         self._product_bom_cache: dict[str, tuple[float, DuroProductBomResponse]] = {}
         self._component_cache: dict[str, tuple[float, DuroComponentChildrenResponse]] = {}
         self._version_catalog_cache: tuple[float, DuroVersionCatalogResponse] | None = None
+        self._github_commit_cache: dict[str, str | None] = {}
         if self.cache_path is not None:
             self._initialize_disk_cache()
 
@@ -75,7 +81,7 @@ class DuroService:
     def get_version_catalog(self, refresh: bool = False) -> DuroVersionCatalogResponse:
         """Return Duro software/version touchpoints and their full child details."""
 
-        disk_key = "duro-version-catalog:v2"
+        disk_key = "duro-version-catalog:v3"
         with self._lock:
             if not refresh and self._version_catalog_cache is not None:
                 return self._version_catalog_cache[1].model_copy(update={"cached": True})
@@ -138,6 +144,8 @@ class DuroService:
                         children=children,
                     )
                 )
+
+        self._enrich_commit_ids(groups, refresh=refresh)
 
         response = DuroVersionCatalogResponse(
             products_scanned=len(products_response.products),
@@ -282,25 +290,156 @@ class DuroService:
     @staticmethod
     def _extract_version(text: str, kind: str) -> str:
         label = "App" if kind == "app" else r"(?:FW|Firmware)"
-        match = re.search(
-            rf"^\s*{label}\s*[:：]\s*([vV]?\d+(?:\.\d+){{0,3}}(?:[-+][A-Za-z0-9._-]+)?)\b",
+        label_match = re.search(
+            rf"^\s*{label}\s*[:：]\s*(.*)$",
             text,
             flags=re.IGNORECASE | re.MULTILINE,
         )
-        if not match:
+        if not label_match:
             return ""
-        value = match.group(1).strip()
-        return f"v{value.lstrip('vV')}"
+        value = label_match.group(1).strip()
+
+        # Duro details may include the firmware version in a path or suffix,
+        # such as "controller-v52" or "controller/V52".
+        version_match = re.search(
+            r"(?<![A-Za-z0-9])v\d+(?:\.\d+){0,3}\b",
+            value,
+            flags=re.IGNORECASE,
+        )
+        if version_match:
+            return version_match.group(0).lower()
+
+        # Keep supporting details that contain a bare numeric version.
+        version_match = re.match(r"\d+(?:\.\d+){0,3}\b", value)
+        if not version_match:
+            return ""
+        return f"v{version_match.group(0)}"
 
     @staticmethod
     def _extract_commit_hash(text: str) -> str | None:
+        # Prefer an explicit Tag label when present.
         match = re.search(r"^\s*Tag\s*[:：]\s*(\S+)", text, flags=re.IGNORECASE | re.MULTILINE)
-        return match.group(1).strip() if match else None
+        if match:
+            return match.group(1).strip()
+
+        # Scripts: <ref>
+        # or Scripts: https://.../tree/<ref>
+        # or Scripts:\nhttps://.../tree/<ref>
+        scripts_match = re.search(
+            r"^\s*Scripts?\s*[:：]\s*(.*)$",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if scripts_match:
+            value = scripts_match.group(1).strip()
+            tree_match = re.search(r"/tree/(\S+)", value)
+            if tree_match:
+                return tree_match.group(1).rstrip("/")
+            if value:
+                return value.split()[0]
+            rest = text[scripts_match.end() :].lstrip("\r\n")
+            next_line = rest.splitlines()[0] if rest else ""
+            tree_match = re.search(r"/tree/(\S+)", next_line)
+            if tree_match:
+                return tree_match.group(1).rstrip("/")
+
+        # Protocol: .../xxxx.py -> xxxx.py
+        match = re.search(
+            r"^\s*Protocol\s*[:：]\s*.*?([^/\s]+\.py)\b",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if match:
+            return match.group(1).strip()
+
+        return None
 
     @staticmethod
     def _extract_test_tag(text: str) -> str | None:
         match = re.search(r"(?:hardware\s+testing\s+tag|test\s+tag)\s*[:=]\s*([^\s]+)", text, flags=re.IGNORECASE)
         return match.group(1).strip() if match else None
+
+    @classmethod
+    def commits_page_url(cls, commit_hash: str) -> str:
+        return f"{OPENTRONS_COMMITS_URL}/{commit_hash.strip()}/"
+
+    @staticmethod
+    def _is_resolvable_commit_ref(value: str) -> bool:
+        text = value.strip()
+        if not text or text.lower().endswith(".py"):
+            return False
+        # Protocol filenames and nested tree paths are not Git refs.
+        if "/" in text:
+            return False
+        return True
+
+    def _enrich_commit_ids(self, groups: list[DuroVersionGroup], *, refresh: bool = False) -> None:
+        refs = sorted(
+            {
+                child.test_commit_hash.strip()
+                for group in groups
+                for child in group.children
+                if child.test_commit_hash and self._is_resolvable_commit_ref(child.test_commit_hash)
+            }
+        )
+        if not refs:
+            return
+
+        resolved: dict[str, str | None] = {}
+        missing: list[str] = []
+        with self._lock:
+            for ref in refs:
+                if not refresh and ref in self._github_commit_cache:
+                    resolved[ref] = self._github_commit_cache[ref]
+                else:
+                    missing.append(ref)
+
+        if missing:
+            with ThreadPoolExecutor(max_workers=min(6, max(1, len(missing)))) as executor:
+                futures = {executor.submit(self._resolve_github_commit_id, ref): ref for ref in missing}
+                for future, ref in futures.items():
+                    try:
+                        resolved[ref] = future.result()
+                    except Exception:
+                        resolved[ref] = None
+            with self._lock:
+                for ref in missing:
+                    self._github_commit_cache[ref] = resolved.get(ref)
+
+        for group in groups:
+            for child in group.children:
+                ref = (child.test_commit_hash or "").strip()
+                commit_id = resolved.get(ref)
+                if commit_id:
+                    child.test_commit_id = commit_id
+
+    def _resolve_github_commit_id(self, ref: str) -> str | None:
+        """Resolve the tip commit SHA for a branch/tag/ref on Opentrons/opentrons."""
+
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "production-scripts-duro",
+        }
+        token = (os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            response = requests.get(
+                f"https://api.github.com/repos/{OPENTRONS_GITHUB_REPO}/commits",
+                params={"sha": ref, "per_page": 1},
+                headers=headers,
+                timeout=15,
+            )
+            if response.status_code != 200:
+                return None
+            payload = response.json()
+            if not isinstance(payload, list) or not payload:
+                return None
+            sha = payload[0].get("sha") if isinstance(payload[0], dict) else None
+            return str(sha).strip() or None
+        except (requests.RequestException, ValueError, TypeError, IndexError, KeyError):
+            return None
 
     def get_product_bom(self, product_id: str, refresh: bool = False) -> DuroProductBomResponse:
         normalized_id = product_id.strip()

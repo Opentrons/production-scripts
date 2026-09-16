@@ -1,6 +1,12 @@
 import sqlite3
 
-from modules.duro.models import DuroProduct, DuroProductSearchRequest, DuroProductSearchResponse
+from modules.duro.models import (
+    DuroProduct,
+    DuroProductSearchRequest,
+    DuroProductSearchResponse,
+    DuroVersionComponent,
+    DuroVersionGroup,
+)
 from modules.duro.service import DuroService
 
 
@@ -252,9 +258,14 @@ def test_component_children_are_loaded_one_level_at_a_time() -> None:
     assert response.children[0].has_children is False
 
 
-def test_version_catalog_finds_software_parents_and_extracts_child_details() -> None:
+def test_version_catalog_finds_software_parents_and_extracts_child_details(monkeypatch) -> None:
     client = VersionDuroClient()
     service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        service,
+        "_resolve_github_commit_id",
+        lambda ref: f"resolved-{ref}" if ref == "abcdef1234567" else None,
+    )
 
     response = service.get_version_catalog(refresh=True)
 
@@ -270,6 +281,7 @@ def test_version_catalog_finds_software_parents_and_extracts_child_details() -> 
     assert child.app_version == "v8.8.0"
     assert child.firmware_version == "v67"
     assert child.test_commit_hash == "abcdef1234567"
+    assert child.test_commit_id == "resolved-abcdef1234567"
     assert child.test_tag is None
     assert group.children[1].app_version == "v1.2.3"
 
@@ -278,9 +290,111 @@ def test_version_details_only_extract_app_and_fw_labels() -> None:
     assert DuroService._extract_version("App: v8.8.0", "app") == "v8.8.0"
     assert DuroService._extract_version("FW：V67", "firmware") == "v67"
     assert DuroService._extract_version("Firmware: 67", "firmware") == "v67"
+    assert DuroService._extract_version("FW: controller-v52", "firmware") == "v52"
+    assert DuroService._extract_version("Firmware: controller/V52", "firmware") == "v52"
     assert DuroService._extract_version("Desktop App: v8.8.0", "app") == ""
     assert DuroService._extract_version("Robot Firmware: V67", "firmware") == ""
     assert DuroService._extract_version("No version here", "app") == ""
+
+
+def test_version_details_extract_commit_hash_from_tag_scripts_and_protocol() -> None:
+    assert DuroService._extract_commit_hash("Tag: abcdef1234567") == "abcdef1234567"
+    assert DuroService._extract_commit_hash("Scripts: mp.pipette.qc.2026.6.9") == "mp.pipette.qc.2026.6.9"
+    assert (
+        DuroService._extract_commit_hash(
+            "Scripts: mp.pipette.qc.2026.6.9\n"
+            "https://github.com/Opentrons/opentrons/tree/mp.pipette.qc.2026.6.9"
+        )
+        == "mp.pipette.qc.2026.6.9"
+    )
+    assert (
+        DuroService._extract_commit_hash(
+            "Scripts:\nhttps://github.com/Opentrons/opentrons/tree/mp.pipette.qc.2026.6.9"
+        )
+        == "mp.pipette.qc.2026.6.9"
+    )
+    assert (
+        DuroService._extract_commit_hash(
+            "Scripts: https://github.com/Opentrons/opentrons/tree/abcdef1234567"
+        )
+        == "abcdef1234567"
+    )
+    assert (
+        DuroService._extract_commit_hash(
+            "Script: https://github.com/Opentrons/opentrons/tree/main/hardware-testing/foo"
+        )
+        == "main/hardware-testing/foo"
+    )
+    assert (
+        DuroService._extract_commit_hash(
+            "Protocol: https://github.com/Opentrons/opentrons/blob/main/protocols/flex_z_stage.py"
+        )
+        == "flex_z_stage.py"
+    )
+    assert DuroService._extract_commit_hash("Protocol: path/to/stage_test.py") == "stage_test.py"
+    # Tag wins when multiple labels are present.
+    assert (
+        DuroService._extract_commit_hash(
+            "Tag: tagged-ref\nScripts: https://example.com/tree/from-scripts\nProtocol: a/b.py"
+        )
+        == "tagged-ref"
+    )
+    assert DuroService._extract_commit_hash("No commit here") is None
+
+
+def test_commits_page_url_and_resolvable_refs() -> None:
+    assert (
+        DuroService.commits_page_url("mp.pipette.qc.2026.6.9")
+        == "https://github.com/Opentrons/opentrons/commits/mp.pipette.qc.2026.6.9/"
+    )
+    assert DuroService._is_resolvable_commit_ref("mp.pipette.qc.2026.6.9") is True
+    assert DuroService._is_resolvable_commit_ref("flex_z_stage.py") is False
+    assert DuroService._is_resolvable_commit_ref("main/hardware-testing/foo") is False
+
+
+def test_enrich_commit_ids_resolves_unique_refs(monkeypatch) -> None:
+    client = FakeDuroClient()
+    service = DuroService(client, cache_seconds=300)  # type: ignore[arg-type]
+    calls: list[str] = []
+
+    def fake_resolve(ref: str) -> str | None:
+        calls.append(ref)
+        return f"sha-{ref}"
+
+    monkeypatch.setattr(service, "_resolve_github_commit_id", fake_resolve)
+    groups = [
+        DuroVersionGroup(
+            product_id="p1",
+            parent_id="parent",
+            children=[
+                DuroVersionComponent(
+                    id="c1",
+                    name="one",
+                    test_commit_hash="mp.pipette.qc.2026.6.9",
+                    source_text="",
+                ),
+                DuroVersionComponent(
+                    id="c2",
+                    name="two",
+                    test_commit_hash="mp.pipette.qc.2026.6.9",
+                    source_text="",
+                ),
+                DuroVersionComponent(
+                    id="c3",
+                    name="protocol",
+                    test_commit_hash="stage_test.py",
+                    source_text="",
+                ),
+            ],
+        )
+    ]
+
+    service._enrich_commit_ids(groups)
+
+    assert calls == ["mp.pipette.qc.2026.6.9"]
+    assert groups[0].children[0].test_commit_id == "sha-mp.pipette.qc.2026.6.9"
+    assert groups[0].children[1].test_commit_id == "sha-mp.pipette.qc.2026.6.9"
+    assert groups[0].children[2].test_commit_id is None
 
 
 def test_version_parent_requires_both_software_and_firmware_keywords() -> None:

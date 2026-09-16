@@ -227,7 +227,8 @@ def _instrument_matches(product_key: str, item: dict[str, Any]) -> bool:
 
 
 def _collect_instrument_versions(ip: str, port: int, product_key: str) -> dict[str, Any]:
-    instruments = _items(_http_client(ip, port).get_instruments())
+    client = _http_client(ip, port)
+    instruments = _items(client.get_instruments())
     instrument = next(
         (item for item in instruments if _instrument_matches(product_key, item)),
         None,
@@ -241,9 +242,20 @@ def _collect_instrument_versions(ip: str, port: int, product_key: str) -> dict[s
     if not barcode:
         raise RuntimeError("Instrument 未返回条码")
 
+    try:
+        health = _record(client.get_health())
+    except Exception:
+        health = {}
+
     return {
         "barcode": barcode,
         "test_version": _read_test_version(ip),
+        "robot": {
+            "name": _text(health.get("name"), "N/A"),
+            "model": _text(health.get("robot_model", health.get("robotModel")), "N/A"),
+            "api_version": _text(health.get("api_version"), "N/A"),
+            "system_version": _text(health.get("system_version"), "N/A"),
+        },
         "instrument": {
             "name": _text(
                 instrument.get("instrumentName", instrument.get("name")),
@@ -312,6 +324,12 @@ def _simulated_versions(ip: str, port: int, product_key: str) -> dict[str, Any]:
     return {
         "barcode": simulated_barcodes[product_key],
         "test_version": "SIM-TEST-1.0",
+        "robot": {
+            "name": _text(robot.get("name"), "SIM-FLEX"),
+            "model": _text(robot.get("robot_model"), "OT-3 Standard"),
+            "api_version": _text(robot.get("api_version"), "N/A"),
+            "system_version": _text(robot.get("version"), "N/A"),
+        },
         "instrument": {
             "name": str(_PRODUCT_BY_KEY[product_key]["label"]),
             "model": product_key,

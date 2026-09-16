@@ -106,6 +106,7 @@ class DuroVersionComponent(BaseModel):
     app_version: str | None = None
     firmware_version: str | None = None
     test_commit_hash: str | None = None
+    test_commit_id: str | None = None
     test_tag: str | None = None
     path: list[str] = Field(default_factory=list)
     specs: list[dict[str, Any]] = Field(default_factory=list)
