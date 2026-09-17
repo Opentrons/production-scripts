@@ -40,6 +40,13 @@ def test_save_and_list_analysis_records(monkeypatch):
             stored.append(dict(document))
             return None
 
+        def update_one(self, query, update):
+            for item in stored:
+                if item.get("_id") == query.get("_id"):
+                    item.update(update.get("$set", {}))
+                    return None
+            return None
+
         def count_documents(self, query):
             if not query:
                 return len(stored)
@@ -83,6 +90,11 @@ def test_save_and_list_analysis_records(monkeypatch):
             "code_name": "COMMAND_TIMED_OUT",
         },
     )
+    monkeypatch.setattr(
+        app_log_analysis,
+        "analyze_failure_with_llm",
+        lambda summary: "传感器读取超时，建议检查对应节点连接。",
+    )
 
     record = app_log_analysis.analyze_and_store_app_log_zip(
         b"unused",
@@ -92,6 +104,7 @@ def test_save_and_list_analysis_records(monkeypatch):
     )
     assert record["status"] == "completed"
     assert record["summary"]["code"] == "1004"
+    assert record["llm_reason"] == "传感器读取超时，建议检查对应节点连接。"
 
     listed = app_log_analysis.list_analysis_records(robot_ip="192.168.6.10")
     assert listed["total"] == 1

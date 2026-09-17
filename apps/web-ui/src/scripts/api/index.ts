@@ -148,6 +148,28 @@ export interface RobotVersionCaptureResponse {
   record: RobotVersionHistoryRecord
 }
 
+export type RobotVersionComparisonField = 'test_version' | 'app_version' | 'firmware'
+
+export interface RobotVersionComparisonRule {
+  _id: string
+  product_type: RobotVersionProductType
+  product_name: string
+  duro_product_id: string
+  duro_product_label: string
+  duro_parent_id: string
+  duro_parent_label: string
+  test_names: string[]
+  fields: RobotVersionComparisonField[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface RobotVersionComparisonRulesResponse {
+  rules: RobotVersionComparisonRule[]
+  total: number
+  storage: 'mongodb'
+}
+
 export interface RobotVersionHistoryResponse {
   records: RobotVersionHistoryRecord[]
   total: number
@@ -519,6 +541,8 @@ export interface RobotAppLogAnalysisRecord {
   archive_name?: string | null
   status: 'completed' | 'failed' | string
   error?: string | null
+  llm_reason?: string | null
+  llm_error?: string | null
   summary?: RobotAppLogAnalysisSummary | null
   created_at: string
   updated_at?: string | null
@@ -610,6 +634,14 @@ export const robotApi = {
   }) => api.post<RobotVersionCaptureResponse>('/robots/version-records', payload, { timeout: 0 }),
   getVersionHistory: (params?: { page?: number; page_size?: number }) =>
     api.get<RobotVersionHistoryResponse>('/robots/version-history', { params }),
+  getVersionComparisonRules: () =>
+    api.get<RobotVersionComparisonRulesResponse>('/robots/version-comparison-rules'),
+  createVersionComparisonRule: (payload: Omit<RobotVersionComparisonRule, '_id' | 'created_at' | 'updated_at'>) =>
+    api.post<RobotVersionComparisonRule>('/robots/version-comparison-rules', payload),
+  updateVersionComparisonRule: (ruleId: string, payload: Omit<RobotVersionComparisonRule, '_id' | 'created_at' | 'updated_at'>) =>
+    api.put<RobotVersionComparisonRule>(`/robots/version-comparison-rules/${encodeURIComponent(ruleId)}`, payload),
+  deleteVersionComparisonRule: (ruleId: string) =>
+    api.delete<{ success: boolean; id: string }>(`/robots/version-comparison-rules/${encodeURIComponent(ruleId)}`),
   executeCommands: (payload: RobotCommandRequest) =>
     api.post<RobotBatchCommandResponse>('/robots/commands', payload, { timeout: 0 }),
   getSshCommands: () =>

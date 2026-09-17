@@ -81,7 +81,7 @@ class DuroService:
     def get_version_catalog(self, refresh: bool = False) -> DuroVersionCatalogResponse:
         """Return Duro software/version touchpoints and their full child details."""
 
-        disk_key = "duro-version-catalog:v3"
+        disk_key = "duro-version-catalog:v4"
         with self._lock:
             if not refresh and self._version_catalog_cache is not None:
                 return self._version_catalog_cache[1].model_copy(update={"cached": True})
@@ -291,7 +291,7 @@ class DuroService:
     def _extract_version(text: str, kind: str) -> str:
         label = "App" if kind == "app" else r"(?:FW|Firmware)"
         label_match = re.search(
-            rf"^\s*{label}\s*[:：]\s*(.*)$",
+            rf"^\s*(?:[A-Za-z0-9 _./-]+\s+)?{label}\s*[:：]\s*(.*)$",
             text,
             flags=re.IGNORECASE | re.MULTILINE,
         )
@@ -315,13 +315,8 @@ class DuroService:
             return ""
         return f"v{version_match.group(0)}"
 
-    @staticmethod
-    def _extract_commit_hash(text: str) -> str | None:
-        # Prefer an explicit Tag label when present.
-        match = re.search(r"^\s*Tag\s*[:：]\s*(\S+)", text, flags=re.IGNORECASE | re.MULTILINE)
-        if match:
-            return match.group(1).strip()
-
+    @classmethod
+    def _extract_commit_hash(cls, text: str) -> str | None:
         # Scripts: <ref>
         # or Scripts: https://.../tree/<ref>
         # or Scripts:\nhttps://.../tree/<ref>
@@ -332,16 +327,27 @@ class DuroService:
         )
         if scripts_match:
             value = scripts_match.group(1).strip()
-            tree_match = re.search(r"/tree/(\S+)", value)
-            if tree_match:
-                return tree_match.group(1).rstrip("/")
-            if value:
-                return value.split()[0]
+            ref = cls._extract_git_ref(value)
+            if ref:
+                return ref
             rest = text[scripts_match.end() :].lstrip("\r\n")
             next_line = rest.splitlines()[0] if rest else ""
-            tree_match = re.search(r"/tree/(\S+)", next_line)
-            if tree_match:
-                return tree_match.group(1).rstrip("/")
+            ref = cls._extract_git_ref(next_line)
+            if ref:
+                return ref
+
+        # Some Duro records do not have Scripts, but store the test ref under
+        # labels like "Hardware Testing Tag" or "Release Branch".
+        for line in text.splitlines():
+            label, separator, value = line.partition(":")
+            if not separator:
+                label, separator, value = line.partition("：")
+            if not separator:
+                continue
+            if re.search(r"\b(?:Tag|Branch)\s*$", label.strip(), flags=re.IGNORECASE):
+                ref = cls._extract_git_ref(value)
+                if ref:
+                    return ref
 
         # Protocol: .../xxxx.py -> xxxx.py
         match = re.search(
@@ -353,6 +359,16 @@ class DuroService:
             return match.group(1).strip()
 
         return None
+
+    @staticmethod
+    def _extract_git_ref(value: str) -> str:
+        text = value.strip()
+        if not text:
+            return ""
+        tree_match = re.search(r"/tree/([^\s?#]+)", text)
+        if tree_match:
+            return tree_match.group(1).rstrip("/")
+        return text.split()[0].strip().rstrip("/")
 
     @staticmethod
     def _extract_test_tag(text: str) -> str | None:

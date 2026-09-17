@@ -1,17 +1,5 @@
 <template>
   <section class="log-history-panel">
-    <div class="log-record-toolbar">
-      <div>
-        <div class="log-section-title">{{ t('devices.logs.serverRecords') }}</div>
-        <div class="log-section-description">
-          {{ robotIp ? t('devices.logs.currentDeviceOnly', { ip: robotIp }) : t('devices.logs.allDevices') }}
-        </div>
-      </div>
-      <el-button :icon="Refresh" :loading="loading" @click="loadRecords">
-        {{ t('common.actions.refresh') }}
-      </el-button>
-    </div>
-
     <el-table
       v-loading="loading"
       :data="records"
@@ -175,7 +163,6 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAppLocale } from '@/i18n'

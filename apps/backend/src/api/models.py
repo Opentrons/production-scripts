@@ -447,6 +447,24 @@ class RobotVersionCaptureRequest(BaseModel):
     test_name: str = Field(min_length=1, max_length=200)
 
 
+class RobotVersionComparisonRuleRequest(BaseModel):
+    product_type: Literal[
+        "robot",
+        "pipette_single_channel",
+        "pipette_8_channels",
+        "pipette_96_channels_200ul",
+        "pipette_96_channels_1000ul",
+        "gripper",
+    ]
+    product_name: str = Field(min_length=1, max_length=120)
+    duro_product_id: str = Field(min_length=1, max_length=255)
+    duro_product_label: str = Field(min_length=1, max_length=500)
+    duro_parent_id: str = Field(min_length=1, max_length=255)
+    duro_parent_label: str = Field(min_length=1, max_length=500)
+    test_names: list[str] = Field(min_length=1, max_length=50)
+    fields: list[Literal["test_version", "app_version", "firmware"]] = Field(min_length=1, max_length=3)
+
+
 class RobotsScanResponse(BaseModel):
     total: int
     online_count: int

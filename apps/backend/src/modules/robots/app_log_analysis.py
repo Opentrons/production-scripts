@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import core.config as setting
 from core.database import mongodb
+from modules.agent.llm.service import LLMConfigurationError, llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,12 @@ def _compact_analysis(full: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def analyze_failure_with_llm(summary: dict[str, Any]) -> str | None:
+    if not summary or not llm_service.configured:
+        return None
+    return llm_service.analyze_app_log_failure(summary)
+
+
 def analyze_app_log_zip(
     zip_bytes: bytes,
     *,
@@ -153,6 +160,16 @@ def save_app_log_analysis(
             )
             record["status"] = "completed"
             record["error"] = None
+            try:
+                record["llm_reason"] = analyze_failure_with_llm(record["summary"])
+                record["llm_error"] = None
+            except LLMConfigurationError:
+                record["llm_reason"] = None
+                record["llm_error"] = None
+            except Exception as exc:  # noqa: BLE001 - keep rule-based analysis available
+                logger.warning("LLM App Log analysis failed for %s: %s", robot_ip, exc)
+                record["llm_reason"] = None
+                record["llm_error"] = str(exc)
         except Exception as exc:  # noqa: BLE001 - persist failure for the UI
             logger.exception("App Log analysis failed for %s", robot_ip)
             record["status"] = "failed"
@@ -179,12 +196,31 @@ def analyze_and_store_app_log_zip(
             archive_name=archive_name,
             device_name=device_name,
         )
-        return save_app_log_analysis(
+        llm_reason = None
+        llm_error = None
+        try:
+            llm_reason = analyze_failure_with_llm(summary)
+        except LLMConfigurationError:
+            pass
+        except Exception as exc:  # noqa: BLE001 - persist the base analysis record
+            logger.warning("LLM App Log analysis failed for %s: %s", robot_ip, exc)
+            llm_error = str(exc)
+        record = save_app_log_analysis(
             robot_ip=robot_ip,
             archive_name=archive_name,
             device_name=device_name,
             summary=summary,
         )
+        if llm_reason is not None or llm_error is not None:
+            collection = _get_collection()
+            update = {
+                "llm_reason": llm_reason,
+                "llm_error": llm_error,
+                "updated_at": _utc_now(),
+            }
+            collection.update_one({"_id": record["_id"]}, {"$set": update})
+            record.update(_serialize(update))
+        return record
     except Exception as exc:  # noqa: BLE001
         return save_app_log_analysis(
             robot_ip=robot_ip,

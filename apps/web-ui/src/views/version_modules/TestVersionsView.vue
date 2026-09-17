@@ -10,7 +10,7 @@
       </div>
       <div class="test-versions-actions">
         <a class="test-versions-home" href="/">{{ t('versions.testVersions.backHome') }}</a>
-        <el-button :icon="Refresh" :loading="activeTab === 'duro' ? duroLoading : testLoading" @click="refreshActive">
+        <el-button text class="test-versions-refresh" :icon="Refresh" :loading="activeTab === 'duro' ? duroLoading : testLoading" @click="refreshActive">
           {{ t('common.actions.refresh') }}
         </el-button>
         <AuthUserMenu variant="dark" />
@@ -24,9 +24,9 @@
           <h2>{{ t('versions.testVersions.heading') }}</h2>
           <p>{{ t('versions.testVersions.subtitle') }}</p>
         </div>
-        <div class="test-versions-source" :class="{ 'is-ready': activeTab === 'duro' ? Boolean(duroCatalog) : Boolean(testRecords.length) }">
+        <div class="test-versions-source" :class="{ 'is-ready': sourceReady }">
           <span class="source-dot"></span>
-          {{ activeTab === 'duro' ? t('versions.testVersions.duroSource') : t('versions.testVersions.testSource') }}
+          {{ activeSourceLabel }}
         </div>
       </div>
 
@@ -54,6 +54,18 @@
           <Tickets :size="18" aria-hidden="true" />
           <span>Test Version</span>
           <strong v-if="testRecords.length">{{ testRecords.length }}</strong>
+        </button>
+        <button
+          class="test-versions-tab"
+          :class="{ 'is-active': activeTab === 'settings' }"
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'settings'"
+          @click="selectTab('settings')"
+        >
+          <Setting :size="18" aria-hidden="true" />
+          <span>Compare Setting</span>
+          <strong v-if="comparisonRules.length">{{ comparisonRules.length }}</strong>
         </button>
       </nav>
 
@@ -155,7 +167,7 @@
         </footer>
       </section>
 
-      <section v-else class="test-versions-panel" role="tabpanel">
+      <section v-else-if="activeTab === 'test'" class="test-versions-panel" role="tabpanel">
         <div class="test-versions-toolbar">
           <div>
             <p class="panel-kicker">TEST CAPTURE</p>
@@ -190,21 +202,25 @@
                 <th>{{ t('versions.testVersions.product') }}</th>
                 <th>{{ t('versions.testVersions.barcode') }}</th>
                 <th>{{ t('versions.testVersions.testField') }}</th>
-                <th>{{ t('versions.testVersions.serial') }}</th>
                 <th>{{ t('versions.testVersions.testVersion') }}</th>
-                <th>{{ t('versions.testVersions.appVersion') }}</th>
+                <th>{{ t('versions.testVersions.apiVersion') }}</th>
                 <th>{{ t('versions.testVersions.firmware') }}</th>
+                <th>{{ t('versions.testVersions.compareStatus') }}</th>
                 <th>{{ t('versions.testVersions.queriedAt') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in filteredBarcodeRows" :key="row.id">
-                <td>
+              <tr
+                v-for="row in filteredBarcodeRows"
+                :key="row.id"
+                class="clickable-table-row"
+                @click="openComparisonDialog(row)"
+              >
+                <td :title="row.product_name">
                   <strong>{{ row.product_name }}</strong>
-                  <span>{{ row.product_type }}</span>
                 </td>
-                <td><code>{{ row.barcode }}</code></td>
-                <td>
+                <td :title="row.barcode"><code>{{ row.barcode }}</code></td>
+                <td @click.stop>
                   <el-select
                     :model-value="selectedTestKeyByBarcode[row.barcode] || row.defaultTestKey"
                     size="small"
@@ -219,16 +235,66 @@
                     />
                   </el-select>
                 </td>
-                <td><code>{{ row.activeTest.sn || row.barcode }}</code></td>
-                <td><span class="version-value">{{ row.activeTest.test_version || '—' }}</span></td>
-                <td><span :class="{ 'version-value': row.appVersion !== '—' }">{{ row.appVersion }}</span></td>
-                <td>{{ row.firmware }}</td>
-                <td>{{ formatDate(row.activeTest.queried_at) }}</td>
+                <td :title="row.activeTest.test_version || '—'"><span class="version-value">{{ row.activeTest.test_version || '—' }}</span></td>
+                <td :title="row.appVersion"><span :class="{ 'version-value': row.appVersion !== '—' }">{{ row.appVersion }}</span></td>
+                <td :title="row.firmware">{{ row.firmware }}</td>
+                <td>
+                  <el-tag
+                    size="small"
+                    :type="statusTagType(row.compareStatus)"
+                    class="compare-status-tag"
+                  >
+                    {{ row.compareStatus }}
+                  </el-tag>
+                </td>
+                <td :title="formatDate(row.activeTest.queried_at)">{{ formatDate(row.activeTest.queried_at) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <el-alert v-if="testError && testRecords.length" class="test-versions-inline-error" type="warning" :closable="false">{{ testError }}</el-alert>
+      </section>
+
+      <section v-else class="test-versions-panel" role="tabpanel">
+        <div class="test-versions-toolbar">
+          <div>
+            <p class="panel-kicker">COMPARISON RULES</p>
+          </div>
+          <el-button type="primary" :icon="Plus" @click="openRuleDialog()">
+            {{ t('versions.testVersions.addRule') }}
+          </el-button>
+        </div>
+
+        <div class="comparison-settings">
+          <table class="test-version-table comparison-rule-table">
+            <thead>
+              <tr>
+                <th>{{ t('versions.testVersions.product') }}</th>
+                <th>{{ t('versions.testVersions.selectProduct') }}</th>
+                <th>{{ t('versions.testVersions.selectSoftwareFirmware') }}</th>
+                <th>{{ t('versions.testVersions.ruleTests') }}</th>
+                <th>{{ t('versions.testVersions.ruleFields') }}</th>
+                <th>{{ t('versions.common.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!comparisonRules.length">
+                <td colspan="6">{{ t('versions.testVersions.noRules') }}</td>
+              </tr>
+              <tr v-for="rule in comparisonRules" :key="rule.id">
+                <td :title="rule.productName">{{ rule.productName }}</td>
+                <td :title="rule.duroProductLabel">{{ rule.duroProductLabel }}</td>
+                <td :title="rule.duroParentLabel">{{ rule.duroParentLabel }}</td>
+                <td :title="rule.testNames.join(' · ')">{{ rule.testNames.join(' · ') }}</td>
+                <td :title="rule.fields.map(fieldLabel).join(' · ')">{{ rule.fields.map(fieldLabel).join(' · ') }}</td>
+                <td>
+                  <el-button link type="primary" @click="openRuleDialog(rule)">{{ t('common.actions.edit') }}</el-button>
+                  <el-button link type="danger" @click="deleteComparisonRule(rule.id)">{{ t('common.actions.delete') }}</el-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </section>
 
@@ -275,24 +341,6 @@
               :value="group.parent_id"
             />
           </el-select>
-        </label>
-
-        <label class="add-version-field">
-          <span>{{ t('versions.testVersions.captureProduct') }}</span>
-          <el-select
-            v-model="addForm.productType"
-            :loading="versionProductsLoading"
-            :placeholder="t('versions.testVersions.selectCaptureProductPlaceholder')"
-            @change="onCaptureProductChange"
-          >
-            <el-option
-              v-for="product in versionProducts"
-              :key="product.key"
-              :label="product.label"
-              :value="product.key"
-            />
-          </el-select>
-          <small v-if="inferredProductTypeHint">{{ inferredProductTypeHint }}</small>
         </label>
 
         <label class="add-version-field">
@@ -362,7 +410,7 @@
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item :label="t('versions.testVersions.barcode')">{{ addCaptureResult.test.sn }}</el-descriptions-item>
             <el-descriptions-item :label="t('versions.testVersions.testVersion')">{{ addCaptureResult.test.test_version }}</el-descriptions-item>
-            <el-descriptions-item :label="t('versions.testVersions.appVersion')">{{ appVersionFromTest(addCaptureResult.test) }}</el-descriptions-item>
+            <el-descriptions-item :label="t('versions.testVersions.apiVersion')">{{ appVersionFromTest(addCaptureResult.test) }}</el-descriptions-item>
             <el-descriptions-item :label="t('versions.testVersions.firmware')">{{ firmwareSummary(addCaptureResult.test) }}</el-descriptions-item>
             <el-descriptions-item :label="t('versions.testVersions.queriedAt')">{{ formatDate(addCaptureResult.test.queried_at) }}</el-descriptions-item>
             <el-descriptions-item :label="t('versions.testVersions.robotIp')">{{ addCaptureResult.test.robot_ip }}</el-descriptions-item>
@@ -382,18 +430,126 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="ruleDialogVisible"
+      :title="editingRuleId ? t('common.actions.edit') : t('versions.testVersions.addRule')"
+      width="min(760px, calc(100vw - 32px))"
+      class="comparison-rule-dialog"
+      destroy-on-close
+      @closed="resetRuleForm"
+    >
+      <div class="comparison-rule-form">
+        <label class="add-version-field">
+          <span>{{ t('versions.testVersions.ruleProduct') }}</span>
+          <el-select v-model="ruleForm.productType" :placeholder="t('versions.testVersions.selectCaptureProductPlaceholder')" @change="onRuleProductChange">
+            <el-option
+              v-for="product in versionProducts"
+              :key="product.key"
+              :label="formatVersionProductName(product.key, product.label)"
+              :value="product.key"
+            />
+          </el-select>
+        </label>
+        <label class="add-version-field">
+          <span>{{ t('versions.testVersions.selectProduct') }}</span>
+          <el-select v-model="ruleForm.duroProductId" filterable :placeholder="t('versions.testVersions.selectProductPlaceholder')" @change="onRuleDuroProductChange">
+            <el-option
+              v-for="product in duroProductOptions"
+              :key="product.id"
+              :label="product.label"
+              :value="product.id"
+            />
+          </el-select>
+        </label>
+        <label class="add-version-field">
+          <span>{{ t('versions.testVersions.selectSoftwareFirmware') }}</span>
+          <el-select v-model="ruleForm.duroParentId" filterable :disabled="!ruleForm.duroProductId" :placeholder="t('versions.testVersions.selectSoftwareFirmwarePlaceholder')">
+            <el-option
+              v-for="group in ruleDuroGroups"
+              :key="group.parent_id"
+              :label="softwareFirmwareLabel(group)"
+              :value="group.parent_id"
+            />
+          </el-select>
+        </label>
+        <label class="add-version-field">
+          <span>{{ t('versions.testVersions.ruleTests') }}</span>
+          <el-select v-model="ruleForm.testNames" multiple filterable :disabled="!ruleForm.productType" :placeholder="t('versions.testVersions.selectTestPlaceholder')">
+            <el-option
+              v-for="testName in ruleTestOptions"
+              :key="testName"
+              :label="testName"
+              :value="testName"
+            />
+          </el-select>
+        </label>
+        <label class="add-version-field">
+          <span>{{ t('versions.testVersions.ruleFields') }}</span>
+          <el-checkbox-group v-model="ruleForm.fields">
+            <el-checkbox label="test_version">{{ t('versions.testVersions.testVersion') }}</el-checkbox>
+            <el-checkbox label="app_version">{{ t('versions.testVersions.apiVersion') }}</el-checkbox>
+            <el-checkbox label="firmware">{{ t('versions.testVersions.firmware') }}</el-checkbox>
+          </el-checkbox-group>
+        </label>
+      </div>
+      <template #footer>
+        <el-button @click="ruleDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" :icon="Plus" :disabled="!canSaveRule" @click="saveComparisonRule">
+          {{ editingRuleId ? t('common.actions.save') : t('versions.testVersions.addRule') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="comparisonDialogVisible"
+      :title="comparisonDialogTitle"
+      width="min(980px, calc(100vw - 32px))"
+      class="comparison-dialog"
+    >
+      <table class="test-version-table comparison-detail-table">
+        <thead>
+          <tr>
+            <th>{{ t('versions.testVersions.testField') }}</th>
+            <th>{{ t('versions.testVersions.testVersion') }}</th>
+            <th>Duro</th>
+            <th>{{ t('versions.testVersions.apiVersion') }}</th>
+            <th>Duro</th>
+            <th>{{ t('versions.testVersions.firmware') }}</th>
+            <th>Duro</th>
+            <th>{{ t('versions.testVersions.compareStatus') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="!comparisonDialogRows.length">
+            <td colspan="8">{{ t('versions.testVersions.noComparisonRows') }}</td>
+          </tr>
+          <tr v-for="row in comparisonDialogRows" :key="row.key">
+            <td :title="row.testName">{{ row.testName }}</td>
+            <td :title="row.current.test_version">{{ row.current.test_version }}</td>
+            <td :title="row.target.test_version">{{ row.target.test_version }}</td>
+            <td :title="row.current.app_version">{{ row.current.app_version }}</td>
+            <td :title="row.target.app_version">{{ row.target.app_version }}</td>
+            <td :title="row.current.firmware">{{ row.current.firmware }}</td>
+            <td :title="row.target.firmware">{{ row.target.firmware }}</td>
+            <td><el-tag size="small" :type="statusTagType(row.status)">{{ row.status }}</el-tag></td>
+          </tr>
+        </tbody>
+      </table>
+    </el-dialog>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Box, Connection, FolderOpened, Loading, Plus, Refresh, Search, Tickets } from '@element-plus/icons-vue'
+import { Box, Connection, FolderOpened, Loading, Plus, Refresh, Search, Setting, Tickets } from '@element-plus/icons-vue'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import { useAppLocale } from '@/i18n'
 import {
   robotApi,
   type RobotInfo,
+  type RobotVersionComparisonRule as ApiComparisonRule,
   type RobotVersionCaptureResponse,
   type RobotVersionHistoryRecord,
   type RobotVersionProduct,
@@ -405,7 +561,9 @@ import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import '@/styles/version_modules/version_modules.css'
 import './test_versions.css'
 
-type ActiveTab = 'duro' | 'test'
+type ActiveTab = 'duro' | 'test' | 'settings'
+type ComparisonField = 'test_version' | 'app_version' | 'firmware'
+type CompareStatus = 'PASS' | 'FAIL' | 'TODO' | 'N/A'
 
 interface VersionTreeNode {
   key: string
@@ -444,6 +602,28 @@ interface BarcodeTableRow {
   activeTest: RobotVersionTestEntry
   appVersion: string
   firmware: string
+  compareStatus: CompareStatus
+  record: RobotVersionHistoryRecord
+}
+
+interface ComparisonRule {
+  id: string
+  productType: RobotVersionProductType
+  productName: string
+  duroProductId: string
+  duroProductLabel: string
+  duroParentId: string
+  duroParentLabel: string
+  testNames: string[]
+  fields: ComparisonField[]
+}
+
+interface ComparisonDialogRow {
+  key: string
+  testName: string
+  current: Record<ComparisonField, string>
+  target: Record<ComparisonField, string>
+  status: CompareStatus
 }
 
 const { locale, t } = useAppLocale()
@@ -476,9 +656,33 @@ const addForm = reactive({
   testName: '',
   deviceIp: '',
 })
+const comparisonRules = ref<ComparisonRule[]>([])
+const comparisonRulesLoading = ref(false)
+const ruleDialogVisible = ref(false)
+const editingRuleId = ref('')
+const ruleForm = reactive({
+  productType: '' as RobotVersionProductType | '',
+  duroProductId: '',
+  duroParentId: '',
+  testNames: [] as string[],
+  fields: ['test_version', 'app_version', 'firmware'] as ComparisonField[],
+})
+const comparisonDialogVisible = ref(false)
+const comparisonDialogTitle = ref('')
+const comparisonDialogRows = ref<ComparisonDialogRow[]>([])
 
 const versionTreeData = computed(() => filteredGroups.value.map((group) => buildTree(group)))
 const defaultExpandedTreeKeys = computed(() => filteredGroups.value.flatMap((group) => defaultExpandedKeys(group)))
+const sourceReady = computed(() => {
+  if (activeTab.value === 'duro') return Boolean(duroCatalog.value)
+  if (activeTab.value === 'test') return Boolean(testRecords.value.length)
+  return true
+})
+const activeSourceLabel = computed(() => {
+  if (activeTab.value === 'duro') return t('versions.testVersions.duroSource')
+  if (activeTab.value === 'test') return t('versions.testVersions.testSource')
+  return 'Compare Setting'
+})
 
 const filteredGroups = computed(() => {
   const keyword = duroSearch.value.trim().toLocaleLowerCase()
@@ -522,12 +726,25 @@ const captureTestOptions = computed(() => selectedCaptureProduct.value?.test_nam
 
 const onlineDevices = computed<RobotInfo[]>(() => robotScanStore.scanResult?.online_robots ?? [])
 
-const inferredProductTypeHint = computed(() => {
-  const inferred = inferProductType(selectedSoftwareFirmwareGroup.value)
-  if (!inferred || !addForm.productType || inferred === addForm.productType) return ''
-  const label = versionProducts.value.find((product) => product.key === inferred)?.label || inferred
-  return t('versions.testVersions.inferredProductHint', { product: label })
-})
+const ruleSelectedProduct = computed(() => (
+  versionProducts.value.find((product) => product.key === ruleForm.productType) || null
+))
+
+const ruleTestOptions = computed(() => ruleSelectedProduct.value?.test_names ?? [])
+
+const ruleDuroGroups = computed(() => (
+  (duroCatalog.value?.groups ?? []).filter((group) => group.product_id === ruleForm.duroProductId)
+))
+
+const selectedRuleDuroGroup = computed(() => (
+  ruleDuroGroups.value.find((group) => group.parent_id === ruleForm.duroParentId) || null
+))
+
+const canSaveRule = computed(() => (
+  Boolean(ruleForm.productType && ruleForm.duroProductId && ruleForm.duroParentId)
+  && ruleForm.testNames.length > 0
+  && ruleForm.fields.length > 0
+))
 
 const canCaptureVersion = computed(() => (
   Boolean(addForm.productId && addForm.parentId && addForm.productType && addForm.testName && addForm.deviceIp)
@@ -547,7 +764,7 @@ const barcodeRows = computed<BarcodeTableRow[]>(() => (
     return {
       id: record._id || record.barcode,
       barcode: record.barcode,
-      product_name: record.product_name,
+      product_name: formatVersionProductName(record.product_type, record.product_name),
       product_type: record.product_type,
       robot_ip: record.robot_ip,
       defaultTestKey,
@@ -558,6 +775,8 @@ const barcodeRows = computed<BarcodeTableRow[]>(() => (
       activeTest: activeEntry,
       appVersion: appVersionFromTest(activeEntry),
       firmware: firmwareSummary(activeEntry),
+      compareStatus: compareRecordStatus(record),
+      record,
     }
   })
 ))
@@ -569,9 +788,7 @@ const filteredBarcodeRows = computed(() => {
     const haystack = [
       row.barcode,
       row.product_name,
-      row.product_type,
       row.robot_ip,
-      row.activeTest.sn,
       row.activeTest.test_name,
       row.activeTest.test_version,
       row.appVersion,
@@ -636,6 +853,11 @@ function setSelectedTestKey(barcode: string, testKey: string): void {
 function selectTab(tab: ActiveTab): void {
   activeTab.value = tab
   if (tab === 'test' && !testRecords.value.length && !testLoading.value) void loadTestVersions()
+  if (tab === 'settings') {
+    if (!duroCatalog.value && !duroLoading.value) void loadDuro()
+    void loadVersionProducts()
+    void loadComparisonRules()
+  }
 }
 
 function refreshActive(): void {
@@ -664,6 +886,109 @@ function resetAddDialog(): void {
   addCaptureResult.value = null
 }
 
+async function loadComparisonRules(): Promise<void> {
+  if (comparisonRulesLoading.value) return
+  comparisonRulesLoading.value = true
+  try {
+    const response = await robotApi.getVersionComparisonRules()
+    comparisonRules.value = response.data.rules.map(mapApiRule)
+  } catch (error: any) {
+    ElMessage.error(normalizeError(error) || t('versions.testVersions.loadRulesFailed'))
+  } finally {
+    comparisonRulesLoading.value = false
+  }
+}
+
+function onRuleProductChange(): void {
+  ruleForm.testNames = []
+}
+
+function onRuleDuroProductChange(): void {
+  ruleForm.duroParentId = ''
+}
+
+function resetRuleForm(): void {
+  editingRuleId.value = ''
+  ruleForm.productType = ''
+  ruleForm.duroProductId = ''
+  ruleForm.duroParentId = ''
+  ruleForm.testNames = []
+  ruleForm.fields = ['test_version', 'app_version', 'firmware']
+}
+
+async function saveComparisonRule(): Promise<void> {
+  if (!canSaveRule.value || !ruleForm.productType) return
+  const product = versionProducts.value.find((item) => item.key === ruleForm.productType)
+  const duroProduct = duroProductOptions.value.find((item) => item.id === ruleForm.duroProductId)
+  const duroGroup = selectedRuleDuroGroup.value
+  const payload = {
+    product_type: ruleForm.productType,
+    product_name: formatVersionProductName(ruleForm.productType, product?.label),
+    duro_product_id: ruleForm.duroProductId,
+    duro_product_label: duroProduct?.label || ruleForm.duroProductId,
+    duro_parent_id: ruleForm.duroParentId,
+    duro_parent_label: duroGroup ? softwareFirmwareLabel(duroGroup) : ruleForm.duroParentId,
+    test_names: [...ruleForm.testNames],
+    fields: [...ruleForm.fields],
+  }
+  try {
+    if (editingRuleId.value) {
+      const response = await robotApi.updateVersionComparisonRule(editingRuleId.value, payload)
+      const rule = mapApiRule(response.data)
+      const index = comparisonRules.value.findIndex((item) => item.id === rule.id)
+      if (index >= 0) comparisonRules.value.splice(index, 1, rule)
+    } else {
+      const response = await robotApi.createVersionComparisonRule(payload)
+      comparisonRules.value.unshift(mapApiRule(response.data))
+    }
+    resetRuleForm()
+    ruleDialogVisible.value = false
+  } catch (error: any) {
+    ElMessage.error(normalizeError(error) || t('versions.testVersions.saveRuleFailed'))
+  }
+}
+
+async function openRuleDialog(rule?: ComparisonRule): Promise<void> {
+  await Promise.all([
+    duroCatalog.value ? Promise.resolve() : loadDuro(),
+    loadVersionProducts(),
+  ])
+  resetRuleForm()
+  if (rule) {
+    editingRuleId.value = rule.id
+    ruleForm.productType = rule.productType
+    ruleForm.duroProductId = rule.duroProductId
+    ruleForm.duroParentId = rule.duroParentId
+    ruleForm.testNames = [...rule.testNames]
+    ruleForm.fields = [...rule.fields]
+  }
+  ruleDialogVisible.value = true
+}
+
+async function deleteComparisonRule(ruleId: string): Promise<void> {
+  try {
+    await robotApi.deleteVersionComparisonRule(ruleId)
+    comparisonRules.value = comparisonRules.value.filter((rule) => rule.id !== ruleId)
+    if (editingRuleId.value === ruleId) resetRuleForm()
+  } catch (error: any) {
+    ElMessage.error(normalizeError(error) || t('versions.testVersions.deleteRuleFailed'))
+  }
+}
+
+function mapApiRule(rule: ApiComparisonRule): ComparisonRule {
+  return {
+    id: rule._id,
+    productType: rule.product_type,
+    productName: rule.product_name,
+    duroProductId: rule.duro_product_id,
+    duroProductLabel: rule.duro_product_label,
+    duroParentId: rule.duro_parent_id,
+    duroParentLabel: rule.duro_parent_label,
+    testNames: rule.test_names || [],
+    fields: rule.fields || [],
+  }
+}
+
 function onAddProductChange(): void {
   addForm.parentId = ''
   addForm.productType = ''
@@ -678,6 +1003,7 @@ function onAddProductChange(): void {
 
 function onAddParentChange(): void {
   addCaptureResult.value = null
+  addDialogError.value = ''
   const inferred = inferProductType(selectedSoftwareFirmwareGroup.value)
   if (inferred) {
     addForm.productType = inferred
@@ -685,6 +1011,7 @@ function onAddParentChange(): void {
   } else {
     addForm.productType = ''
     addForm.testName = ''
+    addDialogError.value = t('versions.testVersions.inferCaptureProductFailed')
   }
 }
 
@@ -839,17 +1166,137 @@ function emptyTestEntry(record: RobotVersionHistoryRecord): RobotVersionTestEntr
 
 function appVersionFromTest(test: RobotVersionTestEntry): string {
   const robot = test.robot || {}
-  const systemVersion = robot.system_version
-  if (typeof systemVersion === 'string' && systemVersion.trim()) return systemVersion.trim()
   const apiVersion = robot.api_version
   if (typeof apiVersion === 'string' && apiVersion.trim()) return apiVersion.trim()
   return '—'
 }
 
 function firmwareSummary(test: RobotVersionTestEntry): string {
+  const robot = test.robot || {}
+  const fwVersion = robot.fw_version
+  if (typeof fwVersion === 'string' && fwVersion.trim()) return fwVersion.trim()
   if (test.instrument?.firmware_version) return test.instrument.firmware_version
-  const versions = (test.subsystems || []).map((item) => `${item.name}: ${item.firmware_version}`).filter(Boolean)
-  return versions.join(' · ') || '—'
+  const subsystemVersion = (test.subsystems || []).find((item) => item.firmware_version)?.firmware_version
+  return subsystemVersion || '—'
+}
+
+function rulesForProduct(productType: string): ComparisonRule[] {
+  return comparisonRules.value.filter((rule) => rule.productType === productType)
+}
+
+function compareRecordStatus(record: RobotVersionHistoryRecord): CompareStatus {
+  const rules = rulesForProduct(record.product_type)
+  if (!rules.length) return 'N/A'
+  const rows = rules.flatMap((rule) => comparisonRowsForRule(record, rule))
+  if (rows.some((row) => row.status === 'TODO')) return 'TODO'
+  if (rows.some((row) => row.status === 'FAIL')) return 'FAIL'
+  return rows.length ? 'PASS' : 'N/A'
+}
+
+function comparisonRowsForRule(record: RobotVersionHistoryRecord, rule: ComparisonRule): ComparisonDialogRow[] {
+  const entries = Object.values(record.tests || {})
+  const target = targetVersionsForRule(rule)
+  return rule.testNames.map((testName) => {
+    const entry = entries.find((item) => item.test_name === testName)
+    const current = entry ? entryVersions(entry) : blankVersions()
+    let status: CompareStatus = entry ? 'PASS' : 'TODO'
+    if (entry) {
+      const compared = rule.fields.map((field) => ({
+        current: normalizeComparableForField(current[field], field),
+        target: normalizeComparableForField(target[field], field),
+      }))
+      const hasMissing = compared.some((item) => !item.current || !item.target)
+      const hasMismatch = compared.some((item) => item.current !== item.target)
+      status = hasMissing ? 'TODO' : hasMismatch ? 'FAIL' : 'PASS'
+    }
+    return {
+      key: `${rule.id}:${testName}`,
+      testName,
+      current,
+      target,
+      status,
+    }
+  })
+}
+
+function targetVersionsForRule(rule: ComparisonRule): Record<ComparisonField, string> {
+  const group = (duroCatalog.value?.groups ?? []).find((item) => item.parent_id === rule.duroParentId)
+  const children = group?.children ?? []
+  return {
+    test_version: firstDuroValue(children.map((child) => child.test_commit_hash || child.test_tag)),
+    app_version: firstDuroValue(children.map((child) => child.app_version)),
+    firmware: firstDuroValue(children.map((child) => child.firmware_version)),
+  }
+}
+
+function firstDuroValue(values: Array<string | null | undefined>): string {
+  const value = values.find((item) => typeof item === 'string' && item.trim())
+  return value?.trim() || '—'
+}
+
+function entryVersions(entry: RobotVersionTestEntry): Record<ComparisonField, string> {
+  return {
+    test_version: entry.test_version || '—',
+    app_version: appVersionFromTest(entry),
+    firmware: firmwareSummary(entry),
+  }
+}
+
+function blankVersions(): Record<ComparisonField, string> {
+  return { test_version: '—', app_version: '—', firmware: '—' }
+}
+
+function normalizeComparable(value: string): string {
+  return String(value || '').trim().toLocaleLowerCase()
+}
+
+function normalizeComparableForField(value: string, field: ComparisonField): string {
+  if (field !== 'test_version') return normalizeComparable(value)
+  return normalizeComparable(extractTestCommitRef(value))
+}
+
+function extractTestCommitRef(value: string): string {
+  const text = String(value || '').trim()
+  if (!text || text === '—') return ''
+  const githubMatch = text.match(/\/(?:tree|commit)\/([^\s?#]+)/i)
+  if (githubMatch?.[1]) return githubMatch[1].replace(/\/$/, '')
+  const shaMatch = text.match(/\b[0-9a-f]{7,40}\b/i)
+  if (shaMatch?.[0]) return shaMatch[0]
+  const labelMatch = text.match(/(?:commit(?:\s+hash)?|hash|tag|branch|scripts?)\s*[:=：]\s*([^\s,;]+)/i)
+  if (labelMatch?.[1]) return labelMatch[1].replace(/\/$/, '')
+  return text.split(/\s+/)[0].replace(/\/$/, '')
+}
+
+function fieldLabel(field: ComparisonField): string {
+  if (field === 'test_version') return t('versions.testVersions.testVersion')
+  if (field === 'app_version') return t('versions.testVersions.apiVersion')
+  return t('versions.testVersions.firmware')
+}
+
+function statusTagType(status: CompareStatus) {
+  if (status === 'PASS') return 'success'
+  if (status === 'FAIL') return 'danger'
+  if (status === 'TODO') return 'warning'
+  return 'info'
+}
+
+function openComparisonDialog(row: BarcodeTableRow): void {
+  comparisonDialogTitle.value = `${row.product_name} · ${row.barcode}`
+  comparisonDialogRows.value = rulesForProduct(row.record.product_type).flatMap((rule) => comparisonRowsForRule(row.record, rule))
+  comparisonDialogVisible.value = true
+}
+
+function formatVersionProductName(productType: string, fallback?: string | null): string {
+  const labels: Record<string, string> = {
+    robot: 'Robot',
+    pipette_single_channel: 'Pipette Single Channel',
+    pipette_8_channels: 'Pipette 8 Channels',
+    pipette_96_channels_200ul: 'Pipette 96 Channels 200 µL',
+    pipette_96_channels_1000ul: 'Pipette 96 Channels 1000 µL',
+    gripper: 'Gripper',
+  }
+  if (labels[productType]) return labels[productType]
+  return String(fallback || productType || '—').replace(/（.*?）/g, '').trim() || '—'
 }
 
 function normalizeError(error: any): string {
@@ -942,5 +1389,8 @@ function formatDate(value: string | null | undefined): string {
   return new Intl.DateTimeFormat(locale.value, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
-onMounted(() => { void loadDuro() })
+onMounted(() => {
+  loadComparisonRules()
+  void loadDuro()
+})
 </script>

@@ -148,17 +148,20 @@ def test_get_first_blank_tracker_row_checks_all_configured_columns() -> None:
 
     def get_excel_sheet(**kwargs):
         requested_ranges.append(kwargs["range"])
-        return [
+        rows = [
             ["id", "name", "status", "time"],
             ["id-1", "unit-1", "PASS", "2026-09-16"],
             ["", "", "", ""],
             ["id-3", "unit-3", "PASS", "2026-09-16"],
         ]
+        rows.extend([["reserved"]] * 6)
+        rows.append(["", "", "", ""])
+        return rows
 
     uploader = UploadCommonMixin()
     uploader.gdrive = SimpleNamespace(get_excel_sheet=get_excel_sheet)
 
-    assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 3
+    assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 11
     assert requested_ranges == ["'Unit Tracker'!F:I"]
 
 
@@ -168,7 +171,29 @@ def test_get_first_blank_tracker_row_appends_after_used_rows() -> None:
         get_excel_sheet=lambda **_kwargs: [["a", "b"], ["c", "d"]],
     )
 
-    assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 3
+    assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 11
+
+
+def test_get_first_blank_tracker_row_skips_first_ten_rows() -> None:
+    uploader = UploadCommonMixin()
+    uploader.gdrive = SimpleNamespace(
+        get_excel_sheet=lambda **_kwargs: [
+            ["reserved"],
+            ["reserved"],
+            ["", "", "", ""],
+            ["reserved"],
+            ["reserved"],
+            ["reserved"],
+            ["reserved"],
+            ["reserved"],
+            ["reserved"],
+            ["reserved"],
+            ["used", "", "", ""],
+            ["", "", "", ""],
+        ],
+    )
+
+    assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 12
 
 
 def test_tracker_capacity_expands_a_full_sheet() -> None:

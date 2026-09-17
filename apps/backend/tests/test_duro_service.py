@@ -292,13 +292,16 @@ def test_version_details_only_extract_app_and_fw_labels() -> None:
     assert DuroService._extract_version("Firmware: 67", "firmware") == "v67"
     assert DuroService._extract_version("FW: controller-v52", "firmware") == "v52"
     assert DuroService._extract_version("Firmware: controller/V52", "firmware") == "v52"
-    assert DuroService._extract_version("Desktop App: v8.8.0", "app") == ""
-    assert DuroService._extract_version("Robot Firmware: V67", "firmware") == ""
+    assert DuroService._extract_version("Desktop App: v8.8.0", "app") == "v8.8.0"
+    assert DuroService._extract_version("Robot Firmware: V67", "firmware") == "v67"
     assert DuroService._extract_version("No version here", "app") == ""
 
 
 def test_version_details_extract_commit_hash_from_tag_scripts_and_protocol() -> None:
     assert DuroService._extract_commit_hash("Tag: abcdef1234567") == "abcdef1234567"
+    assert DuroService._extract_commit_hash("Hardware Testing Tag: mp.robot.qc.2026.9.1") == "mp.robot.qc.2026.9.1"
+    assert DuroService._extract_commit_hash("Release Branch: release-9.2") == "release-9.2"
+    assert DuroService._extract_commit_hash("Hardware Testing Branch: hardware-testing/main") == "hardware-testing/main"
     assert DuroService._extract_commit_hash("Scripts: mp.pipette.qc.2026.6.9") == "mp.pipette.qc.2026.6.9"
     assert (
         DuroService._extract_commit_hash(
@@ -332,12 +335,12 @@ def test_version_details_extract_commit_hash_from_tag_scripts_and_protocol() -> 
         == "flex_z_stage.py"
     )
     assert DuroService._extract_commit_hash("Protocol: path/to/stage_test.py") == "stage_test.py"
-    # Tag wins when multiple labels are present.
+    # Scripts wins when multiple labels are present.
     assert (
         DuroService._extract_commit_hash(
             "Tag: tagged-ref\nScripts: https://example.com/tree/from-scripts\nProtocol: a/b.py"
         )
-        == "tagged-ref"
+        == "from-scripts"
     )
     assert DuroService._extract_commit_hash("No commit here") is None
 

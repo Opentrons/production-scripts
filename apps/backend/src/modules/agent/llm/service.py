@@ -342,6 +342,37 @@ class LLMService:
             message["tool_calls"] = normalized_calls
         yield {"type": "round_done", "message": message}
 
+    def analyze_app_log_failure(self, summary: dict[str, Any]) -> str:
+        if not self.api_key:
+            raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
+        compact = json.dumps(summary, ensure_ascii=False, indent=2)[:12000]
+        system = (
+            "你是 Opentrons 生产测试 App Log 故障分析助手。"
+            "根据输入的结构化日志摘要，给出面向产线工程师的中文原因分析。"
+            "只基于输入内容判断，不要编造不存在的设备状态或维修结论。"
+            "输出 2-5 句，包含最可能原因、关键证据和下一步排查建议。"
+        )
+        payload = {
+            "model": self.model,
+            "temperature": 0.2,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": compact},
+            ],
+        }
+        try:
+            response = httpx.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"]["content"]
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
+            raise RuntimeError(f"LLM App Log 原因分析失败：{exc}") from exc
+        return str(content or "").strip()
+
     def extract_sop_materials(self, request: SopTextChunkRequest) -> list[SopTextMaterial]:
         if not self.api_key:
             raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")

@@ -10,10 +10,6 @@
         </div>
       </template>
 
-      <div class="manual-upload-hint">
-        {{ t('robotLogs.uploadHint') }}
-      </div>
-
       <el-tabs v-model="activeTab" class="logs-tabs">
         <el-tab-pane :label="t('robotLogs.analysisRecords')" name="analysis" lazy>
           <DeviceAppLogAnalysisPanel />

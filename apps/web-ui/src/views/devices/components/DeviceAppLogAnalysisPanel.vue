@@ -1,12 +1,6 @@
 <template>
   <section class="log-history-panel app-log-analysis-panel">
     <div class="log-record-toolbar">
-      <div>
-        <div class="log-section-title">{{ t('devices.logs.analysisRecords') }}</div>
-        <div class="log-section-description">
-          {{ robotIp ? t('devices.logs.analysisCurrentDeviceOnly', { ip: robotIp }) : t('devices.logs.analysisAllDevices') }}
-        </div>
-      </div>
       <div class="log-record-toolbar-actions">
         <el-upload
           :show-file-list="false"
@@ -29,10 +23,10 @@
       class="log-record-table"
       :empty-text="t('devices.logs.analysisEmpty')"
     >
-      <el-table-column :label="t('devices.logs.deviceName')" prop="device_name" min-width="140" />
-      <el-table-column label="IP" prop="robot_ip" width="132" />
+      <el-table-column :label="t('devices.logs.deviceName')" prop="device_name" min-width="140" show-overflow-tooltip />
+      <el-table-column label="IP" prop="robot_ip" width="132" show-overflow-tooltip />
       <el-table-column :label="t('devices.logs.analysisArchive')" prop="archive_name" min-width="220" show-overflow-tooltip />
-      <el-table-column :label="t('devices.logs.analysisTime')" min-width="180">
+      <el-table-column :label="t('devices.logs.analysisTime')" min-width="180" show-overflow-tooltip>
         <template #default="scope">
           {{ scope.row.summary?.time || '—' }}
         </template>
@@ -40,6 +34,11 @@
       <el-table-column :label="t('devices.logs.analysisError')" min-width="260" show-overflow-tooltip>
         <template #default="scope">
           {{ scope.row.summary?.error || scope.row.error || '—' }}
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('devices.logs.analysisLlmReason')" min-width="280" show-overflow-tooltip>
+        <template #default="scope">
+          {{ scope.row.llm_reason || scope.row.llm_error || '—' }}
         </template>
       </el-table-column>
       <el-table-column :label="t('devices.logs.analysisCode')" width="120">
@@ -104,6 +103,12 @@
           </el-descriptions-item>
           <el-descriptions-item :label="t('devices.logs.analysisError')">
             {{ previewRecord.summary?.error || '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('devices.logs.analysisLlmReason')">
+            {{ previewRecord.llm_reason || '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="previewRecord.llm_error" :label="t('devices.logs.analysisLlmFailure')">
+            {{ previewRecord.llm_error }}
           </el-descriptions-item>
           <el-descriptions-item :label="t('devices.logs.analysisCode')">
             {{ formatCode(previewRecord) }}
@@ -250,6 +255,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.log-record-table :deep(.el-table__cell .cell) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .analysis-preview-desc {
   margin-bottom: 16px;
 }

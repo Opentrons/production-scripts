@@ -8,6 +8,8 @@ logger = get_logger(__name__)
 class UploadCommonMixin:
     """Shared helpers for product-specific upload workflows."""
 
+    TRACKER_DATA_START_ROW = 11
+
     OEM_CONFIG_KEYS = {
         "Opentrons": "Opentrons",
         "Ultima": "Ultima",
@@ -396,7 +398,7 @@ class UploadCommonMixin:
         sheet_name: str,
         row_range: str = "F:I",
     ) -> int | None:
-        """Find the first row where every column in the configured range is empty."""
+        """Find the first data row where every configured tracker column is empty."""
         match = re.fullmatch(r"\s*([A-Z]+)\s*:\s*([A-Z]+)\s*", str(row_range).upper())
         if not match:
             raise ValueError(f"Invalid last row range: {row_range}")
@@ -412,11 +414,13 @@ class UploadCommonMixin:
         ) or []
         width = end_number - start_number + 1
         for row_number, row in enumerate(values, start=1):
+            if row_number < self.TRACKER_DATA_START_ROW:
+                continue
             cells = list(row or [])[:width]
             cells.extend([""] * (width - len(cells)))
             if all(value is None or str(value).strip() == "" for value in cells):
                 return row_number
-        return len(values) + 1
+        return max(len(values) + 1, self.TRACKER_DATA_START_ROW)
 
     def ensure_tracker_row_capacity(
         self,

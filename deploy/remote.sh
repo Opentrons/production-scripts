@@ -7,6 +7,7 @@ REPOSITORY_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 REMOTE_HOST="${REMOTE_HOST:-192.168.6.55}"
 REMOTE_USER="${REMOTE_USER:-root}"
+REMOTE_PASSWORD="${REMOTE_PASSWORD:-}"
 REMOTE_SSH_PORT="${REMOTE_SSH_PORT:-22}"
 REMOTE_ROOT="${REMOTE_ROOT:-/opt/production-platform}"
 REMOTE_UV_BIN="${REMOTE_UV_BIN:-/root/.local/bin/uv}"
@@ -37,6 +38,10 @@ for command_name in ssh rsync mktemp npm; do
         exit 1
     fi
 done
+if [ -n "$REMOTE_PASSWORD" ] && ! command -v sshpass >/dev/null 2>&1; then
+    echo "Error: sshpass is required when REMOTE_PASSWORD is set"
+    exit 1
+fi
 
 if [[ ! "$REMOTE_SSH_PORT" =~ ^[0-9]+$ ]]; then
     echo "Error: REMOTE_SSH_PORT must be numeric"
@@ -105,31 +110,40 @@ SSH_OPTIONS=(
     -o "ControlPath=$CONTROL_PATH"
     -o StrictHostKeyChecking=accept-new
 )
-RSYNC_SSH="ssh -p $REMOTE_SSH_PORT -o ControlMaster=auto -o ControlPersist=60 -o ControlPath=$CONTROL_PATH -o StrictHostKeyChecking=accept-new"
+SSH_COMMAND=(ssh)
+if [ -n "$REMOTE_PASSWORD" ]; then
+    export SSHPASS="$REMOTE_PASSWORD"
+    SSH_COMMAND=(sshpass -e ssh)
+    SSH_OPTIONS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
+fi
+RSYNC_SSH="${SSH_COMMAND[*]} -p $REMOTE_SSH_PORT -o ControlMaster=auto -o ControlPersist=60 -o ControlPath=$CONTROL_PATH -o StrictHostKeyChecking=accept-new"
+if [ -n "$REMOTE_PASSWORD" ]; then
+    RSYNC_SSH="$RSYNC_SSH -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+fi
 
 cleanup() {
-    ssh -p "$REMOTE_SSH_PORT" -o "ControlPath=$CONTROL_PATH" -O exit "$REMOTE_TARGET" >/dev/null 2>&1 || true
+    "${SSH_COMMAND[@]}" -p "$REMOTE_SSH_PORT" -o "ControlPath=$CONTROL_PATH" -O exit "$REMOTE_TARGET" >/dev/null 2>&1 || true
     rmdir "$CONTROL_DIR" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 echo "Connecting to $REMOTE_TARGET..."
-ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+"${SSH_COMMAND[@]}" "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
     "mkdir -p '$REMOTE_ROOT/apps/backend' '$REMOTE_ROOT/apps/web-ui' '$REMOTE_ROOT/deploy'"
 
 echo "Installing Duro API Key..."
 remote_duro_key_dir="${REMOTE_DURO_API_KEY_PATH%/*}"
 remote_duro_key_temp="${REMOTE_DURO_API_KEY_PATH}.deploying"
-ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+"${SSH_COMMAND[@]}" "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
     "install -d -o root -g root -m 700 '$remote_duro_key_dir'"
 rsync -az -e "$RSYNC_SSH" \
     "$DURO_API_KEY_PATH" \
     "$REMOTE_TARGET:$remote_duro_key_temp"
-ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+"${SSH_COMMAND[@]}" "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
     "chown root:root '$remote_duro_key_temp' && chmod 600 '$remote_duro_key_temp' && mv -f '$remote_duro_key_temp' '$REMOTE_DURO_API_KEY_PATH'"
 
 echo "Installing Bridgefloods auth files..."
-ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+"${SSH_COMMAND[@]}" "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
     "install -d -o root -g root -m 700 '$REMOTE_BRIDGE_AUTH_DIR'"
 
 install_remote_secret() {
@@ -137,7 +151,7 @@ install_remote_secret() {
     local remote_file="$2"
     local remote_temp="${remote_file}.deploying"
     rsync -az -e "$RSYNC_SSH" "$source_file" "$REMOTE_TARGET:$remote_temp"
-    ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
+    "${SSH_COMMAND[@]}" "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" \
         "chown root:root '$remote_temp' && chmod 600 '$remote_temp' && mv -f '$remote_temp' '$remote_file'"
 }
 
@@ -185,7 +199,7 @@ rsync -az -e "$RSYNC_SSH" \
     "$REMOTE_TARGET:$REMOTE_ROOT/apps/version.json"
 
 echo "Restarting the remote backend and reloading Nginx..."
-ssh "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" bash -s -- \
+"${SSH_COMMAND[@]}" "${SSH_OPTIONS[@]}" "$REMOTE_TARGET" bash -s -- \
     "$REMOTE_ROOT" "$REMOTE_UV_BIN" "$API_PORT" "$WEB_HTTP_PORT" "$WEB_HTTPS_PORT" \
     "$DATA_CENTER_HTTP_PORT" "$DATA_CENTER_ALLOWED_CIDRS" \
     "$SERVER_NAME" "$SSL_CERTIFICATE" "$SSL_CERTIFICATE_KEY" \

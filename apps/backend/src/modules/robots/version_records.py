@@ -4,14 +4,18 @@ from datetime import datetime, timezone
 import re
 from threading import RLock
 from typing import Any
+from uuid import uuid4
 
 import core.config as setting
+from core.database import mongodb
 from modules.robots.api_client.client import OpentronsHttpClient
 from modules.robots.files.ssh_client import OpentronsSshClient
 from modules.robots.identity import resolve_robot_serial
 
 
 TEST_VERSION_PATH = "/data/.hardware-testing-description"
+TEST_VERSION_COMMAND = f"cat {TEST_VERSION_PATH} 2>/dev/null || true"
+ROBOT_SERIAL_SSH_COMMAND = "cat /var/serial 2>/dev/null || true"
 ROBOT_SUBSYSTEMS = ("gantry_x", "gantry_y", "head", "rear_panel")
 
 PRODUCTS: tuple[dict[str, Any], ...] = (
@@ -125,10 +129,55 @@ def _items(payload: Any) -> list[dict[str, Any]]:
 
 
 def _read_test_version(ip: str) -> str:
+    """Read robot test version the same way Device Control version query does.
+
+    Prefer SSH `cat` of `/data/.hardware-testing-description` (same source as
+    device management / get_ot3_version). Missing or empty content becomes N/A.
+    """
+
     try:
-        return _text(OpentronsSshClient(ip).read_text(TEST_VERSION_PATH), "N/A")
+        exit_code, stdout, _stderr = OpentronsSshClient(ip).exec_command(
+            TEST_VERSION_COMMAND,
+            timeout=15,
+        )
+        if exit_code == 0:
+            value = _text(stdout)
+            if value and "file not found" not in value.casefold():
+                return value
     except Exception:
-        return "N/A"
+        pass
+
+    try:
+        value = _text(OpentronsSshClient(ip).read_text(TEST_VERSION_PATH))
+        if value and "file not found" not in value.casefold():
+            return value
+    except Exception:
+        pass
+    return "N/A"
+
+
+def _read_robot_serial_ssh(ip: str) -> str:
+    """Fallback serial read used by device barcode / device-info flows."""
+
+    try:
+        exit_code, stdout, _stderr = OpentronsSshClient(ip).exec_command(
+            ROBOT_SERIAL_SSH_COMMAND,
+            timeout=15,
+        )
+        if exit_code == 0:
+            return _text(stdout.splitlines()[0] if stdout.strip() else "")
+    except Exception:
+        pass
+    return ""
+
+
+def _resolve_robot_barcode(ip: str, health: dict[str, Any], update_health: dict[str, Any]) -> str:
+    """Resolve robot barcode like Device Info / barcode provision, else N/A."""
+
+    barcode = resolve_robot_serial(health, update_health) or ""
+    if not barcode:
+        barcode = _read_robot_serial_ssh(ip)
+    return barcode or "N/A"
 
 
 def _http_client(ip: str, port: int) -> OpentronsHttpClient:
@@ -172,12 +221,12 @@ def _collect_robot_versions(
         for item in subsystem_items
         if _text(item.get("name"))
     }
-    barcode = resolve_robot_serial(health, update_health) or ""
-    if require_barcode and not barcode:
+    barcode = _resolve_robot_barcode(ip, health, update_health)
+    if require_barcode and barcode == "N/A":
         raise RuntimeError("设备未返回 Robot 条码")
 
     return {
-        "barcode": barcode or "N/A",
+        "barcode": barcode,
         "test_version": _read_test_version(ip),
         "robot": {
             "name": _text(health.get("name"), "N/A"),
@@ -237,10 +286,9 @@ def _collect_instrument_versions(ip: str, port: int, product_key: str) -> dict[s
         raise RuntimeError(f"当前设备未检测到 {_PRODUCT_BY_KEY[product_key]['label']}")
 
     barcode = _text(
-        instrument.get("serialNumber", instrument.get("serial_number", instrument.get("id")))
+        instrument.get("serialNumber", instrument.get("serial_number", instrument.get("id"))),
+        "N/A",
     )
-    if not barcode:
-        raise RuntimeError("Instrument 未返回条码")
 
     try:
         health = _record(client.get_health())
@@ -248,7 +296,7 @@ def _collect_instrument_versions(ip: str, port: int, product_key: str) -> dict[s
         health = {}
 
     return {
-        "barcode": barcode,
+        "barcode": barcode or "N/A",
         "test_version": _read_test_version(ip),
         "robot": {
             "name": _text(health.get("name"), "N/A"),
@@ -349,8 +397,6 @@ def _collect_versions(
     *,
     require_barcode: bool = True,
 ) -> dict[str, Any]:
-    if setting.use_sqlite_persistence():
-        return _simulated_versions(ip, port, product_key)
     if product_key == "robot":
         return _collect_robot_versions(
             ip,
@@ -361,20 +407,27 @@ def _collect_versions(
 
 
 def _get_collection():
-    """Version history follows the unified persistence rule.
+    """Version history is always persisted in MongoDB."""
+    if mongodb.client is None and not mongodb.connect():
+        raise RuntimeError("MongoDB 连接失败，无法保存版本读取记录")
+    return mongodb.get_database(setting.MESSAGE_COLLECTION)[
+        setting.ROBOT_VERSION_RECORD_COLLECTION
+    ]
 
-    Non-simulating → MongoDB ProductionsMessage.robot_version_records
-    Simulating → db-storage/simulating/platform.sqlite3
-    """
-    from core.persistence import get_document_collection
 
-    return get_document_collection(setting.ROBOT_VERSION_RECORD_COLLECTION)
+def _get_rule_collection():
+    if mongodb.client is None and not mongodb.connect():
+        raise RuntimeError("MongoDB 连接失败，无法保存版本对比规则")
+    collection = mongodb.get_database(setting.MESSAGE_COLLECTION)[
+        setting.ROBOT_VERSION_COMPARISON_RULE_COLLECTION
+    ]
+    collection.create_index([("product_type", 1), ("duro_parent_id", 1)])
+    collection.create_index([("updated_at", -1)])
+    return collection
 
 
 def _storage_label() -> str:
-    from core.persistence import storage_label
-
-    return storage_label()
+    return "mongodb"
 
 def _serialize_document(document: dict[str, Any]) -> dict[str, Any]:
     serialized = dict(document)
@@ -429,11 +482,9 @@ def capture_version(
         raise ValueError("测试过程不属于所选产品")
 
     queried_at = _utc_now()
-    captured = _collect_versions(ip, port, normalized_product_type)
-    barcode = _text(captured.get("barcode"))
-    if not barcode or barcode == "N/A":
-        subject = "Robot" if normalized_product_type == "robot" else "Instrument"
-        raise RuntimeError(f"设备未返回 {subject} 条码，无法保存版本记录")
+    # Match Device Control "查询版本": allow missing barcode and still return versions.
+    captured = _collect_versions(ip, port, normalized_product_type, require_barcode=False)
+    barcode = _text(captured.get("barcode"), "N/A") or "N/A"
     test_entry = {
         "test_name": normalized_test_name,
         "sn": barcode,
@@ -499,3 +550,69 @@ def list_history(*, page: int = 1, page_size: int = 100) -> dict[str, Any]:
         "page_size": normalized_page_size,
         "storage": _storage_label(),
     }
+
+
+def _normalize_rule_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    product_type = str(payload.get("product_type") or "").strip()
+    if product_type not in _PRODUCT_BY_KEY:
+        raise ValueError("不支持的产品类型")
+    fields = [str(field).strip() for field in payload.get("fields") or []]
+    allowed_fields = {"test_version", "app_version", "firmware"}
+    normalized_fields = [field for field in fields if field in allowed_fields]
+    if not normalized_fields:
+        raise ValueError("至少需要一个对比字段")
+    test_names = [str(item).strip() for item in payload.get("test_names") or [] if str(item).strip()]
+    if not test_names:
+        raise ValueError("至少需要一个对比测试")
+    return {
+        "product_type": product_type,
+        "product_name": _text(payload.get("product_name"), str(_PRODUCT_BY_KEY[product_type]["label"])),
+        "duro_product_id": _text(payload.get("duro_product_id")),
+        "duro_product_label": _text(payload.get("duro_product_label")),
+        "duro_parent_id": _text(payload.get("duro_parent_id")),
+        "duro_parent_label": _text(payload.get("duro_parent_label")),
+        "test_names": test_names,
+        "fields": normalized_fields,
+    }
+
+
+def list_comparison_rules() -> dict[str, Any]:
+    collection = _get_rule_collection()
+    records = list(collection.find({}).sort([("updated_at", -1), ("product_name", 1)]))
+    return {
+        "rules": [_serialize_document(record) for record in records],
+        "total": len(records),
+        "storage": "mongodb",
+    }
+
+
+def create_comparison_rule(payload: dict[str, Any]) -> dict[str, Any]:
+    collection = _get_rule_collection()
+    now = _utc_now()
+    document = {
+        "_id": uuid4().hex,
+        **_normalize_rule_payload(payload),
+        "created_at": now,
+        "updated_at": now,
+    }
+    collection.insert_one(document)
+    return _serialize_document(document)
+
+
+def update_comparison_rule(rule_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    collection = _get_rule_collection()
+    update = {
+        **_normalize_rule_payload(payload),
+        "updated_at": _utc_now(),
+    }
+    result = collection.update_one({"_id": str(rule_id)}, {"$set": update})
+    if getattr(result, "matched_count", 0) == 0:
+        raise KeyError(rule_id)
+    document = collection.find_one({"_id": str(rule_id)}) or {"_id": str(rule_id), **update}
+    return _serialize_document(document)
+
+
+def delete_comparison_rule(rule_id: str) -> dict[str, Any]:
+    collection = _get_rule_collection()
+    result = collection.delete_one({"_id": str(rule_id)})
+    return {"success": bool(getattr(result, "deleted_count", 0)), "id": str(rule_id)}

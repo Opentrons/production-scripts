@@ -21,6 +21,14 @@ const elementLocale = computed(() => locale.value === 'zh-CN' ? zhCn : en)
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 body {
