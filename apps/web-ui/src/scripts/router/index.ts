@@ -53,6 +53,12 @@ const routes: RouteRecordRaw[] = [
     meta: { standalone: true, titleKey: 'titles.bridgeGptToken', favicon: DEFAULT_FAVICON },
   },
   {
+    path: '/tools/pip-settings-review',
+    name: 'PipSettingsReview',
+    component: () => import('@/views/tools/PipSettingsReviewView.vue'),
+    meta: { standalone: true, titleKey: 'titles.pipSettingsReview', favicon: DEFAULT_FAVICON },
+  },
+  {
     path: '/home',
     name: 'Home',
     component: () => import('@/views/dashboard/HomeView.vue'),

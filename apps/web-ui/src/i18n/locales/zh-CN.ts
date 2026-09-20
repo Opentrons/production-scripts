@@ -41,6 +41,7 @@ export default {
     agent: '生产助手',
     testing: 'Productions Testing',
     bridgeGptToken: 'Bridge GPT Token | Productions',
+    pipSettingsReview: 'Pip Settings Review | Productions',
     ecn: 'ECN | Productions',
     contactLetters: '联络函 | Productions',
   },
