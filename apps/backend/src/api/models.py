@@ -422,6 +422,11 @@ class RobotCodeFlashRequest(BaseModel):
     pull: bool = False
 
 
+class RobotGitCommandRequest(BaseModel):
+    command: str = Field(min_length=1, max_length=2000)
+    timeout: int = Field(default=300, ge=1, le=1800)
+
+
 class RobotSshCommandCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     command: str = Field(min_length=1, max_length=20000)

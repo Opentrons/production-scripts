@@ -8,6 +8,7 @@ from api.models import (
     RobotActionResponse,
     RobotBatchCommandResponse,
     RobotCodeFlashRequest,
+    RobotGitCommandRequest,
     RobotCommandRequest,
     RobotInfo,
     RobotScanGateway,
@@ -300,6 +301,20 @@ async def get_robot_code_flash_task(task_id: str):
         return await run_in_threadpool(code_flash.get_flash_task, task_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail={"message": "烧录任务不存在"}) from exc
+
+
+@router.post("/robots/code-flash/git-tasks", status_code=202)
+async def create_robot_git_command_task(request: RobotGitCommandRequest):
+    try:
+        return await run_in_threadpool(
+            code_flash.create_git_task,
+            command=request.command,
+            timeout=request.timeout,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
 
 
 @router.post("/robots/ssh-commands")

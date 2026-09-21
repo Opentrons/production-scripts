@@ -39,6 +39,9 @@
             <el-select
               v-model="selectedBranch"
               filterable
+              allow-create
+              default-first-option
+              :reserve-keyword="false"
               :placeholder="t('devices.codeFlash.branchPlaceholder')"
             >
               <el-option
@@ -182,6 +185,53 @@
           </el-collapse-item>
         </el-collapse>
       </section>
+
+      <section class="git-command-section">
+        <div class="section-title">{{ t('devices.codeFlash.gitTitle') }}</div>
+        <div class="section-description">{{ t('devices.codeFlash.gitDescription') }}</div>
+        <div class="git-command-form">
+          <el-input
+            v-model="gitCommand"
+            maxlength="2000"
+            show-word-limit
+            :placeholder="t('devices.codeFlash.gitPlaceholder')"
+            @keyup.enter="runGitCommand"
+          />
+          <el-input-number
+            v-model="gitTimeoutSeconds"
+            :min="1"
+            :max="1800"
+            controls-position="right"
+          />
+          <el-button
+            type="primary"
+            :loading="gitStarting || gitIsRunning"
+            :disabled="!canRunGit"
+            @click="runGitCommand"
+          >
+            {{ t('devices.codeFlash.runGit') }}
+          </el-button>
+        </div>
+        <div v-if="gitTask" class="flash-result git-result" :class="`is-${gitTask.status}`">
+          <div class="flash-result-header">
+            <div>
+              <div class="section-title">{{ t('devices.codeFlash.gitResult') }}</div>
+              <div class="flash-command">{{ gitTask.command }}</div>
+            </div>
+            <el-tag :type="gitStatusTagType">{{ gitStatusLabel }}</el-tag>
+          </div>
+          <el-descriptions :column="3" border size="small" class="flash-meta">
+            <el-descriptions-item :label="t('devices.codeFlash.workdir')">{{ gitTask.workdir }}</el-descriptions-item>
+            <el-descriptions-item :label="t('devices.codeFlash.exitCode')">{{ gitTask.exit_code ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="t('devices.codeFlash.duration')">{{ formatDuration(gitTask.duration_ms) }}</el-descriptions-item>
+            <el-descriptions-item :label="t('devices.codeFlash.result')" :span="3">{{ gitTask.message }}</el-descriptions-item>
+          </el-descriptions>
+          <div class="flash-log-console git-log-console">
+            <pre>{{ gitTask.logs.length ? gitTask.logs.join('\n') : t('devices.codeFlash.waitingOutput') }}</pre>
+          </div>
+          <div v-if="gitTask.output_truncated" class="flash-log-truncated">{{ t('devices.codeFlash.logTruncated') }}</div>
+        </div>
+      </section>
     </template>
   </section>
 </template>
@@ -194,7 +244,8 @@ import {
   robotApi,
   type RobotCodeFlashBranch,
   type RobotCodeFlashPreset,
-  type RobotCodeFlashTask
+  type RobotCodeFlashTask,
+  type RobotGitTask
 } from '@/scripts/api'
 import { useAppLocale } from '@/i18n'
 
@@ -222,9 +273,14 @@ const dirtyFiles = ref<string[]>([])
 const loadingPresets = ref(false)
 const starting = ref(false)
 const task = ref<RobotCodeFlashTask | null>(null)
+const gitCommand = ref('')
+const gitTimeoutSeconds = ref(300)
+const gitStarting = ref(false)
+const gitTask = ref<RobotGitTask | null>(null)
 const expandedSections = ref<string[]>([])
 const logConsoleRef = ref<HTMLElement | null>(null)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
+let gitPollTimer: ReturnType<typeof setTimeout> | null = null
 
 const isRunning = computed(() => ['queued', 'running'].includes(task.value?.status || ''))
 const canStart = computed(() => Boolean(
@@ -236,6 +292,13 @@ const canStart = computed(() => Boolean(
   && !loadingPresets.value
   && !starting.value
   && !isRunning.value
+))
+const gitIsRunning = computed(() => ['queued', 'running'].includes(gitTask.value?.status || ''))
+const canRunGit = computed(() => Boolean(
+  repositoryAvailable.value
+  && gitCommand.value.trim()
+  && !gitStarting.value
+  && !gitIsRunning.value
 ))
 
 const statusLabel = computed(() => {
@@ -249,6 +312,20 @@ const statusTagType = computed(() => {
   if (task.value?.status === 'success') return 'success'
   if (task.value?.status === 'failed') return 'danger'
   if (task.value?.status === 'running') return 'warning'
+  return 'info'
+})
+
+const gitStatusLabel = computed(() => {
+  if (gitTask.value?.status === 'queued') return t('devices.codeFlash.statuses.queued')
+  if (gitTask.value?.status === 'running') return t('devices.codeFlash.statuses.gitRunning')
+  if (gitTask.value?.status === 'success') return t('devices.codeFlash.statuses.gitSuccess')
+  return t('devices.codeFlash.statuses.gitFailed')
+})
+
+const gitStatusTagType = computed(() => {
+  if (gitTask.value?.status === 'success') return 'success'
+  if (gitTask.value?.status === 'failed') return 'danger'
+  if (gitTask.value?.status === 'running') return 'warning'
   return 'info'
 })
 
@@ -301,6 +378,12 @@ function clearPollTimer() {
   if (!pollTimer) return
   clearTimeout(pollTimer)
   pollTimer = null
+}
+
+function clearGitPollTimer() {
+  if (!gitPollTimer) return
+  clearTimeout(gitPollTimer)
+  gitPollTimer = null
 }
 
 async function scrollLogToBottom() {
@@ -374,6 +457,44 @@ async function startFlash() {
   }
 }
 
+async function pollGitTask(taskId: string, showError = false) {
+  clearGitPollTimer()
+  try {
+    const response = await robotApi.getCodeFlashTask(taskId)
+    gitTask.value = response.data as RobotGitTask
+    if (['queued', 'running'].includes(response.data.status)) {
+      gitPollTimer = setTimeout(() => pollGitTask(taskId), 1000)
+      return
+    }
+    if (response.data.success) {
+      ElMessage.success(response.data.message)
+    } else {
+      ElMessage.error(response.data.message)
+    }
+  } catch (error: any) {
+    if (showError) ElMessage.error(t('devices.codeFlash.progressFailed', { error: normalizeError(error) }))
+    gitPollTimer = setTimeout(() => pollGitTask(taskId), 3000)
+  }
+}
+
+async function runGitCommand() {
+  if (!canRunGit.value) return
+  gitStarting.value = true
+  gitTask.value = null
+  try {
+    const response = await robotApi.createGitCommandTask({
+      command: gitCommand.value.trim(),
+      timeout: gitTimeoutSeconds.value
+    })
+    gitTask.value = response.data
+    await pollGitTask(response.data.task_id, true)
+  } catch (error: any) {
+    ElMessage.error(t('devices.codeFlash.gitStartFailed', { error: normalizeError(error) }))
+  } finally {
+    gitStarting.value = false
+  }
+}
+
 function formatDuration(durationMs: number) {
   if (!durationMs) return '-'
   if (durationMs < 1000) return `${durationMs} ms`
@@ -384,11 +505,16 @@ function formatDuration(durationMs: number) {
 
 watch(() => props.ip, () => {
   clearPollTimer()
+  clearGitPollTimer()
   task.value = null
+  gitTask.value = null
 })
 
 onMounted(loadPresets)
-onBeforeUnmount(clearPollTimer)
+onBeforeUnmount(() => {
+  clearPollTimer()
+  clearGitPollTimer()
+})
 </script>
 
 <style scoped>
@@ -599,6 +725,32 @@ onBeforeUnmount(clearPollTimer)
   border-top: 1px solid #e6ebf2;
 }
 
+.git-command-section {
+  max-width: 900px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e6ebf2;
+}
+
+.git-command-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.git-command-form :deep(.el-input-number) {
+  width: 100%;
+}
+
+.git-result {
+  margin-top: 18px;
+}
+
+.git-log-console {
+  margin-top: 14px;
+}
+
 .flash-command {
   max-width: min(760px, calc(100vw - 240px));
   margin-top: 5px;
@@ -680,6 +832,10 @@ onBeforeUnmount(clearPollTimer)
 
   .flash-command {
     max-width: calc(100vw - 64px);
+  }
+
+  .git-command-form {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -287,6 +287,10 @@ export interface RobotCodeFlashTask {
   duration_ms: number
 }
 
+export type RobotGitTask = RobotCodeFlashTask & {
+  task_type: 'git'
+}
+
 export interface RobotScanResponse {
   total: number
   online_count: number
@@ -671,6 +675,8 @@ export const robotApi = {
     api.post<RobotCodeFlashTask>('/robots/code-flash/tasks', payload, { timeout: 30000 }),
   getCodeFlashTask: (taskId: string) =>
     api.get<RobotCodeFlashTask>(`/robots/code-flash/tasks/${encodeURIComponent(taskId)}`),
+  createGitCommandTask: (payload: { command: string; timeout?: number }) =>
+    api.post<RobotGitTask>('/robots/code-flash/git-tasks', payload, { timeout: 30000 }),
   createSshCommand: (payload: {
     name: string
     command: string
