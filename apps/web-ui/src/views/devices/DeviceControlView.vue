@@ -519,6 +519,10 @@
           </el-tabs>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('devices.systemImages.title')" name="system-images" lazy>
+          <DeviceSystemImagePanel :ips="selectedIp ? [selectedIp] : []" :active="activeTab === 'system-images'" />
+        </el-tab-pane>
+
         <el-tab-pane :label="t('devices.workbench.tabs.codeFlash')" name="code-flash" lazy>
           <DeviceCodeFlashPanel :ip="selectedIp" />
         </el-tab-pane>
@@ -835,6 +839,9 @@
               </div>
 
               <el-tabs v-model="batchActionTab" class="batch-action-tabs">
+                <el-tab-pane :label="t('devices.systemImages.title')" name="batch-system-images" lazy>
+                  <DeviceSystemImagePanel :ips="selectedIps" :active="activeTab === 'batch' && batchActionTab === 'batch-system-images'" />
+                </el-tab-pane>
                 <el-tab-pane :label="t('devices.workbench.batch.editFile')" name="edit">
                   <div class="batch-form-grid">
                     <label class="batch-field">
@@ -1410,7 +1417,7 @@
               </el-tabs>
 
               <div
-                v-if="batchResults.length && batchActionTab !== 'ssh-keys' && !(batchActionTab === 'command' && batchCommandMode === 'ssh')"
+                v-if="batchResults.length && batchActionTab !== 'ssh-keys' && batchActionTab !== 'batch-system-images' && !(batchActionTab === 'command' && batchCommandMode === 'ssh')"
                 class="batch-result-list"
               >
                 <article
@@ -1624,6 +1631,7 @@ import DeviceTestingDataPanel from '@/views/devices/components/DeviceTestingData
 import DeviceInfoPanel from '@/views/devices/components/DeviceInfoPanel.vue'
 import DeviceLogHistoryPanel from '@/views/devices/components/DeviceLogHistoryPanel.vue'
 import DeviceAppLogAnalysisPanel from '@/views/devices/components/DeviceAppLogAnalysisPanel.vue'
+import DeviceSystemImagePanel from '@/views/devices/components/DeviceSystemImagePanel.vue'
 import DeviceCodeFlashPanel from '@/views/devices/components/DeviceCodeFlashPanel.vue'
 
 const route = useRoute()
