@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from api.models import InformationFile, InformationFilesResponse
-from core.config import INFORMATION_CACHE_PATH, INFORMATION_REFRESH_SECONDS
+from core.config import ENGINEERING_INFORMATION_DB_PATH, INFORMATION_REFRESH_SECONDS
 from core.google import GoogleDriveFile, GoogleDriver, GoogleDriverError, GoogleSheetData
 from core.logging import get_logger
 
@@ -376,7 +376,7 @@ class InformationService:
     def __init__(
         self,
         driver: GoogleDriver,
-        cache_path: Path | None = INFORMATION_CACHE_PATH,
+        cache_path: Path | None = ENGINEERING_INFORMATION_DB_PATH,
         refresh_seconds: int = INFORMATION_REFRESH_SECONDS,
     ) -> None:
         self.driver = driver
@@ -385,6 +385,7 @@ class InformationService:
         self._condition = threading.Condition(threading.RLock())
         self._driver_lock = threading.Lock()
         self._refreshing: set[FolderKind] = set()
+        self._refresh_errors: dict[FolderKind, str] = {}
         self._cache: dict[FolderKind, InformationFilesResponse] = {}
         if self.cache_path is not None:
             self._initialize_disk_cache()
@@ -397,17 +398,104 @@ class InformationService:
     ) -> InformationFilesResponse:
         with self._condition:
             cached = self._get_cached_locked(kind)
-            if not refresh and cached is not None and self._is_fresh(cached):
-                return cached.model_copy(update={"cached": True, "error": None})
+            refresh_failed = kind in self._refresh_errors
+            should_refresh = refresh or (
+                not refresh_failed and (cached is None or not self._is_fresh(cached))
+            )
 
+        if should_refresh:
+            self.request_refresh(kind)
+
+        with self._condition:
+            latest = self._get_cached_locked(kind) or cached
+            refreshing = kind in self._refreshing
+            refresh_error = self._refresh_errors.get(kind)
+
+        if latest is not None:
+            return latest.model_copy(
+                update={
+                    "cached": True,
+                    "refreshing": refreshing,
+                    "error": refresh_error,
+                }
+            )
+
+        _, source_url = FOLDERS[kind]
+        return InformationFilesResponse(
+            kind=kind,
+            year=datetime.now(ZoneInfo("Asia/Shanghai")).year,
+            source_url=source_url,
+            cached=True,
+            refreshing=refreshing,
+            error=refresh_error,
+        )
+
+    def request_refresh(self, kind: FolderKind) -> bool:
+        with self._condition:
+            if kind in self._refreshing:
+                return False
+            cached = self._get_cached_locked(kind)
+            self._refreshing.add(kind)
+            self._refresh_errors.pop(kind, None)
+
+        thread = threading.Thread(
+            target=self._run_background_refresh,
+            args=(kind, cached),
+            name=f"engineering-information-{kind}",
+            daemon=True,
+        )
+        try:
+            thread.start()
+        except Exception:
+            with self._condition:
+                self._refreshing.discard(kind)
+                self._condition.notify_all()
+            raise
+        return True
+
+    def refresh_files(self, kind: FolderKind) -> InformationFilesResponse:
+        with self._condition:
             if kind in self._refreshing:
                 while kind in self._refreshing:
                     self._condition.wait()
                 latest = self._get_cached_locked(kind)
                 if latest is not None:
-                    return latest.model_copy(update={"cached": True})
-            self._refreshing.add(kind)
+                    return latest.model_copy(
+                        update={
+                            "cached": True,
+                            "refreshing": False,
+                            "error": self._refresh_errors.get(kind),
+                        }
+                    )
+                error = self._refresh_errors.get(kind)
+                if error:
+                    raise InformationDataError(error)
 
+            cached = self._get_cached_locked(kind)
+            self._refreshing.add(kind)
+            self._refresh_errors.pop(kind, None)
+
+        return self._refresh_owned(kind, cached)
+
+    def _run_background_refresh(
+        self,
+        kind: FolderKind,
+        cached: InformationFilesResponse | None,
+    ) -> None:
+        try:
+            self._refresh_owned(kind, cached)
+        except Exception as exc:
+            logger.error(
+                "Background information refresh failed: kind=%s error=%s",
+                kind,
+                exc,
+            )
+
+    def _refresh_owned(
+        self,
+        kind: FolderKind,
+        cached: InformationFilesResponse | None,
+    ) -> InformationFilesResponse:
         try:
             refreshed_at = datetime.now(timezone.utc)
             with self._driver_lock:
@@ -420,6 +508,7 @@ class InformationService:
                 update={
                     "refreshed_at": refreshed_at,
                     "cached": False,
+                    "refreshing": False,
                     "quality_checked": True,
                     "error": None,
                 }
@@ -429,6 +518,7 @@ class InformationService:
                 raise InformationDataError("全量数据 QA 未通过: " + "; ".join(issues))
             with self._condition:
                 self._cache[kind] = response
+                self._refresh_errors.pop(kind, None)
                 self._write_disk_cache_locked(kind, response)
             logger.info(
                 "Information refresh passed QA: kind=%s year=%s total=%s",
@@ -439,6 +529,7 @@ class InformationService:
             return response
         except Exception as exc:
             with self._condition:
+                self._refresh_errors[kind] = str(exc)
                 fallback = self._get_cached_locked(kind)
             if fallback is not None:
                 logger.exception(
@@ -446,7 +537,11 @@ class InformationService:
                     kind,
                 )
                 return fallback.model_copy(
-                    update={"cached": True, "error": f"本次刷新失败，已保留上次完整数据: {exc}"}
+                    update={
+                        "cached": True,
+                        "refreshing": False,
+                        "error": f"本次刷新失败，已保留上次完整数据: {exc}",
+                    }
                 )
             raise
         finally:
@@ -459,7 +554,7 @@ class InformationService:
         errors: list[str] = []
         for kind in ("ecn", "contact"):
             try:
-                response = self.get_files(kind, refresh=True)
+                response = self.refresh_files(kind)
                 responses[kind] = response
                 if response.error:
                     errors.append(f"{kind}: {response.error}")
@@ -486,7 +581,7 @@ class InformationService:
         with sqlite3.connect(self.cache_path, timeout=10) as connection:
             connection.execute(
                 """
-                CREATE TABLE IF NOT EXISTS information_cache (
+                CREATE TABLE IF NOT EXISTS engineering_information_index (
                     kind TEXT PRIMARY KEY,
                     payload TEXT NOT NULL
                 )
@@ -500,7 +595,7 @@ class InformationService:
         try:
             with sqlite3.connect(self.cache_path, timeout=10) as connection:
                 row = connection.execute(
-                    "SELECT payload FROM information_cache WHERE kind = ?",
+                    "SELECT payload FROM engineering_information_index WHERE kind = ?",
                     (kind,),
                 ).fetchone()
             if row is None:
@@ -526,7 +621,7 @@ class InformationService:
         with sqlite3.connect(self.cache_path, timeout=10) as connection:
             connection.execute(
                 """
-                INSERT INTO information_cache (kind, payload) VALUES (?, ?)
+                INSERT INTO engineering_information_index (kind, payload) VALUES (?, ?)
                 ON CONFLICT(kind) DO UPDATE SET payload = excluded.payload
                 """,
                 (kind, response.model_dump_json()),

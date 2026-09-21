@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
-    "build": "npm run check:i18n && vue-tsc && vite build",
+    "check:pip-settings": "node scripts/check-pip-settings.mjs",
+    "build": "npm run check:i18n && npm run check:pip-settings && vue-tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

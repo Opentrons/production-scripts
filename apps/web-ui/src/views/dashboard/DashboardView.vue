@@ -89,6 +89,9 @@
                 <a href="/tools/bridge-gpt-token" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.bridgeGptToken }}
                 </a>
+                <a href="/tools/pip-settings-review" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.pipSettingsReview }}
+                </a>
                 <a href="/downloads" role="menuitem" @click="closeNavigationMenu">
                   {{ copy.nav.downloads }}
                 </a>
@@ -382,6 +385,9 @@
                 <div class="top-dropdown-menu is-right" role="menu" @click.stop>
                   <a href="/tools/bridge-gpt-token" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.bridgeGptToken }}
+                  </a>
+                  <a href="/tools/pip-settings-review" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.pipSettingsReview }}
                   </a>
                   <a href="/downloads" role="menuitem" @click="closeNavigationMenu">
                     {{ copy.nav.downloads }}

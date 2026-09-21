@@ -17,8 +17,8 @@
             <FolderOpen :size="17" aria-hidden="true" />
             <span>{{ t('information.openFolder') }}</span>
           </a>
-          <button class="refresh-button" type="button" :disabled="isLoading" @click="loadFiles(true)">
-            <RefreshCw :size="17" :class="{ 'is-spinning': isLoading }" aria-hidden="true" />
+          <button class="refresh-button" type="button" :disabled="isLoading || isRefreshing" @click="loadFiles(true)">
+            <RefreshCw :size="17" :class="{ 'is-spinning': isLoading || isRefreshing }" aria-hidden="true" />
             <span>{{ t('information.refresh') }}</span>
           </button>
         </div>
@@ -33,7 +33,7 @@
           <span class="record-count">{{ t('information.recordCount', { count: files.length }) }}</span>
         </header>
 
-        <div v-if="isLoading && !files.length" class="information-state">
+        <div v-if="(isLoading || isRefreshing) && !files.length" class="information-state">
           <RefreshCw class="is-spinning" :size="24" aria-hidden="true" />
           <span>{{ t('information.loading') }}</span>
         </div>
@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ArrowLeft,
   CircleAlert,
@@ -114,7 +114,9 @@ const files = ref<InformationFile[]>([])
 const sourceUrl = ref('')
 const year = ref(new Date().getFullYear())
 const isLoading = ref(false)
+const isRefreshing = ref(false)
 const loadError = ref('')
+let refreshPollTimer: ReturnType<typeof setTimeout> | undefined
 const defaultSourceUrls: Record<InformationKind, string> = {
   ecn: 'https://drive.google.com/drive/folders/1cAlMjAWMnk47cvvxSPEtG4_xn6O3xmMB',
   contact: 'https://drive.google.com/drive/folders/1rC0Q2FtayNKkO3gY4_39CuaQdYA_wVtF',
@@ -143,6 +145,21 @@ function errorMessage(error: unknown): string {
   return response?.data?.detail || response?.data?.message || (error instanceof Error ? error.message : t('information.loadFailed'))
 }
 
+function clearRefreshPoll(): void {
+  if (refreshPollTimer !== undefined) {
+    clearTimeout(refreshPollTimer)
+    refreshPollTimer = undefined
+  }
+}
+
+function scheduleRefreshPoll(): void {
+  clearRefreshPoll()
+  refreshPollTimer = setTimeout(() => {
+    refreshPollTimer = undefined
+    void loadFiles(false)
+  }, 2000)
+}
+
 async function loadFiles(refresh = false): Promise<void> {
   if (isLoading.value) return
   isLoading.value = true
@@ -152,7 +169,16 @@ async function loadFiles(refresh = false): Promise<void> {
     files.value = Array.isArray(response.data.files) ? response.data.files : []
     year.value = response.data.year || year.value
     sourceUrl.value = response.data.source_url || defaultSourceUrls[props.kind]
+    isRefreshing.value = response.data.refreshing === true
+    if (isRefreshing.value) {
+      scheduleRefreshPoll()
+    } else {
+      clearRefreshPoll()
+      if (!files.value.length && response.data.error) loadError.value = response.data.error
+    }
   } catch (error) {
+    isRefreshing.value = false
+    clearRefreshPoll()
     loadError.value = errorMessage(error)
   } finally {
     isLoading.value = false
@@ -160,7 +186,9 @@ async function loadFiles(refresh = false): Promise<void> {
 }
 
 watch(() => props.kind, () => {
+  clearRefreshPoll()
   files.value = []
+  isRefreshing.value = false
   sourceUrl.value = defaultSourceUrls[props.kind]
   void loadFiles(false)
 })
@@ -168,6 +196,8 @@ watch(() => props.kind, () => {
 onMounted(() => {
   void loadFiles(false)
 })
+
+onBeforeUnmount(clearRefreshPoll)
 </script>
 
 <style scoped>
