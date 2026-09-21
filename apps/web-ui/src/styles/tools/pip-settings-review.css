@@ -95,6 +95,33 @@
   gap: 12px;
 }
 
+.ps-preview-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid #bfd8d2;
+  border-radius: 6px;
+  color: #145f56;
+  background: #edf7f4;
+}
+
+.ps-preview-badge span {
+  display: flex;
+  flex-direction: column;
+}
+
+.ps-preview-badge strong {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.ps-preview-badge small {
+  color: #55736d;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
 .ps-home-link {
   gap: 7px;
   padding: 6px 10px;
@@ -386,6 +413,14 @@
 .ps-source-summary:hover,
 .ps-branch-card.is-open .ps-source-summary {
   border-color: #8ebbb2;
+}
+
+.ps-source-summary:disabled {
+  cursor: default;
+}
+
+.ps-source-summary:disabled:hover {
+  border-color: #d4dfdc;
 }
 
 .ps-source-icon {

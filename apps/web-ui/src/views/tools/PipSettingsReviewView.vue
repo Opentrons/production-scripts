@@ -12,12 +12,16 @@
         </div>
       </div>
       <div class="ps-header-actions">
-        <a class="ps-home-link" href="/">
+        <a v-if="!isLocalPreview" class="ps-home-link" href="/">
           <ArrowLeft :size="16" aria-hidden="true" />
           <span>Back<small>{{ zh.backHome }}</small></span>
         </a>
         <LocaleSwitcher variant="surface" />
-        <AuthUserMenu />
+        <div v-if="isLocalPreview" class="ps-preview-badge">
+          <Eye :size="16" aria-hidden="true" />
+          <span><strong>Local Preview</strong><small>{{ zh.localPreview }}</small></span>
+        </div>
+        <AuthUserMenu v-else />
       </div>
     </header>
 
@@ -126,12 +130,20 @@
             </div>
             <div v-if="branchError" class="ps-branch-status is-error" role="alert">{{ branchError }}</div>
           </div>
-          <button class="ps-source-summary" type="button" :aria-expanded="branchOpen" @click="branchOpen = !branchOpen">
+          <button
+            class="ps-source-summary"
+            type="button"
+            :aria-expanded="isLocalPreview ? false : branchOpen"
+            :disabled="isLocalPreview"
+            :title="isLocalPreview ? `Sign in to switch branches / ${zh.previewSnapshot}` : undefined"
+            @click="branchOpen = !branchOpen"
+          >
             <span class="ps-source-icon"><Database :size="18" /></span>
             <span>
               <small>ACTIVE BRANCH · {{ zh.activeBranch }}</small>
               <strong>{{ dataset.source.branch }}</strong>
-              <em>{{ sourceFileCount }} source files · {{ sourceFileCount }} {{ zh.sourceFiles }}</em>
+              <em v-if="isLocalPreview">Bundled snapshot · {{ zh.previewSnapshot }}</em>
+              <em v-else>{{ sourceFileCount }} source files · {{ sourceFileCount }} {{ zh.sourceFiles }}</em>
               <code>{{ dataset.source.commit.slice(0, 10) }}</code>
             </span>
             <ChevronDown :size="16" />
@@ -271,14 +283,16 @@
 import { computed, onMounted, ref, watch, type Component } from 'vue'
 import {
   ArrowLeft, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown,
-  CircleAlert, CircleDot, Database, Droplets, ExternalLink, Filter, Gauge, GitBranch,
+  CircleAlert, CircleDot, Database, Droplets, ExternalLink, Eye, Filter, Gauge, GitBranch,
   GitCommitHorizontal, LoaderCircle, Pipette, Ruler, Search, SlidersHorizontal, X,
 } from '@lucide/vue'
+import { useRoute } from 'vue-router'
 import productionsLogo from '@/assets/dashboard/productions-logo.svg'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 import { pipSettingsZh as zh } from '@/i18n/locales/pipSettings'
 import { pipSettingsApi } from '@/scripts/api/pipSettings'
+import { isLocalPipSettingsPreview } from '@/scripts/router/pipSettingsPreview'
 import PipSettingsDocumentCard from './pip-settings/PipSettingsDocumentCard.vue'
 import { formatChannelLabel, humanize, normalize, valueMatches } from './pip-settings/helpers'
 import type {
@@ -305,6 +319,8 @@ const standardSections: SectionInfo[] = [
   { id: 'liquid', title: 'Liquid Performance', titleZh: zh.liquidTitle, eyebrow: 'LIQUID', description: zh.liquidPerformanceDescription, color: 'violet', icon: Gauge },
 ]
 
+const route = useRoute()
+const isLocalPreview = computed(() => isLocalPipSettingsPreview(route))
 const dataset = ref<PipSettingsDataset | null>(null)
 const loading = ref(true)
 const loadError = ref('')

@@ -1,5 +1,7 @@
 export const pipSettingsZh = {
   appSubtitle: 'Gen3 移液器配置查看',
+  localPreview: '本地预览',
+  previewSnapshot: '预览模式使用内置快照，登录后可切换分支',
   backHome: '返回首页',
   loadingSnapshot: '正在加载配置快照',
   dataUnavailable: '配置数据不可用',
