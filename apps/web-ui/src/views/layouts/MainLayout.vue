@@ -163,12 +163,6 @@ const allMenuItems = computed(() => [
     path: '/data/uploads'
   },
   {
-    id: 'menu-test-versions',
-    name: t('layout.nav.testVersions'),
-    icon: Tickets,
-    path: '/test-versions'
-  },
-  {
     id: 'menu-data',
     name: t('layout.nav.data'),
     icon: DataAnalysis,
@@ -194,7 +188,6 @@ const activeMenu = computed(() => {
   if (path === '/test-cases') return 'menu-terminal-tests'
   if (path === '/test-cases/protocol' || path.startsWith('/test-cases/protocol/')) return 'menu-protocol-tests'
   if (path === '/data/uploads') return 'menu-data-uploads'
-  if (path === '/test-versions') return 'menu-test-versions'
   if (path === '/data') return 'menu-data-list'
   if (path === '/data/analysis') return 'menu-data-analysis'
   if (path === '/data/links') return 'menu-data-links'
