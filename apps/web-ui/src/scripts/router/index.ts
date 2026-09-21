@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { pinia } from '@/scripts/stores'
 import { useAuthStore } from '@/scripts/stores/auth'
 import { i18n } from '@/i18n'
+import { isLocalPipSettingsPreview } from './pipSettingsPreview'
 
 const DEFAULT_FAVICON = '/favicon.png'
 const AGENT_FAVICON = '/agent-favicon.svg'
@@ -51,6 +52,12 @@ const routes: RouteRecordRaw[] = [
     name: 'BridgeGptToken',
     component: () => import('@/views/tools/BridgeGptTokenView.vue'),
     meta: { standalone: true, titleKey: 'titles.bridgeGptToken', favicon: DEFAULT_FAVICON },
+  },
+  {
+    path: '/tools/pip-settings-review',
+    name: 'PipSettingsReview',
+    component: () => import('@/views/tools/PipSettingsReviewView.vue'),
+    meta: { standalone: true, titleKey: 'titles.pipSettingsReview', favicon: DEFAULT_FAVICON },
   },
   {
     path: '/home',
@@ -174,6 +181,10 @@ function defaultAuthenticatedPath(): string {
 }
 
 router.beforeEach(async (to) => {
+  // Allow a read-only preview of the bundled snapshot on the local Vite server.
+  // Production builds and non-local hosts always continue through authentication.
+  if (isLocalPipSettingsPreview(to)) return true
+
   const authStore = useAuthStore(pinia)
 
   // The login screen must remain usable while the backend is starting or unavailable.

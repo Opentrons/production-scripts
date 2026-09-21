@@ -32,6 +32,7 @@ interface DashboardMessages {
     downloads: string
     onlineTools: string
     bridgeGptToken: string
+    pipSettingsReview: string
   }
   status: {
     active: string
@@ -159,6 +160,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       downloads: '资源下载',
       onlineTools: '在线工具',
       bridgeGptToken: 'Bridge GPT Token',
+      pipSettingsReview: 'Pip Settings Review',
     },
     status: {
       active: '可用',
@@ -296,6 +298,7 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
       downloads: 'Downloads',
       onlineTools: 'Online Tools',
       bridgeGptToken: 'Bridge GPT Token',
+      pipSettingsReview: 'Pip Settings Review',
     },
     status: {
       active: 'Active',

@@ -198,6 +198,7 @@ class InformationFilesResponse(BaseModel):
     total: int = 0
     refreshed_at: datetime | None = None
     cached: bool = False
+    refreshing: bool = False
     quality_checked: bool = False
     error: str | None = None
 

@@ -344,9 +344,9 @@ INFORMATION_REFRESH_SECONDS = max(
     60,
     int(os.getenv("PRODUCTION_PLATFORM_INFORMATION_REFRESH_SECONDS", "86400")),
 )
-INFORMATION_CACHE_PATH = Path(
-    os.getenv("PRODUCTION_PLATFORM_INFORMATION_CACHE_PATH", "").strip()
-    or DATA_DIR / "information_cache.sqlite3"
+ENGINEERING_INFORMATION_DB_PATH = Path(
+    os.getenv("PRODUCTION_PLATFORM_ENGINEERING_INFORMATION_DB_PATH", "").strip()
+    or DATA_DIR / "engineering_information.sqlite3"
 )
 GOOGLE_INTERACTIVE_AUTH = os.getenv("PRODUCTION_PLATFORM_GOOGLE_INTERACTIVE_AUTH", "false").lower() in {
     "1",
