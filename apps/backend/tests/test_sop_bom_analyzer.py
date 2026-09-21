@@ -2,6 +2,7 @@ from modules.sop.bom_analyzer import (
     analyze_bom_pages,
     analyze_part_references,
     classify_sop_page,
+    extract_chinese_lines,
     extract_material_lines,
     is_bom_page,
     normalize_pdf_part_number_text,
@@ -266,4 +267,23 @@ def test_extract_material_lines_omits_other_pages_and_lines() -> None:
     assert extract_material_lines(pages) == [
         (1, "安装 415-00390，并锁紧。"),
         (3, "使用 438-00210 完成装配。"),
+    ]
+
+
+def test_extract_material_lines_can_keep_only_chinese_source_lines() -> None:
+    pages = [
+        (
+            1,
+            "安装 2×415-00390 到底板\n"
+            "Install 2×415-00390 to the deck\n"
+            "确认 438-00210 已锁紧\n"
+            "Check 438-00210 is tightened",
+        )
+    ]
+
+    assert extract_chinese_lines(pages) == [
+        (1, "安装 2×415-00390 到底板\n确认 438-00210 已锁紧")
+    ]
+    assert extract_material_lines(pages, chinese_only=True) == [
+        (1, "安装 2×415-00390 到底板\n确认 438-00210 已锁紧")
     ]

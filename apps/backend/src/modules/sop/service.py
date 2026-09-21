@@ -22,6 +22,7 @@ from modules.sop.bom_analyzer import (
     analyze_bom_pages,
     analyze_part_references,
     classify_sop_page,
+    extract_chinese_lines,
     extract_material_lines,
     has_bilingual_reference_lines,
     SopPageCategory,
@@ -333,7 +334,7 @@ class SopService:
                 except Exception:
                     bom_layout_pages.append((page_number, page_text))
             elif page_category == "instruction":
-                reference_text_pages.append((page_number, page_text))
+                reference_text_pages.extend(extract_chinese_lines([(page_number, page_text)]))
 
             extracted_text_pages.append((page_number, page_text))
 
@@ -356,7 +357,7 @@ class SopService:
         if ai_enabled:
             ai_errors: list[str] = []
             try:
-                ai_material_pages = extract_material_lines(extracted_text_pages)
+                ai_material_pages = extract_material_lines(extracted_text_pages, chinese_only=True)
                 ai_materials = llm_service.extract_sop_pages(ai_material_pages)
                 if ai_materials:
                     ai_used = True
@@ -519,7 +520,7 @@ class SopService:
         if not targets:
             return []
 
-        pages = self._instruction_pages_for_refinement(file_id_or_url)
+        pages = extract_chinese_lines(self._instruction_pages_for_refinement(file_id_or_url))
         local_by_part = {
             item.part_number.strip().upper(): item
             for item in analyze_part_references(pages, [])
@@ -608,7 +609,7 @@ class SopService:
                 category = classify_sop_page(page_text, previous_category)
                 previous_category = category
                 if category == "instruction":
-                    pages.append((page_number, page_text))
+                    pages.extend(extract_chinese_lines([(page_number, page_text)]))
         except Exception as exc:
             raise SopAnalysisError(f"PDF 无法解析: {exc}") from exc
 
