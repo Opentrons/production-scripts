@@ -273,6 +273,7 @@ class IntegrationCollectionDataItem(BaseModel):
     model: str | None = None
     type: str | None = None
     total_result: str | None = None
+    failure: str | None = None
 
 
 class IntegrationCollectionDataResponse(BaseModel):

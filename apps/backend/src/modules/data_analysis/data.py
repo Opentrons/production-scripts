@@ -341,6 +341,7 @@ def _public_collection_item(document: dict[str, Any]) -> dict[str, Any]:
         "model": _public_text(document, "model"),
         "type": _public_text(document, "type"),
         "total_result": _public_text(document, "total_result", "total_qc_result"),
+        "failure": _public_text(document, "failure", "failures"),
     }
 
 
@@ -432,6 +433,8 @@ def get_collection_data_cursor(
                         "_id": 1,
                         "barcode": 1,
                         "collection": 1,
+                        "failure": 1,
+                        "failures": 1,
                         "model": 1,
                         "serial_number": 1,
                         "sn": 1,

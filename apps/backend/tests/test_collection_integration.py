@@ -103,6 +103,7 @@ def test_cursor_query_returns_only_public_fields_and_builds_next_page(
                     "model": "P1000M",
                     "type": "Opentrons",
                     "total_result": "PASS",
+                    "failures": "N/A",
                     "csv_link": "must-not-be-exposed",
                 },
                 {
@@ -113,6 +114,7 @@ def test_cursor_query_returns_only_public_fields_and_builds_next_page(
                     "model": "P1000M",
                     "type": "Opentrons",
                     "total_qc_result": "FAIL",
+                    "failures": "Leak Check",
                 },
                 {
                     "_id": third_id,
@@ -143,8 +145,10 @@ def test_cursor_query_returns_only_public_fields_and_builds_next_page(
     assert first_page["next_cursor"]
     assert first_page["data"][1]["sn"] == "SN-002"
     assert first_page["data"][1]["total_result"] == "FAIL"
+    assert first_page["data"][1]["failure"] == "Leak Check"
     assert set(first_page["data"][0]) == {
         "collection",
+        "failure",
         "update_time",
         "sn",
         "model",
