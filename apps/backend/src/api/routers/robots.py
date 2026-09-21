@@ -159,6 +159,19 @@ async def list_robot_version_history(page: int = 1, page_size: int = 100):
         raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
 
 
+@router.delete("/robots/version-history/{record_id}")
+async def delete_robot_version_history_record(record_id: str):
+    try:
+        result = await run_in_threadpool(version_record_service.delete_history_record, record_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail={"message": "版本记录不存在"})
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
 @router.get("/robots/version-comparison-rules")
 async def list_robot_version_comparison_rules():
     try:

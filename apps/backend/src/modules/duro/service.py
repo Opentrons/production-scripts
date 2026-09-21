@@ -81,7 +81,7 @@ class DuroService:
     def get_version_catalog(self, refresh: bool = False) -> DuroVersionCatalogResponse:
         """Return Duro software/version touchpoints and their full child details."""
 
-        disk_key = "duro-version-catalog:v4"
+        disk_key = "duro-version-catalog:v7"
         with self._lock:
             if not refresh and self._version_catalog_cache is not None:
                 return self._version_catalog_cache[1].model_copy(update={"cached": True})
@@ -248,7 +248,7 @@ class DuroService:
             app_version=cls._extract_version(source_text, "app"),
             firmware_version=cls._extract_version(source_text, "firmware"),
             test_commit_hash=cls._extract_commit_hash(source_text),
-            test_tag=cls._extract_test_tag(source_text),
+            test_tag=None,
             path=path,
             specs=specs,
             custom_specs=custom_specs,
@@ -287,67 +287,58 @@ class DuroService:
     def _entity_id(entity: dict[str, Any]) -> str:
         return str(entity.get("_id") or entity.get("id") or "").strip()
 
-    @staticmethod
-    def _extract_version(text: str, kind: str) -> str:
-        label = "App" if kind == "app" else r"(?:FW|Firmware)"
+    @classmethod
+    def _extract_version(cls, text: str, kind: str) -> str:
+        if kind == "app":
+            label = (
+                r"(?:API\s*(?:\(\s*App\s*\)|/\s*App)?|App(?:lication)?|"
+                r"Robot\s+Server|Software)"
+            )
+        else:
+            label = r"(?:FW|Firmware)"
         label_match = re.search(
-            rf"^\s*(?:[A-Za-z0-9 _./-]+\s+)?{label}\s*[:：]\s*(.*)$",
+            rf"^\s*(?:[A-Za-z0-9 _./()-]+\s+)?{label}(?:\s+Version)?\s*[:=：]\s*(.*)$",
             text,
             flags=re.IGNORECASE | re.MULTILINE,
         )
         if not label_match:
             return ""
-        value = label_match.group(1).strip()
+        return cls._extract_version_value(label_match.group(1))
 
-        # Duro details may include the firmware version in a path or suffix,
-        # such as "controller-v52" or "controller/V52".
+    @staticmethod
+    def _extract_version_value(value: str) -> str:
+        text = value.strip()
+        # Duro details may include the version in a path or suffix, such as
+        # "controller-v52", "controller/V52", or "api version v8.8.0".
         version_match = re.search(
             r"(?<![A-Za-z0-9])v\d+(?:\.\d+){0,3}\b",
-            value,
+            text,
             flags=re.IGNORECASE,
         )
         if version_match:
             return version_match.group(0).lower()
 
         # Keep supporting details that contain a bare numeric version.
-        version_match = re.match(r"\d+(?:\.\d+){0,3}\b", value)
+        version_match = re.search(r"(?<![A-Za-z0-9])\d+(?:\.\d+){0,3}\b", text)
         if not version_match:
             return ""
         return f"v{version_match.group(0)}"
 
     @classmethod
     def _extract_commit_hash(cls, text: str) -> str | None:
-        # Scripts: <ref>
-        # or Scripts: https://.../tree/<ref>
-        # or Scripts:\nhttps://.../tree/<ref>
-        scripts_match = re.search(
-            r"^\s*Scripts?\s*[:：]\s*(.*)$",
-            text,
-            flags=re.IGNORECASE | re.MULTILINE,
-        )
-        if scripts_match:
-            value = scripts_match.group(1).strip()
-            ref = cls._extract_git_ref(value)
+        # Priority is intentional: once a ref is found at one level, stop.
+        # Duro records may contain several historical refs in details; Branch
+        # and Tag describe the selected test version more directly than generic
+        # links or protocol filenames.
+        for label_pattern in (
+            r"\bbranch\b",
+            r"\btag\b",
+            r"\b(?:commit|sha|hash)\b",
+            r"\bscripts?\b",
+        ):
+            ref = cls._extract_labeled_git_ref(text, label_pattern)
             if ref:
                 return ref
-            rest = text[scripts_match.end() :].lstrip("\r\n")
-            next_line = rest.splitlines()[0] if rest else ""
-            ref = cls._extract_git_ref(next_line)
-            if ref:
-                return ref
-
-        # Some Duro records do not have Scripts, but store the test ref under
-        # labels like "Hardware Testing Tag" or "Release Branch".
-        for line in text.splitlines():
-            label, separator, value = line.partition(":")
-            if not separator:
-                label, separator, value = line.partition("：")
-            if not separator:
-                continue
-            if re.search(r"\b(?:Tag|Branch)\s*$", label.strip(), flags=re.IGNORECASE):
-                ref = cls._extract_git_ref(value)
-                if ref:
-                    return ref
 
         # Protocol: .../xxxx.py -> xxxx.py
         match = re.search(
@@ -360,20 +351,60 @@ class DuroService:
 
         return None
 
+    @classmethod
+    def _extract_labeled_git_ref(cls, text: str, label_pattern: str) -> str:
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            label, separator, value = line.partition(":")
+            if not separator:
+                label, separator, value = line.partition("：")
+            if not separator:
+                label, separator, value = line.partition("=")
+            if not separator:
+                continue
+            normalized_label = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+            if (
+                not re.search(label_pattern, normalized_label, flags=re.IGNORECASE)
+                or re.search(r"\b(?:app|api|fw|firmware)\b", normalized_label)
+            ):
+                continue
+            ref = cls._extract_git_ref(value)
+            if ref:
+                return ref
+            for next_line in lines[index + 1 :]:
+                ref = cls._extract_git_ref(next_line)
+                if ref:
+                    return ref
+        return ""
+
     @staticmethod
     def _extract_git_ref(value: str) -> str:
-        text = value.strip()
+        text = DuroService._normalize_git_ref_text(value)
         if not text:
             return ""
-        tree_match = re.search(r"/tree/([^\s?#]+)", text)
+        tree_match = re.search(r"/(?:tree|commit)/([^\s?#]+)", text)
         if tree_match:
             return tree_match.group(1).rstrip("/")
+        sha_match = re.search(r"\b[0-9a-f]{7,40}\b", text, flags=re.IGNORECASE)
+        if sha_match:
+            return sha_match.group(0)
         return text.split()[0].strip().rstrip("/")
 
     @staticmethod
-    def _extract_test_tag(text: str) -> str | None:
-        match = re.search(r"(?:hardware\s+testing\s+tag|test\s+tag)\s*[:=]\s*([^\s]+)", text, flags=re.IGNORECASE)
-        return match.group(1).strip() if match else None
+    def _normalize_git_ref_text(value: str) -> str:
+        text = str(value or "").replace("\x00", "").strip()
+        if not text:
+            return ""
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        candidates = [
+            line
+            for line in lines
+            if line.strip("`'\" ").casefold() not in {"serial", "sn", "barcode"}
+        ] or lines
+        text = candidates[0].strip()
+        text = re.sub(r"^\s*[`'\"\s]*(?:serial|sn|barcode)[`'\"\s:：=-]*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"^\s*(?:test\s+version|version|scripts?|tag|branch|commit(?:\s+hash)?|hash|sha)\s*[:=：]\s*", "", text, flags=re.IGNORECASE)
+        return text.strip().rstrip(",;")
 
     @classmethod
     def commits_page_url(cls, commit_hash: str) -> str:
@@ -383,9 +414,6 @@ class DuroService:
     def _is_resolvable_commit_ref(value: str) -> bool:
         text = value.strip()
         if not text or text.lower().endswith(".py"):
-            return False
-        # Protocol filenames and nested tree paths are not Git refs.
-        if "/" in text:
             return False
         return True
 

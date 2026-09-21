@@ -250,14 +250,16 @@
 .test-version-table td:nth-child(5) { width: 17%; }
 .test-version-table td:nth-child(6) { width: 9%; }
 .test-version-table td:nth-child(7) { width: 22%; }
-.test-barcode-table { min-width: 1080px; }
-.test-barcode-table td:nth-child(1) { width: 16%; }
-.test-barcode-table td:nth-child(2) { width: 15%; }
-.test-barcode-table td:nth-child(3) { width: 21%; }
+.test-barcode-table { min-width: 1180px; }
+.test-barcode-table td:nth-child(1) { width: 15%; }
+.test-barcode-table td:nth-child(2) { width: 14%; }
+.test-barcode-table td:nth-child(3) { width: 19%; }
 .test-barcode-table td:nth-child(4),
 .test-barcode-table td:nth-child(5),
-.test-barcode-table td:nth-child(6) { width: 12%; }
-.test-barcode-table td:nth-child(7) { width: 12%; }
+.test-barcode-table td:nth-child(6) { width: 11%; }
+.test-barcode-table td:nth-child(7) { width: 10%; }
+.test-barcode-table td:nth-child(8) { width: 12%; }
+.test-barcode-table td:nth-child(9) { width: 8%; }
 .test-field-select { width: 100%; min-width: 160px; }
 .test-version-table td strong, .test-version-table td span { display: block; }
 .test-version-table td strong { color: #253640; font-size: 12px; }
@@ -332,6 +334,20 @@
   min-width: 900px;
   background: #fff;
   border: 1px solid #d5dfe3;
+}
+.comparison-detail-table .comparison-hash-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comparison-detail-table .comparison-hash-cell code {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #1d5f8c;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .add-version-reference {
   padding: 12px 14px;

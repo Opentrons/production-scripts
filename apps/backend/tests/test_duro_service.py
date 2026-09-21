@@ -294,6 +294,10 @@ def test_version_details_only_extract_app_and_fw_labels() -> None:
     assert DuroService._extract_version("Firmware: controller/V52", "firmware") == "v52"
     assert DuroService._extract_version("Desktop App: v8.8.0", "app") == "v8.8.0"
     assert DuroService._extract_version("Robot Firmware: V67", "firmware") == "v67"
+    assert DuroService._extract_version("API (App) Version: v8.8.0", "app") == "v8.8.0"
+    assert DuroService._extract_version("API/App Version = 8.8.0", "app") == "v8.8.0"
+    assert DuroService._extract_version("FW Version: controller/v67", "firmware") == "v67"
+    assert DuroService._extract_version("Firmware Version = 67", "firmware") == "v67"
     assert DuroService._extract_version("No version here", "app") == ""
 
 
@@ -302,6 +306,10 @@ def test_version_details_extract_commit_hash_from_tag_scripts_and_protocol() -> 
     assert DuroService._extract_commit_hash("Hardware Testing Tag: mp.robot.qc.2026.9.1") == "mp.robot.qc.2026.9.1"
     assert DuroService._extract_commit_hash("Release Branch: release-9.2") == "release-9.2"
     assert DuroService._extract_commit_hash("Hardware Testing Branch: hardware-testing/main") == "hardware-testing/main"
+    assert DuroService._extract_commit_hash("Testing Commit Hash: abcdef1234567890") == "abcdef1234567890"
+    assert DuroService._extract_commit_hash("Git SHA = abcdef1234567890") == "abcdef1234567890"
+    assert DuroService._extract_commit_hash("Testing Commit Hash: `SERIAL`mp.gripper.diagnostics-24.08.05-1") == "mp.gripper.diagnostics-24.08.05-1"
+    assert DuroService._extract_commit_hash("Testing Commit Hash:\nSERIAL\nmp.gripper.diagnostics-24.08.05-1") == "mp.gripper.diagnostics-24.08.05-1"
     assert DuroService._extract_commit_hash("Scripts: mp.pipette.qc.2026.6.9") == "mp.pipette.qc.2026.6.9"
     assert (
         DuroService._extract_commit_hash(
@@ -335,12 +343,19 @@ def test_version_details_extract_commit_hash_from_tag_scripts_and_protocol() -> 
         == "flex_z_stage.py"
     )
     assert DuroService._extract_commit_hash("Protocol: path/to/stage_test.py") == "stage_test.py"
-    # Scripts wins when multiple labels are present.
+    # Branch/Tag are higher-priority than generic script links; once a priority
+    # level is found, extraction stops.
+    assert (
+        DuroService._extract_commit_hash(
+            "Tag: tagged-ref\nBranch: branch-ref\nScripts: https://example.com/tree/from-scripts"
+        )
+        == "branch-ref"
+    )
     assert (
         DuroService._extract_commit_hash(
             "Tag: tagged-ref\nScripts: https://example.com/tree/from-scripts\nProtocol: a/b.py"
         )
-        == "from-scripts"
+        == "tagged-ref"
     )
     assert DuroService._extract_commit_hash("No commit here") is None
 
@@ -352,7 +367,7 @@ def test_commits_page_url_and_resolvable_refs() -> None:
     )
     assert DuroService._is_resolvable_commit_ref("mp.pipette.qc.2026.6.9") is True
     assert DuroService._is_resolvable_commit_ref("flex_z_stage.py") is False
-    assert DuroService._is_resolvable_commit_ref("main/hardware-testing/foo") is False
+    assert DuroService._is_resolvable_commit_ref("hardware-testing/main") is True
 
 
 def test_enrich_commit_ids_resolves_unique_refs(monkeypatch) -> None:

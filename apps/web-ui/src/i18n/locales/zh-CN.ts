@@ -1472,6 +1472,9 @@ export default {
       loadRulesFailed: '加载对比规则失败',
       saveRuleFailed: '保存对比规则失败',
       deleteRuleFailed: '删除对比规则失败',
+      deleteRecordConfirm: '确认删除 {record} 的测试版本记录？',
+      deleteRecordSuccess: '测试版本记录已删除',
+      deleteRecordFailed: '删除测试版本记录失败',
     },
     duro: {
       title: 'Duro 产品总览', subtitle: '读取 Duro 产品、版本、生命周期状态和产品图片。', open: '打开 Duro', refreshProducts: '刷新产品',

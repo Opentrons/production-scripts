@@ -111,6 +111,8 @@ export interface RobotVersionTestEntry {
   sn: string
   robot_ip: string
   test_version: string
+  test_commit_hash?: string
+  test_commit_id?: string
   queried_at: string
   robot?: Record<string, unknown>
   subsystems?: RobotSubsystemVersion[]
@@ -638,6 +640,8 @@ export const robotApi = {
   }) => api.post<RobotVersionCaptureResponse>('/robots/version-records', payload, { timeout: 0 }),
   getVersionHistory: (params?: { page?: number; page_size?: number }) =>
     api.get<RobotVersionHistoryResponse>('/robots/version-history', { params }),
+  deleteVersionHistoryRecord: (recordId: string) =>
+    api.delete<{ success: boolean; id: string }>(`/robots/version-history/${encodeURIComponent(recordId)}`),
   getVersionComparisonRules: () =>
     api.get<RobotVersionComparisonRulesResponse>('/robots/version-comparison-rules'),
   createVersionComparisonRule: (payload: Omit<RobotVersionComparisonRule, '_id' | 'created_at' | 'updated_at'>) =>

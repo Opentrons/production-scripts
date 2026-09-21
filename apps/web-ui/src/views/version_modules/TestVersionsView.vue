@@ -135,12 +135,12 @@
                     </div>
                   </div>
                   <span class="tree-node-kind" :title="data.category || data.nodeTypeLabel || '—'">{{ data.category || data.nodeTypeLabel || '—' }}</span>
-                  <span :title="data.app_version || '—'" :class="{ 'version-value': data.app_version }">{{ data.app_version || '—' }}</span>
-                  <span :title="data.firmware_version || '—'" :class="{ 'version-value': data.firmware_version }">{{ data.firmware_version || '—' }}</span>
+                  <span :title="displayVersion(data.app_version)" :class="{ 'version-value': data.app_version }">{{ displayVersion(data.app_version) }}</span>
+                  <span :title="displayVersion(data.firmware_version)" :class="{ 'version-value': data.firmware_version }">{{ displayVersion(data.firmware_version) }}</span>
                   <div class="tree-node-commit">
                     <code v-if="data.test_commit_hash" :title="data.test_commit_hash">{{ data.test_commit_hash }}</code>
                     <span v-else title="—">—</span>
-                    <small v-if="data.test_tag" :title="data.test_tag">{{ data.test_tag }}</small>
+                    <small v-if="shouldShowTestTag(data)" :title="data.test_tag || ''">{{ data.test_tag }}</small>
                   </div>
                   <div class="tree-node-commit">
                     <a
@@ -207,6 +207,7 @@
                 <th>{{ t('versions.testVersions.firmware') }}</th>
                 <th>{{ t('versions.testVersions.compareStatus') }}</th>
                 <th>{{ t('versions.testVersions.queriedAt') }}</th>
+                <th>{{ t('versions.common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -248,6 +249,17 @@
                   </el-tag>
                 </td>
                 <td :title="formatDate(row.activeTest.queried_at)">{{ formatDate(row.activeTest.queried_at) }}</td>
+                <td @click.stop>
+                  <el-button
+                    link
+                    type="danger"
+                    :icon="Delete"
+                    :loading="deletingVersionRecordIds.has(row.id)"
+                    @click="deleteVersionRecord(row)"
+                  >
+                    {{ t('common.actions.delete') }}
+                  </el-button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -390,8 +402,8 @@
             <li v-for="child in selectedSoftwareFirmwareGroup.children.slice(0, 6)" :key="child.id">
               <strong>{{ child.name || child.cpn || child.id }}</strong>
               <span>
-                App {{ child.app_version || '—' }}
-                · FW {{ child.firmware_version || '—' }}
+                App {{ displayVersion(child.app_version) }}
+                · FW {{ displayVersion(child.firmware_version) }}
               </span>
             </li>
           </ul>
@@ -526,8 +538,8 @@
           </tr>
           <tr v-for="row in comparisonDialogRows" :key="row.key">
             <td :title="row.testName">{{ row.testName }}</td>
-            <td :title="row.current.test_version">{{ row.current.test_version }}</td>
-            <td :title="row.target.test_version">{{ row.target.test_version }}</td>
+            <td class="comparison-hash-cell" :title="row.current.test_version"><code>{{ row.current.test_version }}</code></td>
+            <td class="comparison-hash-cell" :title="row.target.test_version"><code>{{ row.target.test_version }}</code></td>
             <td :title="row.current.app_version">{{ row.current.app_version }}</td>
             <td :title="row.target.app_version">{{ row.target.app_version }}</td>
             <td :title="row.current.firmware">{{ row.current.firmware }}</td>
@@ -542,8 +554,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Box, Connection, FolderOpened, Loading, Plus, Refresh, Search, Setting, Tickets } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Box, Connection, Delete, FolderOpened, Loading, Plus, Refresh, Search, Setting, Tickets } from '@element-plus/icons-vue'
 import AuthUserMenu from '@/components/AuthUserMenu.vue'
 import { useAppLocale } from '@/i18n'
 import {
@@ -556,7 +568,7 @@ import {
   type RobotVersionProductType,
   type RobotVersionTestEntry,
 } from '@/scripts/api'
-import { duroApi, type DuroVersionCatalogResponse, type DuroVersionGroup } from '@/scripts/modules/version_modules/api/duro'
+import { duroApi, type DuroVersionCatalogResponse, type DuroVersionComponent, type DuroVersionGroup } from '@/scripts/modules/version_modules/api/duro'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
 import '@/styles/version_modules/version_modules.css'
 import './test_versions.css'
@@ -639,6 +651,7 @@ const testError = ref('')
 const testSearch = ref('')
 const testRecords = ref<RobotVersionHistoryRecord[]>([])
 const selectedTestKeyByBarcode = ref<Record<string, string>>({})
+const deletingVersionRecordIds = ref<Set<string>>(new Set())
 const treeProps = { label: 'name', children: 'children' }
 
 const addDialogVisible = ref(false)
@@ -847,6 +860,40 @@ function setSelectedTestKey(barcode: string, testKey: string): void {
   selectedTestKeyByBarcode.value = {
     ...selectedTestKeyByBarcode.value,
     [barcode]: testKey,
+  }
+}
+
+async function deleteVersionRecord(row: BarcodeTableRow): Promise<void> {
+  if (!row.record._id || deletingVersionRecordIds.value.has(row.id)) return
+  const recordLabel = `${row.product_name} · ${row.barcode}`
+  try {
+    await ElMessageBox.confirm(
+      t('versions.testVersions.deleteRecordConfirm', { record: recordLabel }),
+      t('common.actions.delete'),
+      {
+        confirmButtonText: t('common.actions.delete'),
+        cancelButtonText: t('common.actions.cancel'),
+        type: 'warning',
+      },
+    )
+  } catch {
+    return
+  }
+
+  deletingVersionRecordIds.value = new Set([...deletingVersionRecordIds.value, row.id])
+  try {
+    await robotApi.deleteVersionHistoryRecord(row.record._id)
+    testRecords.value = testRecords.value.filter((record) => record._id !== row.record._id)
+    const nextSelected = { ...selectedTestKeyByBarcode.value }
+    delete nextSelected[row.barcode]
+    selectedTestKeyByBarcode.value = nextSelected
+    ElMessage.success(t('versions.testVersions.deleteRecordSuccess'))
+  } catch (error: any) {
+    ElMessage.error(normalizeError(error) || t('versions.testVersions.deleteRecordFailed'))
+  } finally {
+    const nextDeleting = new Set(deletingVersionRecordIds.value)
+    nextDeleting.delete(row.id)
+    deletingVersionRecordIds.value = nextDeleting
   }
 }
 
@@ -1167,17 +1214,17 @@ function emptyTestEntry(record: RobotVersionHistoryRecord): RobotVersionTestEntr
 function appVersionFromTest(test: RobotVersionTestEntry): string {
   const robot = test.robot || {}
   const apiVersion = robot.api_version
-  if (typeof apiVersion === 'string' && apiVersion.trim()) return apiVersion.trim()
+  if (typeof apiVersion === 'string' && apiVersion.trim()) return displayVersion(apiVersion)
   return '—'
 }
 
 function firmwareSummary(test: RobotVersionTestEntry): string {
   const robot = test.robot || {}
   const fwVersion = robot.fw_version
-  if (typeof fwVersion === 'string' && fwVersion.trim()) return fwVersion.trim()
-  if (test.instrument?.firmware_version) return test.instrument.firmware_version
+  if (typeof fwVersion === 'string' && fwVersion.trim()) return displayVersion(fwVersion)
+  if (test.instrument?.firmware_version) return displayVersion(test.instrument.firmware_version)
   const subsystemVersion = (test.subsystems || []).find((item) => item.firmware_version)?.firmware_version
-  return subsystemVersion || '—'
+  return displayVersion(subsystemVersion)
 }
 
 function rulesForProduct(productType: string): ComparisonRule[] {
@@ -1195,19 +1242,21 @@ function compareRecordStatus(record: RobotVersionHistoryRecord): CompareStatus {
 
 function comparisonRowsForRule(record: RobotVersionHistoryRecord, rule: ComparisonRule): ComparisonDialogRow[] {
   const entries = Object.values(record.tests || {})
-  const target = targetVersionsForRule(rule)
   return rule.testNames.map((testName) => {
+    const target = targetVersionsForRule(rule, testName)
     const entry = entries.find((item) => item.test_name === testName)
     const current = entry ? entryVersions(entry) : blankVersions()
     let status: CompareStatus = entry ? 'PASS' : 'TODO'
     if (entry) {
       const compared = rule.fields.map((field) => ({
+        field,
         current: normalizeComparableForField(current[field], field),
         target: normalizeComparableForField(target[field], field),
       }))
       const hasMissing = compared.some((item) => !item.current || !item.target)
       const hasMismatch = compared.some((item) => item.current !== item.target)
-      status = hasMissing ? 'TODO' : hasMismatch ? 'FAIL' : 'PASS'
+      const hasMissingTestHash = compared.some((item) => item.field === 'test_version' && (!item.current || !item.target))
+      status = hasMissingTestHash || hasMismatch ? 'FAIL' : hasMissing ? 'TODO' : 'PASS'
     }
     return {
       key: `${rule.id}:${testName}`,
@@ -1219,14 +1268,48 @@ function comparisonRowsForRule(record: RobotVersionHistoryRecord, rule: Comparis
   })
 }
 
-function targetVersionsForRule(rule: ComparisonRule): Record<ComparisonField, string> {
+function targetVersionsForRule(rule: ComparisonRule, testName = ''): Record<ComparisonField, string> {
   const group = (duroCatalog.value?.groups ?? []).find((item) => item.parent_id === rule.duroParentId)
   const children = group?.children ?? []
+  const matchedChild = bestDuroChildForTest(children, testName)
   return {
-    test_version: firstDuroValue(children.map((child) => child.test_commit_hash || child.test_tag)),
-    app_version: firstDuroValue(children.map((child) => child.app_version)),
-    firmware: firstDuroValue(children.map((child) => child.firmware_version)),
+    test_version: firstDuroValue([
+      matchedChild?.test_commit_id,
+      ...children.map((child) => child.test_commit_id),
+    ]),
+    app_version: firstDuroVersionValue([
+      matchedChild?.app_version,
+      ...children.map((child) => child.app_version),
+    ]),
+    firmware: firstDuroVersionValue([
+      matchedChild?.firmware_version,
+      ...children.map((child) => child.firmware_version),
+    ]),
   }
+}
+
+function bestDuroChildForTest(children: DuroVersionComponent[], testName: string): DuroVersionComponent | null {
+  const normalizedTestName = testName.toLocaleLowerCase().replace(/^\d+\.\s*/, '').trim()
+  if (!children.length || !normalizedTestName) return null
+  let best: DuroVersionComponent | null = null
+  let bestScore = 0
+  for (const child of children) {
+    const haystacks = [
+      child.name,
+      child.cpn,
+      child.category,
+      child.description,
+      child.source_text,
+      child.path.join(' '),
+    ].map((value) => String(value || '').toLocaleLowerCase())
+    let score = Math.max(...haystacks.map((value) => overlapScore(normalizedTestName, value)))
+    if (haystacks.some((value) => value.includes(normalizedTestName))) score += 4
+    if (score > bestScore) {
+      bestScore = score
+      best = child
+    }
+  }
+  return bestScore >= 2 ? best : null
 }
 
 function firstDuroValue(values: Array<string | null | undefined>): string {
@@ -1234,9 +1317,13 @@ function firstDuroValue(values: Array<string | null | undefined>): string {
   return value?.trim() || '—'
 }
 
+function firstDuroVersionValue(values: Array<string | null | undefined>): string {
+  return displayVersion(firstDuroValue(values))
+}
+
 function entryVersions(entry: RobotVersionTestEntry): Record<ComparisonField, string> {
   return {
-    test_version: entry.test_version || '—',
+    test_version: entry.test_commit_id || '—',
     app_version: appVersionFromTest(entry),
     firmware: firmwareSummary(entry),
   }
@@ -1251,20 +1338,15 @@ function normalizeComparable(value: string): string {
 }
 
 function normalizeComparableForField(value: string, field: ComparisonField): string {
-  if (field !== 'test_version') return normalizeComparable(value)
-  return normalizeComparable(extractTestCommitRef(value))
+  if (field !== 'test_version') return normalizeComparable(displayVersion(value))
+  const normalized = normalizeComparable(value)
+  return /^[0-9a-f]{7,40}$/.test(normalized) ? normalized : ''
 }
 
-function extractTestCommitRef(value: string): string {
+function displayVersion(value: string | null | undefined): string {
   const text = String(value || '').trim()
-  if (!text || text === '—') return ''
-  const githubMatch = text.match(/\/(?:tree|commit)\/([^\s?#]+)/i)
-  if (githubMatch?.[1]) return githubMatch[1].replace(/\/$/, '')
-  const shaMatch = text.match(/\b[0-9a-f]{7,40}\b/i)
-  if (shaMatch?.[0]) return shaMatch[0]
-  const labelMatch = text.match(/(?:commit(?:\s+hash)?|hash|tag|branch|scripts?)\s*[:=：]\s*([^\s,;]+)/i)
-  if (labelMatch?.[1]) return labelMatch[1].replace(/\/$/, '')
-  return text.split(/\s+/)[0].replace(/\/$/, '')
+  if (!text || text === '—') return '—'
+  return text.replace(/^v(?=\d)/i, '')
 }
 
 function fieldLabel(field: ComparisonField): string {
@@ -1380,6 +1462,13 @@ function descriptionPreview(value: string): string {
 
 function shortCommitId(value: string): string {
   return value.length > 12 ? value.slice(0, 12) : value
+}
+
+function shouldShowTestTag(data: VersionTreeNode): boolean {
+  const tag = String(data.test_tag || '').trim()
+  if (!tag) return false
+  const commitHash = String(data.test_commit_hash || '').trim()
+  return !commitHash || tag !== commitHash
 }
 
 function formatDate(value: string | null | undefined): string {

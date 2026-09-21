@@ -6,6 +6,8 @@ from threading import RLock
 from typing import Any
 from uuid import uuid4
 
+import requests
+
 import core.config as setting
 from core.database import mongodb
 from modules.robots.api_client.client import OpentronsHttpClient
@@ -17,6 +19,7 @@ TEST_VERSION_PATH = "/data/.hardware-testing-description"
 TEST_VERSION_COMMAND = f"cat {TEST_VERSION_PATH} 2>/dev/null || true"
 ROBOT_SERIAL_SSH_COMMAND = "cat /var/serial 2>/dev/null || true"
 ROBOT_SUBSYSTEMS = ("gantry_x", "gantry_y", "head", "rear_panel")
+OPENTRONS_GITHUB_REPO = "Opentrons/opentrons"
 
 PRODUCTS: tuple[dict[str, Any], ...] = (
     {
@@ -91,6 +94,7 @@ PRODUCTS: tuple[dict[str, Any], ...] = (
 
 _PRODUCT_BY_KEY = {str(product["key"]): product for product in PRODUCTS}
 _PERSIST_LOCK = RLock()
+_COMMIT_ID_CACHE: dict[str, str | None] = {}
 
 
 def _utc_now() -> str:
@@ -141,19 +145,128 @@ def _read_test_version(ip: str) -> str:
             timeout=15,
         )
         if exit_code == 0:
-            value = _text(stdout)
+            value = _normalize_test_version(_text(stdout))
             if value and "file not found" not in value.casefold():
                 return value
     except Exception:
         pass
 
     try:
-        value = _text(OpentronsSshClient(ip).read_text(TEST_VERSION_PATH))
+        value = _normalize_test_version(_text(OpentronsSshClient(ip).read_text(TEST_VERSION_PATH)))
         if value and "file not found" not in value.casefold():
             return value
     except Exception:
         pass
     return "N/A"
+
+
+def _normalize_test_version(value: Any) -> str:
+    text = _text(value)
+    if not text:
+        return ""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    candidates = [
+        line
+        for line in lines
+        if line.casefold() not in {"serial", "sn", "barcode"}
+    ]
+    candidates = candidates or lines
+    for line in candidates:
+        if _extract_test_commit_ref(line):
+            return _clean_test_version_line(line)
+    return _clean_test_version_line(candidates[-1] if len(candidates) > 1 else candidates[0])
+
+
+def _clean_test_version_line(value: str) -> str:
+    text = value.strip().rstrip(",;")
+    label_match = re.match(
+        r"^(?:test\s+version|version|scripts?|tag|branch|commit(?:\s+hash)?|hash|sha)\s*[:=：]\s*(.+)$",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if label_match:
+        return label_match.group(1).strip().rstrip(",;")
+    return text
+
+
+def _extract_test_commit_ref(value: Any) -> str:
+    text = _normalize_test_version(value) if "\n" in str(value or "") else _text(value)
+    if not text or text.upper() == "N/A":
+        return ""
+    github_match = re.search(r"/(?:tree|commit)/([^\s?#]+)", text, flags=re.IGNORECASE)
+    if github_match:
+        return github_match.group(1).rstrip("/")
+    sha_match = re.search(r"\b[0-9a-f]{7,40}\b", text, flags=re.IGNORECASE)
+    if sha_match:
+        return sha_match.group(0)
+    label_match = re.search(
+        r"(?:test\s+version|version|scripts?|tag|branch|commit(?:\s+hash)?|hash|sha)\s*[:=：]\s*([^\s,;]+)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if label_match:
+        return label_match.group(1).rstrip("/")
+    token = text.split()[0].strip().rstrip("/")
+    if re.search(r"[A-Za-z]", token) and re.search(r"[.-]", token):
+        return token
+    return ""
+
+
+def _resolve_test_commit_id(ref: str) -> str | None:
+    text = str(ref or "").strip()
+    if not text or text.lower().endswith(".py"):
+        return None
+    if re.fullmatch(r"[0-9a-f]{40}", text, flags=re.IGNORECASE):
+        return text.lower()
+    with _PERSIST_LOCK:
+        if text in _COMMIT_ID_CACHE:
+            return _COMMIT_ID_CACHE[text]
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "production-scripts-version-records",
+    }
+    token = _text(getattr(setting, "GITHUB_TOKEN", "")) or ""
+    try:
+        import os
+
+        token = token or os.getenv("GITHUB_TOKEN", "").strip() or os.getenv("GH_TOKEN", "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        response = requests.get(
+            f"https://api.github.com/repos/{OPENTRONS_GITHUB_REPO}/commits",
+            params={"sha": text, "per_page": 1},
+            headers=headers,
+            timeout=15,
+        )
+        if response.status_code != 200:
+            commit_id = None
+        else:
+            payload = response.json()
+            commit_id = (
+                str(payload[0].get("sha") or "").strip().lower()
+                if isinstance(payload, list) and payload and isinstance(payload[0], dict)
+                else None
+            )
+    except (requests.RequestException, ValueError, TypeError, IndexError, KeyError):
+        commit_id = None
+
+    with _PERSIST_LOCK:
+        _COMMIT_ID_CACHE[text] = commit_id
+    return commit_id
+
+
+def _test_commit_fields(test_version: Any) -> dict[str, str]:
+    normalized = _normalize_test_version(test_version) or "N/A"
+    commit_ref = _extract_test_commit_ref(normalized)
+    commit_id = _resolve_test_commit_id(commit_ref) if commit_ref else None
+    return {
+        "test_version": normalized,
+        "test_commit_hash": commit_ref,
+        "test_commit_id": commit_id or "",
+    }
 
 
 def _read_robot_serial_ssh(ip: str) -> str:
@@ -432,7 +545,22 @@ def _storage_label() -> str:
 def _serialize_document(document: dict[str, Any]) -> dict[str, Any]:
     serialized = dict(document)
     serialized["_id"] = str(serialized.get("_id") or "")
+    tests = serialized.get("tests")
+    if isinstance(tests, dict):
+        serialized["tests"] = {
+            key: _serialize_test_entry(value)
+            for key, value in tests.items()
+        }
     return serialized
+
+
+def _serialize_test_entry(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    entry = dict(value)
+    fields = _test_commit_fields(entry.get("test_version"))
+    entry.update(fields)
+    return entry
 
 
 def _test_key(test_name: str) -> str:
@@ -485,11 +613,12 @@ def capture_version(
     # Match Device Control "查询版本": allow missing barcode and still return versions.
     captured = _collect_versions(ip, port, normalized_product_type, require_barcode=False)
     barcode = _text(captured.get("barcode"), "N/A") or "N/A"
+    commit_fields = _test_commit_fields(captured.get("test_version"))
     test_entry = {
         "test_name": normalized_test_name,
         "sn": barcode,
         "robot_ip": ip,
-        "test_version": _text(captured.get("test_version"), "N/A"),
+        **commit_fields,
         "queried_at": queried_at,
         **({"robot": captured["robot"]} if "robot" in captured else {}),
         **({"subsystems": captured["subsystems"]} if "subsystems" in captured else {}),
@@ -550,6 +679,15 @@ def list_history(*, page: int = 1, page_size: int = 100) -> dict[str, Any]:
         "page_size": normalized_page_size,
         "storage": _storage_label(),
     }
+
+
+def delete_history_record(record_id: str) -> dict[str, Any]:
+    normalized_id = str(record_id or "").strip()
+    if not normalized_id:
+        raise ValueError("版本记录 ID 不能为空")
+    collection = _get_collection()
+    result = collection.delete_one({"_id": normalized_id})
+    return {"success": bool(getattr(result, "deleted_count", 0)), "id": normalized_id}
 
 
 def _normalize_rule_payload(payload: dict[str, Any]) -> dict[str, Any]:

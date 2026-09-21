@@ -1472,6 +1472,9 @@ export default {
       loadRulesFailed: 'Unable to load comparison rules',
       saveRuleFailed: 'Unable to save comparison rule',
       deleteRuleFailed: 'Unable to delete comparison rule',
+      deleteRecordConfirm: 'Delete the test version record for {record}?',
+      deleteRecordSuccess: 'Test version record deleted',
+      deleteRecordFailed: 'Unable to delete test version record',
     },
     duro: {
       title: 'Duro Products', subtitle: 'Browse Duro products, revisions, lifecycle status, and product images.', open: 'Open Duro', refreshProducts: 'Refresh Products',
