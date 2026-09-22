@@ -90,6 +90,7 @@ export interface InformationFile {
   product_model?: string | null
   effective_date?: string | null
   web_view_link: string
+  source_parent_path?: string | null
 }
 
 export interface InformationFilesResponse {

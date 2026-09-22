@@ -188,6 +188,7 @@ class InformationFile(BaseModel):
     product_model: str | None = None
     effective_date: str | None = None
     web_view_link: str
+    source_parent_path: str | None = None
 
 
 class InformationFilesResponse(BaseModel):

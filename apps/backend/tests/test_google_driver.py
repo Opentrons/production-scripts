@@ -1,11 +1,61 @@
 from pathlib import Path
 
+from googleapiclient.errors import HttpError
+from httplib2 import Response
+
 from core.config import GOOGLE_TOKEN_PATH, TOKEN_PATH
+import core.google.client as google_client
 from core.google.client import GoogleDriver
 
 
 def test_information_google_client_reuses_upload_account_token() -> None:
     assert GOOGLE_TOKEN_PATH == Path(TOKEN_PATH)
+
+
+def test_google_client_retries_rate_limits_with_exponential_backoff(monkeypatch) -> None:
+    quota_error = HttpError(Response({"status": "429"}), b"quota")
+    responses = iter([quota_error, quota_error, {"ok": True}])
+    sleeps: list[float] = []
+
+    driver = GoogleDriver(allow_interactive_auth=False)
+    monkeypatch.setattr(driver, "_ensure_services", lambda force=False: None)
+    monkeypatch.setattr(google_client, "GOOGLE_API_MAX_RETRIES", 2)
+    monkeypatch.setattr(google_client, "GOOGLE_API_RETRY_BASE_SECONDS", 1.0)
+    monkeypatch.setattr(google_client, "GOOGLE_API_RETRY_MAX_SECONDS", 10.0)
+    monkeypatch.setattr(google_client.time, "sleep", sleeps.append)
+
+    class SequenceRequest:
+        def execute(self):
+            result = next(responses)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    assert driver._execute(lambda: SequenceRequest()) == {"ok": True}
+    assert sleeps == [1.0, 2.0]
+
+
+def test_google_client_honors_retry_after_header(monkeypatch) -> None:
+    quota_error = HttpError(Response({"status": "429", "retry-after": "7"}), b"quota")
+    responses = iter([quota_error, {"ok": True}])
+    sleeps: list[float] = []
+
+    driver = GoogleDriver(allow_interactive_auth=False)
+    monkeypatch.setattr(driver, "_ensure_services", lambda force=False: None)
+    monkeypatch.setattr(google_client, "GOOGLE_API_MAX_RETRIES", 1)
+    monkeypatch.setattr(google_client, "GOOGLE_API_RETRY_BASE_SECONDS", 1.0)
+    monkeypatch.setattr(google_client, "GOOGLE_API_RETRY_MAX_SECONDS", 5.0)
+    monkeypatch.setattr(google_client.time, "sleep", sleeps.append)
+
+    class SequenceRequest:
+        def execute(self):
+            result = next(responses)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    assert driver._execute(lambda: SequenceRequest()) == {"ok": True}
+    assert sleeps == [5.0]
 
 
 def test_parse_drive_file_id_from_supported_urls() -> None:

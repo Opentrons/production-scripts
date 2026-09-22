@@ -3,8 +3,10 @@ from __future__ import annotations
 import io
 import re
 import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qs, urlparse
@@ -25,6 +27,9 @@ from core.google.proxy import (
 from core.google.proxy_manager import google_proxy_manager
 from core.config import (
     GOOGLE_CREDENTIALS_PATH,
+    GOOGLE_API_MAX_RETRIES,
+    GOOGLE_API_RETRY_BASE_SECONDS,
+    GOOGLE_API_RETRY_MAX_SECONDS,
     GOOGLE_INTERACTIVE_AUTH,
     GOOGLE_SERVICE_ACCOUNT_PATH,
     GOOGLE_TOKEN_PATH,
@@ -521,25 +526,77 @@ class GoogleDriver:
 
     def _execute(self, request_factory: Callable[[], Any]) -> T:
         self._ensure_services()
-        try:
-            return request_factory().execute()
-        except Exception as exc:
-            if not self._should_retry(exc):
-                raise GoogleDriverError(f"Google API 请求失败: {exc}") from exc
-            fallback_proxy = google_proxy_manager.failover(self._proxy_url)
-            if not fallback_proxy:
-                raise GoogleDriverError(f"Google API 请求失败: {exc}") from exc
-            self._ensure_services(force=True)
+        last_error: Exception | None = None
+        retries_done = 0
+        for attempt in range(GOOGLE_API_MAX_RETRIES + 1):
             try:
                 return request_factory().execute()
-            except Exception as retry_exc:
-                raise GoogleDriverError(f"Google API 重试失败: {retry_exc}") from retry_exc
+            except Exception as exc:
+                last_error = exc
+                if not self._should_retry(exc) or attempt >= GOOGLE_API_MAX_RETRIES:
+                    break
+                retries_done += 1
+
+                status = self._http_status(exc)
+                if status != 429:
+                    fallback_proxy = google_proxy_manager.failover(self._proxy_url)
+                    if fallback_proxy:
+                        self._ensure_services(force=True)
+
+                delay = self._retry_delay(exc, attempt)
+                if delay > 0:
+                    time.sleep(delay)
+
+        assert last_error is not None
+        raise GoogleDriverError(
+            f"Google API 请求失败（已重试 {retries_done} 次）: {last_error}"
+        ) from last_error
 
     def _should_retry(self, exc: Exception) -> bool:
         if isinstance(exc, HttpError):
             status = getattr(exc.resp, "status", 0)
             return status == 429 or status >= 500
         return isinstance(exc, (TransportError, OSError, TimeoutError))
+
+    @staticmethod
+    def _http_status(exc: Exception) -> int:
+        if not isinstance(exc, HttpError):
+            return 0
+        return int(getattr(exc.resp, "status", 0) or 0)
+
+    @staticmethod
+    def _retry_after_seconds(exc: Exception) -> float | None:
+        if not isinstance(exc, HttpError):
+            return None
+        raw_value = ""
+        response = getattr(exc, "resp", None)
+        if response is not None:
+            try:
+                raw_value = str(response.get("retry-after", "")).strip()
+            except (AttributeError, TypeError):
+                raw_value = ""
+        if not raw_value:
+            return None
+        try:
+            return max(0.0, float(raw_value))
+        except ValueError:
+            try:
+                retry_at = parsedate_to_datetime(raw_value)
+            except (TypeError, ValueError, OverflowError):
+                return None
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+            return max(0.0, retry_at.timestamp() - time.time())
+
+    @classmethod
+    def _retry_delay(cls, exc: Exception, attempt: int) -> float:
+        retry_after = cls._retry_after_seconds(exc)
+        if retry_after is not None:
+            return min(GOOGLE_API_RETRY_MAX_SECONDS, retry_after)
+        return min(
+            GOOGLE_API_RETRY_MAX_SECONDS,
+            GOOGLE_API_RETRY_BASE_SECONDS * (2**attempt),
+        )
 
     def _sheet_cell(
         self,

@@ -56,13 +56,15 @@ def _sheet(spreadsheet_id: str, gid: int, rows: list[list[str]]) -> GoogleSheetD
     )
 
 
-def _source_file(file_id: str, name: str) -> GoogleDriveFile:
+def _source_file(file_id: str, name: str, parent_path: str | None = None) -> GoogleDriveFile:
+    if parent_path is None:
+        parent_path = "2026 ECN" if name.startswith("ECN-") else "2026"
     return GoogleDriveFile(
         id=file_id,
         name=name,
         mime_type="application/vnd.google-apps.spreadsheet",
         modified_time="2026-08-24T08:00:00Z",
-        parent_path="2026",
+        parent_path=parent_path,
     )
 
 
@@ -159,6 +161,37 @@ def test_parse_ecn_uses_file_title_product_model_and_sheet_gid() -> None:
     )
 
 
+def test_parse_ecn_uses_source_product_name_when_model_is_unfilled() -> None:
+    parsed = _parse_file(
+        "ecn",
+        _source_file("sheet-id", "ECN-0561 436-00286 Drawing Update"),
+        [
+            ["产品型号\nProduct number", "-"],
+            ["物料名称\nProduct Name", "FLEX REPLACMENT Z STAGE - FOAM, TOP"],
+            ["ECN 单号\nECN No.", "ECN-0561"],
+        ],
+        sheet_gid=1,
+        document_title="ECN-0561 436-00286 Drawing Update",
+    )
+
+    assert parsed.product_model == "FLEX REPLACMENT Z STAGE - FOAM, TOP"
+
+
+def test_parse_ecn_prefers_drive_filename_number_over_sheet_typo() -> None:
+    parsed = _parse_file(
+        "ecn",
+        _source_file("sheet-id", "ECN-0568 999-00241 BOM Update"),
+        [
+            ["产品型号", "999-00241"],
+            ["ECN编号", "ECN-05648"],
+        ],
+        sheet_gid=1,
+        document_title="ECN-0568 999-00241 BOM Update",
+    )
+
+    assert parsed.number == "ECN-0568"
+
+
 def test_parse_contact_letter_reads_subject_beyond_column_z() -> None:
     file = GoogleDriveFile(
         id="1usLK_UEgirWxi7MWm3cI0D_zsUvgZebzgpfiun_Y02s",
@@ -245,6 +278,15 @@ def test_belongs_to_year_matches_year_folder_names_before_dates() -> None:
 
     assert _belongs_to_year(file, 2026)
     assert not _belongs_to_year(file, 2025)
+
+    old_file = file.__class__(
+        **{
+            **file.__dict__,
+            "parent_path": "2025 ECN / ECN-0522",
+            "modified_time": "2026-08-24T00:00:00Z",
+        }
+    )
+    assert not _belongs_to_year(old_file, 2026, "ecn")
 
 
 def test_service_reads_and_qa_checks_every_source_record(tmp_path) -> None:
@@ -335,6 +377,7 @@ def test_quality_gate_rejects_missing_subject_product_model_and_wrong_links() ->
                 subject="ENG-2026001",
                 effective_date="2026-01-01",
                 web_view_link="https://drive.google.com/open?id=contact-sheet",
+                source_parent_path="2026",
             )
         ],
     )
@@ -352,6 +395,7 @@ def test_quality_gate_rejects_missing_subject_product_model_and_wrong_links() ->
                 web_view_link=(
                     "https://docs.google.com/spreadsheets/d/other-sheet/edit?gid=1#gid=1"
                 ),
+                source_parent_path="2026 ECN",
             )
         ],
     )
@@ -389,10 +433,13 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert table_names == {"engineering_information_index"}
+    assert table_names == {
+        "engineering_information_index",
+        "engineering_information_progress",
+    }
 
     driver.sheets.pop("contact-sheet-13")
-    driver.files[folder_id] = [second]
+    driver.files[folder_id] = [first, second]
     driver.sheets["contact-sheet-14"] = _sheet(
         "contact-sheet-14",
         14,
@@ -405,7 +452,7 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
     assert driver.preview_calls == ["contact-sheet-13", "contact-sheet-14"]
 
     restarted_driver = FakeInformationDriver()
-    restarted_driver.files[folder_id] = [second]
+    restarted_driver.files[folder_id] = [first, second]
     restarted = InformationService(
         restarted_driver,  # type: ignore[arg-type]
         cache_path=cache_path,
@@ -425,6 +472,174 @@ def test_forced_refresh_discovers_new_records_and_persists_qa_cache(tmp_path) ->
     assert fallback.cached is True
     assert fallback.quality_checked is True
     assert "已保留上次完整数据" in str(fallback.error)
+
+
+def test_scan_filters_old_year_root_templates_and_scrap_duplicates(tmp_path) -> None:
+    driver = FakeInformationDriver()
+    folder_id = information_module.FOLDERS["ecn"][0]
+    allowed = _source_file("allowed", "ECN-0576 Update", "2026 ECN / ECN-0576 Update")
+    scrap = _source_file("scrap", "ECN-0576 Update Scrap", "2026 ECN / ECN-0576 Update")
+    old = _source_file("old", "ECN-0521 Old", "2025 ECN / ECN-0521 Old")
+    root_template = _source_file("template", "QR-ENG-0000 工程变更通知单 A3模板", "")
+    driver.files[folder_id] = [allowed, scrap, old, root_template]
+    driver.sheets["allowed"] = _sheet(
+        "allowed",
+        1,
+        [["产品型号", "Flex"], ["ECN编号", "ECN-0576"]],
+    )
+
+    response = InformationService(
+        driver,  # type: ignore[arg-type]
+        cache_path=tmp_path / "information.sqlite3",
+    ).refresh_files("ecn")
+
+    assert response.total == 1
+    assert [item.number for item in response.files] == ["ECN-0576"]
+    assert driver.preview_calls == ["allowed"]
+
+
+def test_scan_rejects_duplicate_non_scrap_ecn_numbers(tmp_path) -> None:
+    driver = FakeInformationDriver()
+    folder_id = information_module.FOLDERS["ecn"][0]
+    first = _source_file("first", "ECN-0576 First", "2026 ECN / ECN-0576 First")
+    duplicate = _source_file("duplicate", "ECN-0576 Duplicate", "2026 ECN / ECN-0576 Duplicate")
+    driver.files[folder_id] = [first, duplicate]
+    driver.sheets["first"] = _sheet(
+        "first", 1, [["产品型号", "Flex"], ["ECN编号", "ECN-0576"]]
+    )
+    driver.sheets["duplicate"] = _sheet(
+        "duplicate", 2, [["产品型号", "Flex"], ["ECN编号", "ECN-0576"]]
+    )
+
+    with pytest.raises(Exception, match="ECN-0576: 编号重复"):
+        InformationService(
+            driver,  # type: ignore[arg-type]
+            cache_path=tmp_path / "information.sqlite3",
+        ).refresh_files("ecn")
+
+
+def test_quality_gate_rejects_wrong_contact_year_and_source_directory() -> None:
+    response = InformationFilesResponse(
+        kind="contact",
+        year=2026,
+        source_url="https://drive.google.com/folder",
+        files=[
+            InformationFile(
+                id="contact-sheet",
+                number="ENG-2024015",
+                subject="关于历史文件",
+                effective_date="2026-01-01",
+                web_view_link="https://docs.google.com/spreadsheets/d/contact-sheet/edit?gid=0#gid=0",
+                source_parent_path="2025",
+            )
+        ],
+    )
+
+    assert _quality_issues(response) == [
+        "ENG-2024015: 联络函编号年份与列表年份不一致",
+        "ENG-2024015: 来源目录不是 2026 年目录",
+    ]
+
+
+def test_refresh_resumes_from_persisted_record_progress(tmp_path) -> None:
+    class FailingPreviewDriver(FakeInformationDriver):
+        def __init__(self) -> None:
+            super().__init__()
+            self.fail_ids: set[str] = set()
+
+        def read_spreadsheet_previews(self, spreadsheet_id: str) -> list[GoogleSheetData]:
+            self.preview_calls.append(spreadsheet_id)
+            if spreadsheet_id in self.fail_ids:
+                raise GoogleDriverError("temporary Sheets failure")
+            sheet = self.sheets[spreadsheet_id]
+            return sheet if isinstance(sheet, list) else [sheet]
+
+    driver = FailingPreviewDriver()
+    folder_id = information_module.FOLDERS["contact"][0]
+    first = _source_file("first", "ENG-2026013")
+    second = _source_file("second", "ENG-2026014")
+    driver.files[folder_id] = [first, second]
+    driver.sheets["first"] = _sheet(
+        "first", 0, [["联络编号", "ENG-2026013"], ["主题", "第一条"]]
+    )
+    driver.sheets["second"] = _sheet(
+        "second", 0, [["联络编号", "ENG-2026014"], ["主题", "第二条"]]
+    )
+    driver.fail_ids.add("second")
+    cache_path = tmp_path / "information.sqlite3"
+    service = InformationService(driver, cache_path=cache_path)  # type: ignore[arg-type]
+
+    with pytest.raises(Exception, match="ENG-2026014"):
+        service.refresh_files("contact")
+
+    with sqlite3.connect(cache_path) as connection:
+        progress_payload = connection.execute(
+            "SELECT payload FROM engineering_information_progress WHERE kind = 'contact'"
+        ).fetchone()
+    assert progress_payload is not None
+    assert "ENG-2026013" in progress_payload[0]
+    assert "ENG-2026014" not in progress_payload[0]
+
+    driver.fail_ids.clear()
+    driver.preview_calls.clear()
+    response = service.refresh_files("contact")
+    assert response.total == 2
+    assert driver.preview_calls == ["second"]
+
+
+def test_resume_reloads_invalid_progress_records_but_skips_valid_ones(tmp_path) -> None:
+    class FailingPreviewDriver(FakeInformationDriver):
+        def __init__(self) -> None:
+            super().__init__()
+            self.fail_ids: set[str] = set()
+
+        def read_spreadsheet_previews(self, spreadsheet_id: str) -> list[GoogleSheetData]:
+            self.preview_calls.append(spreadsheet_id)
+            if spreadsheet_id in self.fail_ids:
+                raise GoogleDriverError("temporary Sheets failure")
+            sheet = self.sheets[spreadsheet_id]
+            return sheet if isinstance(sheet, list) else [sheet]
+
+    driver = FailingPreviewDriver()
+    folder_id = information_module.FOLDERS["ecn"][0]
+    files = [
+        _source_file("valid", "ECN-0574 Valid"),
+        _source_file("invalid", "ECN-0575 Invalid"),
+        _source_file("blocked", "ECN-0576 Blocked"),
+    ]
+    driver.files[folder_id] = files
+    driver.sheets["valid"] = _sheet(
+        "valid", 1, [["产品型号", "Flex"], ["ECN编号", "ECN-0574"]]
+    )
+    driver.sheets["invalid"] = _sheet(
+        "invalid", 1, [["产品型号", "-"], ["ECN编号", "ECN-0575"]]
+    )
+    driver.sheets["blocked"] = _sheet(
+        "blocked", 1, [["产品型号", "Flex"], ["ECN编号", "ECN-0576"]]
+    )
+    driver.fail_ids.add("blocked")
+    cache_path = tmp_path / "information.sqlite3"
+    service = InformationService(driver, cache_path=cache_path)  # type: ignore[arg-type]
+
+    with pytest.raises(Exception, match="ECN-0576"):
+        service.refresh_files("ecn")
+
+    with sqlite3.connect(cache_path) as connection:
+        progress_count = connection.execute(
+            "SELECT json_array_length(payload, '$.files') "
+            "FROM engineering_information_progress WHERE kind = 'ecn'"
+        ).fetchone()
+    assert progress_count == (2,)
+
+    driver.sheets["invalid"] = _sheet(
+        "invalid", 1, [["产品型号", "Flex"], ["ECN编号", "ECN-0575"]]
+    )
+    driver.fail_ids.clear()
+    driver.preview_calls.clear()
+    response = service.refresh_files("ecn")
+
+    assert response.total == 3
+    assert driver.preview_calls == ["invalid", "blocked"]
 
 
 def test_page_reads_return_while_google_refresh_is_still_running(tmp_path) -> None:

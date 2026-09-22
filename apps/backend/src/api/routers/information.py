@@ -8,7 +8,7 @@ import threading
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 from urllib.parse import parse_qs, urlencode, urlparse
 from zoneinfo import ZoneInfo
 
@@ -61,6 +61,7 @@ NUMBER_LABELS = (
 )
 SUBJECT_LABELS = ("主题", "标题", "变更主题", "联络函主题", "Subject")
 PRODUCT_MODEL_LABELS = ("产品型号", "产品机型", "Product number", "Product model")
+PRODUCT_NAME_LABELS = ("物料名称", "产品名称", "Product Name")
 DATE_LABELS = (
     "生效日期",
     "下发日期",
@@ -72,9 +73,18 @@ DATE_LABELS = (
     "Send Date",
     "Effective Date",
 )
-ALL_FIELD_LABELS = NUMBER_LABELS + SUBJECT_LABELS + PRODUCT_MODEL_LABELS + DATE_LABELS
+ALL_FIELD_LABELS = (
+    NUMBER_LABELS
+    + SUBJECT_LABELS
+    + PRODUCT_MODEL_LABELS
+    + PRODUCT_NAME_LABELS
+    + DATE_LABELS
+)
 DIRECT_SHEET_PATH_PATTERN = re.compile(r"^/spreadsheets/d/([A-Za-z0-9_-]+)/edit$")
 EMPTY_FIELD_VALUES = {"", "-", "/", "n/a", "na", "none", "null", "无", "不适用"}
+INFORMATION_CACHE_SCHEMA_VERSION = 3
+SCRAP_FILE_PATTERN = re.compile(r"(?:^|[\s_-])scrap(?:$|[\s_-])", re.IGNORECASE)
+CONTACT_NUMBER_YEAR_PATTERN = re.compile(r"^ENG-(\d{4})\d{3,}$", re.IGNORECASE)
 
 
 class InformationDataError(GoogleDriverError):
@@ -169,7 +179,12 @@ def _parse_file(
 ) -> InformationFile:
     flattened = "\n".join(_clean_cell(cell) for row in sheet_values for cell in row if _clean_cell(cell))
     labeled_number = _labeled_value(sheet_values, NUMBER_LABELS)
-    number = _normalize_number(labeled_number, kind, allow_bare=True)
+    filename_number = _normalize_number(file.name, kind)
+    number = filename_number if kind == "ecn" and filename_number else _normalize_number(
+        labeled_number,
+        kind,
+        allow_bare=True,
+    )
     if not number:
         number = _normalize_number(f"{file.name}\n{flattened}", kind)
 
@@ -187,6 +202,8 @@ def _parse_file(
         subject = file.name
 
     product_model = _labeled_value(sheet_values, PRODUCT_MODEL_LABELS) if kind == "ecn" else ""
+    if kind == "ecn" and _clean_cell(product_model).casefold() in EMPTY_FIELD_VALUES:
+        product_model = _labeled_value(sheet_values, PRODUCT_NAME_LABELS)
 
     raw_date = _labeled_value(sheet_values, DATE_LABELS)
     effective_date = _normalize_date(raw_date) if raw_date else ""
@@ -219,6 +236,7 @@ def _parse_file(
         product_model=product_model or None,
         effective_date=effective_date or None,
         web_view_link=web_view_link,
+        source_parent_path=file.parent_path or None,
     )
 
 
@@ -255,12 +273,27 @@ def _number_sort_key(file: InformationFile) -> tuple[tuple[int, ...], str, str]:
     return number_parts, file.effective_date or "", file.number
 
 
-def _belongs_to_year(file: GoogleDriveFile, year: int) -> bool:
-    for segment in file.parent_path.split(" / "):
-        if re.match(rf"^{year}(?:\D|$)", segment.strip()):
-            return True
-    fallback_date = str(file.modified_time or file.created_time or "")
-    return fallback_date.startswith(f"{year}-")
+def _source_directory_matches_year(parent_path: str, kind: FolderKind, year: int) -> bool:
+    segments = [segment.strip() for segment in parent_path.split(" / ") if segment.strip()]
+    if kind == "ecn":
+        return any(
+            re.match(rf"^{year}\s+ECN(?:\b|$)", segment, re.IGNORECASE)
+            for segment in segments
+        )
+    return str(year) in segments
+
+
+def _belongs_to_year(
+    file: GoogleDriveFile,
+    year: int,
+    kind: FolderKind | None = None,
+) -> bool:
+    if kind is None:
+        return any(
+            re.match(rf"^{year}(?:\s|$)", segment.strip())
+            for segment in file.parent_path.split(" / ")
+        )
+    return _source_directory_matches_year(file.parent_path, kind, year)
 
 
 def _is_google_sheet(file: GoogleDriveFile) -> bool:
@@ -268,6 +301,11 @@ def _is_google_sheet(file: GoogleDriveFile) -> bool:
         file.mime_type == GOOGLE_SHEET_MIME_TYPE
         or file.target_mime_type == GOOGLE_SHEET_MIME_TYPE
     )
+
+
+def _is_scrap_file(file: GoogleDriveFile) -> bool:
+    source_text = f"{file.name} {file.parent_path}"
+    return bool(SCRAP_FILE_PATTERN.search(source_text))
 
 
 def _direct_sheet_link_issue(file: InformationFile) -> str:
@@ -314,6 +352,17 @@ def _quality_issues(response: InformationFilesResponse) -> list[str]:
             product_model = _clean_cell(file.product_model).casefold()
             if product_model in EMPTY_FIELD_VALUES:
                 issues.append(f"{file.number}: 缺少产品型号")
+        else:
+            number_match = CONTACT_NUMBER_YEAR_PATTERN.fullmatch(file.number)
+            if number_match is None or int(number_match.group(1)) != response.year:
+                issues.append(f"{file.number}: 联络函编号年份与列表年份不一致")
+
+        if not file.source_parent_path or not _source_directory_matches_year(
+            file.source_parent_path,
+            response.kind,
+            response.year,
+        ):
+            issues.append(f"{file.number}: 来源目录不是 {response.year} 年目录")
 
         link_issue = _direct_sheet_link_issue(file)
         if link_issue:
@@ -326,22 +375,36 @@ def _list_information(
     year: int | None = None,
     driver: GoogleDriver | None = None,
     previous: InformationFilesResponse | None = None,
+    on_progress: Callable[[list[InformationFile]], None] | None = None,
 ) -> InformationFilesResponse:
     folder_id, source_url = FOLDERS[kind]
     selected_year = year or datetime.now(ZoneInfo("Asia/Shanghai")).year
     active_driver = driver or google_driver
-    previous_by_id = (
-        {file.id: file for file in previous.files}
-        if previous is not None and previous.kind == kind and previous.year == selected_year
-        else {}
-    )
     files = active_driver.list_files_in_folder(folder_id)
+    candidate_files = [
+        file
+        for file in files
+        if _belongs_to_year(file, selected_year, kind)
+        and _is_google_sheet(file)
+        and not _is_scrap_file(file)
+    ]
+    candidate_ids = {file.id for file in candidate_files}
+    previous_by_id: dict[str, InformationFile] = {}
+    if previous is not None and previous.kind == kind and previous.year == selected_year:
+        for previous_file in previous.files:
+            if previous_file.id not in candidate_ids:
+                continue
+            single_record = InformationFilesResponse(
+                kind=kind,
+                year=selected_year,
+                source_url=source_url,
+                files=[previous_file],
+                total=1,
+            )
+            if not _quality_issues(single_record):
+                previous_by_id[previous_file.id] = previous_file
     serialized = list(previous_by_id.values())
-    for file in files:
-        if not _belongs_to_year(file, selected_year):
-            continue
-        if not _is_google_sheet(file):
-            continue
+    for file in candidate_files:
         existing = previous_by_id.get(file.id)
         if existing is not None:
             continue
@@ -360,8 +423,11 @@ def _list_information(
             sheet_preview.sheet_id,
             sheet_preview.document_title,
         )
-        if parsed.number != "-":
-            serialized.append(parsed)
+        if parsed.number == "-":
+            continue
+        serialized.append(parsed)
+        if on_progress is not None:
+            on_progress(sorted(serialized, key=_number_sort_key, reverse=True))
     serialized.sort(key=_number_sort_key, reverse=True)
     return InformationFilesResponse(
         kind=kind,
@@ -496,13 +562,19 @@ class InformationService:
         kind: FolderKind,
         cached: InformationFilesResponse | None,
     ) -> InformationFilesResponse:
+        with self._condition:
+            progress = self._get_progress_locked(kind)
+        scan_previous = progress or cached
+        selected_year = datetime.now(ZoneInfo("Asia/Shanghai")).year
+
         try:
             refreshed_at = datetime.now(timezone.utc)
             with self._driver_lock:
                 live_response = _list_information(
                     kind,
                     driver=self.driver,
-                    previous=cached,
+                    previous=scan_previous,
+                    on_progress=lambda files: self._persist_progress(kind, selected_year, files),
                 )
             response = live_response.model_copy(
                 update={
@@ -520,6 +592,7 @@ class InformationService:
                 self._cache[kind] = response
                 self._refresh_errors.pop(kind, None)
                 self._write_disk_cache_locked(kind, response)
+                self._delete_progress_locked(kind)
             logger.info(
                 "Information refresh passed QA: kind=%s year=%s total=%s",
                 kind,
@@ -583,10 +656,32 @@ class InformationService:
                 """
                 CREATE TABLE IF NOT EXISTS engineering_information_index (
                     kind TEXT PRIMARY KEY,
-                    payload TEXT NOT NULL
+                    payload TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL DEFAULT 1
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS engineering_information_progress (
+                    kind TEXT PRIMARY KEY,
+                    payload TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
+            for table_name in (
+                "engineering_information_index",
+                "engineering_information_progress",
+            ):
+                columns = {
+                    str(row[1])
+                    for row in connection.execute(f"PRAGMA table_info({table_name})")
+                }
+                if "schema_version" not in columns:
+                    connection.execute(
+                        f"ALTER TABLE {table_name} ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1"
+                    )
 
     def _get_cached_locked(self, kind: FolderKind) -> InformationFilesResponse | None:
         cached = self._cache.get(kind)
@@ -595,8 +690,12 @@ class InformationService:
         try:
             with sqlite3.connect(self.cache_path, timeout=10) as connection:
                 row = connection.execute(
-                    "SELECT payload FROM engineering_information_index WHERE kind = ?",
-                    (kind,),
+                    """
+                    SELECT payload
+                    FROM engineering_information_index
+                    WHERE kind = ? AND schema_version = ?
+                    """,
+                    (kind, INFORMATION_CACHE_SCHEMA_VERSION),
                 ).fetchone()
             if row is None:
                 return None
@@ -611,6 +710,30 @@ class InformationService:
             logger.exception("Failed to read information cache: kind=%s", kind)
             return None
 
+    def _get_progress_locked(self, kind: FolderKind) -> InformationFilesResponse | None:
+        if self.cache_path is None:
+            return None
+        try:
+            with sqlite3.connect(self.cache_path, timeout=10) as connection:
+                row = connection.execute(
+                    """
+                    SELECT payload
+                    FROM engineering_information_progress
+                    WHERE kind = ? AND schema_version = ?
+                    """,
+                    (kind, INFORMATION_CACHE_SCHEMA_VERSION),
+                ).fetchone()
+            if row is None:
+                return None
+            progress = InformationFilesResponse.model_validate(json.loads(str(row[0])))
+            current_year = datetime.now(ZoneInfo("Asia/Shanghai")).year
+            if progress.kind != kind or progress.year != current_year:
+                return None
+            return progress
+        except (OSError, sqlite3.Error, ValueError, TypeError):
+            logger.exception("Failed to read information refresh progress: kind=%s", kind)
+            return None
+
     def _write_disk_cache_locked(
         self,
         kind: FolderKind,
@@ -621,10 +744,52 @@ class InformationService:
         with sqlite3.connect(self.cache_path, timeout=10) as connection:
             connection.execute(
                 """
-                INSERT INTO engineering_information_index (kind, payload) VALUES (?, ?)
-                ON CONFLICT(kind) DO UPDATE SET payload = excluded.payload
+                INSERT INTO engineering_information_index (kind, payload, schema_version)
+                VALUES (?, ?, ?)
+                ON CONFLICT(kind) DO UPDATE SET
+                    payload = excluded.payload,
+                    schema_version = excluded.schema_version
                 """,
-                (kind, response.model_dump_json()),
+                (kind, response.model_dump_json(), INFORMATION_CACHE_SCHEMA_VERSION),
+            )
+
+    def _persist_progress(
+        self,
+        kind: FolderKind,
+        year: int,
+        files: list[InformationFile],
+    ) -> None:
+        if self.cache_path is None:
+            return
+        response = InformationFilesResponse(
+            kind=kind,
+            year=year,
+            source_url=FOLDERS[kind][1],
+            files=files,
+            total=len(files),
+        )
+        with self._condition:
+            if self.cache_path is None:
+                return
+            with sqlite3.connect(self.cache_path, timeout=10) as connection:
+                connection.execute(
+                    """
+                    INSERT INTO engineering_information_progress (kind, payload, schema_version)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(kind) DO UPDATE SET
+                        payload = excluded.payload,
+                        schema_version = excluded.schema_version
+                    """,
+                    (kind, response.model_dump_json(), INFORMATION_CACHE_SCHEMA_VERSION),
+                )
+
+    def _delete_progress_locked(self, kind: FolderKind) -> None:
+        if self.cache_path is None:
+            return
+        with sqlite3.connect(self.cache_path, timeout=10) as connection:
+            connection.execute(
+                "DELETE FROM engineering_information_progress WHERE kind = ?",
+                (kind,),
             )
 
 
