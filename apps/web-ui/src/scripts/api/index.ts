@@ -111,6 +111,8 @@ export interface RobotVersionTestEntry {
   sn: string
   robot_ip: string
   test_version: string
+  test_commit_hash?: string
+  test_commit_id?: string
   queried_at: string
   robot?: Record<string, unknown>
   subsystems?: RobotSubsystemVersion[]
@@ -146,6 +148,28 @@ export interface RobotVersionCaptureResponse {
   test_key: string
   test: RobotVersionTestEntry
   record: RobotVersionHistoryRecord
+}
+
+export type RobotVersionComparisonField = 'test_version' | 'app_version' | 'firmware'
+
+export interface RobotVersionComparisonRule {
+  _id: string
+  product_type: RobotVersionProductType
+  product_name: string
+  duro_product_id: string
+  duro_product_label: string
+  duro_parent_id: string
+  duro_parent_label: string
+  test_names: string[]
+  fields: RobotVersionComparisonField[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface RobotVersionComparisonRulesResponse {
+  rules: RobotVersionComparisonRule[]
+  total: number
+  storage: 'mongodb'
 }
 
 export interface RobotVersionHistoryResponse {
@@ -263,6 +287,10 @@ export interface RobotCodeFlashTask {
   started_at?: string | null
   finished_at?: string | null
   duration_ms: number
+}
+
+export type RobotGitTask = RobotCodeFlashTask & {
+  task_type: 'git'
 }
 
 export interface RobotScanResponse {
@@ -486,6 +514,53 @@ export interface RobotLogDownloadRecordsResponse {
   page_size: number
 }
 
+export interface RobotAppLogAnalysisSummary {
+  time?: string | null
+  error?: string | null
+  code?: string | null
+  code_name?: string | null
+  exception?: string | null
+  protocol?: string | null
+  file?: string | null
+  line?: number | null
+  run?: string | null
+  test?: string | null
+  robot?: string | null
+  ip?: string | null
+  archive?: string | null
+  category?: string | null
+  trigger?: string | null
+  run_id?: string | null
+  command_id?: string | null
+  evidence?: string[]
+  time_range?: { first?: string | null; last?: string | null } | null
+  error_count?: number | null
+  ignored_error_count?: number | null
+  warnings?: string[]
+  source_lookup?: Record<string, unknown> | null
+}
+
+export interface RobotAppLogAnalysisRecord {
+  _id: string
+  robot_ip: string
+  device_name: string
+  archive_name?: string | null
+  status: 'completed' | 'failed' | string
+  error?: string | null
+  llm_reason?: string | null
+  llm_error?: string | null
+  summary?: RobotAppLogAnalysisSummary | null
+  created_at: string
+  updated_at?: string | null
+}
+
+export interface RobotAppLogAnalysisRecordsResponse {
+  records: RobotAppLogAnalysisRecord[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export const healthApi = {
   getHealth: () => api.get<HealthCheckResponse>('/health'),
   refreshHealth: () => api.post<HealthCheckResponse>('/health/refresh')
@@ -565,6 +640,16 @@ export const robotApi = {
   }) => api.post<RobotVersionCaptureResponse>('/robots/version-records', payload, { timeout: 0 }),
   getVersionHistory: (params?: { page?: number; page_size?: number }) =>
     api.get<RobotVersionHistoryResponse>('/robots/version-history', { params }),
+  deleteVersionHistoryRecord: (recordId: string) =>
+    api.delete<{ success: boolean; id: string }>(`/robots/version-history/${encodeURIComponent(recordId)}`),
+  getVersionComparisonRules: () =>
+    api.get<RobotVersionComparisonRulesResponse>('/robots/version-comparison-rules'),
+  createVersionComparisonRule: (payload: Omit<RobotVersionComparisonRule, '_id' | 'created_at' | 'updated_at'>) =>
+    api.post<RobotVersionComparisonRule>('/robots/version-comparison-rules', payload),
+  updateVersionComparisonRule: (ruleId: string, payload: Omit<RobotVersionComparisonRule, '_id' | 'created_at' | 'updated_at'>) =>
+    api.put<RobotVersionComparisonRule>(`/robots/version-comparison-rules/${encodeURIComponent(ruleId)}`, payload),
+  deleteVersionComparisonRule: (ruleId: string) =>
+    api.delete<{ success: boolean; id: string }>(`/robots/version-comparison-rules/${encodeURIComponent(ruleId)}`),
   executeCommands: (payload: RobotCommandRequest) =>
     api.post<RobotBatchCommandResponse>('/robots/commands', payload, { timeout: 0 }),
   getSshCommands: () =>
@@ -594,6 +679,8 @@ export const robotApi = {
     api.post<RobotCodeFlashTask>('/robots/code-flash/tasks', payload, { timeout: 30000 }),
   getCodeFlashTask: (taskId: string) =>
     api.get<RobotCodeFlashTask>(`/robots/code-flash/tasks/${encodeURIComponent(taskId)}`),
+  createGitCommandTask: (payload: { command: string; timeout?: number }) =>
+    api.post<RobotGitTask>('/robots/code-flash/git-tasks', payload, { timeout: 30000 }),
   createSshCommand: (payload: {
     name: string
     command: string
@@ -625,8 +712,34 @@ export const robotApi = {
     }),
   getServerLogDownloadUrl: (recordId: string) =>
     `/api/robots/log-downloads/records/${encodeURIComponent(recordId)}/file`,
-  getAppLogDownloadUrl: (ip: string, port?: number) =>
-    `/api/robots/${encodeURIComponent(ip)}/logs/app-download${port ? `?port=${port}` : ''}`,
+  getAppLogDownloadUrl: (
+    ip: string,
+    port?: number,
+    options?: { analyze?: boolean; deviceName?: string | null }
+  ) => {
+    const params = new URLSearchParams()
+    if (port) params.set('port', String(port))
+    if (options?.analyze) params.set('analyze', 'true')
+    if (options?.deviceName) params.set('device_name', options.deviceName)
+    const query = params.toString()
+    return `/api/robots/${encodeURIComponent(ip)}/logs/app-download${query ? `?${query}` : ''}`
+  },
+  getAppLogAnalysisRecords: (params?: { page?: number; pageSize?: number; robotIp?: string }) =>
+    api.get<RobotAppLogAnalysisRecordsResponse>('/robots/log-analyses/records', {
+      params: { page: params?.page, page_size: params?.pageSize, robot_ip: params?.robotIp },
+    }),
+  getAppLogAnalysisRecord: (recordId: string) =>
+    api.get<RobotAppLogAnalysisRecord>(`/robots/log-analyses/records/${encodeURIComponent(recordId)}`),
+  uploadAppLogForAnalysis: (zipFile: File, robotIp = 'manual', deviceName?: string) => {
+    const formData = new FormData()
+    formData.append('zip_file', zipFile)
+    formData.append('robot_ip', robotIp)
+    if (deviceName) formData.append('device_name', deviceName)
+    return api.post<RobotAppLogAnalysisRecord>('/robots/log-analyses/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
+    })
+  },
   deleteServerLog: (recordId: string) =>
     api.delete<{
       success: boolean
@@ -1004,8 +1117,10 @@ export const uploadRecordApi = {
 }
 
 export const settingsApi = {
-  getUploadFinishSettings: () =>
-    api.get<UploadFinishSettingsResponse>('/settings/upload/finish'),
+  getUploadFinishSettings: (environment = 'production', syncFromProduction = false) =>
+    api.get<UploadFinishSettingsResponse>('/settings/upload/finish', {
+      params: { environment, sync_from_production: syncFromProduction }
+    }),
   updateUploadFinishSetting: (payload: UploadFinishSettingPayload) =>
     api.put<UploadFinishSettingItem>('/settings/upload/finish', payload),
   getSimulatingStatus: () =>

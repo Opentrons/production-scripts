@@ -86,6 +86,7 @@ _FAILURE_PATTERNS = (
 )
 _DISALLOWED_TOKEN_PATTERN = re.compile(r"[;&|<>`$()\n\r\x00]")
 _SAFE_ARGUMENT_PATTERN = re.compile(r"^[A-Za-z0-9_./=:+,@%-]+$")
+_GIT_DISALLOWED_ARGUMENT_PATTERN = re.compile(r"[;&|<>`$()\n\r\x00]")
 _ALLOWED_COMPONENT_DIRECTORIES = {
     "api",
     "auth-server",
@@ -331,6 +332,29 @@ def build_make_command(command: str, robot_ip: str) -> list[str]:
     return normalized_arguments
 
 
+def build_git_command(command: str) -> list[str]:
+    raw_command = str(command or "").strip()
+    if not raw_command:
+        raise ValueError("请输入 Git 命令")
+    try:
+        arguments = shlex.split(raw_command, posix=True)
+    except ValueError as exc:
+        raise ValueError(f"Git 命令格式错误: {exc}") from exc
+    if not arguments or arguments[0] != "git":
+        raise ValueError("Git 命令必须以 git 开头")
+    if any(_GIT_DISALLOWED_ARGUMENT_PATTERN.search(argument) for argument in arguments):
+        raise ValueError("Git 命令不能包含重定向、管道或命令连接符")
+    if any(not _SAFE_ARGUMENT_PATTERN.fullmatch(argument) for argument in arguments[1:]):
+        raise ValueError("Git 命令包含不支持的参数字符")
+    if any(
+        argument in {"-C", "--git-dir", "--work-tree", "--exec-path", "-c"}
+        or argument.startswith(("--git-dir=", "--work-tree=", "--exec-path=", "-c"))
+        for argument in arguments[1:]
+    ):
+        raise ValueError("Git 命令不能修改工作目录或 Git 执行环境")
+    return arguments
+
+
 def _classify_result(exit_code: int, output: str, timed_out: bool) -> tuple[bool, str]:
     if timed_out:
         return False, "烧录超时，进程已终止"
@@ -546,6 +570,55 @@ def _execute_make_process(
     return process.wait(), timed_out
 
 
+def _run_git_task(task_id: str, workdir: Path, timeout: int) -> None:
+    with _TASKS_LOCK:
+        task = _TASKS.get(task_id)
+        if not task:
+            return
+        task["status"] = "running"
+        task["started_at"] = _utc_now()
+        arguments = list(task["arguments"])
+
+    started = perf_counter()
+    _append_log(task_id, f"[平台] 工作目录: {workdir}")
+    _append_log(task_id, f"[平台] 执行命令: {shlex.join(arguments)}")
+    try:
+        exit_code, timed_out = _execute_make_process(
+            arguments,
+            cwd=workdir,
+            timeout=timeout,
+            on_line=lambda line: _append_log(task_id, line),
+        )
+        if timed_out:
+            success, message = False, "Git 命令超时，进程已终止"
+        elif exit_code == 0:
+            success, message = True, "Git 命令执行成功"
+        else:
+            success, message = False, f"Git 命令执行失败，退出码 {exit_code}"
+    except OSError as exc:
+        exit_code = None
+        success = False
+        message = f"无法启动 Git 命令: {exc}"
+    except Exception as exc:
+        exit_code = None
+        success = False
+        message = f"Git 命令任务异常: {exc}"
+
+    _append_log(task_id, f"[平台] {message}")
+    with _TASKS_LOCK:
+        task = _TASKS.get(task_id)
+        if not task:
+            return
+        task.update(
+            status="success" if success else "failed",
+            success=success,
+            message=message,
+            exit_code=exit_code,
+            finished_at=_utc_now(),
+            duration_ms=round((perf_counter() - started) * 1000),
+        )
+
+
 def _run_flash_task(task_id: str, workdir: Path, timeout: int) -> None:
     with _TASKS_LOCK:
         task = _TASKS.get(task_id)
@@ -627,8 +700,6 @@ def create_flash_task(
     arguments = build_make_command(command, normalized_ip)
     repository_state = get_repository_state(workdir)
     normalized_branch = _normalize_branch_name(branch or repository_state["current_branch"])
-    if not any(item["name"] == normalized_branch for item in repository_state["branches"]):
-        raise ValueError(f"分支不在服务器预设列表中: {normalized_branch}")
     task_id = uuid4().hex
 
     with _TASKS_LOCK:
@@ -662,6 +733,44 @@ def create_flash_task(
         _TASKS[task_id] = task
 
     _EXECUTOR.submit(_run_flash_task, task_id, workdir, normalized_timeout)
+    return get_flash_task(task_id)
+
+
+def create_git_task(command: str, timeout: int = 300) -> dict[str, Any]:
+    normalized_timeout = max(1, min(int(timeout), 1800))
+    workdir = resolve_opentrons_directory()
+    arguments = build_git_command(command)
+    get_repository_state(workdir)
+    task_id = uuid4().hex
+
+    with _TASKS_LOCK:
+        if any(task["status"] in {"queued", "running"} for task in _TASKS.values()):
+            raise ValueError("服务器 Opentrons 工作区已有正在执行的任务")
+        task = {
+            "task_id": task_id,
+            "task_type": "git",
+            "ip": "",
+            "status": "queued",
+            "success": None,
+            "message": "等待执行",
+            "command": shlex.join(arguments),
+            "arguments": arguments,
+            "workdir": str(workdir),
+            "branch": "",
+            "pull": False,
+            "timeout": normalized_timeout,
+            "logs": [],
+            "output_size": 0,
+            "output_truncated": False,
+            "exit_code": None,
+            "created_at": _utc_now(),
+            "started_at": None,
+            "finished_at": None,
+            "duration_ms": 0,
+        }
+        _TASKS[task_id] = task
+
+    _EXECUTOR.submit(_run_git_task, task_id, workdir, normalized_timeout)
     return get_flash_task(task_id)
 
 

@@ -33,23 +33,23 @@
                 </a>
               </div>
             </div>
-            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'version-checks' }">
+            <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'version-management' }">
               <button
                 class="top-link top-dropdown-trigger"
                 type="button"
-                :aria-expanded="openNavigationMenu === 'version-checks'"
-                @click.stop="toggleNavigationMenu('version-checks')"
+                :aria-expanded="openNavigationMenu === 'version-management'"
+                @click.stop="toggleNavigationMenu('version-management')"
               >
                 <img class="top-menu-logo" src="/versions-favicon.svg" alt="" aria-hidden="true" />
-                <span>{{ copy.nav.versionChecks }}</span>
+                <span>{{ copy.nav.versionManagement }}</span>
                 <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
               </button>
               <div class="top-dropdown-menu is-right" role="menu" @click.stop>
-                <a href="/versions?module=sop-duro" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
-                  {{ copy.nav.sopDuroCheck }}
+                <a href="/versions" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.versionChecks }}
                 </a>
-                <a href="/versions?module=ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
-                  {{ copy.nav.ecnCheck }}
+                <a href="/test-versions" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                  {{ copy.nav.testVersions }}
                 </a>
               </div>
             </div>
@@ -73,10 +73,6 @@
                 </a>
               </div>
             </div>
-            <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
-              <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
-              <span>{{ copy.nav.productionAgent }}</span>
-            </a>
             <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
               <button
                 class="top-link top-dropdown-trigger"
@@ -334,23 +330,23 @@
                   </a>
                 </div>
               </div>
-              <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'version-checks' }">
+              <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'version-management' }">
                 <button
                   class="top-link top-dropdown-trigger"
                   type="button"
-                  :aria-expanded="openNavigationMenu === 'version-checks'"
-                  @click.stop="toggleNavigationMenu('version-checks')"
+                  :aria-expanded="openNavigationMenu === 'version-management'"
+                  @click.stop="toggleNavigationMenu('version-management')"
                 >
                   <img class="top-menu-logo" src="/versions-favicon.svg" alt="" aria-hidden="true" />
-                  <span>{{ copy.nav.versionChecks }}</span>
+                  <span>{{ copy.nav.versionManagement }}</span>
                   <ChevronDown class="top-dropdown-chevron" :size="14" aria-hidden="true" />
                 </button>
                 <div class="top-dropdown-menu is-right" role="menu" @click.stop>
-                  <a href="/versions?module=sop-duro" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
-                    {{ copy.nav.sopDuroCheck }}
+                  <a href="/versions" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.versionChecks }}
                   </a>
-                  <a href="/versions?module=ecn" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
-                    {{ copy.nav.ecnCheck }}
+                  <a href="/test-versions" target="_blank" rel="noopener noreferrer" role="menuitem" @click="closeNavigationMenu">
+                    {{ copy.nav.testVersions }}
                   </a>
                 </div>
               </div>
@@ -374,10 +370,6 @@
                   </a>
                 </div>
               </div>
-              <a class="top-link" :href="productionAgentBaseUrl" target="_blank" rel="noopener noreferrer">
-                <img class="top-menu-logo" src="/agent-favicon.svg" alt="" aria-hidden="true" />
-                <span>{{ copy.nav.productionAgent }}</span>
-              </a>
               <div class="top-dropdown" :class="{ 'is-open': openNavigationMenu === 'online-tools' }">
                 <button
                   class="top-link top-dropdown-trigger"
@@ -407,6 +399,17 @@
             <AuthUserMenu />
           </div>
         </header>
+
+        <a
+          class="production-agent-fab"
+          :href="productionAgentBaseUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-label="copy.nav.productionAgent"
+          :title="copy.nav.productionAgent"
+        >
+          <img class="production-agent-fab-icon" src="/agent-favicon.svg" alt="" aria-hidden="true" />
+        </a>
 
         <div class="hero-stage">
           <div class="hero-content">
@@ -573,6 +576,7 @@ import {
   Folder,
   FolderKanban,
   FolderPlus,
+  GitBranch,
   MessageSquare,
   Monitor,
   MoreHorizontal,
@@ -703,7 +707,7 @@ const productionAgentBaseUrl = productionAgentUrl ? withTrailingSlash(production
 const projects = ref<ResourceProject[]>([])
 const expandedProjectIds = ref(new Set<string>())
 const openMenuVersionId = ref('')
-type NavigationMenu = '' | 'product-tests' | 'version-checks' | 'engineering-changes' | 'online-tools'
+type NavigationMenu = '' | 'product-tests' | 'version-management' | 'engineering-changes' | 'online-tools'
 const openNavigationMenu = ref<NavigationMenu>('')
 const isLoading = ref(false)
 const isFormOpen = ref(false)
@@ -1034,6 +1038,14 @@ const modules = computed<DashboardModule[]>(() => [
     href: '/versions',
     openInNewTab: true,
     iconSrc: '/versions-favicon.svg',
+  },
+  {
+    ...copy.value.dashboard.modules.testVersions,
+    status: copy.value.status.active,
+    statusClass: 'status-active',
+    href: '/test-versions',
+    openInNewTab: true,
+    icon: GitBranch,
   },
   {
     ...copy.value.dashboard.modules.downloads,

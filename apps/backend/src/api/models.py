@@ -10,6 +10,8 @@ class UploadDataRequest(BaseModel):
     csv_file_path: str
     zip_file_path: str | None = None
     record_id: str | None = None
+    environment: str | None = None
+    oem: str | None = None
 
 
 class UploadRecordStartRequest(BaseModel):
@@ -41,13 +43,29 @@ class UploadDataResponse(BaseModel):
 class UploadFinishSettingUpdateRequest(BaseModel):
     model: str
     test_type: str
+    environment: str = "production"
+    oem: str = "Opentrons"
     require_finished: bool
+    copytemplate: str | None = None
+    result_cell: str | None = None
+    total_result_cell: str | None = None
+    failures: str = "N/A"
+    csv_range: list[str] = Field(default_factory=list)
+    summary_source_sheet_name: str | None = None
+    copy_range: list[str] = Field(default_factory=list)
+    pastefileid: str | None = None
+    paste_start: str | None = None
+    paste_end: str | None = None
+    last_row: str | None = None
 
 
 class UploadFinishSettingResponse(BaseModel):
     options: list[dict[str, Any]] = Field(default_factory=list)
     settings: list[dict[str, Any]] = Field(default_factory=list)
     database_available: bool = True
+    environment: str = "production"
+    config_file: str | None = None
+    last_row: str = "F:I"
     error: str | None = None
 
 
@@ -256,6 +274,7 @@ class IntegrationCollectionDataItem(BaseModel):
     model: str | None = None
     type: str | None = None
     total_result: str | None = None
+    failure: str | None = None
 
 
 class IntegrationCollectionDataResponse(BaseModel):
@@ -405,6 +424,11 @@ class RobotCodeFlashRequest(BaseModel):
     pull: bool = False
 
 
+class RobotGitCommandRequest(BaseModel):
+    command: str = Field(min_length=1, max_length=2000)
+    timeout: int = Field(default=300, ge=1, le=1800)
+
+
 class RobotSshCommandCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     command: str = Field(min_length=1, max_length=20000)
@@ -428,6 +452,24 @@ class RobotVersionCaptureRequest(BaseModel):
         "gripper",
     ]
     test_name: str = Field(min_length=1, max_length=200)
+
+
+class RobotVersionComparisonRuleRequest(BaseModel):
+    product_type: Literal[
+        "robot",
+        "pipette_single_channel",
+        "pipette_8_channels",
+        "pipette_96_channels_200ul",
+        "pipette_96_channels_1000ul",
+        "gripper",
+    ]
+    product_name: str = Field(min_length=1, max_length=120)
+    duro_product_id: str = Field(min_length=1, max_length=255)
+    duro_product_label: str = Field(min_length=1, max_length=500)
+    duro_parent_id: str = Field(min_length=1, max_length=255)
+    duro_parent_label: str = Field(min_length=1, max_length=500)
+    test_names: list[str] = Field(min_length=1, max_length=50)
+    fields: list[Literal["test_version", "app_version", "firmware"]] = Field(min_length=1, max_length=3)
 
 
 class RobotsScanResponse(BaseModel):

@@ -256,6 +256,14 @@ class SpreadsheetUploadWorkflow:
                 use_total_result_cell,
             )
             result_value = self.uploader.get_sheet_cell_value(updatefileid, sheet_name, result_cell)
+            failures_cfg = self.uploader.pick_config_value(
+                copy_cfg, "failures", "Ultimafailures", plan.is_ultima
+            ) or "N/A"
+            failures = "N/A"
+            if str(failures_cfg).strip().upper() != "N/A":
+                failures = self.uploader.get_sheet_cell_value(
+                    updatefileid, sheet_name, str(failures_cfg).strip(), default="N/A"
+                ) or "N/A"
             total_result = result_value
             if use_total_result_cell and plan.total_result_cell:
                 total_result = self.uploader.get_sheet_cell_value(
@@ -267,6 +275,7 @@ class SpreadsheetUploadWorkflow:
                 plan,
                 upload_ok=True,
                 total_result=total_result,
+                failures=failures,
             )
 
     def _paste_to_tracker(self, plan: SpreadsheetUploadPlan, copy_data_list: list, sheetlink: str) -> str:
@@ -288,22 +297,17 @@ class SpreadsheetUploadWorkflow:
                 paste_file_id,
                 tracker_sheet_name,
             )
-            _, start_column, _ = self.uploader.resolve_paste_line_range(
-                paste_cfg,
-                1,
-                plan.is_ultima,
-            )
-            last_row_number = self.uploader.get_last_tracker_row_number(
+            last_row_number = self.uploader.get_first_blank_tracker_row(
                 paste_file_id,
                 tracker_sheet_name,
-                start_column,
+                plan.yaml_cfg.get("last_row", "F:I"),
             )
             if last_row_number is None:
                 logger.warning(f"Cannot read tracker sheet: {tracker_sheet_name}")
                 plan.result.set_unit_tracker("N/A")
                 continue
 
-            last_row_index = last_row_number + 1
+            last_row_index = last_row_number
             if not self.uploader.ensure_tracker_row_capacity(
                 paste_file_id,
                 tracker_sheet_name,

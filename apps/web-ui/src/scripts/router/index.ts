@@ -42,6 +42,12 @@ const routes: RouteRecordRaw[] = [
     meta: { standalone: true, titleKey: 'titles.versions', favicon: VERSION_FAVICON },
   },
   {
+    path: '/test-versions',
+    name: 'TestVersions',
+    component: () => import('@/views/version_modules/TestVersionsView.vue'),
+    meta: { standalone: true, titleKey: 'titles.testVersions', favicon: VERSION_FAVICON },
+  },
+  {
     path: '/agent',
     name: 'ProductionAgent',
     component: () => import('@/views/agent/ProductionAgentView.vue'),
@@ -70,6 +76,12 @@ const routes: RouteRecordRaw[] = [
     name: 'Devices',
     component: () => import('@/views/devices/DevicesView.vue'),
     meta: productionTestingMeta,
+  },
+  {
+    path: '/devices/logs',
+    name: 'robot-logs',
+    component: () => import('@/views/devices/RobotLogsView.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/devices/control',

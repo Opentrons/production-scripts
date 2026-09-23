@@ -28,7 +28,8 @@ class SpreadsheetUploader(ProductUploaderBase):
 
         model = file_desc.get("model")
         device_sn = file_desc.get("sn")
-        oem_type = self.normalize_oem_type(file_desc)
+        oem_type = file_desc.get("oem") or self.normalize_oem_type(file_desc)
+        yaml_cfg = self.apply_oem_config(yaml_cfg, oem_type)
         timestamp = self.current_timestamp(handler_config.timestamp_format)
         collection = get_upload_collection_name_from_config_key(model, config_key)
         cleanup_result = self.cleanup_incomplete_combined_workflow_if_needed(

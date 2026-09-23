@@ -336,7 +336,7 @@ def test_extract_material_prompt_requires_nearest_entity_name(monkeypatch) -> No
     assert payload["max_tokens"] == service.sop_max_tokens  # type: ignore[index]
     assert "最短、最具体的物料实体名" in system_prompt
     assert "柱塞块 415-00635" in system_prompt
-    assert "只按英文描述计算数量" in system_prompt
+    assert "只根据 PDF 里的中文行提取和计算" in system_prompt
     assert "绝对不要把中英文数量相加" in system_prompt
     assert materials[0].name == "柱塞块"
 

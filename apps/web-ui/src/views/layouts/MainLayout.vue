@@ -34,22 +34,33 @@
             ></span>
             <span class="status-text">{{ slackStatusText }}</span>
           </div>
-          <el-button 
-            :icon="Refresh" 
-            circle 
-            size="small" 
-            @click="refreshHealth"
-            :loading="healthStore.loading"
-          />
-          <el-badge :value="unreadMessageCount" :hidden="unreadMessageCount === 0" :max="99">
+          <div class="health-actions">
             <el-button
-              :icon="Bell"
+              :icon="Refresh"
               circle
               size="small"
-              :aria-label="t('layout.openMessages')"
-              @click="openMessages"
+              @click="refreshHealth"
+              :loading="healthStore.loading"
             />
-          </el-badge>
+            <el-tooltip :content="t('layout.openLogs')" placement="bottom">
+              <el-button
+                :icon="Memo"
+                circle
+                size="small"
+                :aria-label="t('layout.openLogs')"
+                @click="openLogs"
+              />
+            </el-tooltip>
+            <el-badge :value="unreadMessageCount" :hidden="unreadMessageCount === 0" :max="99">
+              <el-button
+                :icon="Bell"
+                circle
+                size="small"
+                :aria-label="t('layout.openMessages')"
+                @click="openMessages"
+              />
+            </el-badge>
+          </div>
         </div>
         <AuthUserMenu variant="dark" />
       </div>
@@ -255,6 +266,10 @@ const openMessages = () => {
   router.push('/messages')
 }
 
+const openLogs = () => {
+  router.push('/devices/logs')
+}
+
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
@@ -316,7 +331,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   height: 60px;
-  padding: 0 20px;
+  gap: 24px;
+  padding: 0 22px;
   background-color: #17212d;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.2);
@@ -327,6 +343,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .header-brand {
@@ -361,19 +378,49 @@ onUnmounted(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
 }
 
 .health-status {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.health-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
 }
 
 .health-status :deep(.el-button.is-circle) {
+  width: 30px;
+  height: 30px;
+  margin: 0;
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.14);
   color: #d7e2ee;
+}
+
+.health-actions :deep(.el-badge) {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+}
+
+.health-actions :deep(.el-badge__content) {
+  top: 3px;
+  right: 5px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 5px;
+  border: 1px solid #17212d;
+  line-height: 14px;
 }
 
 .health-status :deep(.el-button.is-circle:hover) {
@@ -383,15 +430,16 @@ onUnmounted(() => {
 }
 
 .last-update {
+  flex: 0 0 auto;
   font-size: 12px;
   color: #8fa2b7;
-  margin-right: 10px;
 }
 
 .status-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex: 0 0 auto;
+  gap: 6px;
 }
 
 .status-label {
@@ -431,6 +479,32 @@ onUnmounted(() => {
   color: #d7e2ee;
 }
 
+.header-right :deep(.auth-user-trigger) {
+  height: 32px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.header-right :deep(.auth-user-avatar) {
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 1080px) {
+  .app-header {
+    height: auto;
+    min-height: 60px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .header-right,
+  .health-status {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
+
 .app-body {
   display: flex;
   flex: 1;
@@ -467,7 +541,47 @@ onUnmounted(() => {
 
 .sidebar-menu :deep(.el-menu-item),
 .sidebar-menu :deep(.el-sub-menu__title) {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 48px;
+  padding-right: 16px;
   color: #aebdcb;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.sidebar-menu :deep(.el-menu-item) {
+  padding-left: 16px;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title) {
+  padding-left: 16px;
+}
+
+.sidebar-menu :deep(.el-menu-item .el-icon),
+.sidebar-menu :deep(.el-sub-menu__title .el-icon) {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-right: 12px;
+  font-size: 18px;
+}
+
+.sidebar-menu :deep(.el-menu-item .el-icon svg),
+.sidebar-menu :deep(.el-sub-menu__title .el-icon svg) {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-menu :deep(.el-menu-item > span),
+.sidebar-menu :deep(.el-sub-menu__title > span) {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-menu :deep(.el-menu-item:hover),

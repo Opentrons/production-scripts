@@ -1,23 +1,34 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
+import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+import requests
 from pydantic import BaseModel
 
 from modules.duro.client import DuroApiError, DuroClient
 from modules.duro.models import (
     DuroBomNode,
     DuroComponentChildrenResponse,
+    DuroVersionCatalogResponse,
+    DuroVersionComponent,
+    DuroVersionGroup,
     DuroProductBomResponse,
     DuroProductSearchRequest,
     DuroProductSearchResponse,
+    utc_now,
 )
 from core.config import DURO_PRODUCT_CACHE_SECONDS
+
+OPENTRONS_GITHUB_REPO = "Opentrons/opentrons"
+OPENTRONS_COMMITS_URL = f"https://github.com/{OPENTRONS_GITHUB_REPO}/commits"
 
 
 class DuroService:
@@ -34,6 +45,8 @@ class DuroService:
         self._search_cache: dict[str, tuple[float, DuroProductSearchResponse]] = {}
         self._product_bom_cache: dict[str, tuple[float, DuroProductBomResponse]] = {}
         self._component_cache: dict[str, tuple[float, DuroComponentChildrenResponse]] = {}
+        self._version_catalog_cache: tuple[float, DuroVersionCatalogResponse] | None = None
+        self._github_commit_cache: dict[str, str | None] = {}
         if self.cache_path is not None:
             self._initialize_disk_cache()
 
@@ -64,6 +77,413 @@ class DuroService:
 
     def list_products(self, refresh: bool = False) -> DuroProductSearchResponse:
         return self.search_products(DuroProductSearchRequest(), refresh=refresh)
+
+    def get_version_catalog(self, refresh: bool = False) -> DuroVersionCatalogResponse:
+        """Return Duro software/version touchpoints and their full child details."""
+
+        disk_key = "duro-version-catalog:v7"
+        with self._lock:
+            if not refresh and self._version_catalog_cache is not None:
+                return self._version_catalog_cache[1].model_copy(update={"cached": True})
+        if not refresh:
+            disk_cached = self._get_disk_cached(disk_key, DuroVersionCatalogResponse)
+            if disk_cached is not None:
+                with self._lock:
+                    self._version_catalog_cache = (time.monotonic(), disk_cached)
+                return disk_cached.model_copy(update={"cached": True})
+
+        products_response = self.list_products(refresh=refresh)
+        groups: list[DuroVersionGroup] = []
+        matched_product_ids: set[str] = set()
+        seen_groups: set[tuple[str, str]] = set()
+        raw_products: dict[str, dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(products_response.products)))) as executor:
+            futures = {
+                executor.submit(self.client.get_product, product.id): product.id
+                for product in products_response.products
+            }
+            for future, product_id in futures.items():
+                raw_products[product_id] = future.result()
+
+        raw_components: dict[str, dict[str, Any]] = {}
+        for product in products_response.products:
+            raw_product = raw_products.get(product.id) or {}
+            for relationship, parent_entity, parent_path in self._find_version_parents(
+                raw_product.get("children"),
+                [str(product.cpn or product.name or product.id)],
+            ):
+                parent_id = self._entity_id(parent_entity)
+                if not parent_id:
+                    continue
+                group_key = (product.id, parent_id)
+                if group_key in seen_groups:
+                    continue
+                seen_groups.add(group_key)
+                matched_product_ids.add(product.id)
+                detailed_parent = raw_components.get(parent_id)
+                if detailed_parent is None:
+                    detailed_parent = self.client.get_component(parent_id)
+                    raw_components[parent_id] = detailed_parent
+                parent_entity = detailed_parent or parent_entity
+                children = self._collect_version_children(
+                    parent_entity,
+                    parent_path,
+                    visited={parent_id},
+                )
+                groups.append(
+                    DuroVersionGroup(
+                        product_id=product.id,
+                        product_cpn=product.cpn,
+                        product_name=product.name,
+                        product_revision=product.revision,
+                        parent_id=parent_id,
+                        parent_cpn=self._string_value(parent_entity, "cpn"),
+                        parent_name=str(self._value(parent_entity, "name") or ""),
+                        parent_revision=self._string_value(parent_entity, "revision"),
+                        parent_description=str(self._value(parent_entity, "description") or ""),
+                        children=children,
+                    )
+                )
+
+        self._enrich_commit_ids(groups, refresh=refresh)
+
+        response = DuroVersionCatalogResponse(
+            products_scanned=len(products_response.products),
+            matched_products=len(matched_product_ids),
+            parent_menu_count=len(groups),
+            child_component_count=sum(len(group.children) for group in groups),
+            groups=groups,
+            fetched_at=utc_now(),
+        )
+        with self._lock:
+            self._version_catalog_cache = (time.monotonic(), response)
+        self._set_disk_cached(disk_key, response)
+        return response
+
+    def _find_version_parents(
+        self,
+        relationships: Any,
+        path: list[str],
+    ) -> list[tuple[dict[str, Any], dict[str, Any], list[str]]]:
+        if not isinstance(relationships, list):
+            return []
+        matches: list[tuple[dict[str, Any], dict[str, Any], list[str]]] = []
+        for relationship in relationships:
+            if not isinstance(relationship, dict):
+                continue
+            entity = self._relationship_entity(relationship)
+            if not isinstance(entity, dict):
+                continue
+            label = str(
+                self._value(entity, "cpn", "name", "_id", "id") or ""
+            ).strip()
+            next_path = [*path, label] if label else list(path)
+            if self._is_version_parent(entity):
+                matches.append((relationship, entity, next_path))
+            matches.extend(self._find_version_parents(entity.get("children"), next_path))
+        return matches
+
+    def _collect_version_children(
+        self,
+        parent_entity: dict[str, Any],
+        parent_path: list[str],
+        visited: set[str],
+    ) -> list[DuroVersionComponent]:
+        children = parent_entity.get("children")
+        if not isinstance(children, list):
+            return []
+        collected: list[DuroVersionComponent] = []
+        for relationship in children:
+            if not isinstance(relationship, dict):
+                continue
+            entity = self._relationship_entity(relationship)
+            if isinstance(entity, str):
+                entity = {"_id": entity}
+            if not isinstance(entity, dict):
+                continue
+            entity_id = self._entity_id(entity)
+            if not entity_id or entity_id in visited:
+                continue
+            visited.add(entity_id)
+            if "children" not in entity or (not entity.get("name") and not entity.get("cpn")):
+                entity = self.client.get_component(entity_id)
+            label = str(self._value(entity, "cpn", "name", "_id", "id") or entity_id)
+            detail = self._version_component_detail(
+                entity,
+                relationship,
+                [*parent_path, label],
+            )
+            collected.append(detail)
+            collected.extend(self._collect_version_children(entity, [*parent_path, label], visited))
+        return collected
+
+    @classmethod
+    def _version_component_detail(
+        cls,
+        entity: dict[str, Any],
+        relationship: dict[str, Any],
+        path: list[str],
+    ) -> DuroVersionComponent:
+        specs = cls._dict_list(entity.get("specs"))
+        custom_specs = cls._dict_list(entity.get("customSpecs"))
+        custom_properties = cls._dict_list(entity.get("customProperties"))
+        description = str(entity.get("description") or "")
+        source_lines = [description]
+        for collection in (specs, custom_specs, custom_properties):
+            for item in collection:
+                key = str(item.get("key") or item.get("name") or "").strip()
+                value = str(item.get("value") or item.get("description") or "").strip()
+                if key or value:
+                    source_lines.append(f"{key}: {value}".strip(": "))
+        source_text = "\n".join(line for line in source_lines if line).strip()
+        return DuroVersionComponent(
+            id=cls._entity_id(entity),
+            cpn=cls._string_value(entity, "cpn"),
+            name=str(entity.get("name") or ""),
+            revision=cls._string_value(entity, "revision", "revisionValue"),
+            status=cls._string_value(entity, "status"),
+            category=cls._string_value(entity, "category"),
+            quantity=cls._value(relationship, "quantity", "qty"),
+            description=description,
+            app_version=cls._extract_version(source_text, "app"),
+            firmware_version=cls._extract_version(source_text, "firmware"),
+            test_commit_hash=cls._extract_commit_hash(source_text),
+            test_tag=None,
+            path=path,
+            specs=specs,
+            custom_specs=custom_specs,
+            custom_properties=custom_properties,
+            source_text=source_text,
+        )
+
+    @staticmethod
+    def _dict_list(value: Any) -> list[dict[str, Any]]:
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+        return []
+
+    @classmethod
+    def _is_version_parent(cls, entity: dict[str, Any]) -> bool:
+        fields = [
+            entity.get("cpn"),
+            entity.get("name"),
+            entity.get("description"),
+            entity.get("category"),
+        ]
+        for collection_name in ("specs", "customSpecs", "customProperties"):
+            for item in cls._dict_list(entity.get(collection_name)):
+                fields.extend((item.get("key"), item.get("name"), item.get("value")))
+        text = " ".join(str(value or "") for value in fields)
+        return bool(
+            re.search(r"\bSOFTWARE\b", text, flags=re.IGNORECASE)
+            and re.search(r"\bFIRMWARE\b", text, flags=re.IGNORECASE)
+        )
+
+    @staticmethod
+    def _relationship_entity(relationship: dict[str, Any]) -> Any:
+        return relationship.get("component") or relationship.get("assemblyRevision") or relationship
+
+    @staticmethod
+    def _entity_id(entity: dict[str, Any]) -> str:
+        return str(entity.get("_id") or entity.get("id") or "").strip()
+
+    @classmethod
+    def _extract_version(cls, text: str, kind: str) -> str:
+        if kind == "app":
+            label = (
+                r"(?:API\s*(?:\(\s*App\s*\)|/\s*App)?|App(?:lication)?|"
+                r"Robot\s+Server|Software)"
+            )
+        else:
+            label = r"(?:FW|Firmware)"
+        label_match = re.search(
+            rf"^\s*(?:[A-Za-z0-9 _./()-]+\s+)?{label}(?:\s+Version)?\s*[:=：]\s*(.*)$",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if not label_match:
+            return ""
+        return cls._extract_version_value(label_match.group(1))
+
+    @staticmethod
+    def _extract_version_value(value: str) -> str:
+        text = value.strip()
+        # Duro details may include the version in a path or suffix, such as
+        # "controller-v52", "controller/V52", or "api version v8.8.0".
+        version_match = re.search(
+            r"(?<![A-Za-z0-9])v\d+(?:\.\d+){0,3}\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if version_match:
+            return version_match.group(0).lower()
+
+        # Keep supporting details that contain a bare numeric version.
+        version_match = re.search(r"(?<![A-Za-z0-9])\d+(?:\.\d+){0,3}\b", text)
+        if not version_match:
+            return ""
+        return f"v{version_match.group(0)}"
+
+    @classmethod
+    def _extract_commit_hash(cls, text: str) -> str | None:
+        # Priority is intentional: once a ref is found at one level, stop.
+        # Duro records may contain several historical refs in details; Branch
+        # and Tag describe the selected test version more directly than generic
+        # links or protocol filenames.
+        for label_pattern in (
+            r"\bbranch\b",
+            r"\btag\b",
+            r"\b(?:commit|sha|hash)\b",
+            r"\bscripts?\b",
+        ):
+            ref = cls._extract_labeled_git_ref(text, label_pattern)
+            if ref:
+                return ref
+
+        # Protocol: .../xxxx.py -> xxxx.py
+        match = re.search(
+            r"^\s*Protocol\s*[:：]\s*.*?([^/\s]+\.py)\b",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if match:
+            return match.group(1).strip()
+
+        return None
+
+    @classmethod
+    def _extract_labeled_git_ref(cls, text: str, label_pattern: str) -> str:
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            label, separator, value = line.partition(":")
+            if not separator:
+                label, separator, value = line.partition("：")
+            if not separator:
+                label, separator, value = line.partition("=")
+            if not separator:
+                continue
+            normalized_label = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+            if (
+                not re.search(label_pattern, normalized_label, flags=re.IGNORECASE)
+                or re.search(r"\b(?:app|api|fw|firmware)\b", normalized_label)
+            ):
+                continue
+            ref = cls._extract_git_ref(value)
+            if ref:
+                return ref
+            for next_line in lines[index + 1 :]:
+                ref = cls._extract_git_ref(next_line)
+                if ref:
+                    return ref
+        return ""
+
+    @staticmethod
+    def _extract_git_ref(value: str) -> str:
+        text = DuroService._normalize_git_ref_text(value)
+        if not text:
+            return ""
+        tree_match = re.search(r"/(?:tree|commit)/([^\s?#]+)", text)
+        if tree_match:
+            return tree_match.group(1).rstrip("/")
+        sha_match = re.search(r"\b[0-9a-f]{7,40}\b", text, flags=re.IGNORECASE)
+        if sha_match:
+            return sha_match.group(0)
+        return text.split()[0].strip().rstrip("/")
+
+    @staticmethod
+    def _normalize_git_ref_text(value: str) -> str:
+        text = str(value or "").replace("\x00", "").strip()
+        if not text:
+            return ""
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        candidates = [
+            line
+            for line in lines
+            if line.strip("`'\" ").casefold() not in {"serial", "sn", "barcode"}
+        ] or lines
+        text = candidates[0].strip()
+        text = re.sub(r"^\s*[`'\"\s]*(?:serial|sn|barcode)[`'\"\s:：=-]*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"^\s*(?:test\s+version|version|scripts?|tag|branch|commit(?:\s+hash)?|hash|sha)\s*[:=：]\s*", "", text, flags=re.IGNORECASE)
+        return text.strip().rstrip(",;")
+
+    @classmethod
+    def commits_page_url(cls, commit_hash: str) -> str:
+        return f"{OPENTRONS_COMMITS_URL}/{commit_hash.strip()}/"
+
+    @staticmethod
+    def _is_resolvable_commit_ref(value: str) -> bool:
+        text = value.strip()
+        if not text or text.lower().endswith(".py"):
+            return False
+        return True
+
+    def _enrich_commit_ids(self, groups: list[DuroVersionGroup], *, refresh: bool = False) -> None:
+        refs = sorted(
+            {
+                child.test_commit_hash.strip()
+                for group in groups
+                for child in group.children
+                if child.test_commit_hash and self._is_resolvable_commit_ref(child.test_commit_hash)
+            }
+        )
+        if not refs:
+            return
+
+        resolved: dict[str, str | None] = {}
+        missing: list[str] = []
+        with self._lock:
+            for ref in refs:
+                if not refresh and ref in self._github_commit_cache:
+                    resolved[ref] = self._github_commit_cache[ref]
+                else:
+                    missing.append(ref)
+
+        if missing:
+            with ThreadPoolExecutor(max_workers=min(6, max(1, len(missing)))) as executor:
+                futures = {executor.submit(self._resolve_github_commit_id, ref): ref for ref in missing}
+                for future, ref in futures.items():
+                    try:
+                        resolved[ref] = future.result()
+                    except Exception:
+                        resolved[ref] = None
+            with self._lock:
+                for ref in missing:
+                    self._github_commit_cache[ref] = resolved.get(ref)
+
+        for group in groups:
+            for child in group.children:
+                ref = (child.test_commit_hash or "").strip()
+                commit_id = resolved.get(ref)
+                if commit_id:
+                    child.test_commit_id = commit_id
+
+    def _resolve_github_commit_id(self, ref: str) -> str | None:
+        """Resolve the tip commit SHA for a branch/tag/ref on Opentrons/opentrons."""
+
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "production-scripts-duro",
+        }
+        token = (os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            response = requests.get(
+                f"https://api.github.com/repos/{OPENTRONS_GITHUB_REPO}/commits",
+                params={"sha": ref, "per_page": 1},
+                headers=headers,
+                timeout=15,
+            )
+            if response.status_code != 200:
+                return None
+            payload = response.json()
+            if not isinstance(payload, list) or not payload:
+                return None
+            sha = payload[0].get("sha") if isinstance(payload[0], dict) else None
+            return str(sha).strip() or None
+        except (requests.RequestException, ValueError, TypeError, IndexError, KeyError):
+            return None
 
     def get_product_bom(self, product_id: str, refresh: bool = False) -> DuroProductBomResponse:
         normalized_id = product_id.strip()

@@ -99,6 +99,51 @@ export interface DuroComponentChildrenResponse {
   fetched_at: string
 }
 
+export interface DuroVersionComponent {
+  id: string
+  cpn?: string | null
+  name: string
+  revision?: string | null
+  status?: string | null
+  category?: string | null
+  quantity?: unknown
+  description: string
+  app_version?: string | null
+  firmware_version?: string | null
+  test_commit_hash?: string | null
+  test_commit_id?: string | null
+  test_tag?: string | null
+  path: string[]
+  specs: Record<string, unknown>[]
+  custom_specs: Record<string, unknown>[]
+  custom_properties: Record<string, unknown>[]
+  source_text: string
+}
+
+export interface DuroVersionGroup {
+  product_id: string
+  product_cpn?: string | null
+  product_name: string
+  product_revision?: string | null
+  parent_id: string
+  parent_cpn?: string | null
+  parent_name: string
+  parent_revision?: string | null
+  parent_description: string
+  children: DuroVersionComponent[]
+}
+
+export interface DuroVersionCatalogResponse {
+  success: boolean
+  products_scanned: number
+  matched_products: number
+  parent_menu_count: number
+  child_component_count: number
+  groups: DuroVersionGroup[]
+  cached: boolean
+  fetched_at: string
+}
+
 const api = createApiClient(120000)
 
 export const duroApi = {
@@ -116,5 +161,7 @@ export const duroApi = {
   componentChildren: (componentId: string, refresh = false) =>
     api.get<DuroComponentChildrenResponse>(`/duro/components/${encodeURIComponent(componentId)}/children`, {
       params: { refresh }
-    })
+    }),
+  versionCatalog: (refresh = false) =>
+    api.get<DuroVersionCatalogResponse>('/test-versions/duro', { params: { refresh } })
 }

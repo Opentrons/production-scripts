@@ -577,6 +577,79 @@ def test_workflow_refines_only_preexisting_quantity_mismatches(tmp_path: Path) -
     ]
 
 
+def test_workflow_refinement_batches_and_continues_after_batch_failure(tmp_path: Path, monkeypatch) -> None:
+    class PartiallyFailingSopService:
+        def __init__(self) -> None:
+            self.calls: list[set[str]] = []
+
+        def refine_semantic_quantities_for_targets(self, file_id, material_names, targets):
+            assert file_id == "sop-a"
+            batch = set(targets)
+            self.calls.append(batch)
+            if "100-00001" in batch:
+                raise RuntimeError("Server disconnected without sending a response.")
+            return [
+                SimpleNamespace(
+                    part_number=part_number,
+                    name=f"复核物料 {part_number}",
+                    quantity=9,
+                    occurrences=1,
+                    pages=[2],
+                    source_lines=[f"安装 {part_number}"],
+                    occurrence_details=[
+                        SimpleNamespace(page_number=2, evidence=f"安装 {part_number}")
+                    ],
+                    quantity_explanation="批量二次复核成功",
+                    quantity_decisions=[],
+                )
+                for part_number in sorted(batch)
+            ]
+
+    monkeypatch.setattr("modules.workflows.service.WORKFLOW_REFINE_BATCH_SIZE", 2)
+    sop_service = PartiallyFailingSopService()
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / "workflows.sqlite3"),
+        sop_service=sop_service,  # type: ignore[arg-type]
+    )
+    materials = {
+        part_number: {
+            "name": f"物料 {part_number}",
+            "quantity": 1.0,
+            "quantity_known": True,
+            "occurrence_count": 1,
+            "occurrence_steps": [],
+            "locations": [f"Robot / Assembly：第 {index} 页"],
+            "quantity_explanations": [f"Robot / Assembly：第一阶段数量为 1"],
+            "quantity_decisions": [],
+            "source_quantities": {"sop-a": 1.0},
+            "source_occurrence_counts": {"sop-a": 1},
+            "source_labels": {"sop-a": "Robot / Assembly"},
+        }
+        for index, part_number in enumerate(
+            ["100-00001", "100-00002", "100-00003", "100-00004", "100-00005"],
+            start=1,
+        )
+    }
+
+    updated = service._refine_sop_quantity_mismatches(
+        [{"drive_file_id": "sop-a", "project": "Robot", "process": "Assembly"}],
+        materials,
+        set(materials),
+    )
+
+    assert sop_service.calls == [
+        {"100-00001", "100-00002"},
+        {"100-00003", "100-00004"},
+        {"100-00005"},
+    ]
+    assert updated == 3
+    assert materials["100-00001"]["quantity"] == 1
+    assert materials["100-00003"]["quantity"] == 9
+    assert materials["100-00005"]["quantity_explanations"] == [
+        "Robot / Assembly：批量二次复核成功"
+    ]
+
+
 class CleanupMatchSopService:
     def get_master_sheet(self, refresh: bool = False):
         assert refresh is True

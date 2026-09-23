@@ -101,8 +101,12 @@ async def get_upload_record_status(record_id: str):
 
 
 @router.get("/settings/upload/finish", response_model=UploadFinishSettingResponse)
-async def get_upload_finish_settings():
-    return await run_in_threadpool(upload_settings_service.get_upload_finish_settings)
+async def get_upload_finish_settings(environment: str = "production", sync_from_production: bool = False):
+    return await run_in_threadpool(
+        upload_settings_service.get_upload_finish_settings,
+        environment,
+        sync_from_production,
+    )
 
 
 @router.put("/settings/upload/finish", response_model=dict)
@@ -123,6 +127,14 @@ async def update_upload_finish_setting(payload: UploadFinishSettingUpdateRequest
 @data_center_client_router.post("/upload-data", response_model=UploadDataResponse)
 async def upload_data(payload: UploadDataRequest):
     record_id = payload.record_id
+    meta = {
+        key: value
+        for key, value in {
+            "config_environment": payload.environment,
+            "oem": payload.oem,
+        }.items()
+        if value not in (None, "")
+    }
     if not record_id:
         record_id = await run_in_threadpool(
             upload_record_service.create_upload_record,
@@ -136,7 +148,7 @@ async def upload_data(payload: UploadDataRequest):
             record_id,
             csv_path=payload.csv_file_path,
             zip_path=payload.zip_file_path,
-            meta=None,
+            meta=meta or None,
         )
         if not queued:
             await run_in_threadpool(

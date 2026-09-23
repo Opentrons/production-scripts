@@ -108,7 +108,7 @@ def test_pdf_analysis_reads_drive_pdf() -> None:
 def test_pdf_analysis_runs_semantic_pass_when_material_pass_times_out(monkeypatch) -> None:
     class FakePage:
         def extract_text(self, extraction_mode: str | None = None) -> str:
-            return "Install 2x415-00390 into 415-00845"
+            return "安装 2x415-00390 到 415-00845\nInstall 2x415-00390 into 415-00845"
 
     class FakeReader:
         pages = [FakePage()]
@@ -141,7 +141,7 @@ def test_pdf_analysis_runs_semantic_pass_when_material_pass_times_out(monkeypatc
     service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
     response = service.analyze_pdf("pdf-file-id", refresh=True)
 
-    assert semantic_calls == [[(1, "Install 2x415-00390 into 415-00845")]]
+    assert semantic_calls == [[(1, "安装 2x415-00390 到 415-00845")]]
     assert response.ai_used is True
     assert response.ai_fallback is True
     assert "material pass timed out" in (response.ai_error or "")
@@ -215,9 +215,9 @@ def test_pdf_analysis_cache_survives_service_restart(tmp_path) -> None:
 def test_quantity_refinement_uses_names_only_for_requested_mismatches(monkeypatch) -> None:
     service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
     service._instruction_pages_cache["pdf-file-id"] = [
-        (14, "Install 1×242-00052 around the harness"),
-        (15, "Use two zip-tie to secure the harness"),
-        (20, "Install 1×242-00059 around the cable"),
+        (14, "安装 1×242-00052 到线束上"),
+        (15, "使用两个扎带固定线束\nUse two zip-tie to secure the harness"),
+        (20, "安装 1×242-00059 到线缆上"),
     ]
     captured: dict[str, object] = {}
 
@@ -239,7 +239,7 @@ def test_quantity_refinement_uses_names_only_for_requested_mismatches(monkeypatc
                         action="固定",
                         quantity_delta=2,
                         accumulate=True,
-                        evidence="Use two zip-tie",
+                        evidence="使用两个扎带固定线束",
                     )
                 ],
             )
@@ -258,6 +258,11 @@ def test_quantity_refinement_uses_names_only_for_requested_mismatches(monkeypatc
     )
 
     assert captured["target_part_numbers"] == {"242-00052"}
+    assert captured["pages"] == [
+        (14, "安装 1×242-00052 到线束上"),
+        (15, "使用两个扎带固定线束"),
+        (20, "安装 1×242-00059 到线缆上"),
+    ]
     assert len(refined) == 1
     assert refined[0].quantity == 3
     assert refined[0].occurrences == 2
@@ -268,7 +273,7 @@ def test_quantity_refinement_uses_names_only_for_requested_mismatches(monkeypatc
 def test_quantity_refinement_keeps_first_pass_when_no_name_only_evidence(monkeypatch) -> None:
     service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
     service._instruction_pages_cache["pdf-file-id"] = [
-        (14, "Install 1×242-00052 around the harness"),
+        (14, "安装 1×242-00052 到线束上"),
         (15, "Inspect unrelated cable routing"),
     ]
 
@@ -290,7 +295,7 @@ def test_quantity_refinement_keeps_first_pass_when_no_name_only_evidence(monkeyp
 def test_quantity_refinement_for_targets_runs_without_name_only_evidence(monkeypatch) -> None:
     service = SopService(FakeGoogleDriver(), spreadsheet_id="sheet-id", sheet_gid=1)  # type: ignore[arg-type]
     service._instruction_pages_cache["pdf-file-id"] = [
-        (14, "Install 1×242-00052 around the harness"),
+        (14, "安装 1×242-00052 到线束上"),
         (15, "Inspect unrelated cable routing"),
     ]
 

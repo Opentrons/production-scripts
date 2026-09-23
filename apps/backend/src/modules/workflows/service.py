@@ -6,6 +6,7 @@ import re
 from datetime import timedelta
 from typing import Any
 
+from core.config import WORKFLOW_REFINE_BATCH_SIZE
 from modules.duro.models import DuroBomNode
 from modules.duro.service import DuroService
 from modules.sop.service import SopService
@@ -1337,6 +1338,12 @@ class WorkflowService:
             if str(material.get("name") or "").strip()
         }
         updated_parts: set[str] = set()
+        failures: list[str] = []
+        attempted_batches = 0
+        target_batches = [
+            set(batch)
+            for batch in self._chunks(sorted(targets), WORKFLOW_REFINE_BATCH_SIZE)
+        ]
         for source in sources:
             file_id = str(source["drive_file_id"])
             label = " / ".join(
@@ -1347,66 +1354,80 @@ class WorkflowService:
                 )
                 if value
             ) or file_id
-            refined_references = refine(file_id, material_names, targets)
-            for reference in refined_references:
-                part_number = self._clean_part_number(reference.part_number)
-                current = materials.get(part_number)
-                if current is None or part_number not in targets:
+            for batch_index, target_batch in enumerate(target_batches, start=1):
+                attempted_batches += 1
+                try:
+                    refined_references = refine(file_id, material_names, target_batch)
+                except Exception as exc:
+                    failures.append(
+                        f"{label} 第 {batch_index}/{len(target_batches)} 批：{str(exc)[:200]}"
+                    )
                     continue
+                for reference in refined_references:
+                    part_number = self._clean_part_number(reference.part_number)
+                    current = materials.get(part_number)
+                    if current is None or part_number not in target_batch:
+                        continue
 
-                new_quantity = float(getattr(reference, "quantity", 0) or 0)
-                old_quantity = float(current.setdefault("source_quantities", {}).get(file_id, 0) or 0)
-                current["quantity"] = float(current.get("quantity", 0)) + new_quantity - old_quantity
-                current["source_quantities"][file_id] = new_quantity
+                    new_quantity = float(getattr(reference, "quantity", 0) or 0)
+                    old_quantity = float(current.setdefault("source_quantities", {}).get(file_id, 0) or 0)
+                    current["quantity"] = float(current.get("quantity", 0)) + new_quantity - old_quantity
+                    current["source_quantities"][file_id] = new_quantity
 
-                new_occurrences = int(getattr(reference, "occurrences", 0) or 0)
-                old_occurrences = int(
-                    current.setdefault("source_occurrence_counts", {}).get(file_id, 0) or 0
-                )
-                current["occurrence_count"] = (
-                    int(current.get("occurrence_count", 0)) + new_occurrences - old_occurrences
-                )
-                current["source_occurrence_counts"][file_id] = new_occurrences
-                current.setdefault("source_labels", {})[file_id] = label
+                    new_occurrences = int(getattr(reference, "occurrences", 0) or 0)
+                    old_occurrences = int(
+                        current.setdefault("source_occurrence_counts", {}).get(file_id, 0) or 0
+                    )
+                    current["occurrence_count"] = (
+                        int(current.get("occurrence_count", 0)) + new_occurrences - old_occurrences
+                    )
+                    current["source_occurrence_counts"][file_id] = new_occurrences
+                    current.setdefault("source_labels", {})[file_id] = label
 
-                refined_name = str(getattr(reference, "name", "") or "")
-                if len(refined_name) > len(str(current.get("name") or "")):
-                    current["name"] = refined_name
+                    refined_name = str(getattr(reference, "name", "") or "")
+                    if len(refined_name) > len(str(current.get("name") or "")):
+                        current["name"] = refined_name
 
-                current["occurrence_steps"] = [
-                    step
-                    for step in current.get("occurrence_steps", [])
-                    if str(getattr(step, "source", "")) != label
-                ]
-                current["occurrence_steps"].extend(
-                    self._build_sop_occurrence_steps(label, reference)
-                )
-                current["locations"] = [
-                    location
-                    for location in current.get("locations", [])
-                    if not str(location).startswith(f"{label}：")
-                ]
-                location = f"{label}：第 {', '.join(str(page) for page in reference.pages)} 页"
-                current["locations"].append(location)
-                current["quantity_explanations"] = [
-                    explanation
-                    for explanation in current.get("quantity_explanations", [])
-                    if not str(explanation).startswith(f"{label}：")
-                ]
-                current["quantity_explanations"].append(
-                    f"{label}：{reference.quantity_explanation}"
-                )
-                current["quantity_decisions"] = [
-                    decision
-                    for decision in current.get("quantity_decisions", [])
-                    if str(decision.get("source") if isinstance(decision, dict) else "") != label
-                ]
-                current["quantity_decisions"].extend(
-                    {"source": label, **decision.model_dump()}
-                    for decision in getattr(reference, "quantity_decisions", [])
-                )
-                updated_parts.add(part_number)
+                    current["occurrence_steps"] = [
+                        step
+                        for step in current.get("occurrence_steps", [])
+                        if str(getattr(step, "source", "")) != label
+                    ]
+                    current["occurrence_steps"].extend(
+                        self._build_sop_occurrence_steps(label, reference)
+                    )
+                    current["locations"] = [
+                        location
+                        for location in current.get("locations", [])
+                        if not str(location).startswith(f"{label}：")
+                    ]
+                    location = f"{label}：第 {', '.join(str(page) for page in reference.pages)} 页"
+                    current["locations"].append(location)
+                    current["quantity_explanations"] = [
+                        explanation
+                        for explanation in current.get("quantity_explanations", [])
+                        if not str(explanation).startswith(f"{label}：")
+                    ]
+                    current["quantity_explanations"].append(
+                        f"{label}：{reference.quantity_explanation}"
+                    )
+                    current["quantity_decisions"] = [
+                        decision
+                        for decision in current.get("quantity_decisions", [])
+                        if str(decision.get("source") if isinstance(decision, dict) else "") != label
+                    ]
+                    current["quantity_decisions"].extend(
+                        {"source": label, **decision.model_dump()}
+                        for decision in getattr(reference, "quantity_decisions", [])
+                    )
+                    updated_parts.add(part_number)
+        if failures and not updated_parts and attempted_batches == len(failures):
+            raise RuntimeError("；".join(failures[:3]))
         return len(updated_parts)
+
+    @staticmethod
+    def _chunks(values: list[str], size: int) -> list[list[str]]:
+        return [values[index:index + size] for index in range(0, len(values), size)]
 
     def _collect_duro_materials(
         self,

@@ -59,6 +59,33 @@ def test_build_make_command_accepts_hardware_testing_directory() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git status --short",
+        "git switch feature/test",
+        "git log --oneline -5",
+    ],
+)
+def test_build_git_command_accepts_commands_without_shell_interpretation(command: str) -> None:
+    assert code_flash.build_git_command(command)[0] == "git"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git status; reboot",
+        "git status | tee /tmp/output",
+        "git -C /tmp status",
+        "git --work-tree=/tmp status",
+        "git status value=$(touch /tmp/injected)",
+    ],
+)
+def test_build_git_command_rejects_unsafe_commands(command: str) -> None:
+    with pytest.raises(ValueError):
+        code_flash.build_git_command(command)
+
+
 def test_resolve_opentrons_directory_falls_back_to_home_projects(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -359,3 +386,32 @@ def test_create_flash_task_rejects_second_running_task(
 
     with pytest.raises(ValueError, match="正在执行"):
         code_flash.create_flash_task("192.168.6.127", "make push-ot3", timeout=600)
+
+
+def test_create_git_task_streams_command_output_and_reports_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workdir = _opentrons_dir(tmp_path, monkeypatch)
+
+    class ImmediateExecutor:
+        def submit(self, function, *args):
+            function(*args)
+
+    def fake_execute(arguments, *, cwd, timeout, on_line):
+        assert arguments == ["git", "status", "--short"]
+        assert cwd == workdir
+        assert timeout == 30
+        on_line("working tree clean\n")
+        return 0, False
+
+    monkeypatch.setattr(code_flash, "_EXECUTOR", ImmediateExecutor())
+    monkeypatch.setattr(code_flash, "_execute_make_process", fake_execute)
+
+    task = code_flash.create_git_task("git status --short", timeout=30)
+
+    assert task["task_type"] == "git"
+    assert task["status"] == "success"
+    assert task["success"] is True
+    assert task["exit_code"] == 0
+    assert "working tree clean" in task["logs"]

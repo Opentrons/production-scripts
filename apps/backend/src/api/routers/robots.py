@@ -8,6 +8,7 @@ from api.models import (
     RobotActionResponse,
     RobotBatchCommandResponse,
     RobotCodeFlashRequest,
+    RobotGitCommandRequest,
     RobotCommandRequest,
     RobotInfo,
     RobotScanGateway,
@@ -19,6 +20,7 @@ from api.models import (
     RobotSshCommandUpdateRequest,
     RobotSshKeyInstallRequest,
     RobotVersionCaptureRequest,
+    RobotVersionComparisonRuleRequest,
     RobotsScanResponse,
 )
 from modules.robots import robots as robot_service
@@ -157,6 +159,67 @@ async def list_robot_version_history(page: int = 1, page_size: int = 100):
         raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
 
 
+@router.delete("/robots/version-history/{record_id}")
+async def delete_robot_version_history_record(record_id: str):
+    try:
+        result = await run_in_threadpool(version_record_service.delete_history_record, record_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail={"message": "版本记录不存在"})
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.get("/robots/version-comparison-rules")
+async def list_robot_version_comparison_rules():
+    try:
+        return await run_in_threadpool(version_record_service.list_comparison_rules)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.post("/robots/version-comparison-rules")
+async def create_robot_version_comparison_rule(request: RobotVersionComparisonRuleRequest):
+    try:
+        return await run_in_threadpool(
+            version_record_service.create_comparison_rule,
+            request.model_dump(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.put("/robots/version-comparison-rules/{rule_id}")
+async def update_robot_version_comparison_rule(rule_id: str, request: RobotVersionComparisonRuleRequest):
+    try:
+        return await run_in_threadpool(
+            version_record_service.update_comparison_rule,
+            rule_id,
+            request.model_dump(),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail={"message": "版本对比规则不存在"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
+@router.delete("/robots/version-comparison-rules/{rule_id}")
+async def delete_robot_version_comparison_rule(rule_id: str):
+    try:
+        result = await run_in_threadpool(version_record_service.delete_comparison_rule, rule_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail={"message": "版本对比规则不存在"})
+        return result
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
+
+
 @router.post("/robots/commands", response_model=RobotBatchCommandResponse)
 async def execute_robot_commands(request: RobotCommandRequest):
     results = await robot_service.execute_robot_commands_batch(
@@ -251,6 +314,20 @@ async def get_robot_code_flash_task(task_id: str):
         return await run_in_threadpool(code_flash.get_flash_task, task_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail={"message": "烧录任务不存在"}) from exc
+
+
+@router.post("/robots/code-flash/git-tasks", status_code=202)
+async def create_robot_git_command_task(request: RobotGitCommandRequest):
+    try:
+        return await run_in_threadpool(
+            code_flash.create_git_task,
+            command=request.command,
+            timeout=request.timeout,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"message": str(exc)}) from exc
 
 
 @router.post("/robots/ssh-commands")

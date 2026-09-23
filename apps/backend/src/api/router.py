@@ -21,7 +21,9 @@ from api.routers import (
     robots,
     supplies,
     system,
+    system_images,
     test_management,
+    test_versions,
     uploads,
     versions,
 )
@@ -43,11 +45,13 @@ protected_router.include_router(resources.router)
 protected_router.include_router(information.router)
 protected_router.include_router(pip_settings.router)
 protected_router.include_router(test_management.router)
+protected_router.include_router(test_versions.router)
 protected_router.include_router(system.router)
 protected_router.include_router(data.router)
 protected_router.include_router(uploads.router)
 protected_router.include_router(products.router)
 protected_router.include_router(robots.router)
+protected_router.include_router(system_images.router)
 protected_router.include_router(robot_logs.router)
 protected_router.include_router(robot_control.router)
 protected_router.include_router(robot_files.router)

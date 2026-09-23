@@ -38,9 +38,11 @@ class Productions(Enum):
 # 产品类型，OEM厂商
 class ProductionTypes(Enum):
     Ultima = "Ultima"
+    BD = "BD"
     Millipore = "Millipore"
     Opentrons = "Opentrons"
     Sophion = "Sophion"
+    Sf = "Sf"
 
 # 测试类型
 class TestTypes(Enum):
@@ -93,6 +95,9 @@ class FileDescription:
 
     @classmethod
     def from_raw(cls, file_path: str, raw_data: dict[str, Any]) -> "FileDescription":
+        from ..repositories.config_repository import ConfigRepository
+        from core.config import ENVIRONMENT
+
         data = {
             "metadata": {},
             "finished": False,
@@ -107,7 +112,30 @@ class FileDescription:
         }
         data["file_path"] = file_path
         data["test_type"] = TestTypes.from_string(data.get("test_type")) or data.get("test_type")
+        data["oem"] = cls.normalize_oem(data.get("oem") or data.get("kind_oem_type"))
+        data["kind_oem_type"] = data["oem"] if data.get("kind_oem_type") in (None, "", "NA") else data.get("kind_oem_type")
+        data["config_environment"] = cls.normalize_config_environment(
+            data.get("config_environment") or data.get("environment") or ENVIRONMENT
+        )
+        data["config_file"] = ConfigRepository.from_environment(data["config_environment"]).config_file_name
         return cls(file_path=file_path, data=data)
+
+    @staticmethod
+    def normalize_oem(value: Any) -> str:
+        text = str(value or "").strip()
+        if not text or text == "NA":
+            return ProductionTypes.Opentrons.value
+        for oem_type in ProductionTypes:
+            if oem_type.value.lower() in text.lower():
+                return oem_type.value
+        return text
+
+    @staticmethod
+    def normalize_config_environment(value: Any) -> str:
+        text = str(value or "production").strip().lower()
+        if text in {"eng", "engineering", "debug"}:
+            return "debug"
+        return "production"
 
     @property
     def test_type(self) -> Optional[TestTypes]:

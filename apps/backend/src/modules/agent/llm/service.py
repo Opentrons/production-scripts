@@ -342,15 +342,45 @@ class LLMService:
             message["tool_calls"] = normalized_calls
         yield {"type": "round_done", "message": message}
 
+    def analyze_app_log_failure(self, summary: dict[str, Any]) -> str:
+        if not self.api_key:
+            raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
+        compact = json.dumps(summary, ensure_ascii=False, indent=2)[:12000]
+        system = (
+            "你是 Opentrons 生产测试 App Log 故障分析助手。"
+            "根据输入的结构化日志摘要，给出面向产线工程师的中文原因分析。"
+            "只基于输入内容判断，不要编造不存在的设备状态或维修结论。"
+            "输出 2-5 句，包含最可能原因、关键证据和下一步排查建议。"
+        )
+        payload = {
+            "model": self.model,
+            "temperature": 0.2,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": compact},
+            ],
+        }
+        try:
+            response = httpx.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"]["content"]
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
+            raise RuntimeError(f"LLM App Log 原因分析失败：{exc}") from exc
+        return str(content or "").strip()
+
     def extract_sop_materials(self, request: SopTextChunkRequest) -> list[SopTextMaterial]:
         if not self.api_key:
             raise LLMConfigurationError("未配置 PRODUCTION_PLATFORM_LLM_API_KEY")
         system = (
-            "你是制造业 SOP 物料识别器。输入内容已经筛选为包含物料料号的 SOP 原始文本行；只分析这些行中明确出现的物料。\n"
+            "你是制造业 SOP 物料识别器。输入内容已经筛选为包含中文和物料料号的 SOP 原始文本行；只分析这些中文行中明确出现的物料。\n"
             "返回严格 JSON，不要 Markdown：{\"materials\":[{\"part_number\":\"料号\",\"name\":\"料号名\",\"quantity\":数量或null,\"unit\":\"单位或null\",\"confidence\":0到1}]}。\n"
             "part_number 必须是文本中明确出现的料号；不要臆测。数量是该物料在上下文中的用量。\n"
-            "SOP 经常在同一页先写中文、再写对应的英文翻译。相同料号同时出现在中英文描述时，只按英文描述计算数量，中文仅用于辅助理解名称，绝对不要把中英文数量相加。"
-            "只有该页没有对应英文描述时，才使用中文描述计算数量。\n"
+            "SOP 经常在同一页先写中文、再写对应的英文翻译。英文翻译行不属于本次提取范围；只根据 PDF 里的中文行提取和计算，绝对不要把中英文数量相加。\n"
             "name 必须是料号附近所指向的最短、最具体的物料实体名，通常紧邻料号前后。去掉操作动作、状态描述、数量、序号和整句说明。\n"
             "不要把“安装、固定、拧紧、确保、检查、使用、完成”等动作文字放进 name；无法确定实体名时返回空字符串，不要复制整句。\n"
             "示例：“所有螺丝拧紧,需要确保柱塞块 415-00635”应返回 name=“柱塞块”，part_number=“415-00635”。\n"
@@ -554,7 +584,7 @@ class LLMService:
             "每段只计算标题中的目标料号；证据行里的其他料号只是动作和装配目标上下文，除非它们也有自己的目标料号分段。\n"
             "added_quantity 只统计这个正文块中新装入、放入、插入、粘贴、包装或消耗的物料。作为安装目标、底座、已有组件、定位对象的料号不增加。\n"
             "锁紧、拧紧、检查、确认、清洁、测试、接线、测量、校准、移动或再次描述已有物料，不属于新装，不能重复增加。\n"
-            "同一步骤的中文和英文是翻译关系，只计算一次；优先按英文理解，中文用于补充。图片标注和正文重复也只计算一次。\n"
+            "同一步骤的中文和英文是翻译关系；英文翻译行不属于本次提取范围，只按 PDF 里的中文行判断。图片标注和正文重复也只计算一次。\n"
             "同一料号在后续步骤如果明确安装到新的左/右、前/后或另一个独立位置，属于新的装配事件，需要继续增加。\n"
             "必须理解上下文倍率：2×料号且 repeat 96 times 表示新增 192；192pcs O-ring 料号表示新增 192；O-ring X96 表示新增 96。\n"
             "reference_quantity 用于正文块内只被反复引用但未新装的实体；同一个装配基体出现很多次通常填 1，不能按出现次数填写。"
@@ -567,7 +597,7 @@ class LLMService:
             "所有 accumulate=true 的 quantity_delta 合计必须等于 final_quantity。\n"
             "判断事件是否相同时必须同时比较动作、安装目标、位置、步骤顺序和上下文，不能仅凭料号相同去重。"
             "例如先把A安装到B，后来再取一个A安装到C，应是两个事件并累加2；如果正文明确把前面同一个A从B移动到C，则第二次是移动同一实体，不新增。\n"
-            "同一事件的中文、英文、图片标注应分别在 decisions 中说明重复关系，或者合并为一个事件并在 reason 中说明已去除双语重复。\n"
+            "同一事件的中文行、图片标注应分别在 decisions 中说明重复关系，或者合并为一个事件并在 reason 中说明已去除重复；不要把英文翻译行作为新增事件。\n"
             "步骤序号、页码、扭力、尺寸不是物料数量。不要为了接近任何外部结果而修改数量。\n"
             "part_number 必须从目标料号标题或原文中原样复制，不能把数量表达式拼接进去；例如 438-00601 *2 和 2*438-00601 的料号都只能是 438-00601。\n"
             "例：Attach 4×415-00643 to plunger block 415-00845 with 4×438-00147："

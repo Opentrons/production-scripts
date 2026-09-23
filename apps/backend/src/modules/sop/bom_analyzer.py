@@ -244,7 +244,25 @@ def _reference_line_language(source_line: str) -> ReferenceLanguage:
     return "other"
 
 
-def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
+def extract_chinese_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """Return only pages and source lines that contain Chinese text."""
+
+    chinese_pages: list[tuple[int, str]] = []
+    for page_number, text in pages:
+        matching_lines = [
+            source_line.strip()
+            for source_line in text.splitlines()
+            if CJK_PATTERN.search(source_line)
+        ]
+        if matching_lines:
+            chinese_pages.append((page_number, "\n".join(matching_lines)))
+    return chinese_pages
+
+
+def extract_material_lines(
+    pages: list[tuple[int, str]],
+    chinese_only: bool = False,
+) -> list[tuple[int, str]]:
     """Return only pages and source lines that contain a material part number."""
 
     material_pages: list[tuple[int, str]] = []
@@ -254,6 +272,7 @@ def extract_material_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]
             source_line.strip()
             for source_line in text.splitlines()
             if extract_part_number_matches(source_line)
+            and (not chinese_only or CJK_PATTERN.search(source_line))
         ]
         if matching_lines:
             material_pages.append((page_number, "\n".join(matching_lines)))
