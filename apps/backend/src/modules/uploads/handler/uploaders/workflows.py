@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from threading import Lock
 from typing import Callable
 
 from core.config import DATA_DB_NAME
@@ -9,6 +10,7 @@ from modules.uploads.handler.models import UploadResult
 from modules.uploads.handler.product_catalog import get_upload_config_key, get_upload_database_config
 
 logger = get_logger(__name__)
+_TRACKER_APPEND_LOCK = Lock()
 
 
 PasteFileResolver = Callable[[dict], str]
@@ -26,7 +28,7 @@ class SpreadsheetUploadPlan:
     timestamp: str
     spreadsheet_strategy: str
     csv_sheet_name: str
-    csv_range: list
+    csv_range: list | None
     tracker_sheet_name: str
     result_cell: str | ResultCellResolver
     total_result_cell: str | None
@@ -38,6 +40,7 @@ class SpreadsheetUploadPlan:
     sheet_link_mode: str = "insert"
     paste_file_resolver: PasteFileResolver | None = None
     require_total_result_for_tracker: bool = True
+    parallelism_writer: Callable[[], None] | None = None
 
 
 class SpreadsheetUploadWorkflow:
@@ -145,6 +148,14 @@ class SpreadsheetUploadWorkflow:
             "原始数据上传完成",
             {"raw_data_result": raw_data},
         )
+        if plan.parallelism_writer:
+            try:
+                plan.parallelism_writer()
+            except Exception as exc:
+                logger.exception("Robot parallelism upload failed")
+                plan.result.set_error(f"平行度测试总表写入失败: {exc}")
+                return plan.result.to_dict()
+
         self.uploader.report_progress("database", "正在写入上传结果数据库")
         database_status = checkpoint.get("database_status")
         if not database_status:
@@ -279,6 +290,11 @@ class SpreadsheetUploadWorkflow:
             )
 
     def _paste_to_tracker(self, plan: SpreadsheetUploadPlan, copy_data_list: list, sheetlink: str) -> str:
+        # Different robots can finish together in the same upload worker process.
+        with _TRACKER_APPEND_LOCK:
+            return self._paste_to_tracker_locked(plan, copy_data_list, sheetlink)
+
+    def _paste_to_tracker_locked(self, plan: SpreadsheetUploadPlan, copy_data_list: list, sheetlink: str) -> str:
         tracking_sheet = "NA"
         for index, paste_cfg in enumerate(plan.yaml_cfg["ifpaste"]):
             if not paste_cfg["off/on"]:
@@ -297,10 +313,14 @@ class SpreadsheetUploadWorkflow:
                 paste_file_id,
                 tracker_sheet_name,
             )
+            _, paste_start, paste_end = self.uploader.resolve_paste_line_range(paste_cfg, 1, plan.is_ultima)
+            check_range = self.uploader.tracker_check_range(
+                plan.yaml_cfg.get("last_row", "F:I"), paste_start, paste_end,
+            )
             last_row_number = self.uploader.get_first_blank_tracker_row(
                 paste_file_id,
                 tracker_sheet_name,
-                plan.yaml_cfg.get("last_row", "F:I"),
+                check_range,
             )
             if last_row_number is None:
                 logger.warning(f"Cannot read tracker sheet: {tracker_sheet_name}")

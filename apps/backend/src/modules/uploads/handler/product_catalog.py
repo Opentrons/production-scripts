@@ -300,7 +300,7 @@ UPLOAD_DATABASE_CONFIGS = {
     ),
 }
 
-SERIAL_NUMBER_METADATA_KEYS = ("test_tag", "pipette", "test_device_id", "serial-number", "robot")
+SERIAL_NUMBER_METADATA_KEYS = ("test_tag", "pipette", "test_device_id", "serial-number", "robot", "test_robot_id")
 SERIAL_NUMBER_EXTRA_WORDS = ("-qc", "-recorder", "-results")
 
 
@@ -546,7 +546,10 @@ def get_upload_collection_name(model: str, workflow: str = "assembly_qc") -> str
 
 
 def get_upload_collection_name_from_config_key(model: str, config_key: str) -> str:
+    # Combined tests must read/write one business record as well as one session.
+    # Use the stable first member; per-test collections cannot merge completion flags.
+    collection_key = get_upload_config_combine(config_key)[0]
     return get_upload_collection_name(
         model,
-        workflow=get_upload_database_config(config_key).collection_workflow,
+        workflow=get_upload_database_config(collection_key).collection_workflow,
     )

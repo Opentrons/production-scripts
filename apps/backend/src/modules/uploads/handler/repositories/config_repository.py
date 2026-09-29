@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
+import re
 import shutil
 from typing import Any
 
@@ -58,11 +59,29 @@ class ConfigRepository:
             raise ValueError(f"Upload config '{key}' first item must be a dict")
         config = deepcopy(value[0])
         config["last_row"] = self.get_last_row_range()
+        config["parallelism_spreadsheet_id"] = self.get_parallelism_spreadsheet_id()
         return config
 
     def get_last_row_range(self) -> str:
         value = self.data.get("last_row")
         return str(value or "F:I").strip() or "F:I"
+
+    def get_parallelism_spreadsheet_id(self) -> str:
+        return str(self.data.get("parallelism_spreadsheet_id") or "").strip()
+
+    def update_parallelism_spreadsheet_id(self, value: str) -> str:
+        normalized = str(value or "").strip()
+        url_match = re.fullmatch(r"https://docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]+)(?:[/?#].*)?", normalized)
+        if url_match:
+            normalized = url_match.group(1)
+        if normalized and not re.fullmatch(r"[A-Za-z0-9_-]+", normalized):
+            raise ValueError("平行度测试总表必须是 Google Spreadsheet ID 或完整链接")
+        data = self._load()
+        data["parallelism_spreadsheet_id"] = normalized
+        with self.config_path.open("w", encoding="utf-8") as yaml_file:
+            yaml.safe_dump(data, yaml_file, allow_unicode=True, sort_keys=False, default_flow_style=False)
+        self.data = data
+        return normalized
 
     def update_last_row_range(self, value: str) -> str:
         normalized = str(value or "").strip().upper() or "F:I"

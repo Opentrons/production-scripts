@@ -625,11 +625,39 @@
           <el-tab-pane :label="t('uploadRecords.tabs.pipetteOptical')" name="pipette_optical">
             <el-empty :description="t('uploadRecords.pipetteOpticalPending')" />
           </el-tab-pane>
+          <el-tab-pane :label="t('uploadRecords.tabs.robotParallelism')" name="robot_parallelism">
+            <el-form label-position="top">
+              <el-form-item :label="t('uploadRecords.uploadFile')">
+                <el-upload
+                  class="manual-upload"
+                  drag
+                  :auto-upload="false"
+                  :limit="1"
+                  accept=".csv,text/csv"
+                  :on-change="handleParallelismFileChange"
+                  :on-remove="() => { robotParallelismFile = null }"
+                  :on-exceed="handleParallelismFileExceed"
+                >
+                  <el-icon class="upload-icon"><UploadFilled /></el-icon>
+                  <div class="upload-text">{{ t('uploadRecords.chooseRobotParallelismCsv') }}</div>
+                </el-upload>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
         </el-tabs>
         <template #footer>
           <el-button @click="manualUploadVisible = false" :disabled="manualDialogBusy">{{ t('common.actions.cancel') }}</el-button>
           <el-button
-            v-if="manualUploadTab === 'standard'"
+            v-if="manualUploadTab === 'robot_parallelism'"
+            type="primary"
+            @click="submitRobotParallelismUpload"
+            :loading="manualUploading"
+            :disabled="!canSubmitRobotParallelism"
+          >
+            {{ t('uploadRecords.submitUpload') }}
+          </el-button>
+          <el-button
+            v-else-if="manualUploadTab === 'standard'"
             type="primary"
             @click="submitManualUpload"
             :loading="manualUploading"
@@ -655,7 +683,7 @@
           >
             {{ t('uploadRecords.submitUpload') }}
           </el-button>
-          <el-button v-else type="primary" disabled>{{ t('uploadRecords.submitUpload') }}</el-button>
+          <el-button v-else-if="manualUploadTab === 'pipette_optical'" type="primary" disabled>{{ t('uploadRecords.submitUpload') }}</el-button>
         </template>
       </el-dialog>
     </el-card>
@@ -698,7 +726,7 @@ interface SuccessPieItem {
   color: string
 }
 
-type ManualUploadTab = 'standard' | 'z_stage' | 'pipette_optical'
+type ManualUploadTab = 'standard' | 'z_stage' | 'pipette_optical' | 'robot_parallelism'
 type StandardUploadMode = 'local' | 'robot'
 type ZStageUploadMode = 'remote' | 'local'
 type ZStageRemoteFileStatus = 'pending' | 'uploading' | 'success' | 'failed'
@@ -801,6 +829,7 @@ const manualUploadTab = ref<ManualUploadTab>('standard')
 const standardUploadMode = ref<StandardUploadMode>('local')
 const manualUploading = ref(false)
 const manualFile = ref<File | null>(null)
+const robotParallelismFile = ref<File | null>(null)
 const includeSourceZip = ref(false)
 const uploadAllFiles = ref(false)
 const robotScanStore = useRobotScanStore()
@@ -901,6 +930,7 @@ const canSubmitManualUpload = computed(() => {
   if (standardUploadMode.value === 'local') return Boolean(manualFile.value)
   return Boolean(standardRobotIp.value && standardSelectedRobotFile.value && !standardSelectedRobotFile.value.is_dir)
 })
+const canSubmitRobotParallelism = computed(() => Boolean(robotParallelismFile.value))
 const manualDialogBusy = computed(() => manualUploading.value || zStageSearching.value || zStageUploading.value || standardRobotLoading.value || standardRobotScanLoading.value)
 
 watch(includeSourceZip, (checked) => {
@@ -928,6 +958,7 @@ const resetManualUploadState = () => {
   manualUploadTab.value = 'standard'
   standardUploadMode.value = 'local'
   manualFile.value = null
+  robotParallelismFile.value = null
   includeSourceZip.value = false
   uploadAllFiles.value = false
   standardRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
@@ -979,6 +1010,16 @@ const getCsvRawFile = (file: UploadFile | File | undefined) => {
     return null
   }
   return rawFile
+}
+
+const handleParallelismFileChange = (file: UploadFile) => {
+  robotParallelismFile.value = getCsvRawFile(file)
+}
+
+const handleParallelismFileExceed = (files: File[], uploadFiles: UploadFiles) => {
+  uploadFiles.splice(0, uploadFiles.length)
+  robotParallelismFile.value = getCsvRawFile(files[0])
+  if (robotParallelismFile.value) ElMessage.warning(t('uploadRecords.messages.csvReplaced'))
 }
 
 const handleManualFileChange = (file: UploadFile) => {
@@ -1807,6 +1848,28 @@ const submitManualUpload = async () => {
       undefined,
       recordId
     )
+    ElMessage.success(t('uploadRecords.messages.submitted'))
+    manualUploadVisible.value = false
+    await afterUploadSubmitted(response.data.record_id)
+  } catch (e: any) {
+    if (recordId) await markTrackedUploadFailed(recordId, e)
+    const message = normalizeUploadError(e)
+    ElMessage.error(message ? t('uploadRecords.messages.manualFailedWithReason', { error: message }) : t('uploadRecords.messages.manualFailed'))
+  } finally {
+    manualUploading.value = false
+  }
+}
+
+const submitRobotParallelismUpload = async () => {
+  if (!robotParallelismFile.value) {
+    ElMessage.warning(t('uploadRecords.messages.selectCsv'))
+    return
+  }
+  manualUploading.value = true
+  let recordId = ''
+  try {
+    recordId = await startTrackedUpload(robotParallelismFile.value.name, 'web', robotParallelismFile.value.size)
+    const response = await uploadRecordApi.uploadManualData(robotParallelismFile.value, false, false, { expected_upload_config_key: 'robot_update_leveling' }, recordId)
     ElMessage.success(t('uploadRecords.messages.submitted'))
     manualUploadVisible.value = false
     await afterUploadSubmitted(response.data.record_id)

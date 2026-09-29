@@ -337,6 +337,7 @@ export interface UploadFinishSettingOption {
 }
 
 export interface UploadFinishSettingItem extends UploadFinishSettingOption {
+  parallelism_spreadsheet_id?: string
   oem: string
   oem_options: string[]
   require_finished: boolean
@@ -361,6 +362,7 @@ export interface UploadFinishSettingsResponse {
   environment: string
   config_file?: string | null
   last_row?: string
+  parallelism_spreadsheet_id?: string
   error?: string | null
 }
 
@@ -381,6 +383,7 @@ export interface UploadFinishSettingPayload {
   paste_start: string
   paste_end: string
   last_row: string
+  parallelism_spreadsheet_id: string
 }
 
 export interface DataLinkItem {

@@ -1,4 +1,5 @@
 from datetime import datetime
+import csv
 import re
 
 from core.logging import get_logger
@@ -263,16 +264,29 @@ class UploadCommonMixin:
         spreadsheet_id: str,
         sheet_name: str,
         filepath: str,
-        ranglist: list,
+        ranglist: list | None,
     ) -> bool:
-        """Read only configured CSV columns and write them to the spreadsheet."""
-        configured_columns = self.normalize_csv_columns(ranglist)
-        if not configured_columns:
-            raise ValueError("CSV upload range must include at least one column")
-        csv_data = self.csv_driver.read_csv_rows(
-            path=filepath,
-            max_columns=len(configured_columns),
-        )
+        """Write configured columns, or the entire source CSV when range is None."""
+        if ranglist is None:
+            with open(filepath, encoding="utf-8-sig", newline="") as csv_file:
+                csv_data = [[row] for row in csv.reader(csv_file)]
+            width = max((len(row[0]) for row in csv_data), default=0)
+            if width == 0:
+                raise ValueError("CSV 文件没有可上传的数据")
+            ranglist = [f"A-{self._number_to_column(width)}"]
+        else:
+            configured_columns = self.normalize_csv_columns(ranglist)
+            if not configured_columns:
+                raise ValueError("CSV upload range must include at least one column")
+            width = self._column_to_number(configured_columns[-1])
+            csv_data = self.csv_driver.read_csv_rows(
+                path=filepath,
+                max_columns=len(configured_columns),
+            )
+        if not csv_data:
+            raise ValueError("CSV 文件没有可上传的数据")
+        if not self.ensure_sheet_capacity(spreadsheet_id, sheet_name, len(csv_data), width):
+            return False
         alldatalist, allrangelist = self.prepare_csv_batch_updates(csv_data, ranglist)
         return self.gdrive.update_excel_sheet_page_batch(
             spreadsheet_id=spreadsheet_id,
@@ -397,8 +411,12 @@ class UploadCommonMixin:
         spreadsheet_id: str,
         sheet_name: str,
         row_range: str = "F:I",
+        *,
+        required_rows: int = 1,
     ) -> int | None:
-        """Find the first data row where every configured tracker column is empty."""
+        """Find the first consecutive empty data rows in the configured columns."""
+        if required_rows < 1:
+            raise ValueError("required_rows must be positive")
         match = re.fullmatch(r"\s*([A-Z]+)\s*:\s*([A-Z]+)\s*", str(row_range).upper())
         if not match:
             raise ValueError(f"Invalid last row range: {row_range}")
@@ -411,16 +429,40 @@ class UploadCommonMixin:
         values = self.gdrive.get_excel_sheet(
             spreadsheetId=spreadsheet_id,
             range=f"{self.quote_sheet_name(sheet_name)}!{start}:{end}",
+            raise_on_error=True,
+            value_render_option="FORMULA",
         ) or []
         width = end_number - start_number + 1
+        first_blank = None
+        blank_count = 0
         for row_number, row in enumerate(values, start=1):
             if row_number < self.TRACKER_DATA_START_ROW:
                 continue
             cells = list(row or [])[:width]
             cells.extend([""] * (width - len(cells)))
             if all(value is None or str(value).strip() == "" for value in cells):
-                return row_number
-        return max(len(values) + 1, self.TRACKER_DATA_START_ROW)
+                if first_blank is None:
+                    first_blank = row_number
+                blank_count += 1
+                if blank_count >= required_rows:
+                    return first_blank
+            else:
+                first_blank = None
+                blank_count = 0
+        # Omitted rows beyond the values response are empty as well.
+        return first_blank if first_blank is not None else max(len(values) + 1, self.TRACKER_DATA_START_ROW)
+
+    @classmethod
+    def tracker_check_range(cls, configured_range: str, paste_start: str, paste_end: str) -> str:
+        """Include every destination column even if the configured check is disjoint."""
+        match = re.fullmatch(r"\s*([A-Z]+)\s*:\s*([A-Z]+)\s*", configured_range.upper())
+        if not match:
+            raise ValueError(f"Invalid last row range: {configured_range}")
+        check_start, check_end = (cls._column_to_number(col) for col in match.groups())
+        write_start, write_end = cls._column_to_number(paste_start), cls._column_to_number(paste_end)
+        if check_start > check_end or write_start > write_end:
+            raise ValueError("Invalid tracker check or paste range")
+        return f"{cls._number_to_column(min(check_start, write_start))}:{cls._number_to_column(max(check_end, write_end))}"
 
     def ensure_tracker_row_capacity(
         self,
@@ -429,6 +471,16 @@ class UploadCommonMixin:
         required_row: int,
     ) -> bool:
         """Append grid rows when the tracker is full before writing a new record."""
+        return self.ensure_sheet_capacity(spreadsheet_id, sheet_name, required_row)
+
+    def ensure_sheet_capacity(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        required_row: int,
+        required_columns: int | None = None,
+    ) -> bool:
+        """Expand a sheet's grid to fit all rows and columns in an upload."""
         sheet_info = self.gdrive.get_sheet_info(spreadsheet_id) or []
         target_sheet = next(
             (sheet for sheet in sheet_info if sheet.get("title") == sheet_name),
@@ -443,24 +495,27 @@ class UploadCommonMixin:
             )
             return False
 
-        row_count = int(target_sheet.get("grid_properties", {}).get("rowCount") or 0)
-        if required_row <= row_count:
+        grid = target_sheet.get("grid_properties", {})
+        row_count = int(grid.get("rowCount") or 0)
+        column_count = int(grid.get("columnCount") or 0)
+        requests = []
+        for dimension, required, current in (
+            ("ROWS", required_row, row_count),
+            ("COLUMNS", required_columns or 0, column_count),
+        ):
+            if required > current:
+                requests.append({"appendDimension": {
+                    "sheetId": target_sheet["sheet_id"],
+                    "dimension": dimension,
+                    "length": required - current,
+                }})
+        if not requests:
             return True
 
         try:
             self.gdrive.sheet_service_client.spreadsheets().batchUpdate(
                 spreadsheetId=spreadsheet_id,
-                body={
-                    "requests": [
-                        {
-                            "appendDimension": {
-                                "sheetId": target_sheet["sheet_id"],
-                                "dimension": "ROWS",
-                                "length": required_row - row_count,
-                            }
-                        }
-                    ]
-                },
+                body={"requests": requests},
             ).execute()
         except Exception as exc:
             logger.error(

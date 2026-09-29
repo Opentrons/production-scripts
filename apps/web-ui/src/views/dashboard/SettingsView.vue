@@ -117,6 +117,14 @@
                   />
                   <div class="setting-help-text">{{ t('settings.lastRowDescription') }}</div>
                 </el-form-item>
+                <el-form-item :label="t('settings.parallelismSpreadsheetId')">
+                  <el-input
+                    v-model="parallelismSpreadsheetId"
+                    :disabled="loading || saving"
+                    :placeholder="t('settings.parallelismSpreadsheetIdPlaceholder')"
+                  />
+                  <div class="setting-help-text">{{ t('settings.parallelismSpreadsheetIdDescription') }}</div>
+                </el-form-item>
               </el-form>
 
               <template v-if="currentSetting">
@@ -210,6 +218,7 @@ const requireFinished = ref(true)
 const settingsError = ref('')
 const configFileName = ref('upload_production.yaml')
 const lastRowRange = ref('F:I')
+const parallelismSpreadsheetId = ref('')
 const engConfigSynced = ref(false)
 const uploadOptions = ref<UploadFinishSettingOption[]>([])
 const uploadSettings = ref<UploadFinishSettingItem[]>([])
@@ -284,6 +293,7 @@ const fetchUploadSettings = async (syncFromProduction = false) => {
     uploadSettings.value = data.settings || []
     configFileName.value = data.config_file || (selectedEnvironment.value === 'eng' ? 'upload_debug.yaml' : 'upload_production.yaml')
     lastRowRange.value = data.last_row || 'F:I'
+    parallelismSpreadsheetId.value = data.parallelism_spreadsheet_id || ''
     settingsError.value = data.database_available ? '' : (data.error || t('settings.databaseDisconnected'))
     ensureSelection()
   } catch (error: any) {
@@ -345,8 +355,10 @@ const saveCurrentSetting = async () => {
       pastefileid: configForm.pasteFileId,
       paste_start: configForm.pasteStart,
       paste_end: configForm.pasteEnd,
-      last_row: lastRowRange.value
+      last_row: lastRowRange.value,
+      parallelism_spreadsheet_id: parallelismSpreadsheetId.value.trim()
     })
+    parallelismSpreadsheetId.value = data.parallelism_spreadsheet_id || ''
     const index = uploadSettings.value.findIndex(item =>
       item.model === data.model && item.test_type === data.test_type && item.oem === data.oem
     )

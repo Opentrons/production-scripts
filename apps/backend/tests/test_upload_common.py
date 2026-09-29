@@ -1,10 +1,12 @@
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
 
 from modules.uploads.handler.drivers.csv_driver import CsvDriver
+from modules.uploads.handler.drivers.google_drive import GoogleDriveDriver
 from modules.uploads.handler.uploaders.common import UploadCommonMixin
 
 
@@ -172,6 +174,18 @@ def test_get_first_blank_tracker_row_appends_after_used_rows() -> None:
     )
 
     assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 11
+
+
+def test_tracker_read_failure_is_not_treated_as_an_empty_sheet() -> None:
+    driver = GoogleDriveDriver.__new__(GoogleDriveDriver)
+    driver.sheet_service_client = MagicMock()
+    values = driver.sheet_service_client.spreadsheets.return_value.values.return_value
+    values.get.return_value.execute.side_effect = RuntimeError("permission denied")
+    uploader = UploadCommonMixin()
+    uploader.gdrive = driver
+    with pytest.raises(RuntimeError, match="permission denied"):
+        uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:AI")
+    assert values.get.call_args.kwargs["valueRenderOption"] == "FORMULA"
 
 
 def test_get_first_blank_tracker_row_skips_first_ten_rows() -> None:

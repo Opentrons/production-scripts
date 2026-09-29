@@ -8,6 +8,7 @@ from modules.uploads.handler.product_catalog import (
 )
 from modules.uploads.handler.uploaders.common import ProductUploaderBase
 from modules.uploads.handler.uploaders.workflows import SpreadsheetUploadPlan, SpreadsheetUploadWorkflow
+from modules.uploads.handler.uploaders.robot_parallelism import extract_parallelism_rows, upload_parallelism_results
 
 logger = get_logger(__name__)
 
@@ -25,6 +26,18 @@ class SpreadsheetUploader(ProductUploaderBase):
         yaml_cfg = self.config_repo.get_upload_config(config_key)
         if not yaml_cfg["ifupdate"]:
             return None
+
+        parallelism_writer = None
+        if config_key == "robot_update_leveling":
+            self.report_progress("parallelism", "正在检查平行度总表配置和 CSV")
+            parallelism_id = yaml_cfg.get("parallelism_spreadsheet_id", "")
+            if not parallelism_id:
+                raise ValueError("请先在数据上传设置中配置平行度测试总表链接 ID")
+            sections = extract_parallelism_rows(file_desc.get("file_path"), file_desc.get("sn"))
+            parallelism_writer = lambda: upload_parallelism_results(
+                self, parallelism_id, sections,
+                last_row_range=yaml_cfg.get("last_row", "F:I"),
+            )
 
         model = file_desc.get("model")
         device_sn = file_desc.get("sn")
@@ -69,7 +82,7 @@ class SpreadsheetUploader(ProductUploaderBase):
                 timestamp=timestamp,
                 spreadsheet_strategy=yaml_cfg.get("spreadsheet_strategy", "reuse_within_workflow"),
                 csv_sheet_name=yaml_cfg["csv_target_sheet_name"],
-                csv_range=yaml_cfg["Range"],
+                csv_range=None if config_key == "robot_update_leveling" else yaml_cfg["Range"],
                 tracker_sheet_name=self._build_tracker_sheet_name(
                     handler_config.tracker_sheet_name_template,
                     oem=oem_type,
@@ -82,6 +95,7 @@ class SpreadsheetUploader(ProductUploaderBase):
                 sheet_link_index=handler_config.sheet_link_index,
                 sheet_link_mode=handler_config.sheet_link_mode,
                 require_total_result_for_tracker=bool(total_result_cell),
+                parallelism_writer=parallelism_writer,
                 record_writer=lambda upload_result: self.save_upload_result_to_database(
                     DATA_DB_NAME,
                     file_desc,
