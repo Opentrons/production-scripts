@@ -2,6 +2,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from pydantic import AnyHttpUrl, BaseModel
 
 from modules.workflows.models import (
     Workflow,
@@ -31,6 +32,10 @@ router.include_router(sop_router)
 router.include_router(sop_ai_router)
 
 
+class GoogleProxySubscriptionRequest(BaseModel):
+    url: AnyHttpUrl
+
+
 @router.get("/health")
 def health() -> dict[str, object]:
     return {"success": True, "service": "production-backend"}
@@ -44,6 +49,17 @@ def google_status() -> dict[str, object]:
 @router.post("/google/proxy/refresh")
 def refresh_google_proxy() -> dict[str, object]:
     started = google_proxy_manager.refresh_async()
+    return {**google_proxy_manager.status(), "started": started}
+
+
+@router.post("/google/proxy/subscription")
+def update_google_proxy_subscription(payload: GoogleProxySubscriptionRequest) -> dict[str, object]:
+    try:
+        started = google_proxy_manager.update_subscription_url(str(payload.url))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {**google_proxy_manager.status(), "started": started}
 
 

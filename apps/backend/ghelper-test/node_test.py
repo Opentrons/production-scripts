@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import subprocess
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
 import requests
 import yaml
@@ -97,14 +98,90 @@ def _write_text_atomic(path: Path, text: str) -> None:
         raise
 
 
+def _decode_base64_subscription(text: str) -> str | None:
+    compact = "".join(text.split())
+    if not compact:
+        return None
+    padded = compact + "=" * ((4 - len(compact) % 4) % 4)
+    try:
+        decoded = base64.b64decode(padded, validate=True).decode("utf-8")
+    except Exception:
+        try:
+            decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
+        except Exception:
+            return None
+    return decoded if decoded.strip() and decoded.strip() != text.strip() else None
+
+
+def _share_link_to_proxy(line: str, index: int) -> dict[str, Any] | None:
+    """Convert supported share links into the node_test YAML shape.
+
+    Ghelper may return a Base64 payload containing many protocol families. The
+    monitor currently tests HTTP and SOCKS5 through curl, so unsupported
+    protocols are ignored instead of making the whole subscription invalid.
+    """
+    try:
+        parsed = urlsplit(line.strip())
+        scheme = parsed.scheme.lower()
+        if scheme not in {"http", "https", "socks5", "socks5h"}:
+            return None
+
+        # Some Ghelper exports encode an HTTP proxy's ``user:password@host``
+        # portion as the host of an ``https://`` share link. Decode that form
+        # before reading the actual endpoint.
+        try:
+            parsed_port = parsed.port
+        except ValueError:
+            parsed_port = None
+        if scheme in {"http", "https"} and (not parsed.hostname or not parsed_port):
+            # The encoded token itself can contain `/`, which urlsplit treats
+            # as a path separator. Decode everything after the scheme.
+            encoded_payload = line.strip().split("://", 1)[1]
+            decoded = _decode_base64_subscription(encoded_payload)
+            if decoded and "@" in decoded:
+                parsed = urlsplit(f"{scheme}://{decoded}")
+                parsed_port = parsed.port
+
+        if not parsed.hostname or not parsed_port:
+            return None
+        name = unquote(parsed.fragment).strip() or f"{parsed.hostname}:{parsed.port}"
+        return {
+            "name": name or f"node-{index}",
+            "server": parsed.hostname,
+            "port": parsed_port,
+            "username": unquote(parsed.username or ""),
+            "password": unquote(parsed.password or ""),
+            "type": "socks5" if scheme in {"socks5", "socks5h"} else "http",
+            "tls": scheme in {"https", "socks5h"},
+        }
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_share_link_subscription(text: str) -> dict[str, Any] | None:
+    links = [line.strip() for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    proxies = [proxy for index, line in enumerate(links, 1) if (proxy := _share_link_to_proxy(line, index))]
+    return {"proxies": proxies} if proxies else None
+
+
 def validate_subscription_yaml(text: str) -> dict[str, Any]:
-    parsed = yaml.safe_load(text) or {}
-    if not isinstance(parsed, dict):
-        raise ValueError("subscription response is not a YAML object")
-    proxies = parsed.get("proxies")
-    if not isinstance(proxies, list) or not proxies:
-        raise ValueError("subscription response does not contain proxy nodes")
-    return parsed
+    """Parse Clash YAML or Ghelper's Base64 encoded share-link format."""
+    try:
+        parsed = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        parsed = {}
+    if isinstance(parsed, dict) and isinstance(parsed.get("proxies"), list) and parsed["proxies"]:
+        return parsed
+
+    decoded = _decode_base64_subscription(text)
+    if decoded:
+        share_links = _parse_share_link_subscription(decoded)
+        if share_links:
+            return share_links
+    share_links = _parse_share_link_subscription(text)
+    if share_links:
+        return share_links
+    raise ValueError("subscription response contains no supported HTTP/SOCKS5 proxy nodes")
 
 
 def subscription_request_attempts(config: dict[str, Any]) -> list[tuple[str, dict[str, str] | None]]:
@@ -150,7 +227,12 @@ def update_subscription_config(
             )
             response.raise_for_status()
             parsed = validate_subscription_yaml(response.text)
-            write_text_atomic(yml_file, response.text)
+            # Persist a normalized YAML file so the existing node loader can
+            # consume both native Clash subscriptions and share-link lists.
+            write_text_atomic(
+                yml_file,
+                yaml.safe_dump(parsed, allow_unicode=True, sort_keys=False),
+            )
 
             config["ghelper_subscription_last_updated_at"] = now_utc_iso()
             config["ghelper_subscription_node_count"] = len(parsed.get("proxies", []))
@@ -165,6 +247,25 @@ def update_subscription_config(
     if last_error:
         print(f"Using existing proxy list because subscription update failed: {last_error}")
     return False
+
+
+def update_subscription_url(
+    url: str,
+    *,
+    config_path: Path = SKILL_CONFIG_PATH,
+) -> None:
+    """Persist a subscription URL while keeping the existing credentials."""
+    normalized_url = str(url).strip()
+    if not normalized_url:
+        raise ValueError("ghelper subscription URL is empty")
+
+    config = read_json_config(config_path)
+    subscription = config.get("ghelper_subscription")
+    if not isinstance(subscription, dict):
+        subscription = {}
+    subscription["url"] = normalized_url
+    config["ghelper_subscription"] = subscription
+    write_json_atomic(config_path, config)
 
 
 def load_proxies_from_yml(file_path: Path) -> list[ProxyNode]:
