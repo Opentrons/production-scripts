@@ -219,6 +219,7 @@ def serialize_finish_setting(
         "paste_start": paste_range.get("star", ""),
         "paste_end": paste_range.get("end", ""),
         "last_row": config.get("last_row", DEFAULT_LAST_ROW_RANGE),
+        "parallelism_spreadsheet_id": config.get("parallelism_spreadsheet_id", ""),
     }
 
 
@@ -324,6 +325,7 @@ def get_upload_finish_settings(environment: str | None = None, sync_from_product
             "environment": config_environment,
             "config_file": ConfigRepository.from_environment(config_environment).config_file_name,
             "last_row": last_row,
+            "parallelism_spreadsheet_id": repository.get_parallelism_spreadsheet_id(),
         }
     except Exception as exc:
         logger.error(f"Failed to load upload finish settings: {exc}")
@@ -335,6 +337,7 @@ def get_upload_finish_settings(environment: str | None = None, sync_from_product
             "environment": config_environment,
             "config_file": ConfigRepository.from_environment(config_environment).config_file_name,
             "last_row": last_row,
+            "parallelism_spreadsheet_id": repository.get_parallelism_spreadsheet_id(),
         }
 
 
@@ -352,6 +355,8 @@ def update_upload_finish_setting(payload: dict[str, Any]) -> dict[str, Any]:
         if not re.fullmatch(r"[A-Z]+\s*:\s*[A-Z]+", last_row):
             raise ValueError("last_row 必须是类似 F:I 的列范围")
         repository.update_last_row_range(last_row)
+    if payload.get("parallelism_spreadsheet_id") is not None:
+        repository.update_parallelism_spreadsheet_id(payload["parallelism_spreadsheet_id"])
     config = repository.get_upload_config(config_key)
     config_updates: dict[str, Any] = {}
     oem_configs = dict(config.get("oem") or {})

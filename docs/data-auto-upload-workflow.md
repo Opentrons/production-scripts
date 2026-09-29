@@ -58,6 +58,33 @@ flowchart TB
 
 Manual upload (`POST /api/upload-data/manual`) joins the same worker after enqueue. Same SN + workflow uses `UploadWorkflowLock`.
 
+### Robot parallelism / Leveling
+
+Leveling uploads first paste the entire source CSV into the template-derived spreadsheet's `Leveling` tab starting at `A1`. The width comes from the widest source row, independently of the configured CSV range. All source rows, headers, metadata, timestamps and serial numbers are retained; the destination grid expands when necessary. The separate master-sheet rows retain the Robot serial number and exclude `START_TIME` and `RESULT_STATUS`.
+
+In **数据上传设置**, set **平行度测试总表链接 ID** to the spreadsheet ID (a full Google Sheets URL is also accepted) and save. This setting is shared across OEMs within the selected production/engineering environment and is required for Robot Leveling uploads.
+
+**手动上传数据 → Robot平行度** accepts a Leveling report CSV, such as `csv-samples/FLXA3020250805002-leveling-report-2026-07-22.csv`. Robot and standard uploads of the same report use the same processing step. The four named `TEST` sections are validated before uploading; each master row contains `ROBOT_SN` followed by measurements in their CSV order. Only trailing empty padding is ignored for extraction; the raw template data remains complete.
+
+| CSV test section | Master-sheet tab | Columns |
+| --- | --- | --- |
+| `z_leveling_test` | `Z Stage Parallelism` | `C:AP` |
+| `ch8_leveling_test` | `Pipette To Deck Parallelism` | `B:N` |
+| `ch96_leveling_test` | `Pipette To Deck Parallelism` | `P:BB` |
+| `gripper_leveling_test` | `Gripper Parallelism` | `B:K` |
+
+Parallelism uses the same system `last_row` setting and first-empty-row search as Unit Tracker. Starting at row 11, it checks the configured columns together with the actual destination columns; formulas count as occupied and gaps may be filled. With the default `F:I`, the effective checks are Z `C:AP`, CH8 `B:N`, CH96 `F:BB`, and Gripper `B:K`. Multiple measurement rows require a consecutive empty block. The four destinations are located separately, so CH8 and CH96 may use different rows. The step runs before the database write and does not wait for the other Robot tests in the combined workflow. Missing sections, invalid data, missing configuration, or Sheets errors fail the upload. Checkpoints retain the target ranges for retries; completed writes are skipped, and conflicting cells stop the retry rather than being overwritten.
+
+Production uses spreadsheet `1fXdzjJYb9-pNW4fdvOKS4wZpoTXgIKCzFUTheVr4XeA`. Its actual pipette tab is named `Pipette To Deck Parallelism` (one `p` after `Pi`). Engineering configuration remains separate. Its CH8 and Z slot order differs from the sample CSV; measurement reordering needs to be agreed before relying on those header labels. Gripper X also labels the pair Front/Rear while the CSV calls it Left/Right.
+
+### Flex combined uploads
+
+The five CSVs in `csv-samples/opentrons/Flex` share Robot barcode `FLXU3020260601004`. Z-Stage parsing prefers `test_robot_id`, then falls back to `test_tag` / `test_device_id`; manual barcode overrides also update `test_robot_id`.
+
+All five Robot test types now use `robot_diagnostic` for their combined business record, so completion flags can merge regardless of upload order. Historical per-test collections are retained without migration; a fresh complete upload of the five reports exercises the corrected workflow. The template is reused across the five tests. Parallelism rows are written when Leveling arrives; Unit Tracker is written after all five tests have been saved.
+
+All CSV template uploads expand the destination grid before writing, including the 11,450-row Gantry-Stress sample. Unit Tracker checks the configured empty-row range together with the actual paste columns (Robot: `F:AI` for a `J:AI` write), starts at row 11, treats formulas as occupied, and propagates read failures. Row selection and paste are serialized within the worker process; independent processes or external editors are not covered by that lock.
+
 ---
 
 ## Call Chain

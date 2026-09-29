@@ -39,6 +39,37 @@ def get_proxy_url() -> str | None:
     return module.get_proxy_url(config_path=config_path)
 
 
+def get_ghelper_subscription() -> dict[str, Any]:
+    """Return non-sensitive subscription metadata for the proxy settings UI."""
+    try:
+        module = load_skill_config_module()
+        if module is None or not hasattr(module, "load_skill_config"):
+            return {}
+        config = module.load_skill_config(config_path=GHELPER_DIR / "skill_config.json")
+    except Exception:
+        return {}
+    subscription = config.get("ghelper_subscription") if isinstance(config, dict) else None
+    if not isinstance(subscription, dict):
+        return {}
+    return {
+        "url": str(subscription.get("url", "")).strip(),
+        "last_updated_at": config.get("ghelper_subscription_last_updated_at"),
+        "node_count": config.get("ghelper_subscription_node_count"),
+    }
+
+
+def get_proxy_node() -> str:
+    """Read the configured node label without exposing the proxy URL."""
+    try:
+        module = load_skill_config_module()
+        if module is None or not hasattr(module, "load_skill_config"):
+            return ""
+        config = module.load_skill_config(config_path=GHELPER_DIR / "skill_config.json")
+        return str(config.get("proxy_node", "")).strip() if isinstance(config, dict) else ""
+    except Exception:
+        return ""
+
+
 def proxy_mapping(proxy_url: str | None) -> dict[str, str] | None:
     if not proxy_url:
         return None
