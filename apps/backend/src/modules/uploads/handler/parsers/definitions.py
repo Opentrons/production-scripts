@@ -312,7 +312,13 @@ PARSER_DEFINITIONS: dict[str, CsvParserDefinition] = {
     "robot_update_z_stage": CsvParserDefinition(
         upload_config_key="robot_update_z_stage",
         test_type=TestTypes.ZStage_Test,
-        **GENERAl_QC_DEFINITION,
+        **{
+            **GENERAl_QC_DEFINITION,
+            "sn": CsvFieldDefinition(
+                ("test_robot_id", "test_tag", "test_device_id"),
+                extra_words=("-qc", "-recorder", "-results"),
+            ),
+        },
     ),
     "robot_update_diagnostic": CsvParserDefinition(
         upload_config_key="robot_update_diagnostic",

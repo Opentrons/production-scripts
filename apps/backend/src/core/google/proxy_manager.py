@@ -19,9 +19,10 @@ class GoogleProxyManager:
         self._thread: threading.Thread | None = None
         self._candidates: list[dict[str, Any]] = []
         self._current_proxy = proxy_tools.get_proxy_url()
-        self._current_node = ""
+        self._current_node = proxy_tools.get_proxy_node()
         self._version = 0
         self._refreshing = False
+        self._refresh_again = False
         self._last_checked_at: str | None = None
         self._last_error = ""
 
@@ -57,10 +58,25 @@ class GoogleProxyManager:
     def refresh_async(self) -> bool:
         with self._lock:
             if self._refreshing:
+                self._refresh_again = True
                 return False
             self._refreshing = True
         threading.Thread(target=self._refresh_once, name="google-proxy-refresh", daemon=True).start()
         return True
+
+    def update_subscription_url(self, url: str) -> bool:
+        """Save a new Ghelper subscription and start a fresh node scan."""
+        normalized_url = str(url).strip()
+        if not normalized_url:
+            raise ValueError("ghelper subscription URL is empty")
+        node_test = proxy_tools._load_module(
+            proxy_tools.GHELPER_DIR / "node_test.py",
+            "production_backend_ghelper_subscription_config",
+        )
+        if node_test is None or not hasattr(node_test, "update_subscription_url"):
+            raise RuntimeError("Ghelper node test module is unavailable")
+        node_test.update_subscription_url(normalized_url)
+        return self.refresh_async()
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -68,9 +84,14 @@ class GoogleProxyManager:
                 (item for item in self._candidates if item.get("proxy_url") == self._current_proxy),
                 {},
             )
-            status = "unavailable"
-            if self._current_proxy:
+            status = "unknown"
+            if self._refreshing:
+                status = "checking"
+            elif self._last_checked_at and self._current_proxy:
                 status = "degraded" if self._last_error else "healthy"
+            elif self._last_error:
+                status = "unavailable"
+            subscription = proxy_tools.get_ghelper_subscription()
             return {
                 "status": status,
                 "node": self._current_node or current.get("name", ""),
@@ -80,6 +101,9 @@ class GoogleProxyManager:
                 "fallback_count": max(0, len(self._candidates) - 1),
                 "last_error": self._last_error,
                 "version": self._version,
+                "subscription_configured": bool(subscription.get("url")),
+                "subscription_last_updated_at": subscription.get("last_updated_at"),
+                "subscription_node_count": subscription.get("node_count"),
             }
 
     def _run(self) -> None:
@@ -110,7 +134,11 @@ class GoogleProxyManager:
         finally:
             with self._lock:
                 self._refreshing = False
+                rerun = self._refresh_again
+                self._refresh_again = False
             self._refresh_lock.release()
+            if rerun:
+                self.refresh_async()
 
     def _scan_candidates(self) -> list[dict[str, Any]]:
         node_test = proxy_tools._load_module(
@@ -142,8 +170,8 @@ class GoogleProxyManager:
     def _set_current_locked(self, proxy_url: str, node_name: str) -> None:
         if proxy_url != self._current_proxy:
             self._current_proxy = proxy_url
-            self._current_node = node_name
             self._version += 1
+        self._current_node = node_name or self._current_node
 
 
 google_proxy_manager = GoogleProxyManager()

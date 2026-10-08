@@ -117,6 +117,14 @@
                   />
                   <div class="setting-help-text">{{ t('settings.lastRowDescription') }}</div>
                 </el-form-item>
+                <el-form-item :label="t('settings.parallelismSpreadsheetId')">
+                  <el-input
+                    v-model="parallelismSpreadsheetId"
+                    :disabled="loading || saving"
+                    :placeholder="t('settings.parallelismSpreadsheetIdPlaceholder')"
+                  />
+                  <div class="setting-help-text">{{ t('settings.parallelismSpreadsheetIdDescription') }}</div>
+                </el-form-item>
               </el-form>
 
               <template v-if="currentSetting">
@@ -168,16 +176,97 @@
             </section>
           </div>
         </el-tab-pane>
+        <el-tab-pane :label="t('settings.proxy')" name="proxy">
+          <div v-loading="proxyLoading" class="settings-content proxy-settings-content">
+            <el-alert
+              v-if="proxyError"
+              :title="proxyError"
+              type="warning"
+              show-icon
+              :closable="false"
+              class="settings-alert"
+            />
+
+            <section class="setting-panel proxy-panel">
+              <div class="setting-main proxy-summary">
+                <div>
+                  <h3>{{ t('settings.proxyMonitorTitle') }}</h3>
+                  <p>{{ t('settings.proxyMonitorDescription') }}</p>
+                </div>
+                <el-tag :type="proxyStatusType" effect="light" size="large">
+                  {{ proxyStatusLabel }}
+                </el-tag>
+              </div>
+
+              <el-descriptions :column="2" border size="small" class="setting-desc proxy-desc">
+                <el-descriptions-item :label="t('settings.proxyNode')">
+                  {{ proxyStatus?.node || t('settings.proxyNotConfigured') }}
+                </el-descriptions-item>
+                <el-descriptions-item :label="t('settings.proxyLatency')">
+                  {{ proxyStatus?.latency_ms != null ? `${proxyStatus.latency_ms} ms` : '—' }}
+                </el-descriptions-item>
+                <el-descriptions-item :label="t('settings.proxyLastChecked')">
+                  {{ formatProxyDate(proxyStatus?.last_checked_at) }}
+                </el-descriptions-item>
+                <el-descriptions-item :label="t('settings.proxyFallbacks')">
+                  {{ proxyStatus?.fallback_count ?? 0 }}
+                </el-descriptions-item>
+                <el-descriptions-item :label="t('settings.proxySubscriptionStatus')">
+                  {{ proxyStatus?.subscription_configured ? t('settings.proxyConfigured') : t('settings.proxyNotConfigured') }}
+                </el-descriptions-item>
+                <el-descriptions-item v-if="proxyStatus?.last_error" :label="t('settings.proxyError')" :span="2">
+                  <span class="proxy-error-text">{{ proxyStatus.last_error }}</span>
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <div class="proxy-actions">
+                <el-button type="primary" :loading="proxyRefreshing" @click="refreshBestProxy">
+                  {{ t('settings.proxyRefreshBest') }}
+                </el-button>
+              </div>
+            </section>
+
+            <section class="setting-panel proxy-panel subscription-panel">
+              <div class="setting-main">
+                <div>
+                  <h3>{{ t('settings.proxySubscriptionTitle') }}</h3>
+                  <p>{{ t('settings.proxySubscriptionDescription') }}</p>
+                </div>
+              </div>
+              <el-form label-position="top" class="proxy-subscription-form" @submit.prevent="saveProxySubscription">
+                <el-form-item :label="t('settings.proxySubscriptionUrl')">
+                  <el-input
+                    v-model="proxySubscriptionUrl"
+                    :placeholder="t('settings.proxySubscriptionPlaceholder')"
+                    clearable
+                    type="url"
+                    autocomplete="off"
+                    :disabled="proxySubscriptionSaving"
+                  />
+                  <div class="setting-help-text">{{ t('settings.proxySubscriptionHint') }}</div>
+                </el-form-item>
+                <el-button
+                  type="primary"
+                  native-type="submit"
+                  :loading="proxySubscriptionSaving"
+                  :disabled="!proxySubscriptionUrl.trim()"
+                >
+                  {{ t('settings.proxySubscriptionAction') }}
+                </el-button>
+              </el-form>
+            </section>
+          </div>
+        </el-tab-pane>
       </el-tabs>
       <div class="tabs-actions">
         <el-tooltip :content="t('common.actions.refresh')" placement="bottom">
           <el-button
             :icon="Refresh"
-            :loading="loading"
+            :loading="activeTab === 'upload' ? loading : proxyLoading"
             circle
             size="small"
             :aria-label="t('settings.refreshUpload')"
-            @click="fetchUploadSettings"
+            @click="refreshActiveSettings"
           />
         </el-tooltip>
       </div>
@@ -186,10 +275,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { settingsApi } from '@/scripts/api'
+import type { GoogleProxyStatusResponse } from '@/scripts/api'
 import type {
   UploadFinishSettingItem,
   UploadFinishSettingOption,
@@ -210,7 +300,15 @@ const requireFinished = ref(true)
 const settingsError = ref('')
 const configFileName = ref('upload_production.yaml')
 const lastRowRange = ref('F:I')
+const parallelismSpreadsheetId = ref('')
 const engConfigSynced = ref(false)
+const proxyLoading = ref(false)
+const proxyRefreshing = ref(false)
+const proxySubscriptionSaving = ref(false)
+const proxyError = ref('')
+const proxySubscriptionUrl = ref('')
+const proxyStatus = ref<GoogleProxyStatusResponse | null>(null)
+let proxyPollTimer: ReturnType<typeof setInterval> | null = null
 const uploadOptions = ref<UploadFinishSettingOption[]>([])
 const uploadSettings = ref<UploadFinishSettingItem[]>([])
 const environmentOptions = computed(() => [
@@ -220,6 +318,24 @@ const environmentOptions = computed(() => [
 const configForm = reactive({
   copytemplate: '', csvRange: '', resultCell: '', totalResultCell: '', failures: 'N/A',
   summarySourceSheet: '', copyRange: '', pasteFileId: '', pasteStart: '', pasteEnd: ''
+})
+
+const proxyStatusLabel = computed(() => {
+  const labels: Record<string, string> = {
+    healthy: t('settings.proxyHealthy'),
+    degraded: t('settings.proxyDegraded'),
+    unavailable: t('settings.proxyUnavailable'),
+    checking: t('settings.proxyChecking'),
+    unknown: t('settings.proxyUnknown')
+  }
+  return labels[proxyStatus.value?.status || 'unknown'] || t('settings.proxyUnknown')
+})
+
+const proxyStatusType = computed(() => {
+  if (proxyStatus.value?.status === 'healthy') return 'success'
+  if (proxyStatus.value?.status === 'degraded') return 'warning'
+  if (proxyStatus.value?.status === 'checking' || proxyStatus.value?.status === 'unknown') return 'info'
+  return 'danger'
 })
 
 const modelOptions = computed(() => {
@@ -284,6 +400,7 @@ const fetchUploadSettings = async (syncFromProduction = false) => {
     uploadSettings.value = data.settings || []
     configFileName.value = data.config_file || (selectedEnvironment.value === 'eng' ? 'upload_debug.yaml' : 'upload_production.yaml')
     lastRowRange.value = data.last_row || 'F:I'
+    parallelismSpreadsheetId.value = data.parallelism_spreadsheet_id || ''
     settingsError.value = data.database_available ? '' : (data.error || t('settings.databaseDisconnected'))
     ensureSelection()
   } catch (error: any) {
@@ -345,8 +462,10 @@ const saveCurrentSetting = async () => {
       pastefileid: configForm.pasteFileId,
       paste_start: configForm.pasteStart,
       paste_end: configForm.pasteEnd,
-      last_row: lastRowRange.value
+      last_row: lastRowRange.value,
+      parallelism_spreadsheet_id: parallelismSpreadsheetId.value.trim()
     })
+    parallelismSpreadsheetId.value = data.parallelism_spreadsheet_id || ''
     const index = uploadSettings.value.findIndex(item =>
       item.model === data.model && item.test_type === data.test_type && item.oem === data.oem
     )
@@ -366,9 +485,97 @@ const saveCurrentSetting = async () => {
   }
 }
 
+const formatProxyDate = (value: string | null | undefined) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+}
+
+const proxyErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.detail?.message || error?.response?.data?.detail || error?.message || fallback
+
+const fetchProxyStatus = async (showLoading = true) => {
+  if (showLoading && !proxyStatus.value) proxyLoading.value = true
+  proxyError.value = ''
+  try {
+    const { data } = await settingsApi.getGoogleProxyStatus()
+    proxyStatus.value = data
+  } catch (error: any) {
+    proxyError.value = proxyErrorMessage(error, t('settings.proxyLoadFailed'))
+  } finally {
+    if (showLoading) proxyLoading.value = false
+  }
+}
+
+const startProxyPolling = () => {
+  if (proxyPollTimer) return
+  proxyPollTimer = setInterval(() => {
+    if (activeTab.value === 'proxy') fetchProxyStatus(false)
+  }, 10000)
+}
+
+const stopProxyPolling = () => {
+  if (!proxyPollTimer) return
+  clearInterval(proxyPollTimer)
+  proxyPollTimer = null
+}
+
+const refreshBestProxy = async () => {
+  proxyRefreshing.value = true
+  proxyError.value = ''
+  try {
+    const { data } = await settingsApi.refreshGoogleProxy()
+    proxyStatus.value = data
+    startProxyPolling()
+    ElMessage.success(data.started ? t('settings.proxyRefreshStarted') : t('settings.proxyRefreshQueued'))
+  } catch (error: any) {
+    proxyError.value = proxyErrorMessage(error, t('settings.proxyRefreshFailed'))
+    ElMessage.error(proxyError.value)
+  } finally {
+    proxyRefreshing.value = false
+  }
+}
+
+const saveProxySubscription = async () => {
+  const url = proxySubscriptionUrl.value.trim()
+  if (!url) return
+  proxySubscriptionSaving.value = true
+  proxyError.value = ''
+  try {
+    const { data } = await settingsApi.updateGoogleProxySubscription(url)
+    proxyStatus.value = data
+    startProxyPolling()
+    ElMessage.success(data.started ? t('settings.proxySubscriptionSaved') : t('settings.proxyRefreshQueued'))
+  } catch (error: any) {
+    proxyError.value = proxyErrorMessage(error, t('settings.proxySubscriptionFailed'))
+    ElMessage.error(proxyError.value)
+  } finally {
+    proxySubscriptionSaving.value = false
+  }
+}
+
+const refreshActiveSettings = () => {
+  if (activeTab.value === 'proxy') {
+    fetchProxyStatus()
+  } else {
+    fetchUploadSettings()
+  }
+}
+
+watch(activeTab, tab => {
+  if (tab === 'proxy') {
+    fetchProxyStatus()
+    startProxyPolling()
+  } else {
+    stopProxyPolling()
+  }
+})
+
 onMounted(() => {
   fetchUploadSettings()
 })
+
+onBeforeUnmount(stopProxyPolling)
 </script>
 
 <style scoped>
@@ -410,6 +617,46 @@ onMounted(() => {
 .settings-content {
   width: 100%;
   padding-top: 12px;
+}
+
+.proxy-settings-content {
+  display: grid;
+  gap: 16px;
+}
+
+.proxy-panel {
+  margin: 0;
+}
+
+.proxy-summary {
+  align-items: flex-start;
+}
+
+.proxy-desc {
+  margin-bottom: 0;
+}
+
+.proxy-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 20px 20px;
+}
+
+.proxy-error-text {
+  color: #b42318;
+  word-break: break-word;
+}
+
+.subscription-panel {
+  margin-bottom: 20px;
+}
+
+.proxy-subscription-form {
+  padding: 16px 20px 20px;
+}
+
+.proxy-subscription-form :deep(.el-button) {
+  margin-top: 2px;
 }
 
 .settings-toolbar {

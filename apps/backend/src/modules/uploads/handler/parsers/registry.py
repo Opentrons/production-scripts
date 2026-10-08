@@ -74,5 +74,8 @@ def extract_csv(file_path: str, meta: dict[str, Any] | None = None) -> Optional[
         return None
 
     result = parse_csv_by_definition(file_path, definition, meta=meta_override, metadata=meta_data)
+    expected_config = meta_override.get("expected_upload_config_key")
+    if expected_config and expected_config != upload_config_key:
+        result["error"] = "上传的 CSV 类型与所选菜单不匹配，请选择 Robot Leveling 报告"
     result["upload_uploader_key"] = get_upload_uploader_key(result.get("model"))
     return result

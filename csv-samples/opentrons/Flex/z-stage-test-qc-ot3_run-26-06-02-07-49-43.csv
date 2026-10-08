@@ -2,10 +2,10 @@ copy,copy,copy,copy,copy,copy,copy
 0.0,_______________
 0.0,META_DATA_START
 0.0,test_name,z-stage-test-qc-ot3
-5.4,test_tag,ZS102026060105
+5.4,test_tag,zxxxxxx
 0.0,test_run_id,run-26-06-02-07-49-43
-5.4,test_device_id,ZS102026060105,ZS102026060105,PASS
-5.4,test_robot_id,
+5.4,test_device_id,zxxxxxxxx,zxxxxxxxx,PASS
+5.4,test_robot_id,zxxxxxxxx
 0.0,test_time_utc,2026/06/02-07:49:43
 2.7,test_operator,Jiqing,PASS
 5.4,test_version,labware_library@3.7.0_3_gf88e840a9b-f88e840a9b

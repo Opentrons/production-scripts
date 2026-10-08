@@ -915,7 +915,8 @@ class GoogleDriveDriver:
             logger.info("创建表格失败：{}".format(e))
             return spreadsheet_id
 
-    def get_excel_sheet(self, spreadsheetId, range, majorDimensionval='ROWS'):
+    def get_excel_sheet(self, spreadsheetId, range, majorDimensionval='ROWS', *,
+                        raise_on_error=False, value_render_option=None):
         # Call the Sheets API
         """
         获取表格全部数据内容
@@ -927,15 +928,19 @@ class GoogleDriveDriver:
         values = []
         try:
             sheet = self.sheet_service_client.spreadsheets()
+            options = {"valueRenderOption": value_render_option} if value_render_option else {}
             result = sheet.values().get(
                 spreadsheetId=spreadsheetId,
                 range=range,
                 majorDimension=majorDimensionval,
+                **options,
             ).execute()
             values = result.get('values', [])
             return values
         except Exception as err:
             logger.info("获取数据失败{}".format(err))
+            if raise_on_error:
+                raise
             return values
 
     def get_excel_sheet_page(self, spreadsheetId, range, majorDimensionval='ROWS',

@@ -1123,10 +1123,30 @@ export const settingsApi = {
     }),
   updateUploadFinishSetting: (payload: UploadFinishSettingPayload) =>
     api.put<UploadFinishSettingItem>('/settings/upload/finish', payload),
+  getGoogleProxyStatus: () =>
+    api.get<GoogleProxyStatusResponse>('/google/status'),
+  refreshGoogleProxy: () =>
+    api.post<GoogleProxyStatusResponse & { started: boolean }>('/google/proxy/refresh'),
+  updateGoogleProxySubscription: (url: string) =>
+    api.post<GoogleProxyStatusResponse & { started: boolean }>('/google/proxy/subscription', { url }),
   getSimulatingStatus: () =>
     api.get<SimulatingStatusResponse>('/system/simulating'),
   updateSimulatingStatus: (simulating: boolean) =>
     api.put<SimulatingStatusResponse>('/system/simulating', { simulating })
+}
+
+export interface GoogleProxyStatusResponse {
+  status: 'healthy' | 'degraded' | 'unavailable' | 'checking' | 'unknown' | string
+  node: string
+  latency_ms: number | null
+  last_checked_at: string | null
+  refreshing: boolean
+  fallback_count: number
+  last_error: string
+  version: number
+  subscription_configured?: boolean
+  subscription_last_updated_at?: string | null
+  subscription_node_count?: number | null
 }
 
 export interface SimulatingStatusResponse {

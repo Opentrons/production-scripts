@@ -57,6 +57,7 @@ class UploadFinishSettingUpdateRequest(BaseModel):
     paste_start: str | None = None
     paste_end: str | None = None
     last_row: str | None = None
+    parallelism_spreadsheet_id: str | None = None
 
 
 class UploadFinishSettingResponse(BaseModel):
@@ -66,6 +67,7 @@ class UploadFinishSettingResponse(BaseModel):
     environment: str = "production"
     config_file: str | None = None
     last_row: str = "F:I"
+    parallelism_spreadsheet_id: str = ""
     error: str | None = None
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import importlib.util
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -74,3 +75,21 @@ def test_concurrent_atomic_writes_do_not_race_on_temp_path(tmp_path) -> None:
 
     assert yml_path.read_text(encoding="utf-8").startswith("proxies: [")
     assert list(tmp_path.glob(".*.tmp")) == []
+
+
+def test_validate_subscription_supports_ghelper_base64_share_links() -> None:
+    links = "\n".join(
+        [
+            "socks5://user:pass@socks.example.com:443#SOCKS node",
+            "https://" + base64.b64encode(b"user:pass@https.example.com:443/#HTTPS node").decode(),
+            "tuic://unsupported.example.com:443#ignored",
+        ]
+    )
+    payload = base64.b64encode(links.encode()).decode()
+
+    parsed = node_test.validate_subscription_yaml(payload)
+
+    assert [item["name"] for item in parsed["proxies"]] == ["SOCKS node", "HTTPS node"]
+    assert parsed["proxies"][0]["type"] == "socks5"
+    assert parsed["proxies"][1]["type"] == "http"
+    assert parsed["proxies"][1]["tls"] is True
