@@ -29,7 +29,15 @@ import type {
   UploadRecordStatsResponse,
   UploadRecordsResponse,
   InformationKind,
-  InformationFilesResponse
+  InformationFilesResponse,
+  EcnCreatePayload,
+  EcnCreateResponse,
+  EcnRecord,
+  EcnUpdatePayload,
+  EcnRecordsResponse,
+  EcnSyncCheckResponse,
+  EcnMonitorSettings,
+  EcnRiskScanResult
 } from '@/scripts/types'
 
 const api = createApiClient(15000)
@@ -1161,6 +1169,27 @@ export const informationApi = {
     api.get<InformationFilesResponse>(`/information/${kind}`, {
       params: refresh ? { refresh: true } : undefined
     })
+}
+
+export const ecnApi = {
+  list: (params: { table?: 'eng' | 'ipqc'; search?: string; status?: string; page?: number; page_size?: number; sort_order?: 'asc' | 'desc' } = {}) =>
+    api.get<EcnRecordsResponse>('/information/ecn', { params, timeout: 90000 }),
+  checkSync: (table: 'eng' | 'ipqc' = 'eng') =>
+    api.post<EcnSyncCheckResponse>('/information/ecn/check-sync', {}, { params: { table }, timeout: 60000 }),
+  sync: (table: 'eng' | 'ipqc' = 'eng') =>
+    api.post<EcnSyncCheckResponse>('/information/ecn/sync', {}, { params: { table }, timeout: 90000 }),
+  create: (payload: EcnCreatePayload, table: 'eng' | 'ipqc' = 'eng') =>
+    api.post<EcnCreateResponse>('/information/ecn', payload, { params: { table }, timeout: 60000 }),
+  get: (id: string) =>
+    api.get<EcnRecord>(`/information/ecn/${encodeURIComponent(id)}`, { timeout: 30000 }),
+  update: (id: string, payload: EcnUpdatePayload) =>
+    api.put<EcnRecord>(`/information/ecn/${encodeURIComponent(id)}`, payload, { timeout: 60000 }),
+  remove: (id: string) =>
+    api.delete(`/information/ecn/${encodeURIComponent(id)}`, { timeout: 60000 }),
+  getMonitorSettings: () => api.get<EcnMonitorSettings>('/information/ecn/monitor/settings'),
+  saveMonitorSettings: (payload: EcnMonitorSettings) => api.put<EcnMonitorSettings>('/information/ecn/monitor/settings', payload),
+  getMonitorResults: (limit = 30) => api.get<EcnRiskScanResult[]>('/information/ecn/monitor/results', { params: { limit } }),
+  runMonitorScan: (scan_items?: string[]) => api.post<EcnRiskScanResult>('/information/ecn/monitor/scan', { scan_items }, { timeout: 0 }),
 }
 
 export const dataAnalysisApi = {

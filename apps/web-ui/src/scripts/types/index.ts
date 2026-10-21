@@ -105,6 +105,115 @@ export interface InformationFilesResponse {
   error?: string | null
 }
 
+export interface EcnRecord {
+  id: string
+  table: 'eng' | 'ipqc'
+  source_row: number
+  ecn_number: string
+  ecn_title: string
+  product_name: string
+  category: string
+  form_number: string
+  change_item: string
+  before_change: string
+  after_change: string
+  change_date: string
+  changed_by: string
+  change_category: 'software' | 'material' | 'drawing' | 'process' | 'other' | null
+  affected_document: 'drawing' | 'bom' | 'sop' | 'sip' | 'other' | null
+  approved_by: string
+  record_url: string
+  folder_id: string
+  duro_number: string
+  origin: 'google' | 'created'
+  created_at?: string | null
+  updated_at?: string | null
+  extra_fields: Record<string, string>
+}
+
+export interface EcnRecordsResponse {
+  records: EcnRecord[]
+  total: number
+  page: number
+  page_size: number
+  source_url: string
+  storage: 'mongodb'
+  bootstrapped: boolean
+  next_ecn_number: string
+  changed_by_options: string[]
+  status_options: string[]
+  table: 'eng' | 'ipqc'
+}
+
+export interface EcnCreatePayload {
+  ecn_number: string
+  ecn_title: string
+  product_model: string
+  change_item: string
+  before_change: string
+  after_change: string
+  change_date: string
+  changed_by: string
+  change_category: EcnRecord['change_category']
+  affected_document: EcnRecord['affected_document']
+}
+
+export interface EcnUpdatePayload {
+  ecn_title: string
+  product_name: string
+  change_item: string
+  before_change: string
+  after_change: string
+  change_date: string
+  changed_by: string
+  change_category: EcnRecord['change_category']
+  affected_document: EcnRecord['affected_document']
+  approved_by: string
+  duro_number: string
+}
+
+export interface EcnCreateResponse {
+  record: EcnRecord
+  year_folder_created: boolean
+  folder_url: string
+  spreadsheet_url: string
+}
+
+export interface EcnSyncDifference {
+  source_row: number
+  ecn_number: string
+  form_number: string
+  changed_fields: string[]
+}
+
+export interface EcnSyncCheckResponse {
+  in_sync: boolean
+  google_total: number
+  mongodb_total: number
+  missing_count: number
+  extra_count: number
+  changed_count: number
+  missing_in_mongodb: EcnSyncDifference[]
+  extra_in_mongodb: EcnSyncDifference[]
+  changed: EcnSyncDifference[]
+  checked_at: string
+  source_url: string
+}
+
+export interface EcnMonitorSettings {
+  enabled: boolean
+  interval_minutes: number
+  scan_items: string[]
+  updated_at?: string | null
+  last_run_at?: string | null
+}
+export interface EcnRiskScanCategory { category: string; count: number; details: Record<string, any>[] }
+export interface EcnRiskScanResult {
+  id: string; scan_date: string; scanned_at: string; started_at: string; finished_at: string
+  trigger: string; selected_items: string[]; sync_records: Record<string, any>[]
+  process: string[]; total_alerts: number; categories: EcnRiskScanCategory[]
+}
+
 export interface UploadFileInfo {
   path: string
   name: string

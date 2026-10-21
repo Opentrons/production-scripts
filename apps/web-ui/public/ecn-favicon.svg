@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">ECN</title>
+  <defs>
+    <linearGradient id="ecn-surface" x1="12" y1="8" x2="53" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4b5563"/>
+      <stop offset="0.34" stop-color="#1f2937"/>
+      <stop offset="1" stop-color="#080b12"/>
+    </linearGradient>
+    <linearGradient id="ecn-sheen" x1="15" y1="10" x2="48" y2="33" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".58" stop-color="#fff" stop-opacity=".04"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#ecn-surface)"/>
+  <path d="M14 14a10 10 0 0 1 10-10h26a10 10 0 0 1 10 10v7H14z" fill="url(#ecn-sheen)"/>
+  <path d="M14 51.5h36" stroke="#000" stroke-opacity=".28" stroke-width="2"/>
+  <path fill="#fff" d="M17 14h31v8H26v8h19v8H26v4h22v8H17z"/>
+</svg>

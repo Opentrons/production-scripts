@@ -47,6 +47,7 @@ from modules.workflows.runtime import (
     workflow_scheduler,
     workflow_service,
 )
+from modules.ecn.runtime import ecn_monitor_service
 from modules.agent.schedules import agent_schedule_scheduler
 from modules.bridge_tokens.runtime import (
     bridge_token_configuration_service,
@@ -112,6 +113,7 @@ async def lifespan(_: FastAPI):
     if business_persistence_available or IS_DEV_ENV:
         start_health_refresh_scheduler()
     start_information_refresh_scheduler()
+    ecn_monitor_service.start()
     if business_persistence_available:
         workflow_service.initialize()
         bridge_token_service.initialize()
@@ -141,6 +143,7 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        ecn_monitor_service.stop()
         upload_scheduler.stop()
         bridge_token_scheduler.stop()
         workflow_scheduler.stop()

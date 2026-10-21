@@ -1,0 +1,39 @@
+<template>
+  <main class="monitor-page">
+    <div class="monitor-shell">
+      <header class="monitor-heading">
+        <div><div class="eyebrow">ENG / ECN</div><h1>Risk monitor</h1><p>Check ENG and IPQC consistency on a schedule and keep daily alert results.</p></div>
+        <div class="actions"><button class="secondary" @click="$router.push('/information/ecn')">Back to ECN</button><button class="secondary" @click="settingsOpen = true">Scan settings</button><button class="primary" :disabled="running" @click="run">{{ running ? 'Scanning…' : 'Run scan' }}</button></div>
+      </header>
+      <div class="monitor-tabs"><button @click="$router.push('/information/ecn')">ENG</button><button @click="$router.push('/information/ecn?table=ipqc')">IPQC</button><button class="active">Monitor</button></div>
+      <section v-if="running" class="progress"><strong>Scanning</strong><span v-for="item in progress" :key="item">{{ item }}</span></section>
+      <section v-if="error" class="error">{{ error }}</section>
+      <section v-if="!results.length && !loading" class="empty">No scan results yet. Run a scan to begin.</section>
+      <section v-for="result in results" :key="result.id" class="day-card">
+        <header @click="toggle(result.id)"><div><strong>{{ result.scan_date }}</strong><span>{{ result.trigger === 'scheduled' ? 'Scheduled' : 'Manual' }} · {{ formatDate(result.scanned_at) }}</span></div><div class="summary"><b :class="{ danger: result.total_alerts }">{{ result.total_alerts }}</b> alerts <span>{{ open[result.id] ? 'Collapse' : 'Expand' }}</span></div></header>
+        <div v-if="open[result.id]" class="day-body"><details class="process"><summary>Scan process ({{ result.process.length }})</summary><p v-for="line in result.process" :key="line">{{ line }}</p></details><div v-if="!result.categories.length" class="ok">Scan passed with no alerts.</div><details v-for="group in result.categories" :key="group.category" class="alert-group" open><summary><span>{{ labels[group.category] || group.category }}</span><b>{{ group.count }}</b></summary><div v-for="item in group.details" :key="item.message + item.ecn_number" class="alert-row"><strong>{{ item.ecn_number || 'Dataset' }}</strong><span>{{ item.message }}</span></div></details></div>
+      </section>
+    </div>
+    <div v-if="settingsOpen" class="backdrop" @mousedown.self="settingsOpen = false"><section class="dialog"><h2>Automatic scan settings</h2><label class="switch"><input v-model="settings.enabled" type="checkbox" />Enable automatic scan</label><label>Frequency (minutes)<input v-model.number="settings.interval_minutes" type="number" min="5" max="10080" /></label><fieldset><legend>Scan items</legend><label v-for="item in scanItems" :key="item.key"><input v-model="settings.scan_items" type="checkbox" :value="item.key" />{{ item.label }}</label></fieldset><div class="dialog-actions"><button class="secondary" @click="settingsOpen = false">Cancel</button><button class="primary" @click="saveSettings">Save</button></div></section></div>
+  </main>
+</template>
+
+<script setup lang="ts">
+import { onMounted, reactive, ref } from 'vue'
+import { ecnApi } from '@/scripts/api'
+import type { EcnMonitorSettings, EcnRiskScanResult } from '@/scripts/types'
+const labels: Record<string, string> = { count: 'ENG / IPQC count mismatch', sequence: 'ECN number gaps', missing_ipqc: 'Missing IPQC / delay', master_links: 'Missing master link', linked_number: 'Linked sheet number mismatch', single_choice: 'Non-single-choice field' }
+const scanItems = [{ key: 'sync', label: 'Sync ENG / IPQC data' }, { key: 'count', label: 'Check record counts' }, { key: 'sequence', label: 'Check ECN number gaps' }, { key: 'missing_ipqc', label: 'Check IPQC delay' }, { key: 'master_links', label: 'Check master links' }, { key: 'linked_number', label: 'Check linked sheet number' }, { key: 'single_choice', label: 'Check single-choice fields' }]
+const results = ref<EcnRiskScanResult[]>([]); const loading = ref(true); const running = ref(false); const error = ref(''); const settingsOpen = ref(false); const open = reactive<Record<string, boolean>>({}); const progress = ref(['Checking ENG / IPQC sync status…'])
+const settings = reactive<EcnMonitorSettings>({ enabled: false, interval_minutes: 1440, scan_items: scanItems.map(x => x.key) })
+function formatDate(value: string) { return new Date(value).toLocaleString('zh-CN', { hour12: false }) }
+function toggle(id: string) { open[id] = !open[id] }
+async function load() { loading.value = true; try { results.value = (await ecnApi.getMonitorResults()).data; results.value.forEach((x, i) => { open[x.id] = i === 0 }) } catch (e) { error.value = e instanceof Error ? e.message : 'Load failed' } finally { loading.value = false } }
+async function run() { running.value = true; error.value = ''; progress.value = ['Checking ENG / IPQC sync status…', 'Running checks and saving to MongoDB…']; try { const item = (await ecnApi.runMonitorScan(settings.scan_items)).data; results.value = [item, ...results.value]; open[item.id] = true } catch (e) { error.value = e instanceof Error ? e.message : 'Scan failed' } finally { running.value = false } }
+async function saveSettings() { try { Object.assign(settings, (await ecnApi.saveMonitorSettings(settings)).data); settingsOpen.value = false } catch (e) { error.value = e instanceof Error ? e.message : 'Save failed' } }
+onMounted(async () => { await load(); try { Object.assign(settings, (await ecnApi.getMonitorSettings()).data) } catch { /* defaults are usable */ } })
+</script>
+
+<style scoped>
+.monitor-page{min-height:100vh;background:#f6f8fb;color:#172033;padding:42px 30px}.monitor-shell{max-width:1180px;margin:auto}.monitor-heading{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.eyebrow{font-size:12px;color:#68758a;letter-spacing:.12em}.monitor-heading h1{margin:8px 0;font-size:32px}.monitor-heading p{color:#68758a}.actions,.dialog-actions{display:flex;gap:10px}.primary,.secondary{border:0;border-radius:8px;padding:10px 16px;cursor:pointer}.primary{background:#1769e0;color:#fff}.secondary{background:#fff;border:1px solid #d8dfeb}.monitor-tabs{display:flex;gap:4px;border-bottom:1px solid #dce3ed;margin:28px 0 18px}.monitor-tabs button{border:0;background:transparent;padding:12px 20px;color:#68758a;cursor:pointer}.monitor-tabs .active{color:#1769e0;border-bottom:2px solid #1769e0}.progress,.error,.empty,.day-card{background:#fff;border:1px solid #e1e7ef;border-radius:12px;margin:14px 0}.progress{padding:16px;display:flex;gap:20px}.progress span{color:#68758a}.error{padding:14px;color:#b42318}.empty{padding:55px;text-align:center;color:#68758a}.day-card{overflow:hidden}.day-card>header{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;cursor:pointer}.day-card header span{display:block;font-size:13px;color:#748196;margin-top:5px}.summary{display:flex;align-items:center;gap:10px;color:#68758a}.summary b{color:#198754;font-size:22px}.summary b.danger{color:#c63d3d}.day-body{padding:0 20px 20px}.process{background:#f7f9fc;padding:12px;border-radius:8px}.process p{margin:6px 0;color:#68758a}.alert-group{border-top:1px solid #edf0f5;padding:12px 0}.alert-group summary{display:flex;justify-content:space-between;cursor:pointer}.alert-group summary b{color:#c63d3d}.alert-row{display:flex;gap:18px;padding:10px 8px;color:#515e72}.alert-row strong{min-width:100px;color:#172033}.ok{padding:16px;color:#198754}.backdrop{position:fixed;inset:0;background:#0006;display:grid;place-items:center}.dialog{background:#fff;border-radius:14px;padding:26px;width:min(460px,calc(100vw - 30px));display:grid;gap:17px}.dialog h2{margin:0}.dialog label{display:flex;gap:10px;align-items:center}.dialog input[type=number]{width:120px;padding:8px}.dialog fieldset{border:1px solid #d8dfeb;border-radius:8px;display:grid;gap:8px}.dialog-actions{justify-content:flex-end}
+</style>
