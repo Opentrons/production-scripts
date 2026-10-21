@@ -1,5 +1,6 @@
 import enUS from '../src/i18n/locales/en-US.ts'
 import zhCN from '../src/i18n/locales/zh-CN.ts'
+import { chineseCopy, englishCopy, dialogChinese, dialogEnglish, maintenanceChinese, maintenanceEnglish } from '../src/i18n/locales/defectSearch.ts'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 
@@ -14,8 +15,8 @@ function flatten(value, prefix = '', result = new Map()) {
   return result
 }
 
-const zhKeys = flatten(zhCN)
-const enKeys = flatten(enUS)
+const zhKeys = flatten({ ...zhCN, defectSearch: { search: chineseCopy, dialog: dialogChinese, maintenance: maintenanceChinese } })
+const enKeys = flatten({ ...enUS, defectSearch: { search: englishCopy, dialog: dialogEnglish, maintenance: maintenanceEnglish } })
 const errors = []
 
 for (const [key, type] of zhKeys) {

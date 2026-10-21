@@ -8,6 +8,7 @@ from modules.protocol_monitor.routes import router as protocol_monitor_router
 
 from api.routers import (
     data,
+    defect_search,
     file_transfer,
     integrations,
     information,
@@ -48,6 +49,7 @@ protected_router.include_router(test_management.router)
 protected_router.include_router(test_versions.router)
 protected_router.include_router(system.router)
 protected_router.include_router(data.router)
+protected_router.include_router(defect_search.router)
 protected_router.include_router(uploads.router)
 protected_router.include_router(products.router)
 protected_router.include_router(robots.router)

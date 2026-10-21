@@ -63,6 +63,7 @@ interface DashboardMessages {
       downloads: ModuleCopy
       agent: ModuleCopy
       testVersions: ModuleCopy
+      defectSearch: ModuleCopy
     }
     routes: {
       devices: string
@@ -209,6 +210,10 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
           name: 'Test Versions',
           summary: '查看 Duro 软件、固件和测试提交版本，并对照现场测试版本记录。',
         },
+        defectSearch: {
+          name: '缺陷分析助手',
+          summary: '输入缺陷现象，分析历史案例、处置措施和来源依据。',
+        },
       },
       routes: {
         devices: '设备管理',
@@ -352,6 +357,10 @@ export const dashboardMessages: Record<DashboardLocale, DashboardMessages> = {
         testVersions: {
           name: 'Test Versions',
           summary: 'Track Duro software, firmware, and test commit versions alongside captured test records.',
+        },
+        defectSearch: {
+          name: 'Defect Analysis Assistant',
+          summary: 'Analyze historical defect cases, recorded actions, and source evidence by symptom.',
         },
       },
       routes: {
