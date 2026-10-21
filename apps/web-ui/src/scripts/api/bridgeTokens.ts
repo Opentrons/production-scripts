@@ -121,4 +121,8 @@ export const bridgeTokensApi = {
     api.get<BridgeTokenConfiguration>('/bridge-tokens/configuration'),
   updateConfiguration: (payload: BridgeTokenConfigurationUpdate) =>
     api.put<BridgeTokenConfiguration>('/bridge-tokens/configuration', payload),
+  updateAutomation: (automation_enabled: boolean) =>
+    api.patch<BridgeTokenConfiguration>('/bridge-tokens/configuration/automation', {
+      automation_enabled,
+    }),
 }

@@ -420,8 +420,21 @@ def test_configuration_update_retains_blank_secrets_and_hot_applies(tmp_path: Pa
     assert applied[-1] == repository.value
 
 
+def test_automation_toggle_persists_and_hot_applies(tmp_path: Path) -> None:
+    service, repository, applied = build_configuration_service(tmp_path)
+    service.initialize()
+
+    response = service.update_automation(True, updated_by="admin")
+
+    assert repository.value is not None
+    assert repository.value.automation_enabled is True
+    assert repository.value.updated_by == "admin"
+    assert response.automation_enabled is True
+    assert applied[-1] == repository.value
+
+
 def test_configuration_routes_require_admin(tmp_path: Path) -> None:
-    configuration_service, _, _ = build_configuration_service(tmp_path)
+    configuration_service, repository, applied = build_configuration_service(tmp_path)
     configuration_service.initialize()
     app = FastAPI()
     app.include_router(bridge_token_router)
@@ -434,6 +447,10 @@ def test_configuration_routes_require_admin(tmp_path: Path) -> None:
     client = TestClient(app)
 
     assert client.get("/bridge-tokens/configuration").status_code == 403
+    assert client.patch(
+        "/bridge-tokens/configuration/automation",
+        json={"automation_enabled": True},
+    ).status_code == 403
 
     app.dependency_overrides[require_authenticated_user] = lambda: auth_user(
         role="admin"
@@ -442,6 +459,16 @@ def test_configuration_routes_require_admin(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.json()["access_token_configured"] is True
     assert "access_token" not in response.json()
+
+    response = client.patch(
+        "/bridge-tokens/configuration/automation",
+        json={"automation_enabled": True},
+    )
+    assert response.status_code == 200
+    assert response.json()["automation_enabled"] is True
+    assert repository.value is not None
+    assert repository.value.automation_enabled is True
+    assert applied[-1] == repository.value
 
 
 def test_due_slots_use_beijing_week_and_half_hour() -> None:

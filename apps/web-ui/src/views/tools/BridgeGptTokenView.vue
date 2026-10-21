@@ -280,7 +280,7 @@
           <button
             class="dialog-close"
             type="button"
-            :disabled="configurationSaving"
+            :disabled="configurationSaving || automationSaving"
             :title="t('common.actions.close')"
             :aria-label="t('common.actions.close')"
             @click="closeConfiguration"
@@ -295,7 +295,12 @@
               <h3>{{ t('bridgeTokens.configuration.automation') }}</h3>
               <p>{{ t('bridgeTokens.configuration.automationSchedule') }}</p>
             </div>
-            <el-switch v-model="configurationForm.automation_enabled" />
+            <el-switch
+              v-model="configurationForm.automation_enabled"
+              :disabled="configurationSaving || automationSaving"
+              :loading="automationSaving"
+              @change="toggleAutomation"
+            />
           </section>
 
           <p v-if="configurationForm.automation_enabled" class="configuration-warning">
@@ -454,10 +459,10 @@
                 time: formatDate(configuration.updated_at),
               }) }}
             </span>
-            <button type="button" :disabled="configurationSaving" @click="closeConfiguration">
+            <button type="button" :disabled="configurationSaving || automationSaving" @click="closeConfiguration">
               {{ t('common.actions.cancel') }}
             </button>
-            <button class="is-primary" type="submit" :disabled="configurationSaving">
+            <button class="is-primary" type="submit" :disabled="configurationSaving || automationSaving">
               <Save :size="16" aria-hidden="true" />
               {{ configurationSaving
                 ? t('bridgeTokens.configuration.saving')
@@ -516,6 +521,7 @@ const activeTab = ref<ActiveTab>('balance')
 const configurationOpen = ref(false)
 const configurationLoading = ref(false)
 const configurationSaving = ref(false)
+const automationSaving = ref(false)
 const configurationError = ref('')
 const configuration = ref<BridgeTokenConfiguration | null>(null)
 const configurationForm = ref<BridgeTokenConfigurationUpdate>(emptyConfigurationForm())
@@ -691,13 +697,56 @@ async function openConfiguration(): Promise<void> {
 }
 
 function closeConfiguration(): void {
-  if (configurationSaving.value) return
+  if (configurationSaving.value || automationSaving.value) return
   configurationOpen.value = false
   configurationError.value = ''
 }
 
+async function toggleAutomation(value: string | number | boolean): Promise<void> {
+  if (automationSaving.value || configurationSaving.value) return
+  const enabled = Boolean(value)
+  const previous = configuration.value?.automation_enabled ?? !enabled
+  if (enabled && !previous) {
+    try {
+      await ElMessageBox.confirm(
+        t('bridgeTokens.configuration.enableConfirmation'),
+        t('bridgeTokens.configuration.enableConfirmationTitle'),
+        {
+          confirmButtonText: t('bridgeTokens.configuration.confirmEnable'),
+          cancelButtonText: t('common.actions.cancel'),
+          type: 'warning',
+        },
+      )
+    } catch {
+      configurationForm.value.automation_enabled = previous
+      return
+    }
+  }
+
+  automationSaving.value = true
+  configurationError.value = ''
+  try {
+    const response = await bridgeTokensApi.updateAutomation(enabled)
+    configuration.value = response.data
+    configurationForm.value.automation_enabled = response.data.automation_enabled
+    ElMessage.success(t(
+      response.data.automation_enabled
+        ? 'bridgeTokens.configuration.automationEnabled'
+        : 'bridgeTokens.configuration.automationDisabled',
+    ))
+  } catch (error) {
+    configurationForm.value.automation_enabled = previous
+    configurationError.value = apiError(
+      error,
+      t('bridgeTokens.configuration.automationSaveFailed'),
+    )
+  } finally {
+    automationSaving.value = false
+  }
+}
+
 async function saveConfiguration(): Promise<void> {
-  if (configurationSaving.value) return
+  if (configurationSaving.value || automationSaving.value) return
   if (
     configurationForm.value.automation_enabled
     && !configuration.value?.automation_enabled

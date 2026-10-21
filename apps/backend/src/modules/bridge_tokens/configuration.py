@@ -114,6 +114,10 @@ class BridgeTokenConfigurationUpdate(BaseModel):
     smtp_password: str | None = Field(default=None, max_length=8000)
 
 
+class BridgeTokenAutomationUpdate(BaseModel):
+    automation_enabled: bool
+
+
 class BridgeTokenConfigurationResponse(BaseModel):
     source: Literal["mongodb"] = "mongodb"
     automation_enabled: bool
@@ -327,6 +331,30 @@ class BridgeTokenConfigurationService:
         if candidate.automation_enabled and (
             not current.automation_enabled or credentials_changed
         ):
+            self._validate_credentials(candidate)
+        saved = self.repository.save(candidate)
+        self._apply(saved)
+        return self._response(saved)
+
+    def update_automation(
+        self,
+        automation_enabled: bool,
+        *,
+        updated_by: str,
+    ) -> BridgeTokenConfigurationResponse:
+        current = self.repository.get() or self._environment_configuration()
+        candidate = current.model_copy(
+            update={
+                "automation_enabled": automation_enabled,
+                "updated_at": utc_now(),
+                "updated_by": updated_by,
+            }
+        )
+        if candidate.automation_enabled and not (
+            candidate.access_token or candidate.refresh_token
+        ):
+            raise ValueError("开启自动化前必须配置 Bridgefloods access token 或 refresh token")
+        if candidate.automation_enabled and not current.automation_enabled:
             self._validate_credentials(candidate)
         saved = self.repository.save(candidate)
         self._apply(saved)

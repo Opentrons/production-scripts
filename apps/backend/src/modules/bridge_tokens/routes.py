@@ -8,6 +8,7 @@ from modules.auth.dependencies import require_authenticated_user
 from modules.auth.store import AuthUser
 from modules.bridge_tokens.models import AllocationRecordPage, CurrentUserTokenResponse
 from modules.bridge_tokens.configuration import (
+    BridgeTokenAutomationUpdate,
     BridgeTokenConfigurationResponse,
     BridgeTokenConfigurationService,
     BridgeTokenConfigurationUnavailable,
@@ -99,6 +100,31 @@ def update_bridge_token_configuration(
 ) -> BridgeTokenConfigurationResponse:
     try:
         return service.update_configuration(payload, updated_by=user.username)
+    except BridgeTokenConfigurationUnavailable as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+
+@router.patch("/configuration/automation", response_model=BridgeTokenConfigurationResponse)
+def update_bridge_token_automation(
+    payload: BridgeTokenAutomationUpdate,
+    user: AuthUser = Depends(require_bridge_token_admin),
+    service: BridgeTokenConfigurationService = Depends(
+        get_bridge_token_configuration_service
+    ),
+) -> BridgeTokenConfigurationResponse:
+    try:
+        return service.update_automation(
+            payload.automation_enabled,
+            updated_by=user.username,
+        )
     except BridgeTokenConfigurationUnavailable as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
