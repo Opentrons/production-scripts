@@ -90,3 +90,6 @@ apps/backend/data/*.json
 
 # Accidental Opentrons worktree stubs (literal $WT path)
 $WT/
+
+# Local defect knowledge database and downloaded model cache
+apps/backend/data/defect-search/

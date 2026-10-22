@@ -40,6 +40,7 @@ export default {
     versions: 'Productions Versions',
     testVersions: 'Test Versions | Productions',
     agent: '生产助手',
+    defectSearch: '缺陷分析助手 | Productions',
     testing: 'Productions Testing',
     bridgeGptToken: 'Bridge GPT Token | Productions',
     pipSettingsReview: 'Pip Settings Review | Productions',

@@ -585,6 +585,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Search,
   Save,
   Settings,
   Trash2,
@@ -1062,6 +1063,14 @@ const modules = computed<DashboardModule[]>(() => [
     href: productionAgentBaseUrl,
     openInNewTab: true,
     iconSrc: '/agent-favicon.svg',
+  },
+  {
+    ...copy.value.dashboard.modules.defectSearch,
+    status: copy.value.status.active,
+    statusClass: 'status-active',
+    href: '/production/defect-search',
+    openInNewTab: false,
+    icon: Search,
   },
 ])
 

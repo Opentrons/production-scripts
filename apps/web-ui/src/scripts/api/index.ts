@@ -943,6 +943,215 @@ export const collectionApi = {
     })
 }
 
+export interface DefectSearchCase {
+  local_id: string
+  original_product?: string
+  source: string
+  source_url: string
+  source_sheet: string
+  source_row: string
+  symptom_category: string
+  symptom_normalized: string
+  problem_type_normalized: string
+  knowledge_status: string
+  duplicate_candidate: string
+  match_score: string
+  match_reason?: 'symptom_exact' | 'duration_exact' | 'serial_exact' | 'keyword' | 'semantic' | 'fuzzy' | 'browse'
+  record_no: string
+  date: string
+  station: string
+  defect_code: string
+  product: string
+  serial_number: string
+  defect_description: string
+  containment_action: string
+  exchange_component: string
+  exchange_verification: string
+  cause_analysis: string
+  long_term_action_qe: string
+  responsible_department: string
+  engineering_analysis_needed: string
+  informed_engineer: string
+  root_cause: string
+  long_term_action_engineering: string
+  verified_by: string
+  remark: string
+  problem_type?: string
+  completion_date?: string
+}
+
+export interface DefectActionSource {
+  local_id: string
+  source: string
+  source_row: string
+  source_url: string
+  defect_description: string
+  verification: string
+  original_action?: string
+}
+
+export type DefectEvidenceLevel = 'single' | 'multiple' | 'verified'
+
+export interface DefectAdviceOption {
+  product: string
+  description?: string
+  action: string
+  count: number
+  matched_cases: number
+  stations: string[]
+  defect_codes: string[]
+  sources: DefectActionSource[]
+}
+
+export interface DefectAdviceNextStep {
+  kind: 'history' | 'engineering_review' | 'compare_actions'
+  action: string
+  count: number
+  sources: DefectActionSource[]
+  note: string
+  options?: DefectAdviceOption[]
+}
+
+export interface DefectFirstStep {
+  kind: 'retest' | 'historical' | 'reference' | 'select_product' | 'confirm_symptom' | 'no_history' | 'no_action' | 'clarify_symptom' | 'compare_actions'
+  reason?: 'multiple_products' | 'multiple_stations' | 'multiple_codes' | 'broad_symptom' | 'similar_only' | 'mixed_symptoms' | 'missing_symptom' | 'missing_action' | 'no_history' | 'action_tie' | 'policy' | 'history'
+  basis: 'policy' | 'exact' | 'similar' | 'filtered' | 'none'
+  product: string
+  products?: string[]
+  stations?: string[]
+  defect_codes?: string[]
+  action: string
+  count: number
+  matched_cases: number
+  sources: DefectActionSource[]
+  evidence_level?: DefectEvidenceLevel | 'none' | 'policy'
+  verified_cases?: number
+  latest_date?: string
+  attempted_action?: string
+  conditions?: string[]
+  alternatives?: DefectAdviceOption[]
+  options?: DefectAdviceOption[]
+  next_step?: DefectAdviceNextStep | null
+}
+
+export interface DefectSearchResponse {
+  total: number
+  page: number
+  page_size: number
+  cases: DefectSearchCase[]
+  suggested_actions: Array<{ action: string; count: number }>
+  recommendations: Array<{
+    product: string
+    matched_cases: number
+    missing_action_cases: number
+    non_action_cases?: number
+    stations: string[]
+    defect_codes: string[]
+    actions: Array<{
+      action: string
+      count: number
+      share: number
+      sources: DefectActionSource[]
+      evidence_level?: DefectEvidenceLevel
+      verified_cases?: number
+      latest_date?: string
+      operation?: string
+      components?: string[]
+      versions?: string[]
+      positions?: string[]
+    }>
+  }>
+  recommendation_basis: 'exact' | 'similar' | 'filtered' | 'none'
+  first_step: DefectFirstStep | null
+  summary: {
+    total_cases: number
+    capacity_cases: number
+    capacity_retest_cases: number
+    root_cause_cases: number
+    action_profiles?: number
+    action_cases?: number
+  }
+  is_capacity_failure: boolean
+  search_mode: 'browse' | 'exact' | 'semantic' | 'fuzzy_fallback'
+  applied_constraints?: { products: string[]; stations?: string[]; duration_seconds: number[]; channels: string[]; serials?: string[]; action: string; attempted_action?: string }
+}
+
+export interface DefectSearchOptions {
+  product: string[]
+  station: string[]
+  defect_code: string[]
+}
+
+export interface DefectFeedback {
+  id: string
+  case_id: number
+  query: string
+  action: string
+  outcome: 'passed' | 'failed' | 'pending'
+  recurrence: 'unknown' | 'yes' | 'no'
+  note: string
+  created_at: string
+  created_by?: string
+  repair_session_id?: string
+  actual_serial_number?: string
+}
+
+export interface DefectNextStep {
+  kind: 'resolved' | 'pending' | 'follow_history' | 'history' | 'compare_actions' | 'engineering_review'
+  action: string
+  reason: string
+  sources: DefectActionSource[]
+  options?: DefectAdviceOption[]
+}
+
+export interface DefectRepairSession {
+  repair_session_id: string
+  actual_serial_number: string
+  next_step?: DefectNextStep | null
+}
+
+export interface DefectMaintenanceStatus {
+  data_version: string
+  last_updated?: string
+  backup_count: number
+  last_backup?: string | { name?: string; path?: string; created_at?: string } | null
+  total_cases?: number
+  active_cases?: number
+  changes?: Array<{ event: string; created_at: string; details: { rows?: number; inserted?: number; updated?: number; unchanged?: number; backup?: string } }>
+}
+
+export interface DefectImportPreview {
+  preview_token: string
+  rows: number
+  inserted: number
+  updated: number
+  unchanged: number
+  errors: Array<string | { row?: number; field?: string; message?: string; error?: string }>
+  columns: string[]
+}
+
+const defectSearchClient = createApiClient(60000)
+
+export const defectSearchApi = {
+  getOptions: () => defectSearchClient.get<DefectSearchOptions>('/defect-search/options'),
+  search: (params: {
+    q?: string
+    product?: string
+    station?: string
+    defect_code?: string
+    action?: string
+    page?: number
+    page_size?: number
+  }, signal?: AbortSignal) => defectSearchClient.get<DefectSearchResponse>('/defect-search/cases', { params, signal }),
+  getSource: (id: number, signal?: AbortSignal) => defectSearchClient.get<{ case: DefectSearchCase }>(`/defect-search/source/${id}/data`, { signal }),
+  getFeedback: (caseId: number, signal?: AbortSignal, repairSessionId?: string) => defectSearchClient.get<{ feedback: DefectFeedback[] }>('/defect-search/feedback', { params: { case_id: caseId, repair_session_id: repairSessionId || undefined }, signal }),
+  saveFeedback: (payload: Pick<DefectFeedback, 'case_id' | 'query' | 'action' | 'outcome' | 'recurrence' | 'note'> & Partial<Pick<DefectFeedback, 'repair_session_id' | 'actual_serial_number'>>, signal?: AbortSignal) => defectSearchClient.post<{ feedback: DefectFeedback; next_step: DefectNextStep }>('/defect-search/feedback', payload, { signal }),
+  getMaintenance: () => defectSearchClient.get<DefectMaintenanceStatus>('/defect-search/maintenance'),
+  previewImport: (csvContent: string) => defectSearchClient.post<DefectImportPreview>('/defect-search/import/preview', { csv_content: csvContent }),
+  importCases: (csvContent: string, previewToken: string) => defectSearchClient.post<{ inserted: number; updated: number; unchanged: number; data_version: string }>('/defect-search/import', { csv_content: csvContent, preview_token: previewToken }),
+  backup: () => defectSearchClient.post('/defect-search/backup'),
+}
+
 export const dataLinksApi = {
   getDataLinks: () => api.get<DataLinksResponse>('/data-links')
 }
