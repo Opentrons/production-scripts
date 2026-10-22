@@ -113,6 +113,18 @@ class EcnRiskScanRequest(BaseModel):
     scan_items: list[str] | None = None
 
 
+class EcnRiskScanLog(BaseModel):
+    at: datetime
+    step: str
+    title: str
+    status: Literal["running", "success", "warning", "error", "info"] = "info"
+    message: str
+    checked_count: int | None = None
+    alert_count: int | None = None
+    issues: list[dict] = Field(default_factory=list)
+    details: dict = Field(default_factory=dict)
+
+
 class EcnRiskScanResult(BaseModel):
     id: str
     scan_date: str
@@ -123,5 +135,6 @@ class EcnRiskScanResult(BaseModel):
     selected_items: list[str] = Field(default_factory=list)
     sync_records: list[dict] = Field(default_factory=list)
     process: list[str] = Field(default_factory=list)
+    process_logs: list[EcnRiskScanLog] = Field(default_factory=list)
     total_alerts: int = 0
     categories: list[dict] = Field(default_factory=list)

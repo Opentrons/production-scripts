@@ -6,7 +6,7 @@
           <div class="ecn-title-row"><img src="/ecn-favicon.svg" alt="" aria-hidden="true" /><h1>{{ t('ecn.title') }}</h1></div>
           <p class="introduction">{{ t('ecn.introduction') }}</p>
         </div>
-        <div class="heading-actions">
+        <div v-if="activeView !== 'monitor'" class="heading-actions">
           <a class="secondary-button" :href="sourceUrl" target="_blank" rel="noopener noreferrer">
             <ExternalLink :size="17" aria-hidden="true" />
             {{ t('ecn.openMaster') }}
@@ -25,12 +25,12 @@
       <p v-if="notice" class="notice" :class="`is-${notice.type}`" role="status">{{ notice.message }}</p>
 
       <nav class="ecn-tabs" role="tablist" :aria-label="t('ecn.tabs.label')">
-        <button type="button" role="tab" :aria-selected="activeTable === 'eng'" :class="{ 'is-active': activeTable === 'eng' }" @click="switchTable('eng')">ENG</button>
-        <button type="button" role="tab" :aria-selected="activeTable === 'ipqc'" :class="{ 'is-active': activeTable === 'ipqc' }" @click="switchTable('ipqc')">IPQC</button>
-        <button type="button" class="monitor-tab" @click="$router.push('/information/ecn/monitor')">Monitor</button>
+        <button type="button" role="tab" :aria-selected="activeView === 'monitor'" :class="{ 'is-active': activeView === 'monitor' }" @click="switchView('monitor')">{{ t('ecn.tabs.monitor') }}</button>
+        <button type="button" role="tab" :aria-selected="activeView === 'records' && activeTable === 'eng'" :class="{ 'is-active': activeView === 'records' && activeTable === 'eng' }" @click="switchTable('eng')">ENG</button>
+        <button type="button" role="tab" :aria-selected="activeView === 'records' && activeTable === 'ipqc'" :class="{ 'is-active': activeView === 'records' && activeTable === 'ipqc' }" @click="switchTable('ipqc')">IPQC</button>
       </nav>
 
-      <section v-if="syncStatus" class="sync-panel" :class="{ 'is-synced': syncStatus.in_sync }">
+      <section v-if="activeView !== 'monitor' && syncStatus" class="sync-panel" :class="{ 'is-synced': syncStatus.in_sync }">
         <div>
           <strong>{{ syncStatus.in_sync ? t('ecn.sync.syncedTitle') : t('ecn.sync.unsyncedTitle') }}</strong>
           <p>{{ t('ecn.sync.counts', { google: syncStatus.google_total, mongo: syncStatus.mongodb_total }) }}</p>
@@ -46,7 +46,7 @@
         </div>
       </section>
 
-      <section class="records-card" aria-labelledby="ecn-records-title">
+      <section v-if="activeView !== 'monitor'" class="records-card" aria-labelledby="ecn-records-title">
         <header class="records-toolbar">
           <div><h2 id="ecn-records-title">{{ t('ecn.table.title') }}</h2><p>{{ t('ecn.table.description') }}</p></div>
           <form class="search-form" @submit.prevent="applySearch">
@@ -114,6 +114,34 @@
           </div>
         </footer>
       </section>
+
+      <section v-else class="monitor-panel" aria-labelledby="ecn-monitor-title">
+        <header class="records-toolbar monitor-toolbar">
+          <div><h2 id="ecn-monitor-title">{{ t('ecn.monitor.title') }}</h2><p>{{ t('ecn.monitor.description') }}</p></div>
+          <div class="heading-actions">
+            <button class="secondary-button" type="button" @click="monitorSettingsOpen = true">{{ t('ecn.monitor.settings') }}</button>
+            <button class="primary-button" type="button" :disabled="monitorRunning" @click="runMonitorScan">
+              <RefreshCw :size="17" :class="{ spinning: monitorRunning }" />
+              {{ monitorRunning ? t('ecn.monitor.scanning') : t('ecn.monitor.run') }}
+            </button>
+          </div>
+        </header>
+        <div v-if="monitorRunning" class="monitor-progress" role="status"><RefreshCw class="spinning" :size="17" /><span v-for="line in monitorProgress" :key="line">{{ line }}</span></div>
+        <div v-if="monitorError" class="notice is-error" role="alert">{{ monitorError }}</div>
+        <div v-if="!monitorResults.length && !monitorLoading" class="state-box"><FileSpreadsheet :size="28" /><strong>{{ t('ecn.monitor.empty') }}</strong></div>
+        <div v-else-if="monitorLoading" class="state-box"><RefreshCw class="spinning" :size="24" /><span>{{ t('ecn.monitor.loading') }}</span></div>
+        <div v-for="result in monitorResults" :key="result.id" class="monitor-day">
+          <button class="monitor-day-header" type="button" @click="toggleMonitorDay(result.id)">
+            <span><strong>{{ result.scan_date }}</strong><small>{{ result.trigger === 'scheduled' ? t('ecn.monitor.scheduled') : t('ecn.monitor.manual') }} · {{ formatMonitorDate(result.scanned_at) }}</small></span>
+            <span class="monitor-summary"><b :class="{ 'has-alerts': result.total_alerts > 0 }">{{ result.total_alerts }}</b>{{ t('ecn.monitor.alerts') }}<span>{{ monitorOpen[result.id] ? t('ecn.monitor.collapse') : t('ecn.monitor.expand') }}</span></span>
+          </button>
+          <div v-if="monitorOpen[result.id]" class="monitor-day-body">
+            <details class="monitor-process"><summary>{{ t('ecn.monitor.process', { count: monitorLogs(result).length }) }}</summary><div class="monitor-checklist"><div v-for="item in monitorChecklist(result)" :key="item.key" class="monitor-check-item" :class="`is-${item.status}`"><CircleCheck v-if="item.status === 'success'" :size="18" /><X v-else-if="item.status === 'warning' || item.status === 'error'" :size="18" /><span v-else class="monitor-check-dash">—</span><div><strong>{{ t(item.labelKey) }}</strong><small>{{ item.message }}</small></div></div></div><div class="monitor-log-list"><article v-for="(log, index) in monitorLogs(result)" :key="`${log.at}-${index}`" class="monitor-log" :class="`is-${log.status}`"><header><span class="monitor-log-status">{{ t(`ecn.monitor.status.${log.status}`) }}</span><strong>{{ log.title }}</strong><time>{{ formatMonitorDate(log.at) }}</time></header><p>{{ log.message }}</p><small v-if="log.checked_count !== null && log.checked_count !== undefined">{{ t('ecn.monitor.checkedCount', { count: log.checked_count }) }}</small><details v-if="monitorLogIssues(log).length" class="monitor-log-details"><summary>{{ t('ecn.monitor.problemDetails', { count: monitorLogIssues(log).length }) }}</summary><ul class="monitor-log-issues"><li v-for="(issue, issueIndex) in monitorLogIssues(log)" :key="`${issue.message}-${issueIndex}`">{{ issue.message }}</li></ul></details><details v-if="log.details?.missing_records?.length" class="monitor-log-details"><summary>{{ t('ecn.monitor.syncMissing') }}</summary><div class="monitor-log-data">{{ monitorRecordNumbers(log.details.missing_records) }}</div></details><details v-if="log.details?.extra_records?.length" class="monitor-log-details"><summary>{{ t('ecn.monitor.syncExtra') }}</summary><div class="monitor-log-data">{{ monitorRecordNumbers(log.details.extra_records) }}</div></details><details v-if="log.details?.changed_records?.length" class="monitor-log-details"><summary>{{ t('ecn.monitor.syncChanged') }}</summary><div class="monitor-log-data">{{ monitorRecordNumbers(log.details.changed_records) }}</div></details></article></div></details>
+            <div v-if="!result.categories.length" class="monitor-ok"><CircleCheck :size="17" />{{ t('ecn.monitor.noAlerts') }}</div>
+            <details v-for="group in monitorAlertGroups(result)" :key="group.category" class="monitor-alert-group" :class="{ 'is-safe': group.count === 0, 'is-alert': group.count > 0 }"><summary><CircleCheck v-if="group.count === 0" :size="17" /><X v-else :size="17" /><span>{{ monitorCategoryLabels[group.category] ? t(monitorCategoryLabels[group.category]) : group.category }}</span><b>{{ group.count }}</b></summary><div v-for="item in group.details" :key="`${item.message}-${item.ecn_number || ''}`" class="monitor-alert-row"><strong>{{ item.ecn_number || t('ecn.monitor.dataset') }}</strong><span>{{ item.message }}</span></div></details>
+          </div>
+        </div>
+      </section>
     </div>
 
     <div v-if="createDialogOpen || editRecord" class="dialog-backdrop" @mousedown.self="closeFormDialog">
@@ -176,6 +204,19 @@
         <div class="dialog-actions"><button class="secondary-button" type="button" :disabled="saving" @click="closeDeleteDialog">{{ t('common.actions.cancel') }}</button><button class="primary-button danger-button" type="button" :disabled="saving" @click="deleteEcn">{{ t('ecn.table.delete') }}</button></div>
       </section>
     </div>
+
+    <div v-if="monitorSettingsOpen" class="dialog-backdrop" @mousedown.self="monitorSettingsOpen = false">
+      <section class="dialog monitor-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="ecn-monitor-settings-title">
+        <button class="dialog-close" type="button" :aria-label="t('common.actions.close')" @click="monitorSettingsOpen = false"><X :size="20" /></button>
+        <h2 id="ecn-monitor-settings-title">{{ t('ecn.monitor.settingsTitle') }}</h2>
+        <p class="dialog-description">{{ t('ecn.monitor.settingsDescription') }}</p>
+        <label><span>{{ t('ecn.monitor.frequency') }}</span><input v-model.number="monitorSettings.interval_minutes" type="number" min="5" max="10080" /></label>
+        <label class="monitor-checkbox"><input v-model="monitorSettings.enabled" type="checkbox" /><span>{{ t('ecn.monitor.enable') }}</span></label>
+        <fieldset class="monitor-scan-items"><legend>{{ t('ecn.monitor.scanItems') }}</legend><label v-for="item in monitorScanItems" :key="item.key" class="monitor-checkbox"><input v-model="monitorSettings.scan_items" type="checkbox" :value="item.key" /><span>{{ t(item.labelKey) }}</span></label></fieldset>
+        <p v-if="monitorSettingsError" class="form-error" role="alert">{{ monitorSettingsError }}</p>
+        <div class="dialog-actions"><button class="secondary-button" type="button" @click="monitorSettingsOpen = false">{{ t('common.actions.cancel') }}</button><button class="primary-button" type="button" :disabled="monitorSettingsSaving" @click="saveMonitorSettings">{{ monitorSettingsSaving ? t('common.actions.saving') : t('common.actions.save') }}</button></div>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -184,10 +225,11 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ArrowDown, ArrowRight, ArrowUp, CircleCheck, Ellipsis, ExternalLink, FileSpreadsheet, Plus, RefreshCw, Search, TriangleAlert, X } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { ecnApi } from '@/scripts/api'
-import type { EcnCreatePayload, EcnCreateResponse, EcnRecord, EcnSyncCheckResponse, EcnUpdatePayload } from '@/scripts/types'
+import type { EcnCreatePayload, EcnCreateResponse, EcnMonitorSettings, EcnRecord, EcnRiskScanLog, EcnRiskScanResult, EcnSyncCheckResponse, EcnUpdatePayload } from '@/scripts/types'
 
 const { t } = useI18n()
 const activeTable = ref<'eng' | 'ipqc'>('eng')
+const activeView = ref<'records' | 'monitor'>('monitor')
 const ipqcColumns = [
   { key: 'ecn_number', label: 'ecn.ipqc.columns.number' }, { key: 'product_name', label: 'ecn.ipqc.columns.product' },
   { key: 'issuer', label: 'ecn.ipqc.columns.issuer' }, { key: 'change_date', label: 'ecn.ipqc.columns.date' },
@@ -239,6 +281,30 @@ let menuTrigger: HTMLElement | null = null
 let menuCloseTimer: ReturnType<typeof setTimeout> | null = null
 const additionalEditFields = ['before_change', 'after_change', 'approved_by', 'duro_number'] as const
 const editForm = reactive<Pick<EcnUpdatePayload, typeof additionalEditFields[number]>>({ before_change: '', after_change: '', approved_by: '', duro_number: '' })
+
+const monitorResults = ref<EcnRiskScanResult[]>([])
+const monitorLoading = ref(false)
+const monitorRunning = ref(false)
+const monitorError = ref('')
+const monitorSettingsOpen = ref(false)
+const monitorSettingsSaving = ref(false)
+const monitorSettingsError = ref('')
+const monitorOpen = reactive<Record<string, boolean>>({})
+const monitorProgress = ref<string[]>([])
+const monitorSettings = reactive<EcnMonitorSettings>({ enabled: false, interval_minutes: 1440, scan_items: [] })
+const monitorScanItems = [
+  { key: 'sync', labelKey: 'ecn.monitor.scan.sync' },
+  { key: 'count', labelKey: 'ecn.monitor.scan.count' },
+  { key: 'sequence', labelKey: 'ecn.monitor.scan.sequence' },
+  { key: 'missing_ipqc', labelKey: 'ecn.monitor.scan.missingIpqc' },
+  { key: 'master_links', labelKey: 'ecn.monitor.scan.masterLinks' },
+  { key: 'linked_number', labelKey: 'ecn.monitor.scan.linkedNumber' },
+  { key: 'single_choice', labelKey: 'ecn.monitor.scan.singleChoice' },
+]
+const monitorCategoryLabels: Record<string, string> = {
+  sync: 'ecn.monitor.category.sync', count: 'ecn.monitor.category.count', sequence: 'ecn.monitor.category.sequence', missing_ipqc: 'ecn.monitor.category.missingIpqc',
+  master_links: 'ecn.monitor.category.masterLinks', linked_number: 'ecn.monitor.category.linkedNumber', single_choice: 'ecn.monitor.category.singleChoice',
+}
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 const normalizedCreateEcnNumber = computed(() => normalizeEcnNumber(createForm.ecn_number))
@@ -376,8 +442,19 @@ async function loadRecords(): Promise<void> {
     if (response.data.bootstrapped) notice.value = { type: 'success', message: t('ecn.bootstrapComplete') }
   } catch (error) { loadError.value = errorMessage(error) } finally { loading.value = false }
 }
+function switchView(view: 'records' | 'monitor'): void {
+  if (activeView.value === view) return
+  activeView.value = view
+  closeMenu()
+  if (view === 'monitor') void loadMonitor()
+}
 function switchTable(table: 'eng' | 'ipqc'): void {
-  if (activeTable.value === table) return
+  const wasRecords = activeView.value === 'records'
+  activeView.value = 'records'
+  if (activeTable.value === table) {
+    if (!wasRecords) void loadRecords()
+    return
+  }
   activeTable.value = table; page.value = 1; pageInput.value = '1'; searchDraft.value = ''; activeSearch.value = ''; statusFilter.value = ''; statusOptions.value = []; syncStatus.value = null; void loadRecords()
 }
 function applySearch(): void { activeSearch.value = searchDraft.value.trim(); page.value = 1; void loadRecords() }
@@ -435,12 +512,91 @@ async function createEcn(): Promise<void> {
     createProgress.value = ''
   }
 }
+function formatMonitorDate(value: string): string {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+}
+function monitorLogs(result: EcnRiskScanResult): EcnRiskScanLog[] {
+  if (result.process_logs?.length) {
+    // Older persisted results marked the initial event as running forever.
+    // A stored scan is already finished, so normalize that stale state.
+    return result.process_logs.map(log => log.status === 'running' ? { ...log, status: 'success', message: `${t('ecn.monitor.completed')}：${log.title}` } : log)
+  }
+  return result.process.map((message, index) => ({ at: result.scanned_at, step: `legacy-${index}`, title: t('ecn.monitor.legacyLog'), status: 'info', message, issues: [], details: {} }))
+}
+function monitorChecklist(result: EcnRiskScanResult): Array<{ key: string; labelKey: string; status: string; message: string }> {
+  const logs = monitorLogs(result)
+  return monitorScanItems.map(item => {
+    if (!result.selected_items.includes(item.key)) {
+      return { ...item, status: 'info', message: t('ecn.monitor.notSelected') }
+    }
+    const matches = logs.filter(log => log.step === item.key)
+    const alert = matches.find(log => log.status === 'warning' || log.status === 'error')
+    const completed = matches.find(log => log.status === 'success')
+    return {
+      ...item,
+      status: alert?.status || (completed ? 'success' : 'info'),
+      message: alert?.message || completed?.message || t('ecn.monitor.notExecuted'),
+    }
+  })
+}
+function monitorAlertGroups(result: EcnRiskScanResult): Array<{ category: string; count: number; details: Record<string, any>[] }> {
+  const source = new Map(result.categories.map(group => [group.category, group]))
+  const syncLogs = monitorLogs(result).filter(log => log.step === 'sync' && (log.status === 'warning' || log.status === 'error'))
+  const syncCount = result.sync_records.reduce((total, item) => total + Number(item.missing || 0) + Number(item.extra || 0) + Number(item.changed || 0), 0)
+  const groups = Object.keys(monitorCategoryLabels).map(category => {
+    if (category === 'sync') {
+      return { category, count: syncCount || (syncLogs.length ? 1 : 0), details: syncLogs.map(log => ({ message: log.message })) }
+    }
+    const group = source.get(category)
+    return { category, count: group?.count || 0, details: group?.details || [] }
+  })
+  for (const group of result.categories) {
+    if (!monitorCategoryLabels[group.category]) groups.push(group)
+  }
+  return groups
+}
+function monitorLogIssues(log: NonNullable<EcnRiskScanResult['process_logs']>[number]): Record<string, any>[] {
+  return log.issues || []
+}
+function monitorRecordNumbers(records?: Record<string, any>[]): string {
+  return (records || []).map(record => record.ecn_number || record.form_number || `row ${record.source_row || '?'}`).join(', ')
+}
+function toggleMonitorDay(id: string): void { monitorOpen[id] = !monitorOpen[id] }
+async function loadMonitor(): Promise<void> {
+  monitorLoading.value = true
+  monitorError.value = ''
+  try {
+    const [results, settings] = await Promise.all([ecnApi.getMonitorResults(), ecnApi.getMonitorSettings()])
+    monitorResults.value = results.data
+    Object.assign(monitorSettings, settings.data)
+    if (!monitorSettings.scan_items.length) monitorSettings.scan_items = monitorScanItems.map(item => item.key)
+    monitorResults.value.forEach(result => { monitorOpen[result.id] = false })
+  } catch (error) { monitorError.value = errorMessage(error) } finally { monitorLoading.value = false }
+}
+async function runMonitorScan(): Promise<void> {
+  monitorRunning.value = true
+  monitorError.value = ''
+  monitorProgress.value = [t('ecn.monitor.checkingSync'), t('ecn.monitor.runningChecks')]
+  try {
+    const result = (await ecnApi.runMonitorScan(monitorSettings.scan_items)).data
+    monitorResults.value = [result, ...monitorResults.value]
+    monitorOpen[result.id] = false
+  } catch (error) { monitorError.value = errorMessage(error) } finally { monitorRunning.value = false }
+}
+async function saveMonitorSettings(): Promise<void> {
+  monitorSettingsSaving.value = true
+  monitorSettingsError.value = ''
+  try {
+    Object.assign(monitorSettings, (await ecnApi.saveMonitorSettings(monitorSettings)).data)
+    monitorSettingsOpen.value = false
+  } catch (error) { monitorSettingsError.value = errorMessage(error) } finally { monitorSettingsSaving.value = false }
+}
 onMounted(() => {
   document.addEventListener('pointerdown', handleMenuPointerDown)
   document.addEventListener('focusin', handleMenuFocusIn)
   document.addEventListener('keydown', handleMenuKeyDown)
   window.addEventListener('scroll', closeMenu, true)
-  void loadRecords()
+  void loadMonitor()
 })
 onBeforeUnmount(() => {
   if (createProgressTimer) clearInterval(createProgressTimer)
@@ -461,6 +617,11 @@ onBeforeUnmount(() => {
 .sort-button{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;color:inherit;background:transparent;font:inherit;text-transform:inherit;cursor:pointer}.sort-button:hover{color:#182b3b}
 .processing-status{display:flex;align-items:center;gap:8px;margin:16px 0 0;padding:10px 12px;border-radius:8px;color:#315a77;background:#edf6fb}
 .ecn-tabs{display:flex;gap:4px;margin:0 0 18px;padding:4px;border:1px solid #dce3e9;border-radius:10px;background:#fff;width:max-content}.ecn-tabs button{min-width:100px;padding:9px 18px;border:0;border-radius:7px;color:#62717f;background:transparent;font-weight:800;cursor:pointer}.ecn-tabs button.is-active{color:#fff;background:#111827}
+.monitor-panel{overflow:hidden;border:1px solid #dce3e9;border-radius:13px;background:#fff;box-shadow:0 10px 30px rgba(25,39,52,.04)}.monitor-toolbar{border-bottom:1px solid #e6ebef}.monitor-progress{display:flex;align-items:center;gap:12px;margin:16px 20px;padding:11px 13px;border-radius:9px;color:#315a77;background:#edf6fb}.monitor-progress span+span{padding-left:12px;border-left:1px solid #cbdde8}.monitor-day{border-top:1px solid #e6ebef}.monitor-day-header{display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;padding:17px 22px;border:0;color:#1f2933;background:#fff;text-align:left;cursor:pointer}.monitor-day-header:hover{background:#fafcfd}.monitor-day-header strong,.monitor-day-header small{display:block}.monitor-day-header small{margin-top:5px;color:#788694;font-size:13px}.monitor-summary{display:flex;align-items:center;gap:9px;color:#687887;font-size:13px}.monitor-summary b{color:#16834d;font-size:21px}.monitor-summary b.has-alerts{color:#b42318}.monitor-day-body{padding:0 22px 20px}.monitor-process{margin-bottom:12px;padding:11px 13px;border-radius:9px;background:#f7f9fa}.monitor-process summary{color:#52606d;font-size:13px;font-weight:700;cursor:pointer}.monitor-process p{margin:7px 0 0;color:#788694;font-size:13px}.monitor-ok{display:flex;align-items:center;gap:8px;padding:13px 0;color:#16834d;font-size:14px}.monitor-alert-group{border-top:1px solid #edf0f3;padding:13px 0}.monitor-alert-group summary{display:flex;align-items:center;justify-content:space-between;color:#344454;font-weight:800;cursor:pointer}.monitor-alert-group summary b{color:#b42318}.monitor-alert-row{display:grid;grid-template-columns:minmax(110px,180px) 1fr;gap:16px;padding:10px 8px;color:#52606d;font-size:13px}.monitor-alert-row strong{color:#1f2933;overflow-wrap:anywhere}.monitor-settings-dialog{max-height:min(800px,calc(100dvh - 40px));overflow-y:auto}.monitor-settings-dialog fieldset{margin-top:18px;border:1px solid #dce3e9;border-radius:9px;padding:12px}.monitor-settings-dialog legend{padding:0 5px;color:#334453;font-size:13px;font-weight:800}.monitor-scan-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.monitor-checkbox{display:flex!important;align-items:center;gap:8px;margin:0!important;padding:8px;border:1px solid #e4e9ed;border-radius:7px;cursor:pointer}.monitor-checkbox input{width:16px!important;height:16px!important;flex:none}.monitor-checkbox span{display:inline!important;margin:0!important;font-weight:500!important}
+.monitor-log-list{display:grid;gap:8px;margin-top:12px}.monitor-log{padding:11px 12px;border-left:3px solid #9aa8b4;border-radius:7px;background:#fff}.monitor-log.is-running{border-color:#527b96;background:#f2f7fa}.monitor-log.is-success{border-color:#16834d;background:#f2fbf6}.monitor-log.is-warning{border-color:#b87400;background:#fffaf0}.monitor-log.is-error{border-color:#b42318;background:#fff4f4}.monitor-log header{display:flex;align-items:center;gap:9px}.monitor-log header strong{color:#243442;font-size:13px}.monitor-log header time{margin-left:auto;color:#8995a0;font-size:11px}.monitor-log-status{padding:2px 6px;border-radius:999px;color:#52606d;background:#edf0f3;font-size:11px;font-weight:800}.monitor-log.is-success .monitor-log-status{color:#16834d;background:#dff4e8}.monitor-log.is-warning .monitor-log-status{color:#855400;background:#ffedbb}.monitor-log.is-error .monitor-log-status{color:#a02323;background:#ffe0e0}.monitor-log p{margin:6px 0 0;color:#52606d;font-size:13px;line-height:1.5}.monitor-log>small{display:block;margin-top:6px;color:#8995a0}.monitor-log-issues{margin:7px 0 0;padding-left:20px;color:#8d2f2f;font-size:12px;line-height:1.55}.monitor-log-data{margin-top:7px;color:#52606d;font-size:12px;overflow-wrap:anywhere}.monitor-log-data b{margin-right:6px;color:#344454}
+.monitor-alert-group summary>svg{flex:none}.monitor-alert-group.is-safe summary>svg{color:#16834d}.monitor-alert-group.is-alert summary>svg{color:#b42318}.monitor-alert-group.is-safe summary b{color:#16834d}.monitor-alert-group.is-alert summary b{color:#b42318}
+.monitor-checklist{display:grid;gap:7px;margin-top:12px}.monitor-check-item{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border:1px solid #dce3e9;border-radius:8px;background:#fff}.monitor-check-item>svg{flex:none;margin-top:1px;color:#8995a0}.monitor-check-item.is-success{border-color:#a8d9bf;background:#f2fbf6}.monitor-check-item.is-success>svg{color:#16834d}.monitor-check-item.is-warning,.monitor-check-item.is-error{border-color:#efc3c3;background:#fff5f5}.monitor-check-item.is-warning>svg,.monitor-check-item.is-error>svg{color:#b42318}.monitor-check-dash{width:18px;flex:none;color:#8995a0;font-weight:800;text-align:center}.monitor-check-item strong,.monitor-check-item small{display:block}.monitor-check-item strong{color:#344454;font-size:13px}.monitor-check-item small{margin-top:3px;color:#687887;font-size:12px;line-height:1.45}.monitor-log-details{margin-top:8px;border-top:1px solid #edf0f3;padding-top:7px}.monitor-log-details summary{color:#52606d;font-size:12px;font-weight:700;cursor:pointer}.monitor-log-details .monitor-log-issues{margin-top:6px}.monitor-log-details .monitor-log-data{margin-top:6px}
+.monitor-alert-group summary{justify-content:flex-start;gap:8px;font-size:13px;font-weight:500}.monitor-alert-group summary b{margin-left:auto;font-size:13px;font-weight:600}.monitor-check-item strong{font-size:13px;font-weight:500}.monitor-check-item small{font-size:12px}.monitor-alert-row{font-size:11px}.monitor-alert-row strong{font-size:11px}.monitor-log-data{font-size:11px}
 
 /* Keep column widths stable while allowing the table to scroll as one unit. */
 table {

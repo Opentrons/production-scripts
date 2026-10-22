@@ -208,10 +208,21 @@ export interface EcnMonitorSettings {
   last_run_at?: string | null
 }
 export interface EcnRiskScanCategory { category: string; count: number; details: Record<string, any>[] }
+export interface EcnRiskScanLog {
+  at: string
+  step: string
+  title: string
+  status: 'running' | 'success' | 'warning' | 'error' | 'info' | string
+  message: string
+  checked_count?: number | null
+  alert_count?: number | null
+  issues?: Record<string, any>[]
+  details?: Record<string, any>
+}
 export interface EcnRiskScanResult {
   id: string; scan_date: string; scanned_at: string; started_at: string; finished_at: string
   trigger: string; selected_items: string[]; sync_records: Record<string, any>[]
-  process: string[]; total_alerts: number; categories: EcnRiskScanCategory[]
+  process: string[]; process_logs?: EcnRiskScanLog[]; total_alerts: number; categories: EcnRiskScanCategory[]
 }
 
 export interface UploadFileInfo {

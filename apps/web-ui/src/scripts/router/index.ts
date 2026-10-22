@@ -163,12 +163,6 @@ const routes: RouteRecordRaw[] = [
     meta: { standalone: true, titleKey: 'titles.ecn', favicon: ECN_FAVICON },
   },
   {
-    path: '/information/ecn/monitor',
-    name: 'InformationEcnMonitor',
-    component: () => import('@/views/modules/ecn/EcnMonitorView.vue'),
-    meta: { standalone: true, titleKey: 'titles.ecnMonitor', favicon: ECN_FAVICON },
-  },
-  {
     path: '/information/contact-letters',
     name: 'InformationContactLetters',
     component: () => import('@/views/modules/contact_letters/ContactLettersView.vue'),
