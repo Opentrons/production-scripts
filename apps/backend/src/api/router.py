@@ -4,6 +4,7 @@ from modules.agent.routes import odd_stream_router, router as agent_router
 from modules.auth.dependencies import require_platform_access
 from modules.auth.routes import router as auth_router
 from modules.bridge_tokens.routes import router as bridge_tokens_router
+from modules.ecn.routes import router as ecn_router
 from modules.protocol_monitor.routes import router as protocol_monitor_router
 
 from api.routers import (
@@ -43,6 +44,7 @@ protected_router.include_router(agent_router)
 protected_router.include_router(bridge_tokens_router)
 protected_router.include_router(protocol_monitor_router)
 protected_router.include_router(resources.router)
+protected_router.include_router(ecn_router)
 protected_router.include_router(information.router)
 protected_router.include_router(pip_settings.router)
 protected_router.include_router(test_management.router)

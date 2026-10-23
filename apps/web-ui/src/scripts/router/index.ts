@@ -9,6 +9,7 @@ const DEFAULT_FAVICON = '/favicon.png'
 const AGENT_FAVICON = '/agent-favicon.svg'
 const TESTING_FAVICON = '/testing-favicon.svg'
 const VERSION_FAVICON = '/versions-favicon.svg'
+const ECN_FAVICON = '/ecn-favicon.svg'
 const productionTestingMeta = {
   titleKey: 'titles.testing',
   favicon: TESTING_FAVICON,
@@ -158,15 +159,13 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/information/ecn',
     name: 'InformationEcn',
-    component: () => import('@/views/information/InformationView.vue'),
-    props: { kind: 'ecn' },
-    meta: { standalone: true, titleKey: 'titles.ecn', favicon: DEFAULT_FAVICON },
+    component: () => import('@/views/modules/ecn/EcnView.vue'),
+    meta: { standalone: true, titleKey: 'titles.ecn', favicon: ECN_FAVICON },
   },
   {
     path: '/information/contact-letters',
     name: 'InformationContactLetters',
-    component: () => import('@/views/information/InformationView.vue'),
-    props: { kind: 'contact' },
+    component: () => import('@/views/modules/contact_letters/ContactLettersView.vue'),
     meta: { standalone: true, titleKey: 'titles.contactLetters', favicon: DEFAULT_FAVICON },
   },
   {

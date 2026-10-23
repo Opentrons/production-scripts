@@ -237,9 +237,29 @@ LOG_MAX_SIZE = 10 * 1024 * 1024  # 10MB
 
 MONGO_HOST = os.getenv(
     "PRODUCTION_PLATFORM_MONGO_HOST",
-    "127.0.0.1" if IS_DEV_ENV else API_HOST,
+    "192.168.6.55" if IS_DEV_ENV else API_HOST,
 )
 MONGO_URI = os.getenv("PRODUCTION_PLATFORM_MONGO_URI", "")
+MONGO_SERVER_SELECTION_TIMEOUT_MS = max(
+    1000,
+    int(os.getenv("PRODUCTION_PLATFORM_MONGO_SERVER_SELECTION_TIMEOUT_MS", "3000")),
+)
+MONGO_CONNECT_TIMEOUT_MS = max(
+    1000,
+    int(os.getenv("PRODUCTION_PLATFORM_MONGO_CONNECT_TIMEOUT_MS", "5000")),
+)
+MONGO_SOCKET_TIMEOUT_MS = max(
+    5000,
+    int(os.getenv("PRODUCTION_PLATFORM_MONGO_SOCKET_TIMEOUT_MS", "30000")),
+)
+MONGO_CONNECT_ATTEMPTS = max(
+    1,
+    int(os.getenv("PRODUCTION_PLATFORM_MONGO_CONNECT_ATTEMPTS", "3" if IS_DEV_ENV else "1")),
+)
+MONGO_CONNECT_RETRY_DELAY_MS = max(
+    0,
+    int(os.getenv("PRODUCTION_PLATFORM_MONGO_CONNECT_RETRY_DELAY_MS", "500")),
+)
 DEV_SQLITE_FALLBACK_ENABLED = os.getenv(
     "PRODUCTION_PLATFORM_DEV_SQLITE_FALLBACK_ENABLED",
     "true",
@@ -277,6 +297,7 @@ AGENT_KNOWLEDGE_COLLECTION = "agent_knowledge"
 AGENT_SCHEDULE_COLLECTION = "agent_schedules"
 AGENT_SCHEDULE_RUN_COLLECTION = "agent_schedule_runs"
 SYSTEM_HEALTH_COLLECTION = "system_health"
+ECN_RECORDS_COLLECTION = "ecn_records"
 
 # Version management, Duro, SOP, and workflow persistence.
 # Defaults live under db-storage/business; simulating mode can switch via resolve_sqlite_path().

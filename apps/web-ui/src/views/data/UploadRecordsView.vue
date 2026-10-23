@@ -518,8 +518,13 @@
             <div class="z-stage-panel">
               <div class="z-stage-fields">
                 <label class="field-line">
-                  <span>{{ t('uploadRecords.zStageFixture') }}</span>
-                  <el-input v-model="zStageFixtureIp" placeholder="192.168.6.13" />
+                  <span>{{ t('uploadRecords.onlineRobot') }}</span>
+                  <div class="z-stage-device-row">
+                    <el-select v-model="zStageRobotIp" :placeholder="t('uploadRecords.robotPlaceholder')" filterable class="z-stage-device-select" :loading="zStageRobotScanLoading" @change="handleZStageRobotChange">
+                      <el-option v-for="robot in onlineRobotOptions" :key="robot.ip" :label="formatRobotOption(robot)" :value="robot.ip" />
+                    </el-select>
+                    <el-button class="z-stage-refresh-button" plain :icon="Refresh" :loading="zStageRobotScanLoading" @click="refreshZStageRobots">{{ t('common.actions.refresh') }}</el-button>
+                  </div>
                 </label>
                 <label class="field-line">
                   <span>Robot SN</span>
@@ -535,17 +540,9 @@
               />
 
               <div v-if="zStageUploadMode === 'remote'" class="z-stage-section">
-                <div class="remote-search-row">
-                  <el-input v-model="zStageRemotePath" placeholder="/data/testing_data/z_stage_test" />
-                  <el-button
-                    type="primary"
-                    plain
-                    :loading="zStageSearching"
-                    :disabled="!canSearchZStageRemote"
-                    @click="searchZStageRemoteFiles"
-                  >
-                    {{ t('common.actions.search') }}
-                  </el-button>
+                <div class="z-stage-directory-toolbar">
+                  <span class="z-stage-directory-path" :title="zStageRemotePath">{{ zStageRemotePath }}</span>
+                  <el-button text :disabled="normalizeRemotePath(zStageRemotePath) === '/data/testing_data'" @click="goUpZStageDirectory">{{ t('uploadRecords.parentDirectory') }}</el-button>
                 </div>
 
                 <el-alert
@@ -566,29 +563,26 @@
                 </el-alert>
 
                 <div v-if="zStageRemoteFiles.length" class="remote-file-panel">
-                  <div class="remote-file-head">
-                    <el-checkbox
-                      :model-value="allZStageRemoteSelected"
-                      :indeterminate="someZStageRemoteSelected && !allZStageRemoteSelected"
-                      :disabled="zStageUploading"
-                      @change="toggleAllZStageRemoteFiles"
-                    >
-                      {{ t('uploadRecords.csvFound', { count: zStageRemoteFiles.length }) }}
-                    </el-checkbox>
-                  </div>
+                  <div v-if="zStageCsvFiles.length" class="remote-file-head">{{ t('uploadRecords.csvFound', { count: zStageCsvFiles.length }) }}</div>
                   <div class="remote-file-list">
                     <label
                       v-for="file in zStageRemoteFiles"
                       :key="file.path"
                       class="remote-file-row"
+                      :class="{ 'is-directory': file.is_dir }"
+                      :title="file.name"
+                      @dblclick="file.is_dir && openZStageDirectory(file)"
                     >
-                      <el-checkbox
-                        :model-value="file.selected"
+                      <span v-if="file.is_dir || !file.name.toLowerCase().endsWith('.csv')" class="remote-file-select-placeholder" aria-hidden="true" />
+                      <el-radio
+                        v-if="!file.is_dir && file.name.toLowerCase().endsWith('.csv')"
+                        :model-value="selectedZStageRemotePath"
+                        :label="file.path"
                         :disabled="zStageUploading"
-                        @change="toggleZStageRemoteFile(file.path, $event)"
-                      />
-                      <span class="remote-file-name">{{ file.name }}</span>
-                      <span class="remote-file-path">{{ file.path }}</span>
+                        @change="selectZStageRemoteFile(file.path)"
+                      ><span class="sr-only">{{ file.name }}</span></el-radio>
+                      <el-icon><FolderOpened v-if="file.is_dir" /><DocumentIcon v-else /></el-icon>
+                      <span class="remote-file-name" :title="file.name">{{ file.name }}</span>
                       <el-tag
                         v-if="file.status && file.status !== 'pending'"
                         :type="file.status === 'success' ? 'success' : file.status === 'failed' ? 'danger' : 'warning'"
@@ -735,6 +729,7 @@ interface ZStageRemoteFile {
   name: string
   path: string
   size: number
+  is_dir?: boolean
   modified_at: number | null
   selected: boolean
   status: ZStageRemoteFileStatus
@@ -843,10 +838,12 @@ const standardRobotSearched = ref(false)
 const standardRobotError = ref('')
 const standardRobotRetryMode = ref<'devices' | 'files'>('devices')
 const zStageFixtureIp = ref('192.168.6.13')
+const zStageRobotIp = ref('')
 const zStageRobotSn = ref('')
-const zStageRemotePath = ref('/data/testing_data/z_stage_test')
+const zStageRemotePath = ref('/data/testing_data')
 const zStageUploadMode = ref<ZStageUploadMode>('remote')
 const zStageSearching = ref(false)
+const zStageRobotScanLoading = ref(false)
 const zStageUploading = ref(false)
 const zStageRemoteSearched = ref(false)
 const zStageRemoteFiles = ref<ZStageRemoteFile[]>([])
@@ -915,23 +912,29 @@ const canGoUpStandardRobotPath = computed(() => {
 })
 
 const selectedZStageRemoteFiles = computed(() => zStageRemoteFiles.value.filter(file => file.selected))
+const selectedZStageRemotePath = computed(() => selectedZStageRemoteFiles.value[0]?.path || '')
+const zStageCsvFiles = computed(() => zStageRemoteFiles.value.filter(file => !file.is_dir && file.name.toLowerCase().endsWith('.csv')))
 const allZStageRemoteSelected = computed(
-  () => zStageRemoteFiles.value.length > 0 && selectedZStageRemoteFiles.value.length === zStageRemoteFiles.value.length
+  () => zStageCsvFiles.value.length > 0 && selectedZStageRemoteFiles.value.length === zStageCsvFiles.value.length
 )
 const someZStageRemoteSelected = computed(() => selectedZStageRemoteFiles.value.length > 0)
 const canSearchZStageRemote = computed(
-  () => Boolean(zStageFixtureIp.value.trim() && zStageRobotSn.value.trim() && zStageRemotePath.value.trim())
+  () => Boolean(zStageRobotIp.value.trim() && zStageRemotePath.value.trim())
 )
 const canSubmitZStageRemote = computed(
-  () => Boolean(zStageRobotSn.value.trim() && selectedZStageRemoteFiles.value.length > 0)
+  () => Boolean(isValidBarcode(zStageRobotSn.value) && selectedZStageRemoteFiles.value.length === 1)
 )
-const canSubmitZStageLocal = computed(() => Boolean(zStageRobotSn.value.trim() && zStageLocalFile.value))
+const canSubmitZStageLocal = computed(() => Boolean(isValidBarcode(zStageRobotSn.value) && zStageLocalFile.value))
 const canSubmitManualUpload = computed(() => {
   if (standardUploadMode.value === 'local') return Boolean(manualFile.value)
   return Boolean(standardRobotIp.value && standardSelectedRobotFile.value && !standardSelectedRobotFile.value.is_dir)
 })
 const canSubmitRobotParallelism = computed(() => Boolean(robotParallelismFile.value))
-const manualDialogBusy = computed(() => manualUploading.value || zStageSearching.value || zStageUploading.value || standardRobotLoading.value || standardRobotScanLoading.value)
+const manualDialogBusy = computed(() => manualUploading.value || zStageSearching.value || zStageUploading.value || zStageRobotScanLoading.value || standardRobotLoading.value || standardRobotScanLoading.value)
+
+function isValidBarcode(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$/.test(value.trim())
+}
 
 watch(includeSourceZip, (checked) => {
   if (!checked) {
@@ -947,6 +950,10 @@ watch(standardUploadMode, (mode) => {
       }
     })
   }
+})
+
+watch(manualUploadTab, (tab) => {
+  if (tab === 'z_stage') ensureZStageRobotsLoaded()
 })
 
 const openManualUploadDialog = () => {
@@ -970,8 +977,9 @@ const resetManualUploadState = () => {
   standardRobotError.value = ''
   standardRobotRetryMode.value = 'devices'
   zStageFixtureIp.value = '192.168.6.13'
+  zStageRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
   zStageRobotSn.value = ''
-  zStageRemotePath.value = '/data/testing_data/z_stage_test'
+  zStageRemotePath.value = '/data/testing_data'
   zStageUploadMode.value = 'remote'
   zStageSearching.value = false
   zStageUploading.value = false
@@ -1079,6 +1087,34 @@ const ensureStandardRobotsLoaded = async () => {
   if (!standardRobotIp.value) {
     standardRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
   }
+}
+
+const ensureZStageRobotsLoaded = async () => {
+  if (!robotScanStore.scanResult) {
+    try { await robotScanStore.loadCachedScan() } catch { robotScanStore.loadFromCache() }
+  }
+  if (!zStageRobotIp.value) zStageRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
+  if (zStageRobotIp.value && !zStageRemoteSearched.value) await searchZStageRemoteFiles()
+}
+
+const refreshZStageRobots = async () => {
+  zStageRobotScanLoading.value = true
+  try {
+    await robotScanStore.refreshScan({ silent: false })
+    if (!zStageRobotIp.value) zStageRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
+    if (zStageRobotIp.value) await searchZStageRemoteFiles()
+  } catch (error: any) {
+    zStageSearchError.value = normalizeUploadError(error) || t('errors.unknown')
+  } finally {
+    zStageRobotScanLoading.value = false
+  }
+}
+
+const handleZStageRobotChange = () => {
+  zStageRemoteFiles.value = []
+  zStageRemoteSearched.value = false
+  zStageSearchError.value = ''
+  searchZStageRemoteFiles()
 }
 
 const handleStandardRobotChange = () => {
@@ -1247,14 +1283,21 @@ const searchZStageRemoteFiles = async () => {
   zStageRemoteFiles.value = []
   zStageSearchError.value = ''
   try {
-    zStageRemoteFiles.value = await searchRemoteCsvFiles(
-      zStageFixtureIp.value.trim(),
-      normalizeRemotePath(zStageRemotePath.value),
-      zStageRobotSn.value.trim()
-    )
+    const response = await robotApi.listFiles(zStageRobotIp.value.trim(), normalizeRemotePath(zStageRemotePath.value))
+    zStageRemoteFiles.value = (response.data.entries || [])
+      .filter(entry => Boolean(entry.name))
+      .map(entry => ({
+        name: entry.name,
+        path: entry.path,
+        size: entry.size,
+        is_dir: entry.is_dir,
+        modified_at: entry.modified_at,
+        selected: false,
+        status: 'pending' as const
+      }))
     zStageRemoteSearched.value = true
-    if (zStageRemoteFiles.value.length) {
-      ElMessage.success(t('uploadRecords.messages.csvFound', { count: zStageRemoteFiles.value.length }))
+    if (zStageCsvFiles.value.length) {
+      ElMessage.success(t('uploadRecords.messages.csvFound', { count: zStageCsvFiles.value.length }))
     }
   } catch (error: any) {
     zStageRemoteSearched.value = true
@@ -1267,15 +1310,36 @@ const searchZStageRemoteFiles = async () => {
 const toggleAllZStageRemoteFiles = (checked: boolean) => {
   zStageRemoteFiles.value = zStageRemoteFiles.value.map(file => ({
     ...file,
-    selected: checked
+    selected: !file.is_dir && checked
   }))
 }
 
 const toggleZStageRemoteFile = (path: string, checked: boolean) => {
   const file = zStageRemoteFiles.value.find(item => item.path === path)
-  if (file) {
+  if (file && !file.is_dir) {
     file.selected = checked
   }
+}
+
+const selectZStageRemoteFile = (path: string) => {
+  zStageRemoteFiles.value = zStageRemoteFiles.value.map(file => ({
+    ...file,
+    selected: !file.is_dir && file.name.toLowerCase().endsWith('.csv') && file.path === path
+  }))
+}
+
+const openZStageDirectory = async (entry: ZStageRemoteFile) => {
+  if (!entry.is_dir) return
+  zStageRemotePath.value = entry.path
+  await searchZStageRemoteFiles()
+}
+
+const goUpZStageDirectory = async () => {
+  const normalized = normalizeRemotePath(zStageRemotePath.value)
+  if (normalized === '/data/testing_data') return
+  const parent = normalized.split('/').slice(0, -1).join('/') || '/data/testing_data'
+  zStageRemotePath.value = parent.startsWith('/data/testing_data') ? parent : '/data/testing_data'
+  await searchZStageRemoteFiles()
 }
 
 const blobToCsvFile = (blob: Blob, filename: string) => {
@@ -1954,7 +2018,7 @@ const submitZStageRemoteUpload = async () => {
     let failureStage: string | undefined = 'robot_data_pull'
     try {
       recordId = await startTrackedUpload(file.name, 'web_z_stage_robot')
-      const response = await robotApi.downloadFile(zStageFixtureIp.value.trim(), file.path)
+      const response = await robotApi.downloadFile(zStageRobotIp.value.trim(), file.path)
       const csvFile = blobToCsvFile(response.data, file.name)
       failureStage = undefined
       const uploadResponse = await uploadZStageFile(csvFile, recordId)
@@ -2104,6 +2168,56 @@ onUnmounted(() => {
   color: #606266;
 }
 
+.z-stage-device-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.z-stage-device-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.z-stage-fields :deep(.el-input__wrapper),
+.z-stage-fields :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.z-stage-refresh-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  height: 32px;
+  margin: 0;
+}
+
+.remote-file-row.is-directory {
+  cursor: pointer;
+}
+
+.remote-file-select-placeholder {
+  width: 24px;
+  height: 1px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 620px) {
+  .z-stage-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .z-stage-mode {
   align-self: flex-start;
 }
@@ -2206,10 +2320,21 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.remote-search-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+.z-stage-directory-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  min-height: 32px;
+}
+
+.z-stage-directory-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  color: #606266;
 }
 
 .remote-file-panel {
@@ -2218,6 +2343,7 @@ onUnmounted(() => {
 
 .remote-file-head {
   padding: 10px 0;
+  text-align: left;
 }
 
 .remote-file-list {
@@ -2228,30 +2354,32 @@ onUnmounted(() => {
 
 .remote-file-row {
   display: grid;
-  grid-template-columns: 24px minmax(120px, 0.7fr) minmax(180px, 1.3fr) auto;
+  grid-template-columns: 24px 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 40px;
   padding: 6px 0;
   border-bottom: 1px solid #f2f3f5;
+  text-align: left;
 }
 
 .remote-file-name,
 .remote-file-path {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .remote-file-name {
   color: #303133;
   font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .remote-file-path {
   color: #909399;
   font-size: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .upload-icon {

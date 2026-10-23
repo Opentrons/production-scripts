@@ -23,6 +23,49 @@ def test_google_sheet_column_name() -> None:
     assert GoogleDriver.column_name(52) == "AZ"
 
 
+def test_update_spreadsheet_values_batches_named_ranges() -> None:
+    captured: dict = {}
+
+    class FakeValues:
+        def batchUpdate(self, **kwargs):
+            captured.update(kwargs)
+            return _FakeRequest({})
+
+    class FakeSpreadsheets:
+        def values(self):
+            return FakeValues()
+
+    class FakeService:
+        def spreadsheets(self):
+            return FakeSpreadsheets()
+
+    driver = GoogleDriver(allow_interactive_auth=False)
+    driver._sheets_service = FakeService()
+    driver._execute = lambda factory: factory().execute()  # type: ignore[method-assign]
+
+    driver.update_spreadsheet_values(
+        "new-sheet",
+        {"'工程变更通知单'!M14:AD17": "Flex", "'工程变更通知单'!AQ14:BF17": "ECN-0578"},
+    )
+
+    assert captured["spreadsheetId"] == "new-sheet"
+    assert captured["body"] == {
+        "valueInputOption": "USER_ENTERED",
+        "data": [
+            {
+                "range": "'工程变更通知单'!M14:AD17",
+                "majorDimension": "ROWS",
+                "values": [["Flex"]],
+            },
+            {
+                "range": "'工程变更通知单'!AQ14:BF17",
+                "majorDimension": "ROWS",
+                "values": [["ECN-0578"]],
+            },
+        ],
+    }
+
+
 class _FakeRequest:
     def __init__(self, payload: dict) -> None:
         self.payload = payload
@@ -287,3 +330,78 @@ def test_list_files_in_folder_resolves_shortcut_folders_and_sheets() -> None:
     assert files[0].shortcut_id == "sheet-shortcut"
     assert files[0].target_mime_type == "application/vnd.google-apps.spreadsheet"
     assert files[0].target_resource_key == "sheet-resource-key"
+
+
+class _DriveMutationFiles:
+    def __init__(self) -> None:
+        self.created_body = None
+        self.copy_args = None
+
+    def list(self, **kwargs):
+        if "name = '2026 ECN'" in kwargs["q"]:
+            return _FakeRequest({
+                "files": [{
+                    "id": "year-folder-id",
+                    "name": "2026 ECN",
+                    "mimeType": "application/vnd.google-apps.folder",
+                }]
+            })
+        if "name contains 'ECN-0577 '" in kwargs["q"]:
+            return _FakeRequest({
+                "files": [{
+                    "id": "ecn-folder-id",
+                    "name": "ECN-0577 913-00061 Drawing Update",
+                    "mimeType": "application/vnd.google-apps.folder",
+                }]
+            })
+        return _FakeRequest({"files": []})
+
+    def create(self, **kwargs):
+        self.created_body = kwargs["body"]
+        return _FakeRequest({
+            "id": "created-folder-id",
+            "name": kwargs["body"]["name"],
+            "mimeType": "application/vnd.google-apps.folder",
+        })
+
+    def copy(self, **kwargs):
+        self.copy_args = kwargs
+        return _FakeRequest({
+            "id": "copied-sheet-id",
+            "name": kwargs["body"]["name"],
+            "mimeType": "application/vnd.google-apps.spreadsheet",
+        })
+
+
+class _DriveMutationService:
+    def __init__(self) -> None:
+        self.files_api = _DriveMutationFiles()
+
+    def files(self):
+        return self.files_api
+
+
+def test_drive_folder_and_template_copy_operations() -> None:
+    driver = GoogleDriver(allow_interactive_auth=False)
+    service = _DriveMutationService()
+    driver._drive_service = service
+    driver._execute = lambda factory: factory().execute()  # type: ignore[method-assign]
+
+    year_folder = driver.find_folder(
+        "https://drive.google.com/drive/folders/root-folder-id",
+        "2026 ECN",
+    )
+    ecn_folder = driver.find_folder_by_prefix(year_folder.id, "ECN-0577 ")  # type: ignore[union-attr]
+    created = driver.create_folder(year_folder.id, "ECN-0578 Next")  # type: ignore[union-attr]
+    copied = driver.copy_file("template-sheet-id", created.id, "ECN-0578 Next")
+
+    assert year_folder is not None and year_folder.id == "year-folder-id"
+    assert ecn_folder is not None and ecn_folder.id == "ecn-folder-id"
+    assert service.files_api.created_body == {
+        "name": "ECN-0578 Next",
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": ["year-folder-id"],
+    }
+    assert service.files_api.copy_args["fileId"] == "template-sheet-id"
+    assert service.files_api.copy_args["body"]["parents"] == ["created-folder-id"]
+    assert copied.web_view_link == "https://docs.google.com/spreadsheets/d/copied-sheet-id/edit"

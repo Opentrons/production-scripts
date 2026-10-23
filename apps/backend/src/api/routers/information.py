@@ -19,6 +19,26 @@ from api.models import InformationFile, InformationFilesResponse
 from core.config import ENGINEERING_INFORMATION_DB_PATH, INFORMATION_REFRESH_SECONDS
 from core.google import GoogleDriveFile, GoogleDriver, GoogleDriverError, GoogleSheetData
 from core.logging import get_logger
+from modules.contact_letters import (
+    CONTACT_FOLDER_ID,
+    CONTACT_KIND,
+    CONTACT_NUMBER_LABELS,
+    CONTACT_NUMBER_PREFIX,
+    CONTACT_SOURCE_URL,
+    CONTACT_SUBJECT_LABELS,
+    normalize_contact_number,
+    resolve_contact_subject,
+)
+from modules.ecn import (
+    ECN_FOLDER_ID,
+    ECN_KIND,
+    ECN_NUMBER_LABELS,
+    ECN_NUMBER_PREFIX,
+    ECN_PRODUCT_MODEL_LABELS,
+    ECN_SOURCE_URL,
+    normalize_ecn_number,
+    resolve_ecn_subject,
+)
 
 
 router = APIRouter(prefix="/information", tags=["information"])
@@ -27,40 +47,23 @@ logger = get_logger(__name__)
 FolderKind = Literal["ecn", "contact"]
 
 FOLDERS: dict[str, tuple[str, str]] = {
-    "ecn": (
-        "1cAlMjAWMnk47cvvxSPEtG4_xn6O3xmMB",
-        "https://drive.google.com/drive/folders/1cAlMjAWMnk47cvvxSPEtG4_xn6O3xmMB",
-    ),
-    "contact": (
-        "1rC0Q2FtayNKkO3gY4_39CuaQdYA_wVtF",
-        "https://drive.google.com/drive/folders/1rC0Q2FtayNKkO3gY4_39CuaQdYA_wVtF",
-    ),
+    ECN_KIND: (ECN_FOLDER_ID, ECN_SOURCE_URL),
+    CONTACT_KIND: (CONTACT_FOLDER_ID, CONTACT_SOURCE_URL),
 }
 
 google_driver = GoogleDriver()
 
 GOOGLE_SHEET_MIME_TYPE = "application/vnd.google-apps.spreadsheet"
-NUMBER_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9])(?:ENG|ECN)[\s\-_－—]*\d{3,}(?:[\-_－—]\d+)*",
-    re.IGNORECASE,
-)
-NUMBER_PATTERNS: dict[str, re.Pattern[str]] = {
-    "ecn": re.compile(r"(?<![A-Za-z0-9])ECN[\s\-_－—]*\d{3,}(?:[\-_－—]\d+)*", re.IGNORECASE),
-    "contact": re.compile(r"(?<![A-Za-z0-9])ENG[\s\-_－—]*\d{3,}(?:[\-_－—]\d+)*", re.IGNORECASE),
-}
 DATE_PATTERN = re.compile(r"(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})\s*日?")
 US_DATE_PATTERN = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(20\d{2})(?!\d)")
 NUMBER_LABELS = (
     "编号",
-    "ECN编号",
-    "ECN单号",
-    "联络编号",
-    "联络函编号",
-    "工程变更编号",
-    "ECN No.",
+    *ECN_NUMBER_LABELS[:2],
+    *CONTACT_NUMBER_LABELS,
+    *ECN_NUMBER_LABELS[2:],
 )
-SUBJECT_LABELS = ("主题", "标题", "变更主题", "联络函主题", "Subject")
-PRODUCT_MODEL_LABELS = ("产品型号", "产品机型", "Product number", "Product model")
+SUBJECT_LABELS = CONTACT_SUBJECT_LABELS
+PRODUCT_MODEL_LABELS = ECN_PRODUCT_MODEL_LABELS
 DATE_LABELS = (
     "生效日期",
     "下发日期",
@@ -132,19 +135,9 @@ def _labeled_value(rows: list[list[str]], labels: tuple[str, ...]) -> str:
 
 
 def _normalize_number(raw_value: str, kind: FolderKind, *, allow_bare: bool = False) -> str:
-    match = NUMBER_PATTERNS[kind].search(raw_value)
-    if match:
-        value = match.group(0).upper()
-        value = re.sub(r"[\s_－—-]+", "-", value)
-        return value.strip("-")
-    if not allow_bare:
-        return ""
-    digits = re.search(r"(?<!\d)\d{3,}(?:[-_－—]\d+)*(?!\d)", raw_value)
-    if not digits:
-        return ""
-    value = re.sub(r"[_－—]+", "-", digits.group(0))
-    prefix = "ENG" if kind == "contact" else "ECN"
-    return f"{prefix}-{value}"
+    if kind == ECN_KIND:
+        return normalize_ecn_number(raw_value, allow_bare=allow_bare)
+    return normalize_contact_number(raw_value, allow_bare=allow_bare)
 
 
 def _normalize_date(raw_value: str) -> str:
@@ -173,20 +166,16 @@ def _parse_file(
     if not number:
         number = _normalize_number(f"{file.name}\n{flattened}", kind)
 
-    if kind == "ecn":
-        subject = _clean_cell(document_title) or Path(file.name).stem.strip()
+    if kind == ECN_KIND:
+        subject = resolve_ecn_subject(file.name, document_title)
     else:
-        subject = _labeled_value(sheet_values, SUBJECT_LABELS)
-        if not subject:
-            subject = _clean_cell(file.description)
-        if not subject:
-            subject = Path(file.name).stem
-            subject = NUMBER_PATTERN.sub("", subject, count=1)
-            subject = re.sub(r"^[\s\-_:：－—]+", "", subject).strip()
-    if not subject:
-        subject = file.name
+        subject = resolve_contact_subject(
+            file.name,
+            sheet_subject=_labeled_value(sheet_values, SUBJECT_LABELS),
+            description=file.description,
+        )
 
-    product_model = _labeled_value(sheet_values, PRODUCT_MODEL_LABELS) if kind == "ecn" else ""
+    product_model = _labeled_value(sheet_values, PRODUCT_MODEL_LABELS) if kind == ECN_KIND else ""
 
     raw_date = _labeled_value(sheet_values, DATE_LABELS)
     effective_date = _normalize_date(raw_date) if raw_date else ""
@@ -235,7 +224,7 @@ def _select_source_sheet(
         number = _normalize_number(_labeled_value(rows, NUMBER_LABELS), kind, allow_bare=True)
         required_value = _labeled_value(
             rows,
-            PRODUCT_MODEL_LABELS if kind == "ecn" else SUBJECT_LABELS,
+            PRODUCT_MODEL_LABELS if kind == ECN_KIND else SUBJECT_LABELS,
         )
         date = _labeled_value(rows, DATE_LABELS)
         populated_cells = sum(bool(_clean_cell(cell)) for row in rows for cell in row)
@@ -294,7 +283,7 @@ def _quality_issues(response: InformationFilesResponse) -> list[str]:
 
     seen_numbers: set[str] = set()
     seen_ids: set[str] = set()
-    expected_prefix = "ECN-" if response.kind == "ecn" else "ENG-"
+    expected_prefix = ECN_NUMBER_PREFIX if response.kind == ECN_KIND else CONTACT_NUMBER_PREFIX
     for file in response.files:
         if not file.number.startswith(expected_prefix):
             issues.append(f"{file.number}: 编号格式错误")
@@ -310,7 +299,7 @@ def _quality_issues(response: InformationFilesResponse) -> list[str]:
             issues.append(f"{file.number}: 缺少源文件主题")
         if not file.effective_date:
             issues.append(f"{file.number}: 缺少下发或生效日期")
-        if response.kind == "ecn":
+        if response.kind == ECN_KIND:
             product_model = _clean_cell(file.product_model).casefold()
             if product_model in EMPTY_FIELD_VALUES:
                 issues.append(f"{file.number}: 缺少产品型号")
@@ -552,7 +541,9 @@ class InformationService:
     def refresh_all(self) -> dict[FolderKind, InformationFilesResponse]:
         responses: dict[FolderKind, InformationFilesResponse] = {}
         errors: list[str] = []
-        for kind in ("ecn", "contact"):
+        # ECN now uses its MongoDB-backed feature module. This legacy refresh
+        # service remains responsible only for engineering contact letters.
+        for kind in (CONTACT_KIND,):
             try:
                 response = self.refresh_files(kind)
                 responses[kind] = response

@@ -38,7 +38,10 @@ class MongoWorkflowRepository:
         with self._lock:
             documents = list(self._workflows().find({}))
             run_counts: dict[str, int] = {}
-            for run in self._runs().find({}):
+            # Only the workflow identifier is required for counts. Historical
+            # run payloads can be large enough to exceed a remote MongoDB
+            # socket timeout during application startup.
+            for run in self._runs().find({}, {"workflow_id": 1}):
                 workflow_id = str(run.get("workflow_id") or "")
                 if workflow_id:
                     run_counts[workflow_id] = run_counts.get(workflow_id, 0) + 1
@@ -169,7 +172,11 @@ class MongoWorkflowRepository:
         with self._lock:
             self._runs().replace_one({"_id": run.id}, document, upsert=True)
             # Keep the newest 500 runs overall (same cap as sqlite).
-            all_runs = list(self._runs().find({}).sort("created_at", -1))
+            all_runs = list(
+                self._runs()
+                .find({}, {"_id": 1})
+                .sort("created_at", -1)
+            )
             stale_ids = [str(item.get("_id")) for item in all_runs[500:]]
             if stale_ids:
                 self._runs().delete_many({"_id": {"$in": stale_ids}})

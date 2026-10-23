@@ -214,6 +214,97 @@ class GoogleDriver:
             for row in response.get("values", [])
         ]
 
+    def update_spreadsheet_values(
+        self,
+        spreadsheet_id: str,
+        values_by_range: dict[str, str],
+    ) -> None:
+        """Write one value to each supplied A1 range in a single request."""
+
+        if not values_by_range:
+            return
+        self._execute(
+            lambda: self._sheets_service.spreadsheets().values().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={
+                    "valueInputOption": "USER_ENTERED",
+                    "data": [
+                        {
+                            "range": range_name,
+                            "majorDimension": "ROWS",
+                            "values": [[value]],
+                        }
+                        for range_name, value in values_by_range.items()
+                    ],
+                },
+            )
+        )
+
+    def delete_spreadsheet_row(self, spreadsheet_id: str, sheet_gid: int, row: int) -> None:
+        """Delete one 1-based row from a sheet."""
+        self._execute(lambda: self._sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"requests": [{"deleteDimension": {"range": {
+                "sheetId": sheet_gid, "dimension": "ROWS",
+                "startIndex": row - 1, "endIndex": row,
+            }}}]},
+        ))
+
+    def append_spreadsheet_row(self, spreadsheet_id: str, sheet_title: str, values: list[str]) -> int:
+        response = self._execute(lambda: self._sheets_service.spreadsheets().values().append(
+            spreadsheetId=spreadsheet_id,
+            range=f"{self._quote_sheet_title(sheet_title)}!A:L",
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [values]},
+        ))
+        updated_range = response.get("updates", {}).get("updatedRange", "")
+        match = re.search(r"![A-Z]+(\d+)", updated_range)
+        if not match:
+            raise GoogleDriverError("写入 ECN 总表后无法确认新行号")
+        return int(match.group(1))
+
+    def write_spreadsheet_row(
+        self,
+        spreadsheet_id: str,
+        sheet_title: str,
+        row: int,
+        values: list[str],
+    ) -> int:
+        """Write a complete row at a specific 1-based sheet row."""
+        self._execute(lambda: self._sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{self._quote_sheet_title(sheet_title)}!A{row}:L{row}",
+            valueInputOption="USER_ENTERED",
+            body={"majorDimension": "ROWS", "values": [values]},
+        ))
+        return row
+
+    def get_file_parent(self, file_id_or_url: str) -> str | None:
+        file_id = self.parse_drive_file_id(file_id_or_url)
+        if not file_id:
+            return None
+        response = self._execute(lambda: self._drive_service.files().get(
+            fileId=file_id, fields="parents", supportsAllDrives=True,
+        ))
+        return next(iter(response.get("parents", [])), None)
+
+    def trash_file(self, file_id_or_url: str) -> None:
+        file_id = self.parse_drive_file_id(file_id_or_url)
+        if not file_id:
+            raise GoogleDriverError("无法解析要删除的 Google Drive 文件 ID")
+        self._execute(lambda: self._drive_service.files().update(
+            fileId=file_id, body={"trashed": True}, fields="id", supportsAllDrives=True,
+        ))
+
+    def rename_file(self, file_id_or_url: str, name: str) -> None:
+        file_id = self.parse_drive_file_id(file_id_or_url)
+        if not file_id:
+            raise GoogleDriverError("无法解析要重命名的 Google Drive 文件 ID")
+        self._execute(lambda: self._drive_service.files().update(
+            fileId=file_id, body={"name": name}, fields="id", supportsAllDrives=True,
+        ))
+
     def read_spreadsheet_preview(
         self,
         spreadsheet_id: str,
@@ -419,6 +510,144 @@ class GoogleDriver:
 
         files.sort(key=lambda item: item.created_time or "", reverse=True)
         return files
+
+    def find_folder(self, parent_id_or_url: str, name: str) -> GoogleDriveFile | None:
+        """Find an immediate child folder by its exact name."""
+
+        parent_id = self.parse_drive_file_id(parent_id_or_url)
+        if not parent_id:
+            raise GoogleDriverError("无法解析 Google Drive 父目录 ID")
+        escaped_name = str(name or "").replace("\\", "\\\\").replace("'", "\\'")
+        query = (
+            f"'{parent_id}' in parents and trashed = false and "
+            "mimeType = 'application/vnd.google-apps.folder' and "
+            f"name = '{escaped_name}'"
+        )
+        response = self._execute(
+            lambda: self._drive_service.files().list(
+                q=query,
+                pageSize=2,
+                fields="files(id,name,mimeType,createdTime,modifiedTime,webViewLink)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+        )
+        items = response.get("files", [])
+        if not items:
+            return None
+        item = items[0]
+        return GoogleDriveFile(
+            id=str(item["id"]),
+            name=str(item.get("name") or name),
+            mime_type=str(item.get("mimeType") or "application/vnd.google-apps.folder"),
+            created_time=item.get("createdTime"),
+            modified_time=item.get("modifiedTime"),
+            web_view_link=item.get("webViewLink") or f"https://drive.google.com/drive/folders/{item['id']}",
+        )
+
+    def find_folder_by_prefix(
+        self,
+        parent_id_or_url: str,
+        name_prefix: str,
+    ) -> GoogleDriveFile | None:
+        """Find an immediate child folder whose name starts with a prefix."""
+
+        parent_id = self.parse_drive_file_id(parent_id_or_url)
+        if not parent_id:
+            raise GoogleDriverError("无法解析 Google Drive 父目录 ID")
+        escaped_prefix = str(name_prefix or "").replace("\\", "\\\\").replace("'", "\\'")
+        query = (
+            f"'{parent_id}' in parents and trashed = false and "
+            "mimeType = 'application/vnd.google-apps.folder' and "
+            f"name contains '{escaped_prefix}'"
+        )
+        response = self._execute(
+            lambda: self._drive_service.files().list(
+                q=query,
+                pageSize=100,
+                fields="files(id,name,mimeType,createdTime,modifiedTime,webViewLink)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+        )
+        item = next(
+            (
+                candidate
+                for candidate in response.get("files", [])
+                if str(candidate.get("name") or "").startswith(name_prefix)
+            ),
+            None,
+        )
+        if item is None:
+            return None
+        folder_id = str(item["id"])
+        return GoogleDriveFile(
+            id=folder_id,
+            name=str(item.get("name") or name_prefix),
+            mime_type=str(item.get("mimeType") or "application/vnd.google-apps.folder"),
+            created_time=item.get("createdTime"),
+            modified_time=item.get("modifiedTime"),
+            web_view_link=item.get("webViewLink") or f"https://drive.google.com/drive/folders/{folder_id}",
+        )
+
+    def create_folder(self, parent_id_or_url: str, name: str) -> GoogleDriveFile:
+        """Create a Drive folder below the supplied parent."""
+
+        parent_id = self.parse_drive_file_id(parent_id_or_url)
+        if not parent_id:
+            raise GoogleDriverError("无法解析 Google Drive 父目录 ID")
+        response = self._execute(
+            lambda: self._drive_service.files().create(
+                body={
+                    "name": name,
+                    "mimeType": "application/vnd.google-apps.folder",
+                    "parents": [parent_id],
+                },
+                fields="id,name,mimeType,createdTime,modifiedTime,webViewLink",
+                supportsAllDrives=True,
+            )
+        )
+        folder_id = str(response["id"])
+        return GoogleDriveFile(
+            id=folder_id,
+            name=str(response.get("name") or name),
+            mime_type=str(response.get("mimeType") or "application/vnd.google-apps.folder"),
+            created_time=response.get("createdTime"),
+            modified_time=response.get("modifiedTime"),
+            web_view_link=response.get("webViewLink") or f"https://drive.google.com/drive/folders/{folder_id}",
+        )
+
+    def copy_file(
+        self,
+        file_id_or_url: str,
+        parent_id_or_url: str,
+        name: str,
+    ) -> GoogleDriveFile:
+        """Copy a Drive file into a folder and return the new file metadata."""
+
+        file_id = self.parse_drive_file_id(file_id_or_url)
+        parent_id = self.parse_drive_file_id(parent_id_or_url)
+        if not file_id:
+            raise GoogleDriverError("无法解析 Google Drive 模板文件 ID")
+        if not parent_id:
+            raise GoogleDriverError("无法解析 Google Drive 目标目录 ID")
+        response = self._execute(
+            lambda: self._drive_service.files().copy(
+                fileId=file_id,
+                body={"name": name, "parents": [parent_id]},
+                fields="id,name,mimeType,createdTime,modifiedTime,webViewLink",
+                supportsAllDrives=True,
+            )
+        )
+        copied_id = str(response["id"])
+        return GoogleDriveFile(
+            id=copied_id,
+            name=str(response.get("name") or name),
+            mime_type=str(response.get("mimeType") or "application/vnd.google-apps.spreadsheet"),
+            created_time=response.get("createdTime"),
+            modified_time=response.get("modifiedTime"),
+            web_view_link=response.get("webViewLink") or f"https://docs.google.com/spreadsheets/d/{copied_id}/edit",
+        )
 
     def download_file_bytes(
         self,
