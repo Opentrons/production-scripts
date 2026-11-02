@@ -1,0 +1,12 @@
+{
+  "source_project": "opentrons",
+  "source_path": "hardware-testing/analysis/pipette_qc_agent",
+  "source_version": "1.0.0",
+  "copied_on": "2026-10-29",
+  "source_sha256": {
+    "__init__.py": "2a8db25222c888f56ea4efbe1052422739884f41efec5486821339300303792e",
+    "analyzer.py": "f5b084474f2b058edabed067a0f4e181d9a382c59bb5071086aba104de54dd0f",
+    "evidence.py": "9d1563704cbc0b8a541f75de5affdc732070d30939fa4fa70e6bd0873bfa3bce"
+  },
+  "integration": "Local core copy for the test-failures web page; standalone worker and systemd unit are not used."
+}

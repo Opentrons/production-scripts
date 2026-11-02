@@ -1,4 +1,7 @@
+import { testFailuresEn } from './testFailures.ts'
+
 export default {
+  testFailures: testFailuresEn,
   locale: {
     label: 'Language',
     chinese: '中文',
@@ -41,6 +44,7 @@ export default {
     testVersions: 'Test Versions | Productions',
     agent: 'Production Agent',
     defectSearch: 'Defect Analysis Assistant | Productions',
+    testFailures: 'Test Failure Data | Productions',
     testing: 'Productions Testing',
     bridgeGptToken: 'Bridge GPT Token | Productions',
     pipSettingsReview: 'Pip Settings Review | Productions',

@@ -61,6 +61,12 @@ const routes: RouteRecordRaw[] = [
     meta: { standalone: true, titleKey: 'titles.defectSearch', favicon: TESTING_FAVICON },
   },
   {
+    path: '/production/defect-search/test-failures',
+    name: 'TestFailures',
+    component: () => import('@/views/production_modules/TestFailuresView.vue'),
+    meta: { standalone: true, titleKey: 'titles.testFailures', favicon: TESTING_FAVICON },
+  },
+  {
     path: '/tools/bridge-gpt-token',
     name: 'BridgeGptToken',
     component: () => import('@/views/tools/BridgeGptTokenView.vue'),

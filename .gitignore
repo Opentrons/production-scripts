@@ -93,3 +93,4 @@ $WT/
 
 # Local defect knowledge database and downloaded model cache
 apps/backend/data/defect-search/
+apps/backend/data/test-failure-reports/

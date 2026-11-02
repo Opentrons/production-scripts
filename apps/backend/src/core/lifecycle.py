@@ -55,6 +55,11 @@ from modules.bridge_tokens.runtime import (
     bridge_token_service,
 )
 from modules.supplies.runtime import configure_supplementary_material_repository
+from modules.test_failures.scheduler import (
+    start_test_failure_scheduler,
+    stop_test_failure_scheduler,
+)
+from modules.test_failures.report_links import stop_report_link_service
 
 
 logger = get_logger(__name__)
@@ -141,8 +146,11 @@ async def lifespan(_: FastAPI):
         asyncio.create_task(_refresh_proxy_in_background())
 
     try:
+        start_test_failure_scheduler()
         yield
     finally:
+        stop_test_failure_scheduler()
+        stop_report_link_service()
         ecn_monitor_service.stop()
         upload_scheduler.stop()
         bridge_token_scheduler.stop()

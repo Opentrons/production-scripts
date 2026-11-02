@@ -6,6 +6,7 @@ from modules.auth.routes import router as auth_router
 from modules.bridge_tokens.routes import router as bridge_tokens_router
 from modules.ecn.routes import router as ecn_router
 from modules.protocol_monitor.routes import router as protocol_monitor_router
+from modules.test_failures.routes import router as test_failures_router
 
 from api.routers import (
     data,
@@ -52,6 +53,7 @@ protected_router.include_router(test_versions.router)
 protected_router.include_router(system.router)
 protected_router.include_router(data.router)
 protected_router.include_router(defect_search.router)
+protected_router.include_router(test_failures_router)
 protected_router.include_router(uploads.router)
 protected_router.include_router(products.router)
 protected_router.include_router(robots.router)
