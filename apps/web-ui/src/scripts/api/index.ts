@@ -1351,6 +1351,16 @@ export const uploadRecordApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 0
     })
+  },
+  upload96PressureData: (csvFile: File, reportType: 'QC' | 'GRAVIMETRIC' | 'LIFETIME', recordId?: string) => {
+    const formData = new FormData()
+    formData.append('csv_file', csvFile)
+    formData.append('report_type', reportType)
+    if (recordId) formData.append('record_id', recordId)
+    return api.post<UploadDataResponse>('/upload-data/manual/96-pressure', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0
+    })
   }
 }
 

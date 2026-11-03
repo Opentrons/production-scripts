@@ -616,6 +616,35 @@
               </div>
             </div>
           </el-tab-pane>
+          <el-tab-pane :label="t('uploadRecords.tabs.pressure96')" name="pressure_96">
+            <el-form label-position="top" class="pressure-96-panel">
+              <el-form-item :label="t('uploadRecords.pressure96.reportType')">
+                <el-select v-model="pressure96ReportType" class="pressure-96-type-select">
+                  <el-option label="QC" value="QC" />
+                  <el-option label="Gravimetric" value="GRAVIMETRIC" />
+                  <el-option label="Lifetime" value="LIFETIME" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('uploadRecords.uploadFile')">
+                <el-upload
+                  class="manual-upload"
+                  drag
+                  :auto-upload="false"
+                  :limit="1"
+                  accept=".csv,text/csv"
+                  :on-change="handlePressure96FileChange"
+                  :on-remove="handlePressure96FileRemove"
+                  :on-exceed="handlePressure96FileExceed"
+                >
+                  <el-icon class="upload-icon"><UploadFilled /></el-icon>
+                  <div class="upload-text">{{ t('uploadRecords.pressure96.chooseCsv') }}</div>
+                </el-upload>
+              </el-form-item>
+              <el-alert type="info" :closable="false" show-icon>
+                {{ t('uploadRecords.pressure96.help') }}
+              </el-alert>
+            </el-form>
+          </el-tab-pane>
           <el-tab-pane :label="t('uploadRecords.tabs.pipetteOptical')" name="pipette_optical">
             <el-empty :description="t('uploadRecords.pipetteOpticalPending')" />
           </el-tab-pane>
@@ -656,6 +685,15 @@
             @click="submitManualUpload"
             :loading="manualUploading"
             :disabled="!canSubmitManualUpload"
+          >
+            {{ t('uploadRecords.submitUpload') }}
+          </el-button>
+          <el-button
+            v-else-if="manualUploadTab === 'pressure_96'"
+            type="primary"
+            @click="submitPressure96Upload"
+            :loading="pressure96Uploading"
+            :disabled="!canSubmitPressure96"
           >
             {{ t('uploadRecords.submitUpload') }}
           </el-button>
@@ -720,7 +758,8 @@ interface SuccessPieItem {
   color: string
 }
 
-type ManualUploadTab = 'standard' | 'z_stage' | 'pipette_optical' | 'robot_parallelism'
+type ManualUploadTab = 'standard' | 'z_stage' | 'pressure_96' | 'pipette_optical' | 'robot_parallelism'
+type Pressure96ReportType = 'QC' | 'GRAVIMETRIC' | 'LIFETIME'
 type StandardUploadMode = 'local' | 'robot'
 type ZStageUploadMode = 'remote' | 'local'
 type ZStageRemoteFileStatus = 'pending' | 'uploading' | 'success' | 'failed'
@@ -825,6 +864,9 @@ const standardUploadMode = ref<StandardUploadMode>('local')
 const manualUploading = ref(false)
 const manualFile = ref<File | null>(null)
 const robotParallelismFile = ref<File | null>(null)
+const pressure96ReportType = ref<Pressure96ReportType>('QC')
+const pressure96File = ref<File | null>(null)
+const pressure96Uploading = ref(false)
 const includeSourceZip = ref(false)
 const uploadAllFiles = ref(false)
 const robotScanStore = useRobotScanStore()
@@ -930,7 +972,8 @@ const canSubmitManualUpload = computed(() => {
   return Boolean(standardRobotIp.value && standardSelectedRobotFile.value && !standardSelectedRobotFile.value.is_dir)
 })
 const canSubmitRobotParallelism = computed(() => Boolean(robotParallelismFile.value))
-const manualDialogBusy = computed(() => manualUploading.value || zStageSearching.value || zStageUploading.value || zStageRobotScanLoading.value || standardRobotLoading.value || standardRobotScanLoading.value)
+const canSubmitPressure96 = computed(() => Boolean(pressure96File.value))
+const manualDialogBusy = computed(() => manualUploading.value || pressure96Uploading.value || zStageSearching.value || zStageUploading.value || zStageRobotScanLoading.value || standardRobotLoading.value || standardRobotScanLoading.value)
 
 function isValidBarcode(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$/.test(value.trim())
@@ -966,6 +1009,9 @@ const resetManualUploadState = () => {
   standardUploadMode.value = 'local'
   manualFile.value = null
   robotParallelismFile.value = null
+  pressure96ReportType.value = 'QC'
+  pressure96File.value = null
+  pressure96Uploading.value = false
   includeSourceZip.value = false
   uploadAllFiles.value = false
   standardRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
@@ -1028,6 +1074,20 @@ const handleParallelismFileExceed = (files: File[], uploadFiles: UploadFiles) =>
   uploadFiles.splice(0, uploadFiles.length)
   robotParallelismFile.value = getCsvRawFile(files[0])
   if (robotParallelismFile.value) ElMessage.warning(t('uploadRecords.messages.csvReplaced'))
+}
+
+const handlePressure96FileChange = (file: UploadFile) => {
+  pressure96File.value = getCsvRawFile(file)
+}
+
+const handlePressure96FileRemove = () => {
+  pressure96File.value = null
+}
+
+const handlePressure96FileExceed = (files: File[], uploadFiles: UploadFiles) => {
+  uploadFiles.splice(0, uploadFiles.length)
+  pressure96File.value = getCsvRawFile(files[0])
+  if (pressure96File.value) ElMessage.warning(t('uploadRecords.messages.csvReplaced'))
 }
 
 const handleManualFileChange = (file: UploadFile) => {
@@ -1361,16 +1421,28 @@ const createUploadIdempotencyKey = () => {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
 }
 
-const startTrackedUpload = async (fileName: string, source = 'web', csvSize?: number) => {
+const startTrackedUpload = async (
+  fileName: string,
+  source = 'web',
+  csvSize?: number,
+  options?: { idempotencyKey?: string; csvSha256?: string }
+) => {
   const response = await uploadRecordApi.startUploadRecord({
     csvFileName: fileName,
     source,
     csvSize,
-    idempotencyKey: createUploadIdempotencyKey()
+    idempotencyKey: options?.idempotencyKey || createUploadIdempotencyKey(),
+    csvSha256: options?.csvSha256
   })
   const recordId = response.data.record_id
   if (!recordId) throw new Error('Upload record was not created')
   return recordId
+}
+
+const sha256File = async (file: File) => {
+  if (!globalThis.crypto?.subtle) return ''
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 const markTrackedUploadFailed = async (recordId: string, error: any, failureStage?: string) => {
@@ -1921,6 +1993,40 @@ const submitManualUpload = async () => {
     ElMessage.error(message ? t('uploadRecords.messages.manualFailedWithReason', { error: message }) : t('uploadRecords.messages.manualFailed'))
   } finally {
     manualUploading.value = false
+  }
+}
+
+const submitPressure96Upload = async () => {
+  if (!pressure96File.value) {
+    ElMessage.warning(t('uploadRecords.messages.selectCsv'))
+    return
+  }
+  pressure96Uploading.value = true
+  let recordId = ''
+  try {
+    const csvSha256 = await sha256File(pressure96File.value)
+    recordId = await startTrackedUpload(
+      pressure96File.value.name,
+      'web_96_pressure',
+      pressure96File.value.size,
+      csvSha256
+        ? { csvSha256, idempotencyKey: `96-pressure:${pressure96ReportType.value}:${csvSha256}` }
+        : undefined
+    )
+    const response = await uploadRecordApi.upload96PressureData(
+      pressure96File.value,
+      pressure96ReportType.value,
+      recordId
+    )
+    ElMessage.success(t('uploadRecords.messages.submitted'))
+    manualUploadVisible.value = false
+    await afterUploadSubmitted(response.data.record_id)
+  } catch (e: any) {
+    if (recordId) await markTrackedUploadFailed(recordId, e, 'pressure_request')
+    const message = normalizeUploadError(e)
+    ElMessage.error(message ? t('uploadRecords.messages.manualFailedWithReason', { error: message }) : t('uploadRecords.messages.manualFailed'))
+  } finally {
+    pressure96Uploading.value = false
   }
 }
 

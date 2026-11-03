@@ -229,6 +229,47 @@ async def upload_manual_data(
         )
 
 
+@data_center_client_router.post("/upload-data/manual/96-pressure", response_model=UploadDataResponse)
+async def upload_96_pressure_data(
+    csv_file: UploadFile = File(...),
+    report_type: str = Form("QC"),
+    record_id: str | None = Form(None),
+):
+    """Queue one 96-channel pressure report using the server Google account."""
+    from modules.uploads.pressure_upload import normalize_report_type
+
+    try:
+        normalized_report_type = normalize_report_type(report_type)
+        return await upload_service.upload_manual_data(
+            csv_file=csv_file,
+            include_source_zip=False,
+            all_files=False,
+            meta={"pressure_96": True, "pressure_report_type": normalized_report_type},
+            source_files=None,
+            upload_record_id=record_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": str(exc), "success": False, "record_id": record_id},
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error in upload-data/manual/96-pressure: %s", exc, exc_info=True)
+        upload_record_service.mark_upload_record_failed(
+            record_id,
+            failure_stage="request_processing",
+            failure_code="pressure_upload_request_failed",
+            error="Internal server error",
+            error_detail=str(exc),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Internal server error", "success": False, "record_id": record_id},
+        ) from exc
+
+
 @router.get("/upload-records", response_model=UploadRecordListResponse)
 async def get_upload_records(
     page: int = 1,

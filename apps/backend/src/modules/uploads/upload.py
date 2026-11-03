@@ -294,11 +294,15 @@ async def upload_manual_data(
                 "deduplicated": True,
                 "message": "Upload task already exists",
             }
+        existing_csv_info = existing_record.get("csv_file") or {}
         upload_record_service.update_upload_record(
             upload_record_id,
             {
                 "source": "manual",
-                "csv_file": upload_record_service.build_file_info(None, csv_filename),
+                "csv_file": {
+                    **existing_csv_info,
+                    **(upload_record_service.build_file_info(None, csv_filename) or {}),
+                },
             },
         )
     csv_path = None
@@ -1107,6 +1111,103 @@ def compute_file_sha256(path: str) -> tuple[int, str]:
     return size, digest.hexdigest()
 
 
+def upload_pressure_data(
+    csv_path: str,
+    *,
+    upload_record_id: str | None,
+    report_type: str,
+    zip_path: str | None = None,
+    expected_attempt: int | None = None,
+) -> dict:
+    """Run the server-side 96-channel pressure workflow.
+
+    It deliberately uses the same upload-record lifecycle as normal uploads,
+    so the UI can show progress and a crashed worker can be recovered by the
+    existing scheduler.  Google credentials are loaded by GoogleDriveDriver;
+    no desktop token or local GUI code is imported.
+    """
+    from modules.uploads.pressure_upload import process_pressure_upload
+
+    current_stage = "pressure_validate"
+
+    def progress(event: str, payload: dict) -> None:
+        nonlocal current_stage
+        if event == "stage":
+            current_stage = str(payload.get("stage") or current_stage)
+            upload_record_service.record_upload_progress(
+                upload_record_id,
+                current_stage,
+                payload.get("message") or current_stage,
+                checkpoint=payload.get("checkpoint"),
+                expected_attempt=expected_attempt,
+            )
+        elif event == "file_desc":
+            upload_record_service.update_upload_attempt(
+                upload_record_id,
+                expected_attempt,
+                {"file_desc": payload, "progress_stage": "file_desc", "progress_message": "已解析 96 通道报告"},
+            )
+        elif event == "upload_result":
+            upload_record_service.update_upload_attempt(
+                upload_record_id,
+                expected_attempt,
+                {"upload_result": payload, "progress_stage": "upload_result", "progress_message": "96 通道报告已处理"},
+            )
+
+    try:
+        upload_record_service.record_upload_progress(
+            upload_record_id,
+            "pressure_validate",
+            "正在校验 96 通道报告",
+            expected_attempt=expected_attempt,
+        )
+        result = process_pressure_upload(
+            csv_path,
+            report_type=report_type,
+            progress_callback=progress,
+        )
+        finished = bool(result.get("finished"))
+        if not finished:
+            raise RuntimeError(str(result.get("error") or "96 通道报告处理失败"))
+        if not upload_record_service.finish_upload_record(
+            upload_record_id,
+            upload_success=True,
+            database_success=True,
+            slack_success=None,
+            result=result,
+            expected_attempt=expected_attempt,
+        ):
+            return {"success": False, "record_id": upload_record_id, "message": "Upload attempt lease is no longer current"}
+        save_upload_message(result, success=True, csv_path=csv_path)
+        upload_record_service.queue_upload_notification(
+            upload_record_id,
+            result=result,
+            csv_path=csv_path,
+            zip_path=zip_path,
+            error_message=None,
+            upload_success=True,
+            database_success=True,
+        )
+        cleanup_upload_files(csv_path, zip_path)
+        return {"csv_file": csv_path, "success": True, "record_id": upload_record_id, **result}
+    except Exception as exc:
+        logger.error("96-channel pressure upload failed: %s", exc, exc_info=True)
+        finish_failed_upload(
+            upload_record_id,
+            csv_path=csv_path,
+            zip_path=zip_path,
+            upload_success=False,
+            database_success=False,
+            result=None,
+            error_message=str(exc),
+            failure_stage=current_stage,
+            failure_code=f"{current_stage}_exception",
+            error_detail=str(exc),
+            expected_attempt=expected_attempt,
+        )
+        raise
+
+
 def run_queued_upload(record: dict) -> None:
     record_id = str(record["_id"])
     job = record.get("job") or {}
@@ -1146,14 +1247,23 @@ def run_queued_upload(record: dict) -> None:
                     f"Queued CSV SHA-256 changed: expected={expected_sha256}, actual={actual_sha256}"
                 )
 
-        upload_data(
-            csv_path=csv_path,
-            zip_path=zip_path,
-            upload_record_id=record_id,
-            meta=meta,
-            retry_managed=True,
-            expected_attempt=expected_attempt,
-        )
+        if meta.get("pressure_96"):
+            upload_pressure_data(
+                csv_path,
+                zip_path=zip_path,
+                upload_record_id=record_id,
+                report_type=str(meta.get("pressure_report_type") or "QC"),
+                expected_attempt=expected_attempt,
+            )
+        else:
+            upload_data(
+                csv_path=csv_path,
+                zip_path=zip_path,
+                upload_record_id=record_id,
+                meta=meta,
+                retry_managed=True,
+                expected_attempt=expected_attempt,
+            )
     except UploadRetryScheduled as exc:
         logger.warning("Upload %s scheduled for retry: %s", record_id, exc)
     except UploadFileIntegrityError as exc:
