@@ -23,6 +23,8 @@ The development fallback is transient for the process and is selected during sta
 
 See [Platform authentication](docs/platform-authentication.md) for first-user and HTTPS deployment instructions.
 
+缺陷分析助手新增“测试失败数据”：读取服务器 QC 失败 JSON/LOG/encoder CSV，保存共享返修确认与历史。配置、报告判定规则和 API 见 [测试失败数据](../../docs/test-failure-data.md)。
+
 ### OT3 系统镜像安装
 
 - 设备管理 → 设备工作台 → **安装镜像**：选择设备 IP 和服务器镜像。
