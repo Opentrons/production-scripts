@@ -7,6 +7,11 @@
   line-height: 1.5;
 }
 
+.defect-section-tabs { display: flex; gap: 6px; margin: 24px 0; padding-bottom: 1px; border-bottom: 1px solid #dbe5e9; }
+.defect-section-tabs a { padding: 11px 18px; color: #60727c; border-bottom: 3px solid transparent; text-decoration: none; font-weight: 650; }
+.defect-section-tabs a:hover { color: #087e8b; background: #e8f2f4; }
+.defect-section-tabs a.is-active { color: #087e8b; border-color: #087e8b; }
+
 .defect-search-topbar {
   display: flex;
   min-height: 68px;

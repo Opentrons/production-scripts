@@ -1,4 +1,7 @@
+import { testFailuresZh } from './testFailures.ts'
+
 export default {
+  testFailures: testFailuresZh,
   locale: {
     label: '界面语言',
     chinese: '中文',
@@ -41,6 +44,7 @@ export default {
     testVersions: 'Test Versions | Productions',
     agent: '生产助手',
     defectSearch: '缺陷分析助手 | Productions',
+    testFailures: '测试失败数据 | Productions',
     testing: 'Productions Testing',
     bridgeGptToken: 'Bridge GPT Token | Productions',
     pipSettingsReview: 'Pip Settings Review | Productions',

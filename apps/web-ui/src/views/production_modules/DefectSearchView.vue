@@ -29,6 +29,11 @@
         <div class="defect-search-badge"><Search :size="17" />{{ searchModeLabel }}</div>
       </section>
 
+      <nav class="defect-section-tabs" :aria-label="copy.title">
+        <RouterLink :to="{ name: 'DefectSearch' }" exact-active-class="is-active">{{ t('testFailures.knowledgeTab') }}</RouterLink>
+        <RouterLink :to="{ name: 'TestFailures' }" exact-active-class="is-active">{{ t('testFailures.failuresTab') }}</RouterLink>
+      </nav>
+
       <section class="defect-search-stats" :aria-label="copy.summaryLabel">
         <article class="defect-stat-card">
           <span>{{ copy.caseCount }}</span>
@@ -328,6 +333,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
+import { RouterLink } from 'vue-router'
 import {
   CircleAlert,
   CircleCheck,
@@ -347,7 +353,7 @@ import { useAuthStore } from '@/scripts/stores/auth'
 import { defectSearchApi, type DefectAdviceOption, type DefectRepairSession, type DefectSearchCase, type DefectSearchOptions, type DefectSearchResponse } from '@/scripts/api'
 import '@/styles/dashboard/defect-search.css'
 
-const { locale } = useAppLocale()
+const { locale, t } = useAppLocale()
 const authStore = useAuthStore()
 const isEnglish = computed(() => locale.value === 'en-US')
 const copy = computed(() => isEnglish.value ? englishCopy : chineseCopy)

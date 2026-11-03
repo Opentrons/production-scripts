@@ -169,6 +169,20 @@ class GoogleDriver:
             cells=cells,
         )
 
+    def read_sheet_grid_ranges(self, spreadsheet_id: str, ranges: list[str]) -> list[dict[str, Any]]:
+        """Read selected columns with links and row/column offsets in one request."""
+        if not ranges or len(ranges) > 50:
+            raise ValueError("Expected between 1 and 50 Google Sheet ranges")
+        response = self._execute(
+            lambda: self._sheets_service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id, ranges=ranges, includeGridData=True,
+                fields=("sheets(properties(sheetId,title),data(startRow,startColumn,"
+                        "rowData(values(formattedValue,hyperlink,userEnteredValue,"
+                        "textFormatRuns(format(link)),userEnteredFormat(textFormat(link))))))"),
+            )
+        )
+        return response.get("sheets", [])
+
     def get_file_metadata(self, file_id_or_url: str) -> GoogleDriveFile:
         file_id = self.parse_drive_file_id(file_id_or_url)
         if not file_id:
