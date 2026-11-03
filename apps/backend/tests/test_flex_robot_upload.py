@@ -238,8 +238,8 @@ def test_five_flex_reports_complete_one_workflow_and_append_both_trackers(leveli
         assert kwargs["value_render_option"] == "FORMULA"
         if kwargs["range"] != "'Opentrons OT3'!F:AI":
             assert kwargs["range"] in {
-                "'Z Stage Parallelism'!C:AP", "'Pipette To Deck Parallelism'!B:N",
-                "'Pipette To Deck Parallelism'!F:BB", "'Gripper Parallelism'!B:K",
+                "'Z Stage Parallelism'!C:C", "'Pipette To Deck Parallelism'!B:B",
+                "'Gripper Parallelism'!B:B",
             }
             return [["header"]] * 3
         return deepcopy(tracker_rows)
