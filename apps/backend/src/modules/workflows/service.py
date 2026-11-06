@@ -32,6 +32,10 @@ from modules.workflows.models import (
 from modules.workflows.repository import WorkflowRepository
 
 
+DEFAULT_DURO_AUTO_EXCLUDED_KEYWORDS = ("PACKAGING", "SOFTWARE", "TOUCHPOINTS")
+DEFAULT_DURO_ZERO_QUANTITY_PARENT_PREFIXES = ("991-",)
+
+
 class WorkflowNotFoundError(KeyError):
     pass
 
@@ -74,7 +78,11 @@ def build_duro_bom_workflow() -> Workflow:
             "target_revision": "",
             "duro_submenu_ids": [],
             "duro_submenus": [],
+            "duro_auto_select_submenus": False,
+            "duro_auto_excluded_keywords": list(DEFAULT_DURO_AUTO_EXCLUDED_KEYWORDS),
+            "duro_auto_zero_quantity_parent_prefixes": list(DEFAULT_DURO_ZERO_QUANTITY_PARENT_PREFIXES),
             "ignored_sop_product_keywords": [],
+            "ignored_sop_product_material_names": {},
             "ignored_part_numbers": [],
             "ignored_sop_product_keyword_reasons": {},
             "ignored_part_number_reasons": {},
@@ -436,14 +444,15 @@ class WorkflowService:
                 sop_sources = self._configured_sop_sources(workflow)
                 duro_source = str(workflow.configuration.get("duro_product_id") or "").strip()
                 duro_submenu_ids = self._configured_duro_submenu_ids(workflow)
+                auto_select_submenus = bool(workflow.configuration.get("duro_auto_select_submenus", False))
                 self._append_run_log(run, "检查 SOP 与 Duro 数据源配置。")
-                if not sop_sources or not duro_source or not duro_submenu_ids:
+                if not sop_sources or not duro_source or (not auto_select_submenus and not duro_submenu_ids):
                     missing = []
                     if not sop_sources:
                         missing.append("SOP")
                     if not duro_source:
                         missing.append("Duro 产品")
-                    if duro_source and not duro_submenu_ids:
+                    if duro_source and not auto_select_submenus and not duro_submenu_ids:
                         missing.append("Duro 扫描子菜单")
                     run.status = "skipped"
                     run.message = f"请先配置数据源：{'、'.join(missing)}"
@@ -483,10 +492,33 @@ class WorkflowService:
                     run,
                     f"读取 Duro 产品：{workflow.configuration.get('duro_product_name') or duro_source}。",
                 )
+                auto_excluded_keywords = (
+                    self._normalize_duro_auto_keywords(workflow.configuration.get("duro_auto_excluded_keywords"))
+                    if auto_select_submenus else None
+                )
+                zero_quantity_parent_prefixes = (
+                    self._normalize_duro_zero_quantity_parent_prefixes(
+                        workflow.configuration.get("duro_auto_zero_quantity_parent_prefixes")
+                    ) if auto_select_submenus else None
+                )
+                if auto_select_submenus:
+                    self._append_run_log(
+                        run,
+                        "根据最新 Duro BOM 自动选择子项目；排除名称或描述包含关键字的料号及其整个子树："
+                        + ("、".join(auto_excluded_keywords or []) or "未设置排除关键字") + "。",
+                    )
+                    if zero_quantity_parent_prefixes:
+                        self._append_run_log(
+                            run,
+                            "逐层检查以下料号前缀的父项，仅跳过其数量为 0 的子项及该子项的分支，保留非零子项："
+                            + "、".join(zero_quantity_parent_prefixes) + "。",
+                        )
                 duro_materials, duro_submenus, parent_bom_ignored_items = self._collect_duro_materials(
                     duro_source,
                     duro_submenu_ids,
                     include_parent_bom=bool(workflow.configuration.get("check_parent_bom", False)),
+                    auto_excluded_keywords=auto_excluded_keywords,
+                    zero_quantity_parent_prefixes=zero_quantity_parent_prefixes,
                 )
                 duro_cleanup_items = self._normalize_material_part_numbers(duro_materials, "duro")
                 self._append_run_log(
@@ -704,6 +736,13 @@ class WorkflowService:
                 if (normalized := str(value).strip())
             )
         )
+        configuration["duro_auto_select_submenus"] = bool(configuration.get("duro_auto_select_submenus", False))
+        configuration["duro_auto_excluded_keywords"] = self._normalize_duro_auto_keywords(
+            configuration.get("duro_auto_excluded_keywords")
+        )
+        configuration["duro_auto_zero_quantity_parent_prefixes"] = self._normalize_duro_zero_quantity_parent_prefixes(
+            configuration.get("duro_auto_zero_quantity_parent_prefixes")
+        )
         raw_submenus = configuration.get("duro_submenus")
         submenus = [dict(item) for item in raw_submenus if isinstance(item, dict)] if isinstance(raw_submenus, list) else []
         configuration["duro_submenus"] = [
@@ -724,6 +763,12 @@ class WorkflowService:
             and not (normalized := keyword.casefold()) in seen_sop_keywords
             and not seen_sop_keywords.add(normalized)
         ]
+        raw_material_names = configuration.get("ignored_sop_product_material_names")
+        material_names = raw_material_names if isinstance(raw_material_names, dict) else {}
+        configuration["ignored_sop_product_material_names"] = {
+            keyword: self._normalize_sop_material_names(material_names.get(keyword))
+            for keyword in configuration["ignored_sop_product_keywords"]
+        }
         raw_keyword_reasons = configuration.get("ignored_sop_product_keyword_reasons")
         keyword_reasons = raw_keyword_reasons if isinstance(raw_keyword_reasons, dict) else {}
         configuration["ignored_sop_product_keyword_reasons"] = {
@@ -1038,43 +1083,68 @@ class WorkflowService:
                 configured.append(keyword)
         return configured
 
-    @classmethod
-    def _material_name_matches_keywords(cls, name: Any, keywords: list[str]) -> bool:
-        return cls._matching_sop_keyword(name, keywords) is not None
+    @staticmethod
+    def _normalize_sop_rule_name(value: str) -> str:
+        text = unicodedata.normalize("NFKC", value).casefold().replace("μ", "u")
+        return " ".join(text.split())
 
     @classmethod
-    def _matching_sop_keyword(cls, name: Any, keywords: list[str]) -> str | None:
-        normalized_name = cls._normalize_sop_product_text(name)
-        for keyword in keywords:
-            normalized_keyword = cls._normalize_sop_product_text(keyword)
-            if normalized_keyword and normalized_keyword in normalized_name:
-                return keyword
-            fragments = [
-                cls._normalize_sop_product_text(fragment)
-                for fragment in re.split(r"[\s,，;；/|]+", str(keyword).strip())
-                if cls._normalize_sop_product_text(fragment)
-            ]
-            position = 0
-            for fragment in fragments:
-                matched_at = normalized_name.find(fragment, position)
-                if matched_at < 0:
+    def _normalize_sop_material_names(cls, values: Any) -> list[str]:
+        if not isinstance(values, list):
+            return []
+        names: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            if not isinstance(value, str) or "\n" in value or "\r" in value:
+                continue
+            name = value.strip()
+            normalized = cls._normalize_sop_rule_name(name)
+            if not any(character.isalpha() for character in normalized) or normalized in seen:
+                continue
+            seen.add(normalized)
+            names.append(name)
+        return names
+
+    @classmethod
+    def _matching_sop_product_rule(
+        cls, name: Any, product_materials: dict[str, list[str]], part_number: str = "",
+    ) -> tuple[str, str] | None:
+        raw_name = str(name or "")
+        if "\n" in raw_name or "\r" in raw_name:
+            return None
+        normalized_name = cls._normalize_sop_rule_name(raw_name)
+        # Strip this record's number if the PDF retained it in the name. No
+        # particular number or number format is required by the ignore rule.
+        if part_number:
+            suffixes = [cls._normalize_sop_rule_name(part_number)]
+            if re.fullmatch(r"\d{3}-\d{5}", part_number):
+                # The report may already have repaired a PDF's extra zero.
+                suffixes.append(f"{part_number[:4]}0{part_number[4:]}")
+            for suffix in suffixes:
+                if suffix and normalized_name.endswith(suffix):
+                    normalized_name = normalized_name[:-len(suffix)].strip()
                     break
-                position = matched_at + len(fragment)
-            else:
-                if len(fragments) > 1:
-                    return keyword
+        for product, material_names in product_materials.items():
+            if not product.strip() or "\n" in product or "\r" in product:
+                continue
+            normalized_product = cls._normalize_sop_rule_name(product)
+            normalized_material_names = cls._normalize_sop_material_names(material_names)
+            # Names and part numbers are stored separately after extraction.
+            # With no list, only the exact product may remain before the number.
+            if not normalized_material_names and part_number.strip() and normalized_name == normalized_product:
+                return product, ""
+            for material_name in normalized_material_names:
+                normalized_material = cls._normalize_sop_rule_name(material_name)
+                expected = f"{normalized_product} {normalized_material}"
+                if normalized_name == expected:
+                    return product, material_name
+                # Chinese material names are often attached directly to the model.
+                if (
+                    not normalized_material[0].isascii()
+                    and normalized_name == normalized_product + normalized_material
+                ):
+                    return product, material_name
         return None
-
-    @classmethod
-    def _remove_materials_by_name(cls, materials: dict[str, dict[str, Any]], keywords: list[str]) -> int:
-        matched_part_numbers = [
-            part_number
-            for part_number, material in materials.items()
-            if cls._material_name_matches_keywords(material.get("name"), keywords)
-        ]
-        for part_number in matched_part_numbers:
-            materials.pop(part_number, None)
-        return len(matched_part_numbers)
 
     @staticmethod
     def _normalize_sop_product_text(value: Any) -> str:
@@ -1090,6 +1160,39 @@ class WorkflowService:
             for value in values
             if (normalized := str(value).strip())
         }
+
+    @staticmethod
+    def _normalize_duro_auto_keywords(values: Any) -> list[str]:
+        raw_values = values if isinstance(values, list) else DEFAULT_DURO_AUTO_EXCLUDED_KEYWORDS
+        return list(dict.fromkeys(
+            normalized
+            for value in raw_values
+            if isinstance(value, str)
+            and (normalized := " ".join(unicodedata.normalize("NFKC", value).split()).upper())
+        ))
+
+    @classmethod
+    def _duro_node_matches_auto_exclusions(cls, node: DuroBomNode, keywords: list[str]) -> bool:
+        fields = cls._normalize_duro_auto_keywords([node.name, node.description])
+        return any(keyword in value for keyword in cls._normalize_duro_auto_keywords(keywords) for value in fields)
+
+    @classmethod
+    def _normalize_duro_zero_quantity_parent_prefixes(cls, values: Any) -> list[str]:
+        return cls._normalize_duro_auto_keywords(
+            values if isinstance(values, list) else list(DEFAULT_DURO_ZERO_QUANTITY_PARENT_PREFIXES)
+        )
+
+    @classmethod
+    def _duro_is_zero_quantity_child(
+        cls, parent: DuroBomNode, child: DuroBomNode, prefixes: list[str] | None,
+    ) -> bool:
+        if not prefixes:
+            return False
+        parent_part_number = unicodedata.normalize("NFKC", parent.cpn or "").strip().upper()
+        return (
+            any(parent_part_number.startswith(prefix) for prefix in prefixes)
+            and cls._number(child.quantity, default=1.0) == 0
+        )
 
     @staticmethod
     def _occurrence_value(item: Any, key: str, default: Any = None) -> Any:
@@ -1434,6 +1537,8 @@ class WorkflowService:
         product_id: str,
         selected_submenu_ids: set[str],
         include_parent_bom: bool = False,
+        auto_excluded_keywords: list[str] | None = None,
+        zero_quantity_parent_prefixes: list[str] | None = None,
     ) -> tuple[
         dict[str, dict[str, Any]],
         list[dict[str, str]],
@@ -1445,11 +1550,32 @@ class WorkflowService:
         response = self.duro_service.get_product_bom(product_id, refresh=True)
         if bool(getattr(response, "cached", False)):
             raise RuntimeError("Duro 产品 BOM 强制刷新失败：服务返回了缓存数据")
+        if auto_excluded_keywords is not None:
+            selected_submenu_ids = {
+                node.id for node in response.root.children
+                if self._number(node.quantity, default=1.0) > 0
+                and not self._duro_node_matches_auto_exclusions(node, auto_excluded_keywords)
+            }
+            if not selected_submenu_ids:
+                raise RuntimeError("Duro 自动选择未找到可核对的子项目，请检查产品 BOM 和自动排除关键字")
+        available_ids = {node.id for node in response.root.children}
+        missing_ids = selected_submenu_ids - available_ids
+        if missing_ids:
+            raise RuntimeError(f"Duro 子菜单不存在或已失效：{', '.join(sorted(missing_ids))}")
         materials: dict[str, dict[str, Any]] = {}
         ignored_parent_materials: dict[str, dict[str, Any]] = {}
         visited_nodes = 0
 
         selected_submenus: list[dict[str, str]] = []
+
+        def load_children(parent: DuroBomNode) -> list[DuroBomNode]:
+            child_response = self.duro_service.get_component_children(parent.id, refresh=True)
+            if bool(getattr(child_response, "cached", False)):
+                raise RuntimeError(f"Duro 子组件 {parent.id} 强制刷新失败：服务返回了缓存数据")
+            return [
+                child for child in child_response.children
+                if not self._duro_is_zero_quantity_child(parent, child, zero_quantity_parent_prefixes)
+            ]
 
         def visit(
             node: DuroBomNode,
@@ -1463,6 +1589,8 @@ class WorkflowService:
             visited_nodes += 1
             if visited_nodes > 5000:
                 raise RuntimeError("Duro BOM 节点超过 5000，已停止展开")
+            if auto_excluded_keywords is not None and self._duro_node_matches_auto_exclusions(node, auto_excluded_keywords):
+                return
             quantity = self._number(node.quantity, default=1.0)
             effective_quantity = multiplier * quantity
             if effective_quantity <= 0:
@@ -1497,26 +1625,20 @@ class WorkflowService:
                     current["submenu_labels"].append(submenu_label)
             if not node.has_children or node.id in ancestors:
                 return
-            child_response = self.duro_service.get_component_children(node.id, refresh=True)
-            if bool(getattr(child_response, "cached", False)):
-                raise RuntimeError(f"Duro 子组件 {node.id} 强制刷新失败：服务返回了缓存数据")
-            children = child_response.children
             next_ancestors = {*ancestors, node.id}
-            for child in children:
+            for child in load_children(node):
                 visit(child, effective_quantity, current_path, next_ancestors, submenu_id, submenu_label)
 
         root_label = response.root.cpn or response.root.name or product_id
         for submenu in response.root.children:
             if submenu.id not in selected_submenu_ids:
                 continue
+            submenu_quantity = self._number(submenu.quantity, default=1.0)
+            if submenu_quantity <= 0:
+                continue
             submenu_label = submenu.cpn or submenu.name or submenu.id
             selected_submenus.append({"id": submenu.id, "label": submenu_label, "name": submenu.name})
-            submenu_quantity = self._number(submenu.quantity, default=1.0)
-            child_response = self.duro_service.get_component_children(submenu.id, refresh=True)
-            if bool(getattr(child_response, "cached", False)):
-                raise RuntimeError(f"Duro 子菜单 {submenu.id} 强制刷新失败：服务返回了缓存数据")
-            children = child_response.children
-            for child in children:
+            for child in load_children(submenu):
                 visit(
                     child,
                     submenu_quantity,
@@ -1525,9 +1647,6 @@ class WorkflowService:
                     submenu.id,
                     submenu_label,
                 )
-        missing_ids = selected_submenu_ids - {item["id"] for item in selected_submenus}
-        if missing_ids:
-            raise RuntimeError(f"Duro 子菜单不存在或已失效：{', '.join(sorted(missing_ids))}")
         if not include_parent_bom:
             for part_number in ignored_parent_materials:
                 materials.pop(part_number, None)
@@ -1707,6 +1826,12 @@ class WorkflowService:
         part_reasons = workflow.configuration.get("ignored_part_number_reasons")
         part_reasons = part_reasons if isinstance(part_reasons, dict) else {}
         keywords = self._configured_ignored_sop_product_keywords(workflow)
+        raw_material_names = workflow.configuration.get("ignored_sop_product_material_names")
+        material_names = raw_material_names if isinstance(raw_material_names, dict) else {}
+        product_materials = {
+            keyword: self._normalize_sop_material_names(material_names.get(keyword))
+            for keyword in keywords
+        }
         ignored_parts = self._configured_ignored_part_numbers(workflow)
         database_part_rules = {
             rule.part_number: rule
@@ -1742,10 +1867,13 @@ class WorkflowService:
                     or "历史配置未填写原因"
                 )
             else:
-                matched_keyword = self._matching_sop_keyword(difference.name, keywords)
-                if matched_keyword and difference.status != "extra_in_duro":
+                matched_rule = self._matching_sop_product_rule(
+                    difference.name, product_materials, difference.part_number,
+                )
+                if matched_rule and difference.status != "extra_in_duro":
+                    matched_keyword, matched_material = matched_rule
                     ignore_type = "sop_product_keyword"
-                    ignore_value = matched_keyword
+                    ignore_value = f"{matched_keyword} + {matched_material or difference.part_number}"
                     reason = str(keyword_reasons.get(matched_keyword) or "历史配置未填写原因")
             if ignore_type:
                 ignored_difference = difference.model_copy(

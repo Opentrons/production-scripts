@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
@@ -16,6 +18,45 @@ from modules.supplies.seed import INITIAL_SUPPLEMENTARY_MATERIALS
 
 class DuplicateSupplementaryMaterialError(ValueError):
     pass
+
+
+@dataclass
+class SheetSyncPlan:
+    materials: list[SupplementaryMaterial]
+    removed_ids: set[str]
+    created_count: int
+    updated_count: int
+
+
+def prepare_sheet_sync(
+    existing: list[SupplementaryMaterial], managed_ids: list[str],
+    payloads: list[SupplementaryMaterialCreate], synced_at: datetime,
+) -> SheetSyncPlan:
+    if not payloads:
+        raise ValueError("辅料原表没有有效料号，已保留原有数据")
+    by_number = {item.material_number.casefold(): item for item in existing}
+    materials: list[SupplementaryMaterial] = []
+    seen: set[str] = set()
+    created = updated = 0
+    for payload in payloads:
+        number = payload.material_number.casefold()
+        if number in seen:
+            raise ValueError(f"辅料原表料号重复：{payload.material_number}")
+        seen.add(number)
+        current = by_number.get(number)
+        values = payload.model_dump()
+        if current is None:
+            material = SupplementaryMaterial(id=f"supply_{uuid4().hex[:12]}", **values, created_at=synced_at, updated_at=synced_at)
+            created += 1
+        elif any(getattr(current, field) != value for field, value in values.items()):
+            material = current.model_copy(update={**values, "updated_at": synced_at})
+            updated += 1
+        else:
+            material = current
+        materials.append(material)
+    active_ids = {item.id for item in materials}
+    removed_ids = (set(managed_ids) - active_ids) & {item.id for item in existing}
+    return SheetSyncPlan(materials, removed_ids, created, updated)
 
 
 class SupplementaryMaterialRepository:
@@ -143,6 +184,43 @@ class SupplementaryMaterialRepository:
                 "DELETE FROM supplementary_materials WHERE id = ?", (material_id,)
             )
         return cursor.rowcount > 0
+
+    def get_sheet_sync_state(self) -> dict:
+        with self._lock, self._connect() as connection:
+            return self._read_sheet_sync_state(connection)
+
+    @staticmethod
+    def _read_sheet_sync_state(connection: sqlite3.Connection) -> dict:
+        row = connection.execute("SELECT value FROM supplementary_material_meta WHERE key = 'sheet_sync_state'").fetchone()
+        return json.loads(row["value"]) if row else {}
+
+    def sync_from_sheet(self, payloads: list[SupplementaryMaterialCreate], synced_at: datetime) -> SheetSyncPlan:
+        with self._lock, self._connect() as connection:
+            # Keep the old complete snapshot visible until the new one commits.
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute("SELECT * FROM supplementary_materials").fetchall()
+            state = self._read_sheet_sync_state(connection)
+            plan = prepare_sheet_sync([self._from_row(row) for row in rows], state.get("managed_ids", []), payloads, synced_at)
+            for material in plan.materials:
+                connection.execute(
+                    """
+                    INSERT INTO supplementary_materials
+                        (id, material_number, english_name, chinese_name, eid, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET material_number=excluded.material_number,
+                        english_name=excluded.english_name, chinese_name=excluded.chinese_name,
+                        eid=excluded.eid, updated_at=excluded.updated_at
+                    """,
+                    self._values(material),
+                )
+            connection.executemany("DELETE FROM supplementary_materials WHERE id = ?", [(item,) for item in plan.removed_ids])
+            next_state = {"synced_at": synced_at.isoformat(), "managed_ids": [item.id for item in plan.materials]}
+            connection.execute(
+                "INSERT INTO supplementary_material_meta (key, value) VALUES ('sheet_sync_state', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (json.dumps(next_state),),
+            )
+        return plan
 
     def _initialize_database(self) -> None:
         with self._lock, self._connect() as connection:
