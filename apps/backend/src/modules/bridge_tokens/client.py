@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 from threading import RLock
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
 
 class BridgefloodsError(RuntimeError):
+    pass
+
+
+class BridgefloodsAuthenticationError(BridgefloodsError):
+    pass
+
+
+class BridgefloodsCredentialSaveError(BridgefloodsError):
     pass
 
 
@@ -42,12 +50,14 @@ class BridgefloodsClient:
         access_token: str = "",
         refresh_token: str = "",
         timeout_seconds: float = 30.0,
+        refresh_handler: Callable[[str, str], tuple[str, str]] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.timeout_seconds = timeout_seconds
         self._lock = RLock()
+        self._refresh_handler = refresh_handler
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -67,13 +77,21 @@ class BridgefloodsClient:
         payload: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         allow_refresh: bool = True,
+        refresh_attempts: int = 0,
     ) -> Any:
         normalized_path = path if path.startswith("/") else f"/{path}"
+        with self._lock:
+            headers = self._headers()
+            request_access_token = self.access_token
+        if normalized_path == "/auth/refresh":
+            # Refresh credentials authenticate this request; an expired AT is
+            # irrelevant and must not be sent as its Authorization header.
+            headers.pop("Authorization", None)
         try:
             response = httpx.request(
                 method,
                 f"{self.base_url}{normalized_path}",
-                headers=self._headers(),
+                headers=headers,
                 json=payload,
                 params={key: value for key, value in (params or {}).items() if value is not None},
                 timeout=self.timeout_seconds,
@@ -85,14 +103,30 @@ class BridgefloodsClient:
 
         if response.status_code == 401 and allow_refresh and self.refresh_token and normalized_path != "/auth/refresh":
             with self._lock:
-                self._refresh_access_token()
+                # Concurrent failed requests may have used the same old AT.
+                # Once another request refreshes it, reuse that pair.
+                if self.access_token == request_access_token:
+                    if self._refresh_handler is None:
+                        self._refresh_access_token()
+                    else:
+                        self.access_token, self.refresh_token = self._refresh_handler(
+                            self.access_token, self.refresh_token,
+                        )
             return self._request(
                 method,
                 normalized_path,
                 payload=payload,
                 params=params,
-                allow_refresh=False,
+                # A stale client may first adopt a stored pair whose AT has
+                # also expired. Allow one further coordinated renewal, bounded
+                # so a rejected newly issued AT can never cause an infinite loop.
+                allow_refresh=self._refresh_handler is not None and refresh_attempts == 0,
+                refresh_attempts=refresh_attempts + 1,
             )
+        if response.status_code in {401, 403} and normalized_path == "/auth/refresh":
+            raise BridgefloodsAuthenticationError("Bridgefloods refresh token is expired or invalid; update credentials")
+        if response.status_code == 401:
+            raise BridgefloodsAuthenticationError("Bridgefloods access token is invalid and could not be renewed")
         if response.status_code >= 400:
             raise BridgefloodsError(f"Bridgefloods API returned HTTP {response.status_code}")
         if not response.content:
