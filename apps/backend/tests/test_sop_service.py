@@ -4,10 +4,12 @@ import io
 import threading
 import time
 
+import pytest
 from pypdf import PdfWriter
 
 from core.google import GoogleDriveFile, GoogleSheetCell, GoogleSheetData
 from modules.agent.llm.models import SopSemanticDecision, SopTextMaterial
+from modules.sop.models import SopPdfAnalysisResponse
 from modules.sop.service import SopService, llm_service
 
 
@@ -150,6 +152,41 @@ def test_pdf_analysis_runs_semantic_pass_when_material_pass_times_out(monkeypatc
     assert reference.quantity_explanation == "语义识别到安装 2 个"
 
 
+@pytest.mark.parametrize("ai_enabled", [False, True])
+def test_pdf_analysis_and_refinement_share_repaired_chinese_source(monkeypatch, ai_enabled) -> None:
+    class FakePage:
+        def extract_text(self, extraction_mode=None):
+            return "安装密封圈 435-\n00123\nInstall O-ring 999-\n54321\n920-00118"
+
+    class FakeReader:
+        pages = [FakePage()]
+        is_encrypted = False
+        metadata = {}
+
+    monkeypatch.setattr("modules.sop.service.PdfReader", lambda _stream: FakeReader())
+    monkeypatch.setattr(llm_service, "api_key", "test-key" if ai_enabled else "")
+    material_inputs, semantic_inputs = [], []
+    def extract_materials(pages):
+        material_inputs.append(pages)
+        return []
+    def extract_semantic(pages, **kwargs):
+        semantic_inputs.append(pages)
+        return []
+    monkeypatch.setattr(llm_service, "extract_sop_pages", extract_materials)
+    monkeypatch.setattr(llm_service, "extract_sop_semantic_references", extract_semantic)
+
+    service = SopService(FakeGoogleDriver())
+    result = service.analyze_pdf("pdf-file-id", refresh=True)
+
+    assert [item.part_number for item in result.full_text_references] == ["435-00123"]
+    expected = [(1, "安装密封圈 435-00123")]
+    assert service._instruction_pages_for_refinement("pdf-file-id") == expected
+    # A fresh service must apply the same filter when refinement downloads again.
+    assert SopService(FakeGoogleDriver())._instruction_pages_for_refinement("pdf-file-id") == expected
+    assert material_inputs == ([expected] if ai_enabled else [])
+    assert semantic_inputs == ([expected] if ai_enabled else [])
+
+
 def test_concurrent_master_sheet_requests_share_one_google_read() -> None:
     driver = FakeGoogleDriver()
     original_read = driver.read_sheet_by_gid
@@ -208,6 +245,23 @@ def test_pdf_analysis_cache_survives_service_restart(tmp_path) -> None:
     second_service = SopService(second_driver, cache_path=cache_path)  # type: ignore[arg-type]
     cached = second_service.analyze_pdf("pdf-file-id")
 
+    assert cached.cached is True
+    assert cached.filename == "SOP.pdf"
+
+
+def test_pdf_analysis_ignores_legacy_language_filter_cache(tmp_path) -> None:
+    cache_path = tmp_path / "sop-cache.sqlite3"
+    service = SopService(FakeGoogleDriver(), cache_path=cache_path)
+    legacy = SopPdfAnalysisResponse(
+        file_id="pdf-file-id", filename="Legacy.pdf", mime_type="application/pdf",
+        size=0, page_count=1, text_length=0,
+    )
+    service._set_disk_cached("pdf:pdf-file-id", legacy)
+
+    refreshed = SopService(FakeGoogleDriver(), cache_path=cache_path).analyze_pdf("pdf-file-id")
+    assert refreshed.cached is False
+    assert refreshed.filename == "SOP.pdf"
+    cached = SopService(FakeGoogleDriver(), cache_path=cache_path).analyze_pdf("pdf-file-id")
     assert cached.cached is True
     assert cached.filename == "SOP.pdf"
 
