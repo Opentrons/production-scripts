@@ -25,7 +25,7 @@ onUnmounted(() => clearInterval(timer))
 async function send() {
   busy.value = true
   try {
-    await rawAuthTransport.post('/auth/password-reset/request', { email: email.value }, { timeout: 30000 })
+    await rawAuthTransport.post('/auth/password-reset/request', { email: email.value }, { timeout: 90000 })
     message.value = t('accounts.sent')
     cooldown.value = 60
     clearInterval(timer)

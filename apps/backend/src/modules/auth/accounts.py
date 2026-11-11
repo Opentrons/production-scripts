@@ -9,6 +9,7 @@ import smtplib
 import ssl
 import time
 from email.message import EmailMessage
+from pathlib import Path
 from typing import Literal
 from sqlite3 import IntegrityError
 
@@ -95,13 +96,44 @@ def smtp_config():
     return host, ACCOUNT_EMAIL_SENDER
 
 
+def email_provider():
+    provider = os.getenv('PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER', 'smtp').strip().lower()
+    if provider == 'smtp':
+        smtp_config()
+    elif provider == 'gmail':
+        token_path = os.getenv('PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH', '').strip()
+        if not token_path or not Path(token_path).expanduser().is_file():
+            raise HTTPException(503, 'Password recovery Gmail authorization is not configured')
+    else:
+        raise HTTPException(503, 'Unsupported password recovery email provider')
+    return provider
+
+
+def gmail_sender():
+    from modules.bridge_tokens.emailer import BridgeEmailSender, BridgeEmailSettings
+    return BridgeEmailSender(BridgeEmailSettings(
+        provider='gmail',
+        # Gmail uses the identity of the explicitly configured OAuth grant.
+        # Never label another mailbox's token as the software.sz SMTP sender.
+        from_address='',
+        gmail_token_path=Path(os.environ['PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH']).expanduser(),
+        smtp_host='', smtp_port=587, smtp_username='', smtp_password='',
+        smtp_use_ssl=False, smtp_starttls=True,
+    ))
+
+
 def send_code(email, code):
+    subject = 'Productions password reset code'
+    body = (f'Your password reset code is {code}. It expires in 10 minutes.\n'
+            'If you did not request this, ignore this email.')
+    if email_provider() == 'gmail':
+        gmail_sender().send(email, subject, body)
+        return
     host, sender = smtp_config()
     message = EmailMessage()
     message['From'], message['To'] = sender, email
-    message['Subject'] = 'Productions password reset code'
-    message.set_content(f'Your password reset code is {code}. It expires in 10 minutes.\n'
-                        'If you did not request this, ignore this email.')
+    message['Subject'] = subject
+    message.set_content(body)
     port = int(os.getenv('PRODUCTION_PLATFORM_SMTP_PORT', '587'))
     transport = smtplib.SMTP_SSL if port == 465 else smtplib.SMTP
     tls_options = {'context': ssl.create_default_context()} if port == 465 else {}
@@ -121,7 +153,7 @@ def code_hash(service, email, code):
 @router.post('/password-reset/request')
 def request_code(payload: EmailRequest, request: Request, service: AuthService = Depends(get_auth_service)):
     from modules.auth.routes import _client_ip
-    smtp_config()
+    email_provider()
     email = payload.email.casefold()
     code = f'{secrets.randbelow(1000000):06d}'
     digest = code_hash(service, email, code)

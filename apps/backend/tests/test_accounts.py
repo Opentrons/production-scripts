@@ -13,6 +13,12 @@ from modules.auth.service import AuthService, AuthenticationError, PASSWORD_HASH
 from modules.auth.store import AuthStore
 
 
+@pytest.fixture(autouse=True)
+def default_mail_provider(monkeypatch):
+    # Keep developer-local provider configuration out of unit tests.
+    monkeypatch.setenv('PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER', 'smtp')
+
+
 @pytest.fixture(params=['sqlite', 'mongodb'])
 def service(request, tmp_path):
     if request.param == 'mongodb':
@@ -193,3 +199,45 @@ def test_account_mail_uses_software_sender(monkeypatch, port):
     assert message['From'] == 'software.sz@opentrons.com'
     assert message['To'] == 'recipient@example.com'
     assert '123456' in message.get_content()
+
+
+def test_gmail_delivery_uses_explicit_token_owner(monkeypatch, tmp_path):
+    from unittest.mock import MagicMock
+    token = tmp_path / 'gmail.json'
+    token.write_text('{}')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER', 'gmail')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH', str(token))
+    monkeypatch.delenv('PRODUCTION_PLATFORM_SMTP_HOST', raising=False)
+    sender = accounts.gmail_sender()
+    assert sender.settings.from_address == ''
+    assert sender.settings.gmail_token_path == token
+    delivery = MagicMock()
+    monkeypatch.setattr(accounts, 'gmail_sender', lambda: delivery)
+    accounts.send_code('recipient@example.com', '123456')
+    assert delivery.send.call_args.args[0] == 'recipient@example.com'
+    assert '123456' in delivery.send.call_args.args[2]
+
+
+def test_missing_gmail_authorization_fails_before_sending(monkeypatch):
+    from fastapi import HTTPException
+    monkeypatch.setenv('PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER', 'gmail')
+    monkeypatch.delenv('PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH', raising=False)
+    with pytest.raises(HTTPException) as error:
+        accounts.send_code('recipient@example.com', '123456')
+    assert error.value.status_code == 503
+
+
+def test_gmail_failure_does_not_fall_back_to_smtp(monkeypatch, tmp_path):
+    from unittest.mock import MagicMock
+    token = tmp_path / 'gmail.json'
+    token.write_text('{}')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER', 'gmail')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH', str(token))
+    sender = MagicMock()
+    sender.send.side_effect = RuntimeError('delivery failed')
+    monkeypatch.setattr(accounts, 'gmail_sender', lambda: sender)
+    smtp = MagicMock()
+    monkeypatch.setattr(accounts.smtplib, 'SMTP', smtp)
+    with pytest.raises(RuntimeError):
+        accounts.send_code('recipient@example.com', '123456')
+    smtp.assert_not_called()

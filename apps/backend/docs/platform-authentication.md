@@ -105,10 +105,10 @@ PRODUCTION_PLATFORM_SMTP_PASSWORD=<SMTP credential or app password>
 ```
 
 Port 587 uses STARTTLS; port 465 uses implicit TLS. Both verify the server
-certificate. Account emails always use `software.sz@opentrons.com`. A different
+certificate. In SMTP mode, account emails use `software.sz@opentrons.com`. A different
 `PRODUCTION_PLATFORM_SMTP_FROM` value is rejected before sending. Configure SMTP
 credentials for this mailbox, or a relay explicitly authorized to send as it.
-Do not reuse another personal mailbox's Gmail token. Changing the From header
+Gmail mode requires a separately selected and explicitly authorized OAuth token. Changing the From header
 does not grant send-as permission. This feature does
 not need access to a user's Google password or Google OAuth token.
 
@@ -131,3 +131,24 @@ Run the regression tests with `uv run --package production-backend pytest
 apps/backend/tests/test_auth.py apps/backend/tests/test_accounts.py
 apps/backend/tests/test_storage_modes.py`. MongoDB store tests use `mongomock`;
 live SMTP delivery and production MongoDB are not exercised by these tests.
+
+### Explicit Gmail API alternative
+
+When SMTP ports are unavailable, select Gmail API over HTTPS instead:
+
+```text
+PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER=gmail
+PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH=/absolute/path/to/authorized-gmail-token.json
+```
+
+The token must have Gmail send permission. This mode sends as the token's actual
+mailbox owner; it does not use or impersonate `PRODUCTION_PLATFORM_SMTP_FROM`.
+Only select a mailbox whose owner has authorized its use for account recovery.
+The locally configured existing Kimmy Yang authorization is an explicitly
+approved temporary option; no credentials or local paths are committed.
+
+Gmail reuses the platform Google proxy configuration (`PRODUCTION_PLATFORM_GHELPER_DIR`).
+SMTP remains the default when the provider is unset. There is no automatic
+provider fallback: a delivery failure returns an error and invalidates its code,
+so a timed-out send cannot silently trigger another send from a different mailbox.
+Restart the backend after changing the provider or credentials.
