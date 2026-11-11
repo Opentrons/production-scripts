@@ -10,7 +10,7 @@ export default {
     "operator": "Operator",
     "guest": "Guest",
     "add": "Add account",
-    "initialPassword": "Initial passwords are the part before @, preserving capitalization. New passwords must contain at least 12 characters.",
+    "initialPassword": "Initial passwords are the part before {'@'}, preserving capitalization. New passwords must contain at least 12 characters.",
     "failed": "Unable to save or load accounts. Check for duplicates and ensure at least one administrator remains.",
     "roleWarning": "Changing a role signs this account out of all sessions. Continue?",
     "reset": "Reset password",
