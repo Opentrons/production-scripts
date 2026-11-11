@@ -99,13 +99,17 @@ Configure these environment variables on the backend, then restart it:
 ```text
 PRODUCTION_PLATFORM_SMTP_HOST=smtp.example.com
 PRODUCTION_PLATFORM_SMTP_PORT=587
-PRODUCTION_PLATFORM_SMTP_FROM=noreply@example.com
-PRODUCTION_PLATFORM_SMTP_USERNAME=noreply@example.com
+PRODUCTION_PLATFORM_SMTP_FROM=software.sz@opentrons.com
+PRODUCTION_PLATFORM_SMTP_USERNAME=software.sz@opentrons.com
 PRODUCTION_PLATFORM_SMTP_PASSWORD=<SMTP credential or app password>
 ```
 
 Port 587 uses STARTTLS; port 465 uses implicit TLS. Both verify the server
-certificate. Use a sender authorized by your mail provider. This feature does
+certificate. Account emails always use `software.sz@opentrons.com`. A different
+`PRODUCTION_PLATFORM_SMTP_FROM` value is rejected before sending. Configure SMTP
+credentials for this mailbox, or a relay explicitly authorized to send as it.
+Do not reuse another personal mailbox's Gmail token. Changing the From header
+does not grant send-as permission. This feature does
 not need access to a user's Google password or Google OAuth token.
 
 Codes expire after 10 minutes, can be used once, and allow at most five

@@ -22,6 +22,7 @@ from modules.auth.service import AuthService, PASSWORD_HASH
 
 router = APIRouter()
 Role = Literal['admin', 'engineer', 'operator', 'guest']
+ACCOUNT_EMAIL_SENDER = 'software.sz@opentrons.com'
 
 
 class EmailRequest(BaseModel):
@@ -86,10 +87,12 @@ def change_role(user_id: str, payload: ChangeRole, service: AuthService = Depend
 
 def smtp_config():
     host = os.getenv('PRODUCTION_PLATFORM_SMTP_HOST', '')
-    sender = os.getenv('PRODUCTION_PLATFORM_SMTP_FROM', '')
-    if not host or not sender:
+    sender = os.getenv('PRODUCTION_PLATFORM_SMTP_FROM', '').strip() or ACCOUNT_EMAIL_SENDER
+    if sender.casefold() != ACCOUNT_EMAIL_SENDER:
+        raise HTTPException(503, 'Account email sender must be software.sz@opentrons.com')
+    if not host:
         raise HTTPException(503, 'Password recovery email is not configured')
-    return host, sender
+    return host, ACCOUNT_EMAIL_SENDER
 
 
 def send_code(email, code):

@@ -30,7 +30,7 @@ def service(request, tmp_path):
 @pytest.fixture
 def client(service, monkeypatch):
     monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_HOST', 'smtp.example.com')
-    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_FROM', 'noreply@example.com')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_FROM', 'software.sz@opentrons.com')
     app = FastAPI()
     app.include_router(router, prefix='/api')
     app.dependency_overrides[get_auth_service] = lambda: service
@@ -163,3 +163,33 @@ def test_reset_only_one_concurrent_confirmation_succeeds(service):
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: service.store.confirm_reset(account.username, 'digest', password_hash, now + 1), range(2)))
     assert sorted(results) == [False, True]
+
+
+def test_account_mail_sender_is_fixed(monkeypatch):
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_HOST', 'smtp.example.com')
+    monkeypatch.delenv('PRODUCTION_PLATFORM_SMTP_FROM', raising=False)
+    assert accounts.smtp_config() == ('smtp.example.com', 'software.sz@opentrons.com')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_FROM', 'other@example.com')
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as error:
+        accounts.send_code('recipient@example.com', '123456')
+    assert error.value.status_code == 503
+
+
+@pytest.mark.parametrize('port', [587, 465])
+def test_account_mail_uses_software_sender(monkeypatch, port):
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_HOST', 'smtp.example.com')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_PORT', str(port))
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_FROM', 'software.sz@opentrons.com')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_USERNAME', 'software.sz@opentrons.com')
+    monkeypatch.setenv('PRODUCTION_PLATFORM_SMTP_PASSWORD', 'test-only-password')
+    from unittest.mock import MagicMock
+    transport = MagicMock()
+    monkeypatch.setattr(accounts.smtplib, 'SMTP_SSL' if port == 465 else 'SMTP', transport)
+    accounts.send_code('recipient@example.com', '123456')
+    smtp = transport.return_value.__enter__.return_value
+    smtp.login.assert_called_once_with('software.sz@opentrons.com', 'test-only-password')
+    message = smtp.send_message.call_args.args[0]
+    assert message['From'] == 'software.sz@opentrons.com'
+    assert message['To'] == 'recipient@example.com'
+    assert '123456' in message.get_content()
