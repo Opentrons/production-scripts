@@ -1,6 +1,6 @@
 import { csrfHeaders, rawAuthTransport, refreshSession } from '@/scripts/api/http'
 
-export type AuthRole = 'admin' | 'operator' | 'viewer' | 'device_operator'
+export type AuthRole = 'admin' | 'engineer' | 'guest' | 'operator' | 'viewer' | 'device_operator'
 
 export interface AuthUser {
   id: string

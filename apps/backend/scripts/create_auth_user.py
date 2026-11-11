@@ -6,7 +6,7 @@ import sqlite3
 
 from core import config
 from modules.auth.factory import create_auth_store
-from modules.auth.service import AuthService
+from modules.auth.service import AuthService, VALID_ROLES
 
 
 def parse_args() -> argparse.Namespace:
@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--display-name", default="")
     parser.add_argument(
         "--role",
-        choices=("admin", "operator", "viewer", "device_operator"),
+        choices=sorted(VALID_ROLES),
         default="admin",
     )
     return parser.parse_args()

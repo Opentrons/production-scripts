@@ -58,6 +58,13 @@ class AuthStore:
         with self._lock, self._connect() as connection:
             connection.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS auth_reset_rates (
+                    key TEXT PRIMARY KEY, times TEXT NOT NULL, expires REAL NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS auth_password_resets (
+                    email TEXT PRIMARY KEY, digest TEXT NOT NULL, expires REAL NOT NULL,
+                    attempts INTEGER NOT NULL, token_version INTEGER NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS auth_users (
                     id TEXT PRIMARY KEY,
                     username TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -242,3 +249,59 @@ class AuthStore:
                 "DELETE FROM auth_sessions WHERE expires_at <= ?",
                 (to_timestamp(utc_now()),),
             )
+
+    def list_accounts(self) -> list[AuthUser]:
+        with self._lock, self._connect() as connection:
+            return [self._user(row) for row in connection.execute('SELECT * FROM auth_users ORDER BY username')]
+
+    def update_role(self, user_id: str, role: str) -> AuthUser:
+        with self._lock, self._connect() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            row = connection.execute('SELECT * FROM auth_users WHERE id = ?', (user_id,)).fetchone()
+            if row is None:
+                raise LookupError('Account not found')
+            count = connection.execute("SELECT COUNT(*) FROM auth_users WHERE role = 'admin' AND disabled = 0").fetchone()[0]
+            if row['role'] == 'admin' and role != 'admin' and count <= 1:
+                raise ValueError('Cannot remove the last administrator')
+            if row['role'] != role:
+                connection.execute('UPDATE auth_users SET role = ?, token_version = token_version + 1, updated_at = ? WHERE id = ?',
+                                   (role, to_timestamp(utc_now()), user_id))
+        return self.get_user_by_id(user_id)
+
+    def reserve_reset(self, email: str, digest: str, ip: str, now: float) -> AuthUser | None:
+        import json
+        with self._lock, self._connect() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            connection.execute('DELETE FROM auth_reset_rates WHERE expires <= ?', (now,))
+            for key, maximum in ((f'email:{email}', 5), (f'ip:{ip}', 20)):
+                row = connection.execute('SELECT times FROM auth_reset_rates WHERE key = ?', (key,)).fetchone()
+                times = [t for t in json.loads(row[0]) if now - t < 3600] if row else []
+                if len(times) >= maximum or (key.startswith('email:') and times and now - times[-1] < 60):
+                    raise ValueError('Please wait before requesting another code')
+                connection.execute('INSERT OR REPLACE INTO auth_reset_rates VALUES (?, ?, ?)',
+                                   (key, json.dumps(times + [now]), now + 3600))
+            connection.execute('DELETE FROM auth_password_resets WHERE expires <= ?', (now,))
+            user = self._user(connection.execute('SELECT * FROM auth_users WHERE username = ? COLLATE NOCASE AND disabled = 0', (email,)).fetchone())
+            if user:
+                connection.execute('INSERT OR REPLACE INTO auth_password_resets VALUES (?, ?, ?, ?, ?)',
+                                   (email, digest, now + 600, 0, user.token_version))
+            return user
+
+    def cancel_reset(self, email: str, digest: str) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute('DELETE FROM auth_password_resets WHERE email = ? AND digest = ?', (email, digest))
+
+    def confirm_reset(self, email: str, digest: str, password_hash: str, now: float) -> bool:
+        import hmac
+        with self._lock, self._connect() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            reset = connection.execute('SELECT * FROM auth_password_resets WHERE email = ? AND expires > ? AND attempts < 5', (email, now)).fetchone()
+            if reset is None:
+                return False
+            connection.execute('UPDATE auth_password_resets SET attempts = attempts + 1 WHERE email = ?', (email,))
+            if not hmac.compare_digest(reset['digest'], digest):
+                return False
+            result = connection.execute('UPDATE auth_users SET password_hash = ?, token_version = token_version + 1, updated_at = ? WHERE username = ? COLLATE NOCASE AND disabled = 0 AND token_version = ?',
+                                        (password_hash, to_timestamp(utc_now()), email, reset['token_version']))
+            connection.execute('DELETE FROM auth_password_resets WHERE email = ?', (email,))
+            return result.rowcount == 1
