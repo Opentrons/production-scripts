@@ -97,7 +97,12 @@ function installInterceptors(client: AxiosInstance): AxiosInstance {
     async (error: AxiosError) => {
       const responseStatus = error.response?.status
       const request = error.config as RetriableRequestConfig | undefined
-      if (responseStatus !== 401 || !request || request._authRetry || request.url?.startsWith('/auth/')) {
+      // Account administration is protected API traffic and needs the same
+      // session renewal as business endpoints. Only login/recovery/session
+      // endpoints bypass retries to avoid authentication loops.
+      const skipAuthRetry = request?.url?.startsWith('/auth/')
+        && !/^\/auth\/accounts(?:\/|$)/.test(request.url)
+      if (responseStatus !== 401 || !request || request._authRetry || skipAuthRetry) {
         return Promise.reject(error)
       }
       request._authRetry = true

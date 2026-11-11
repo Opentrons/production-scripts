@@ -7,8 +7,9 @@
     "dev": "vite",
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "check:pip-settings": "node scripts/check-pip-settings.mjs",
-    "build": "npm run check:i18n && npm run check:pip-settings && vue-tsc && vite build",
-    "preview": "vite preview"
+    "build": "npm run check:i18n && npm run check:pip-settings && npm run check:auth && vue-tsc && vite build",
+    "preview": "vite preview",
+    "check:auth": "node scripts/check-auth.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",
