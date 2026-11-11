@@ -210,7 +210,7 @@ make build
 
 ```bash
 # 使用 Makefile 默认参数部署
-make deploy-remote
+make deploy_remote
 
 # 指定服务器、域名和远程证书
 make deploy-remote \
@@ -257,7 +257,11 @@ sudo "$(command -v uv)" run --package production-backend \
   python apps/backend/scripts/create_auth_user.py --username admin --role admin
 ```
 
-服务器 systemd 服务会显式设置 `PRODUCTION_PLATFORM_RUN_ENV=server`、`PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb` 和 `PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real`。`make deploy-remote` 不会同步本机 `apps/backend/.env`；Mongo URI 等服务器专属变量应写在远端 `/etc/production-platform.env`，该文件会被保留。认证密钥保存在该文件中，部署脚本会生成缺失的 JWT Secret，并将登录会话设置为 360 小时（15 天）。运行数据、数据库、本地 `.env` 和认证文件不会被远程同步删除。
+`make backend-dev` / `make dev` 显式使用开发环境；所有 MongoDB 业务库名自动加 `_dev` 后缀（如 `ProductionsMessage_dev`、`ProductionsData2026_dev`），包括上传队列、通知、跨测试上传会话和自定义库名。即使开发服务连接 `192.168.6.55:27017`，也不会消费生产任务。生产数据库及历史记录不迁移、不复制到开发库。
+
+`make deploy_remote` 与 `make deploy-remote` 等价，均部署生产环境。服务器 systemd 启动命令强制设置 `PRODUCTION_PLATFORM_RUN_ENV=server`、`PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb` 和 `PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real`，即使环境文件残留开发配置也不会改变这些值。生产服务继续使用原有数据库名。`make backend-prod` 也显式使用 `server` 环境。
+
+远程部署不会同步本机后端 `.env`、`.env.*`；Mongo URI 等服务器专属变量应写在远端 `/etc/production-platform.env`，该文件会被保留。认证密钥保存在该文件中，部署脚本会生成缺失的 JWT Secret，并将登录会话设置为 360 小时（15 天）。运行数据、数据库、本地环境文件和认证文件不会被远程同步删除。数据库隔离不改变显式上传时配置的 Google Sheets/Drive 和 Slack 目标。
 
 ## 数据持久化
 

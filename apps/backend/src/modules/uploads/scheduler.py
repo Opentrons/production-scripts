@@ -43,9 +43,10 @@ class UploadScheduler:
         )
         self._thread.start()
         logger.info(
-            "Upload scheduler started: owner=%s workers=%s",
+            "Upload scheduler started: owner=%s workers=%s database=%s",
             self.owner,
             setting.UPLOAD_MAX_WORKERS,
+            setting.MESSAGE_COLLECTION,
         )
 
     def stop(self) -> None:

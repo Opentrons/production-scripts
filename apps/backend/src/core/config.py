@@ -105,6 +105,17 @@ RUN_ENV = os.getenv("PRODUCTION_PLATFORM_RUN_ENV", "dev" if IS_WINDOWS or IS_MAC
 IS_DEV_ENV = RUN_ENV in ("dev", "local", "development")
 
 
+def resolve_mongo_database_name(name: str) -> str:
+    """Keep development documents and background queues out of production DBs.
+
+    Apply this even to explicitly configured names and upload YAML database
+    names, since a development process can connect to the production Mongo host.
+    """
+    if IS_DEV_ENV and not name.endswith("_dev"):
+        return f"{name}_dev"
+    return name
+
+
 def _configured_choice(name: str, default: str, choices: set[str]) -> str:
     value = os.getenv(name, default).strip().lower()
     if value not in choices:
@@ -272,9 +283,9 @@ SHEET_TOKEN_PATH = os.path.join(GOOGLE_AUTH_DIR, "sheettoken.json")
 ENVIRONMENT = "production"  # debug or production
 # ENVIRONMENT = "production"  # debug or production
 # database
-DATA_DB_NAME = "ProductionsData2026"  # 数据库名称
+DATA_DB_NAME = resolve_mongo_database_name("ProductionsData2026")
 EXPIRE_DAYS = 10  # 数据过期时间，默认1天过期
-MESSAGE_COLLECTION = (
+MESSAGE_COLLECTION = resolve_mongo_database_name(
     os.getenv("PRODUCTION_PLATFORM_MESSAGE_DATABASE", "ProductionsMessage").strip()
     or "ProductionsMessage"
 )
