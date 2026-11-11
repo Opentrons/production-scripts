@@ -100,6 +100,21 @@ upload_data_to_google_drive
 **States:** `queued` → `running`/`retrying` → `success`|`failed`  
 **Retry:** lease + checkpoint + exponential backoff; Slack retries independently.
 
+Upload capacity is reserved by product: Pipette has 2 workers, Robot has 1,
+and other products (including Gripper and unrecognized CSVs) have 1. Each group
+claims its own oldest due tasks, so slow Pipette uploads cannot occupy Robot's
+worker. Slack has one additional worker. Same-device workflow locks still apply
+inside the product group. These limits apply to the single backend process.
+
+Configure `PRODUCTION_PLATFORM_UPLOAD_PIPETTE_MAX_WORKERS`,
+`PRODUCTION_PLATFORM_UPLOAD_ROBOT_MAX_WORKERS`, and
+`PRODUCTION_PLATFORM_UPLOAD_OTHER_MAX_WORKERS` (each 1–8) before starting the backend.
+The legacy `PRODUCTION_PLATFORM_UPLOAD_MAX_WORKERS` remains the Pipette default
+when its new setting is absent. Enqueue records the group from CSV metadata and
+manual serial-number overrides. Existing queued/retrying records without a group
+are classified before the group-specific query limit is applied; they retain their
+queue timestamps, attempts and checkpoints. No re-upload is needed after upgrading.
+
 ---
 
 ## Systems & Source

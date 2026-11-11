@@ -331,6 +331,20 @@ UPLOAD_MAX_WORKERS = max(
     1,
     min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_MAX_WORKERS", "2"))),
 )
+# Keep the legacy limit as the default for Pipette; Robot and other products
+# have reserved capacity so a stalled Pipette request cannot occupy their slots.
+UPLOAD_PIPETTE_MAX_WORKERS = max(
+    1,
+    min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_PIPETTE_MAX_WORKERS", str(UPLOAD_MAX_WORKERS)))),
+)
+UPLOAD_ROBOT_MAX_WORKERS = max(
+    1,
+    min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_ROBOT_MAX_WORKERS", "1"))),
+)
+UPLOAD_OTHER_MAX_WORKERS = max(
+    1,
+    min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_OTHER_MAX_WORKERS", "1"))),
+)
 UPLOAD_MAX_ATTEMPTS = max(
     1,
     int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_MAX_ATTEMPTS", "4")),
