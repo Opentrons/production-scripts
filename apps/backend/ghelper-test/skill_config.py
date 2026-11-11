@@ -98,7 +98,11 @@ class RequestsGoogleApiHttp:
     def __init__(self, credentials, proxy_url: str | None = None, timeout: int = 60):
         from google.auth.transport.requests import AuthorizedSession
 
-        self.session = AuthorizedSession(credentials)
+        # AuthorizedSession otherwise creates a separate, unproxied session for
+        # automatic token refreshes, even when API requests use our proxy.
+        self.session = AuthorizedSession(
+            credentials, auth_request=build_google_auth_request(proxy_url)
+        )
         proxies = requests_proxies(explicit_proxy=proxy_url)
         if proxies:
             self.session.proxies.update(proxies)
