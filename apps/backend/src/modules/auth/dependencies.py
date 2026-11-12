@@ -50,6 +50,8 @@ def get_auth_service() -> AuthService:
         refresh_token_hours=config.AUTH_REFRESH_TOKEN_HOURS,
     )
     service.initialize()
+    from modules.auth.bootstrap import seed_administrators
+    seed_administrators(service.store)
     return service
 
 

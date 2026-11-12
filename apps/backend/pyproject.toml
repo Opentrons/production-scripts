@@ -32,7 +32,10 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.0.0"]
+dev = [
+    "mongomock>=4.3.0",
+    "pytest>=8.0.0",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

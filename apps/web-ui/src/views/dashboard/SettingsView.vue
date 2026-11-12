@@ -2,6 +2,9 @@
   <div class="settings-view">
     <div class="settings-tabs-wrap">
       <el-tabs v-model="activeTab" class="settings-tabs">
+        <el-tab-pane v-if="accountAuth.user?.role === 'admin'" :label="t('accounts.title')" name="accounts" lazy>
+          <AccountSettings />
+        </el-tab-pane>
         <el-tab-pane :label="t('settings.upload')" name="upload">
           <div v-loading="loading" class="settings-content">
             <el-alert
@@ -275,6 +278,9 @@
 </template>
 
 <script setup lang="ts">
+import AccountSettings from './AccountSettings.vue'
+import { useAuthStore } from '@/scripts/stores/auth'
+const accountAuth = useAuthStore()
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'

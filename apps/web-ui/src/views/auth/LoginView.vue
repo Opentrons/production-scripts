@@ -27,7 +27,7 @@
                 v-model.trim="username"
                 name="username"
                 autocomplete="username"
-                maxlength="64"
+                maxlength="254"
                 :placeholder="t('auth.login.accountPlaceholder')"
                 :disabled="submitting"
                 required
@@ -67,12 +67,14 @@
             {{ submitting ? t('auth.login.submitting') : t('auth.login.submit') }}
           </button>
         </form>
+        <PasswordReset />
       </div>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
+import PasswordReset from './PasswordReset.vue'
 import axios from 'axios'
 import { nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

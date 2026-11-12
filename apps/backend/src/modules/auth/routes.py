@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 
 from core import config
 from core.i18n import api_error
+from modules.auth.accounts import router as accounts_router
 from modules.auth.dependencies import (
     ACCESS_COOKIE_NAME,
     CSRF_COOKIE_NAME,
@@ -198,3 +199,5 @@ def current_user(context: AuthContext = Depends(require_auth_context)):
 @router.get("/verify", response_model=AuthStatusResponse)
 def verify(context: AuthContext = Depends(require_auth_context)):
     return AuthStatusResponse(authenticated=True, user=_user_response(context.user))
+
+router.include_router(accounts_router)
