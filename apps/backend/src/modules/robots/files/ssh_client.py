@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import posixpath
+import re
 import shlex
 import stat
 import zipfile
@@ -107,25 +108,25 @@ class OpentronsSshClient:
         entries.sort(key=lambda item: (not item.is_dir, item.name.lower()))
         return entries
 
-    def find_csv_files_containing(
+    def find_z_stage_csv_reports(
         self,
         remote_root: str,
         needle: str,
-        *,
-        max_files: int = 500,
-        max_bytes_per_file: int = 8 * 1024 * 1024,
     ) -> list[RemoteFileEntry]:
-        """Find CSV reports below a testing-data directory by barcode content."""
+        """Find Z-stage CSV reports below a testing-data directory by barcode."""
         normalized_root = posixpath.normpath(remote_root)
-        needle_bytes = needle.strip().encode("utf-8").lower()
-        if not needle_bytes:
+        barcode = needle.strip()
+        if not barcode:
             return []
-        z_stage_markers = (b"z-stage", b"z stage", b"z_stage")
+        report_pattern = re.compile(
+            rf"^z-stage-test-qc-ot3_run-(?:\d{{2}}-){{5}}\d{{2}}_CSVReport-{re.escape(barcode)}\.csv$",
+            re.IGNORECASE,
+        )
 
         matches: list[RemoteFileEntry] = []
         queue = [normalized_root]
         with self.connect() as (_client, sftp):
-            while queue and len(matches) < max_files:
+            while queue:
                 current = queue.pop(0)
                 try:
                     children = sftp.listdir_attr(current)
@@ -136,17 +137,7 @@ class OpentronsSshClient:
                     if stat.S_ISDIR(attr.st_mode):
                         queue.append(path)
                         continue
-                    if not attr.filename.lower().endswith(".csv"):
-                        continue
-                    try:
-                        with sftp.open(path, "rb") as remote_file:
-                            content = remote_file.read(max_bytes_per_file).lower()
-                    except (OSError, IOError):
-                        continue
-                    filename = attr.filename.lower()
-                    if needle_bytes not in content:
-                        continue
-                    if not any(marker in content or marker.decode() in filename for marker in z_stage_markers):
+                    if not report_pattern.fullmatch(attr.filename):
                         continue
                     matches.append(
                         RemoteFileEntry(

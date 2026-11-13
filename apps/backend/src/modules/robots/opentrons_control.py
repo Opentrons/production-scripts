@@ -304,12 +304,12 @@ def list_robot_testing_data(ip: str, path: str | None = None) -> dict[str, Any]:
     return result
 
 
-def search_robot_testing_data(ip: str, robot_sn: str) -> dict[str, Any]:
+def search_robot_testing_data(ip: str, z_stage_barcode: str) -> dict[str, Any]:
     root_path = posixpath.normpath(setting.ROBOT_TESTING_DATA_DIR)
-    normalized_sn = str(robot_sn or "").strip()
-    if not normalized_sn:
-        raise ValueError("Robot SN 不能为空")
-    result = OpentronsFileService(ip).search_testing_data(root_path, normalized_sn)
+    normalized_barcode = str(z_stage_barcode or "").strip()
+    if not normalized_barcode:
+        raise ValueError("Z轴条码不能为空")
+    result = OpentronsFileService(ip).search_testing_data(root_path, normalized_barcode)
     result["root_path"] = root_path
     return result
 

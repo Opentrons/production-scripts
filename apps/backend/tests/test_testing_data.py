@@ -138,24 +138,36 @@ def test_ssh_client_packages_multiple_paths_and_collapses_children(monkeypatch):
         assert archive.read("folder/a.txt") == b"alpha"
 
 
-def test_ssh_client_finds_z_stage_csvs_by_robot_sn_and_sorts_newest_first(monkeypatch):
+def test_ssh_client_finds_z_stage_reports_by_barcode_and_sorts_newest_first(monkeypatch):
     client = OpentronsSshClient("192.168.6.126")
 
     class SearchSftp:
         contents = {
-            "/data/testing_data/old-report.csv": b"test_name=z-stage-test\nROBOT_SN=FLXU123",
-            "/data/testing_data/nested/new-report.csv": b"test_name=z-stage-test\nROBOT_SN=FLXU123",
-            "/data/testing_data/other.csv": b"ROBOT_SN=OTHER",
+            "/data/testing_data/old/z-stage-test-qc-ot3_run-26-11-09-06-40-42_CSVReport-ZS10202601110001.csv": b"unrelated",
+            "/data/testing_data/nested/z-stage-test-qc-ot3_run-26-11-10-06-40-42_CSVReport-ZS10202601110001.csv": b"unrelated",
+            "/data/testing_data/other.csv": b"ZS10202601110001",
         }
 
         def listdir_attr(self, path: str):
             if path == "/data/testing_data":
                 return [
                     SimpleNamespace(filename="nested", st_mode=stat.S_IFDIR),
-                    SimpleNamespace(filename="old-report.csv", st_mode=stat.S_IFREG, st_size=20, st_mtime=10),
+                    SimpleNamespace(filename="old", st_mode=stat.S_IFDIR),
                     SimpleNamespace(filename="other.csv", st_mode=stat.S_IFREG, st_size=20, st_mtime=30),
                 ]
-            return [SimpleNamespace(filename="new-report.csv", st_mode=stat.S_IFREG, st_size=20, st_mtime=20)]
+            if path == "/data/testing_data/old":
+                return [SimpleNamespace(
+                    filename="z-stage-test-qc-ot3_run-26-11-09-06-40-42_CSVReport-ZS10202601110001.csv",
+                    st_mode=stat.S_IFREG,
+                    st_size=20,
+                    st_mtime=10,
+                )]
+            return [SimpleNamespace(
+                filename="z-stage-test-qc-ot3_run-26-11-10-06-40-42_CSVReport-ZS10202601110001.csv",
+                st_mode=stat.S_IFREG,
+                st_size=20,
+                st_mtime=20,
+            )]
 
         def open(self, path: str, _mode: str):
             return io.BytesIO(self.contents[path])
@@ -166,11 +178,11 @@ def test_ssh_client_finds_z_stage_csvs_by_robot_sn_and_sorts_newest_first(monkey
 
     monkeypatch.setattr(client, "connect", fake_connect)
 
-    matches = client.find_csv_files_containing("/data/testing_data", "FLXU123")
+    matches = client.find_z_stage_csv_reports("/data/testing_data", "ZS10202601110001")
 
     assert [entry.path for entry in matches] == [
-        "/data/testing_data/nested/new-report.csv",
-        "/data/testing_data/old-report.csv",
+        "/data/testing_data/nested/z-stage-test-qc-ot3_run-26-11-10-06-40-42_CSVReport-ZS10202601110001.csv",
+        "/data/testing_data/old/z-stage-test-qc-ot3_run-26-11-09-06-40-42_CSVReport-ZS10202601110001.csv",
     ]
 
 

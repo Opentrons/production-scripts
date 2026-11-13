@@ -847,9 +847,9 @@ export const robotApi = {
       params: path ? { path } : undefined,
       timeout: 30000
     }),
-  searchTestingData: (ip: string, robotSn: string) =>
+  searchTestingData: (ip: string, zStageBarcode: string) =>
     api.get<RobotFileListResponse>(`/robots/${ip}/testing-data/search`, {
-      params: { robot_sn: robotSn },
+      params: { robot_sn: zStageBarcode },
       timeout: 60000
     }),
   downloadTestingData: (ip: string, paths: string[]) =>

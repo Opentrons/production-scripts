@@ -525,8 +525,12 @@
                   </div>
                 </label>
                 <label class="field-line">
-                  <span>Robot SN</span>
-                  <el-input v-model="zStageRobotSn" placeholder="FLXU..." />
+                  <span>{{ t('uploadRecords.robotBarcode') }}</span>
+                  <el-input v-model="zStageRobotBarcode" placeholder="FLXU..." />
+                </label>
+                <label class="field-line">
+                  <span>{{ t('uploadRecords.zStageBarcode') }}</span>
+                  <el-input v-model="zStageBarcode" placeholder="ZS10202601110001" />
                 </label>
               </div>
 
@@ -842,7 +846,8 @@ const standardRobotSearched = ref(false)
 const standardRobotError = ref('')
 const standardRobotRetryMode = ref<'devices' | 'files'>('devices')
 const zStageRobotIp = ref('')
-const zStageRobotSn = ref('')
+const zStageRobotBarcode = ref('')
+const zStageBarcode = ref('')
 const zStageRemotePath = ref('/data/testing_data')
 const zStageUploadMode = ref<ZStageUploadMode>('remote')
 const zStageSearching = ref(false)
@@ -928,12 +933,12 @@ const allZStageRemoteSelected = computed(
 )
 const someZStageRemoteSelected = computed(() => selectedZStageRemoteFiles.value.length > 0)
 const canSearchZStageRemote = computed(
-  () => Boolean(zStageRobotIp.value.trim() && isValidBarcode(zStageRobotSn.value))
+  () => Boolean(zStageRobotIp.value.trim() && isValidBarcode(zStageBarcode.value))
 )
 const canSubmitZStageRemote = computed(
-  () => Boolean(isValidBarcode(zStageRobotSn.value) && selectedZStageRemoteFiles.value.length === 1)
+  () => Boolean(isValidBarcode(zStageRobotBarcode.value) && selectedZStageRemoteFiles.value.length === 1)
 )
-const canSubmitZStageLocal = computed(() => Boolean(isValidBarcode(zStageRobotSn.value) && zStageLocalFile.value))
+const canSubmitZStageLocal = computed(() => Boolean(isValidBarcode(zStageRobotBarcode.value) && zStageLocalFile.value))
 const canSubmitManualUpload = computed(() => {
   if (standardUploadMode.value === 'local') return Boolean(manualFile.value)
   return Boolean(standardRobotIp.value && standardSelectedRobotFile.value && !standardSelectedRobotFile.value.is_dir)
@@ -961,6 +966,12 @@ watch(standardUploadMode, (mode) => {
   }
 })
 
+watch(zStageBarcode, () => {
+  zStageRemoteFiles.value = []
+  zStageRemoteSearched.value = false
+  zStageSearchError.value = ''
+})
+
 watch(manualUploadTab, (tab) => {
   if (tab === 'z_stage') ensureZStageRobotsLoaded()
 })
@@ -986,7 +997,8 @@ const resetManualUploadState = () => {
   standardRobotError.value = ''
   standardRobotRetryMode.value = 'devices'
   zStageRobotIp.value = ''
-  zStageRobotSn.value = ''
+  zStageRobotBarcode.value = ''
+  zStageBarcode.value = ''
   zStageRemotePath.value = '/data/testing_data'
   zStageUploadMode.value = 'remote'
   zStageSearching.value = false
@@ -1102,7 +1114,9 @@ const ensureZStageRobotsLoaded = async () => {
   if (!robotScanStore.scanResult) {
     try { await robotScanStore.loadCachedScan() } catch { robotScanStore.loadFromCache() }
   }
-  resolveZStageTargetRobot()
+  if (resolveZStageTargetRobot() && isValidBarcode(zStageBarcode.value)) {
+    await searchZStageRemoteFiles()
+  }
 }
 
 const resolveZStageTargetRobot = (showOfflineAlert = true) => {
@@ -1123,11 +1137,13 @@ const resolveZStageTargetRobot = (showOfflineAlert = true) => {
 
 const refreshZStageRobots = async () => {
   zStageRobotScanLoading.value = true
+  zStageRemoteSearched.value = false
+  zStageRemoteFiles.value = []
+  zStageSearchError.value = ''
   try {
     await robotScanStore.refreshScan({ silent: false })
     if (resolveZStageTargetRobot()) {
-      zStageRemoteSearched.value = false
-      if (isValidBarcode(zStageRobotSn.value)) await searchZStageRemoteFiles()
+      if (isValidBarcode(zStageBarcode.value)) await searchZStageRemoteFiles()
     }
   } catch (error: any) {
     zStageSearchError.value = normalizeUploadError(error) || t('errors.unknown')
@@ -1230,7 +1246,7 @@ const handleZStageLocalFileExceed = (files: File[], uploadFiles: UploadFiles) =>
 }
 
 const getZStageMeta = () => {
-  const sn = zStageRobotSn.value.trim()
+  const sn = zStageRobotBarcode.value.trim()
   return {
     test_tag: sn,
     test_device_id: sn,
@@ -1263,7 +1279,7 @@ const searchZStageRemoteFiles = async () => {
   zStageSearchError.value = ''
   try {
     if (!resolveZStageTargetRobot()) return
-    const response = await robotApi.searchTestingData(zStageRobotIp.value.trim(), zStageRobotSn.value.trim())
+    const response = await robotApi.searchTestingData(zStageRobotIp.value.trim(), zStageBarcode.value.trim())
     zStageRemoteFiles.value = (response.data.entries || [])
       .filter(entry => Boolean(entry.name) && entry.name.toLowerCase().endsWith('.csv'))
       .map(entry => ({
@@ -1928,8 +1944,8 @@ const submitStandardRobotUpload = async () => {
 }
 
 const submitZStageLocalUpload = async () => {
-  if (!zStageRobotSn.value.trim()) {
-    ElMessage.warning(t('uploadRecords.messages.fillRobotSn'))
+  if (!isValidBarcode(zStageRobotBarcode.value)) {
+    ElMessage.warning(t('uploadRecords.messages.fillRobotBarcode'))
     return
   }
   if (!zStageLocalFile.value) {
