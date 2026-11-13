@@ -1551,7 +1551,7 @@ export default {
     uploadFile: '上传文件', chooseCsv: '选择或拖拽 CSV 文件', includeSource: '上传源文件', uploadFolder: '上传文件夹',
     folderWarning: '手动上传会先把 CSV 保存到服务器临时目录；勾选后，系统会将这个临时目录打包成 .zip 一起上传。',
     folderLimit: '如果打包后的 .zip 超过 10MB，系统会停止上传。', robotPlaceholder: '选择或输入 Robot IP', refreshDevices: '刷新设备',
-    refreshDirectory: '刷新目录', parentDirectory: '上一级', robotScanFailed: 'Robot 数据扫描失败：{error}', directory: '目录', directoryEmpty: '当前目录暂无文件',
+    refreshDirectory: '刷新目录', searchCsv: '搜索 CSV', parentDirectory: '上一级', robotScanFailed: 'Robot 数据扫描失败：{error}', directory: '目录', directoryEmpty: '当前目录暂无文件',
     zStageFixture: 'Z轴工装', zStageScanFailed: 'Z轴 CSV 扫描失败：{error}', csvFound: '已找到 {count} 个 CSV', noMatchingCsv: '没有匹配的 CSV',
     chooseZStageCsv: '选择或拖拽 Z轴 CSV 文件', chooseRobotParallelismCsv: '选择或拖拽 Robot 平行度 CSV 文件', pipetteOpticalPending: '移液器光学上传待配置', submitUpload: '提交上传', uploadSelected: '上传选中文件',
     localFile: '本地文件', onlineRobot: '在线 Robot', fixtureSearch: '工装搜索', localCsv: '本地 CSV',
@@ -1561,7 +1561,7 @@ export default {
     messages: {
       csvOnly: '只能上传 CSV 格式文件', csvReplaced: '已替换为新选择的 CSV 文件', devicesFound: '发现 {count} 台在线设备',
       selectRobot: '请先选择在线 Robot', selectCsv: '请选择 CSV 文件', directoryLimit: '目录较多，已扫描前 {count} 个目录',
-      fillZStageIdentity: '请填写 Z轴工装 IP 和 Robot SN', csvFound: '找到 {count} 个 CSV', submitted: '已提交上传',
+      fillZStageIdentity: '请填写 Robot SN', zStageFixtureOffline: '目标工装不在线，请检查Z轴工装', csvFound: '找到 {count} 个 CSV', submitted: '已提交上传',
       manualFailedWithReason: '手动上传失败：{error}', manualFailed: '手动上传失败', selectRobotCsv: '请选择 Robot 上的 CSV 文件',
       robotFailedWithReason: '在线 Robot 上传失败：{error}', robotFailed: '在线 Robot 上传失败', fillRobotSn: '请填写 Robot SN',
       zStageSubmitted: 'Z轴数据已提交上传', zStageFailedWithReason: 'Z轴数据上传失败：{error}', zStageFailed: 'Z轴数据上传失败',

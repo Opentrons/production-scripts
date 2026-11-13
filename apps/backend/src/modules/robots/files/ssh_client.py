@@ -107,6 +107,60 @@ class OpentronsSshClient:
         entries.sort(key=lambda item: (not item.is_dir, item.name.lower()))
         return entries
 
+    def find_csv_files_containing(
+        self,
+        remote_root: str,
+        needle: str,
+        *,
+        max_files: int = 500,
+        max_bytes_per_file: int = 8 * 1024 * 1024,
+    ) -> list[RemoteFileEntry]:
+        """Find CSV reports below a testing-data directory by barcode content."""
+        normalized_root = posixpath.normpath(remote_root)
+        needle_bytes = needle.strip().encode("utf-8").lower()
+        if not needle_bytes:
+            return []
+        z_stage_markers = (b"z-stage", b"z stage", b"z_stage")
+
+        matches: list[RemoteFileEntry] = []
+        queue = [normalized_root]
+        with self.connect() as (_client, sftp):
+            while queue and len(matches) < max_files:
+                current = queue.pop(0)
+                try:
+                    children = sftp.listdir_attr(current)
+                except FileNotFoundError:
+                    continue
+                for attr in children:
+                    path = f"{current.rstrip('/')}/{attr.filename}"
+                    if stat.S_ISDIR(attr.st_mode):
+                        queue.append(path)
+                        continue
+                    if not attr.filename.lower().endswith(".csv"):
+                        continue
+                    try:
+                        with sftp.open(path, "rb") as remote_file:
+                            content = remote_file.read(max_bytes_per_file).lower()
+                    except (OSError, IOError):
+                        continue
+                    filename = attr.filename.lower()
+                    if needle_bytes not in content:
+                        continue
+                    if not any(marker in content or marker.decode() in filename for marker in z_stage_markers):
+                        continue
+                    matches.append(
+                        RemoteFileEntry(
+                            name=attr.filename,
+                            path=path,
+                            is_dir=False,
+                            size=attr.st_size,
+                            modified_at=attr.st_mtime,
+                        )
+                    )
+
+        matches.sort(key=lambda item: (item.modified_at or 0, item.path), reverse=True)
+        return matches
+
     def read_text(self, remote_path: str) -> str:
         with self.connect() as (_client, sftp):
             with sftp.open(remote_path, "r") as remote_file:

@@ -1551,7 +1551,7 @@ export default {
     uploadFile: 'Upload File', chooseCsv: 'Select or drag a CSV file', includeSource: 'Upload Source Files', uploadFolder: 'Upload Folder',
     folderWarning: 'The CSV is first saved in a temporary server directory. When selected, that directory is packaged as a .zip and uploaded with it.',
     folderLimit: 'The upload stops if the packaged .zip exceeds 10 MB.', robotPlaceholder: 'Select or enter Robot IP', refreshDevices: 'Refresh Devices',
-    refreshDirectory: 'Refresh Directory', parentDirectory: 'Up One Level', robotScanFailed: 'Unable to scan Robot data: {error}', directory: 'Directory', directoryEmpty: 'This directory is empty',
+    refreshDirectory: 'Refresh Directory', searchCsv: 'Search CSV', parentDirectory: 'Up One Level', robotScanFailed: 'Unable to scan Robot data: {error}', directory: 'Directory', directoryEmpty: 'This directory is empty',
     zStageFixture: 'Z-axis Fixture', zStageScanFailed: 'Unable to scan Z-axis CSVs: {error}', csvFound: '{count} CSV files found', noMatchingCsv: 'No matching CSV files',
     chooseZStageCsv: 'Select or drag a Z-axis CSV file', chooseRobotParallelismCsv: 'Select or drag a Robot parallelism CSV file', pipetteOpticalPending: 'Pipette optical upload is not configured', submitUpload: 'Submit Upload', uploadSelected: 'Upload Selected Files',
     localFile: 'Local File', onlineRobot: 'Online Robot', fixtureSearch: 'Fixture Search', localCsv: 'Local CSV',
@@ -1561,7 +1561,7 @@ export default {
     messages: {
       csvOnly: 'Only CSV files are supported', csvReplaced: 'The CSV was replaced with the newly selected file', devicesFound: 'Found {count} online devices',
       selectRobot: 'Select an online Robot first', selectCsv: 'Select a CSV file', directoryLimit: 'There are many directories; only the first {count} were scanned',
-      fillZStageIdentity: 'Enter the Z-axis fixture IP and Robot SN', csvFound: 'Found {count} CSV files', submitted: 'Upload submitted',
+      fillZStageIdentity: 'Enter the Robot SN', zStageFixtureOffline: 'The target fixture is offline. Please check the Z-axis fixture.', csvFound: 'Found {count} CSV files', submitted: 'Upload submitted',
       manualFailedWithReason: 'Manual upload failed: {error}', manualFailed: 'Manual upload failed', selectRobotCsv: 'Select a CSV file on the Robot',
       robotFailedWithReason: 'Online Robot upload failed: {error}', robotFailed: 'Online Robot upload failed', fillRobotSn: 'Enter the Robot SN',
       zStageSubmitted: 'Z-axis data upload submitted', zStageFailedWithReason: 'Z-axis data upload failed: {error}', zStageFailed: 'Z-axis data upload failed',

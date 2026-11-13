@@ -304,6 +304,16 @@ def list_robot_testing_data(ip: str, path: str | None = None) -> dict[str, Any]:
     return result
 
 
+def search_robot_testing_data(ip: str, robot_sn: str) -> dict[str, Any]:
+    root_path = posixpath.normpath(setting.ROBOT_TESTING_DATA_DIR)
+    normalized_sn = str(robot_sn or "").strip()
+    if not normalized_sn:
+        raise ValueError("Robot SN 不能为空")
+    result = OpentronsFileService(ip).search_testing_data(root_path, normalized_sn)
+    result["root_path"] = root_path
+    return result
+
+
 def download_robot_testing_data(ip: str, paths: list[str]) -> tuple[str, bytes, str]:
     selected_paths = _normalize_testing_data_paths(paths)
     root_path = posixpath.normpath(setting.ROBOT_TESTING_DATA_DIR)

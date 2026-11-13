@@ -28,6 +28,10 @@ class OpentronsFileService:
             "entries": [asdict(entry) for entry in entries],
         }
 
+    def search_testing_data(self, root_path: str, robot_sn: str) -> dict:
+        entries = self.ssh.find_csv_files_containing(root_path, robot_sn)
+        return {"path": root_path, "entries": [asdict(entry) for entry in entries]}
+
     def read_file(self, path: str) -> dict:
         content = self.ssh.read_text(path)
         return {"path": path, "content": content}
