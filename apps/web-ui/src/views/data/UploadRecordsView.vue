@@ -518,17 +518,19 @@
             <div class="z-stage-panel">
               <div class="z-stage-fields">
                 <label class="field-line">
-                  <span>{{ t('uploadRecords.onlineRobot') }}</span>
+                  <span>{{ t('uploadRecords.zStageFixture') }}</span>
                   <div class="z-stage-device-row">
-                    <el-select v-model="zStageRobotIp" :placeholder="t('uploadRecords.robotPlaceholder')" filterable class="z-stage-device-select" :loading="zStageRobotScanLoading" @change="handleZStageRobotChange">
-                      <el-option v-for="robot in onlineRobotOptions" :key="robot.ip" :label="formatRobotOption(robot)" :value="robot.ip" />
-                    </el-select>
+                    <span class="z-stage-device-name">ZStage</span>
                     <el-button class="z-stage-refresh-button" plain :icon="Refresh" :loading="zStageRobotScanLoading" @click="refreshZStageRobots">{{ t('common.actions.refresh') }}</el-button>
                   </div>
                 </label>
                 <label class="field-line">
-                  <span>Robot SN</span>
-                  <el-input v-model="zStageRobotSn" placeholder="FLXU..." />
+                  <span>{{ t('uploadRecords.robotBarcode') }}</span>
+                  <el-input v-model="zStageRobotBarcode" placeholder="FLXU..." />
+                </label>
+                <label class="field-line">
+                  <span>{{ t('uploadRecords.zStageBarcode') }}</span>
+                  <el-input v-model="zStageBarcode" placeholder="ZS10202601110001" />
                 </label>
               </div>
 
@@ -541,8 +543,10 @@
 
               <div v-if="zStageUploadMode === 'remote'" class="z-stage-section">
                 <div class="z-stage-directory-toolbar">
-                  <span class="z-stage-directory-path" :title="zStageRemotePath">{{ zStageRemotePath }}</span>
-                  <el-button text :disabled="normalizeRemotePath(zStageRemotePath) === '/data/testing_data'" @click="goUpZStageDirectory">{{ t('uploadRecords.parentDirectory') }}</el-button>
+                  <span class="z-stage-directory-path">{{ zStageRemotePath }}</span>
+                  <el-button size="small" type="primary" plain :loading="zStageSearching" :disabled="!canSearchZStageRemote" @click="searchZStageRemoteFiles">
+                    {{ t('uploadRecords.searchCsv') }}
+                  </el-button>
                 </div>
 
                 <el-alert
@@ -569,20 +573,17 @@
                       v-for="file in zStageRemoteFiles"
                       :key="file.path"
                       class="remote-file-row"
-                      :class="{ 'is-directory': file.is_dir }"
                       :title="file.name"
-                      @dblclick="file.is_dir && openZStageDirectory(file)"
                     >
-                      <span v-if="file.is_dir || !file.name.toLowerCase().endsWith('.csv')" class="remote-file-select-placeholder" aria-hidden="true" />
                       <el-radio
-                        v-if="!file.is_dir && file.name.toLowerCase().endsWith('.csv')"
                         :model-value="selectedZStageRemotePath"
                         :label="file.path"
                         :disabled="zStageUploading"
                         @change="selectZStageRemoteFile(file.path)"
                       ><span class="sr-only">{{ file.name }}</span></el-radio>
-                      <el-icon><FolderOpened v-if="file.is_dir" /><DocumentIcon v-else /></el-icon>
+                      <el-icon><DocumentIcon /></el-icon>
                       <span class="remote-file-name" :title="file.name">{{ file.name }}</span>
+                      <span class="remote-file-time">{{ formatDateTime(file.modified_at ? new Date(file.modified_at * 1000).toISOString() : null) }}</span>
                       <el-tag
                         v-if="file.status && file.status !== 'pending'"
                         :type="file.status === 'success' ? 'success' : file.status === 'failed' ? 'danger' : 'warning'"
@@ -593,6 +594,13 @@
                     </label>
                   </div>
                 </div>
+                <el-alert
+                  v-if="robotScanStore.scanResult && !zStageFixtureOnline && !zStageRobotScanLoading"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  :title="t('uploadRecords.messages.zStageFixtureOffline')"
+                />
                 <el-empty
                   v-else-if="zStageRemoteSearched && !zStageSearching && !zStageSearchError"
                   :description="t('uploadRecords.noMatchingCsv')"
@@ -837,9 +845,9 @@ const standardRobotLoading = ref(false)
 const standardRobotSearched = ref(false)
 const standardRobotError = ref('')
 const standardRobotRetryMode = ref<'devices' | 'files'>('devices')
-const zStageFixtureIp = ref('192.168.6.13')
 const zStageRobotIp = ref('')
-const zStageRobotSn = ref('')
+const zStageRobotBarcode = ref('')
+const zStageBarcode = ref('')
 const zStageRemotePath = ref('/data/testing_data')
 const zStageUploadMode = ref<ZStageUploadMode>('remote')
 const zStageSearching = ref(false)
@@ -849,6 +857,7 @@ const zStageRemoteSearched = ref(false)
 const zStageRemoteFiles = ref<ZStageRemoteFile[]>([])
 const zStageSearchError = ref('')
 const zStageLocalFile = ref<File | null>(null)
+const zStageOfflineAlertShown = ref(false)
 const watchedRecordId = ref('')
 const filterOptions = ref({
   models: [] as string[],
@@ -900,6 +909,11 @@ const onlineRobotOptions = computed<RobotInfo[]>(() => {
     .sort((a, b) => a.ip.localeCompare(b.ip))
 })
 
+const zStageTargetRobot = computed(() => onlineRobotOptions.value.find(robot =>
+  String(robot.name || '').trim().toLowerCase() === 'zstage'
+))
+const zStageFixtureOnline = computed(() => Boolean(zStageTargetRobot.value))
+
 const sortedStandardRobotFiles = computed(() => {
   return [...standardRobotFiles.value].sort((a, b) => {
     if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1
@@ -919,12 +933,12 @@ const allZStageRemoteSelected = computed(
 )
 const someZStageRemoteSelected = computed(() => selectedZStageRemoteFiles.value.length > 0)
 const canSearchZStageRemote = computed(
-  () => Boolean(zStageRobotIp.value.trim() && zStageRemotePath.value.trim())
+  () => Boolean(zStageRobotIp.value.trim() && isValidBarcode(zStageBarcode.value))
 )
 const canSubmitZStageRemote = computed(
-  () => Boolean(isValidBarcode(zStageRobotSn.value) && selectedZStageRemoteFiles.value.length === 1)
+  () => Boolean(isValidBarcode(zStageRobotBarcode.value) && selectedZStageRemoteFiles.value.length === 1)
 )
-const canSubmitZStageLocal = computed(() => Boolean(isValidBarcode(zStageRobotSn.value) && zStageLocalFile.value))
+const canSubmitZStageLocal = computed(() => Boolean(isValidBarcode(zStageRobotBarcode.value) && zStageLocalFile.value))
 const canSubmitManualUpload = computed(() => {
   if (standardUploadMode.value === 'local') return Boolean(manualFile.value)
   return Boolean(standardRobotIp.value && standardSelectedRobotFile.value && !standardSelectedRobotFile.value.is_dir)
@@ -952,6 +966,12 @@ watch(standardUploadMode, (mode) => {
   }
 })
 
+watch(zStageBarcode, () => {
+  zStageRemoteFiles.value = []
+  zStageRemoteSearched.value = false
+  zStageSearchError.value = ''
+})
+
 watch(manualUploadTab, (tab) => {
   if (tab === 'z_stage') ensureZStageRobotsLoaded()
 })
@@ -976,9 +996,9 @@ const resetManualUploadState = () => {
   standardRobotSearched.value = false
   standardRobotError.value = ''
   standardRobotRetryMode.value = 'devices'
-  zStageFixtureIp.value = '192.168.6.13'
-  zStageRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
-  zStageRobotSn.value = ''
+  zStageRobotIp.value = ''
+  zStageRobotBarcode.value = ''
+  zStageBarcode.value = ''
   zStageRemotePath.value = '/data/testing_data'
   zStageUploadMode.value = 'remote'
   zStageSearching.value = false
@@ -987,6 +1007,7 @@ const resetManualUploadState = () => {
   zStageRemoteFiles.value = []
   zStageSearchError.value = ''
   zStageLocalFile.value = null
+  zStageOfflineAlertShown.value = false
 }
 
 const normalizeUploadError = (error: any) => {
@@ -1093,28 +1114,42 @@ const ensureZStageRobotsLoaded = async () => {
   if (!robotScanStore.scanResult) {
     try { await robotScanStore.loadCachedScan() } catch { robotScanStore.loadFromCache() }
   }
-  if (!zStageRobotIp.value) zStageRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
-  if (zStageRobotIp.value && !zStageRemoteSearched.value) await searchZStageRemoteFiles()
+  if (resolveZStageTargetRobot() && isValidBarcode(zStageBarcode.value)) {
+    await searchZStageRemoteFiles()
+  }
+}
+
+const resolveZStageTargetRobot = (showOfflineAlert = true) => {
+  zStageRobotIp.value = zStageTargetRobot.value?.ip || ''
+  if (zStageRobotIp.value) {
+    zStageOfflineAlertShown.value = false
+  }
+  if (!zStageRobotIp.value && showOfflineAlert && !zStageOfflineAlertShown.value) {
+    zStageOfflineAlertShown.value = true
+    void ElMessageBox.alert(
+      t('uploadRecords.messages.zStageFixtureOffline'),
+      t('uploadRecords.zStageFixture'),
+      { type: 'warning', confirmButtonText: t('common.actions.confirm') }
+    )
+  }
+  return zStageRobotIp.value
 }
 
 const refreshZStageRobots = async () => {
   zStageRobotScanLoading.value = true
+  zStageRemoteSearched.value = false
+  zStageRemoteFiles.value = []
+  zStageSearchError.value = ''
   try {
     await robotScanStore.refreshScan({ silent: false })
-    if (!zStageRobotIp.value) zStageRobotIp.value = onlineRobotOptions.value[0]?.ip || ''
-    if (zStageRobotIp.value) await searchZStageRemoteFiles()
+    if (resolveZStageTargetRobot()) {
+      if (isValidBarcode(zStageBarcode.value)) await searchZStageRemoteFiles()
+    }
   } catch (error: any) {
     zStageSearchError.value = normalizeUploadError(error) || t('errors.unknown')
   } finally {
     zStageRobotScanLoading.value = false
   }
-}
-
-const handleZStageRobotChange = () => {
-  zStageRemoteFiles.value = []
-  zStageRemoteSearched.value = false
-  zStageSearchError.value = ''
-  searchZStageRemoteFiles()
 }
 
 const handleStandardRobotChange = () => {
@@ -1211,7 +1246,7 @@ const handleZStageLocalFileExceed = (files: File[], uploadFiles: UploadFiles) =>
 }
 
 const getZStageMeta = () => {
-  const sn = zStageRobotSn.value.trim()
+  const sn = zStageRobotBarcode.value.trim()
   return {
     test_tag: sn,
     test_device_id: sn,
@@ -1232,46 +1267,6 @@ const normalizeRemotePath = (path: string) => {
   return normalized || '/'
 }
 
-const isSnMatchedCsv = (entry: RobotFileEntry, sn: string) => {
-  return !entry.is_dir && entry.name.toLowerCase().endsWith('.csv') && entry.name.includes(sn)
-}
-
-const searchRemoteCsvFiles = async (
-  ip: string,
-  rootPath: string,
-  sn: string,
-  maxDirectories = 80
-): Promise<ZStageRemoteFile[]> => {
-  const queue = [rootPath]
-  const matched = new Map<string, ZStageRemoteFile>()
-  let scanned = 0
-
-  while (queue.length && scanned < maxDirectories) {
-    const currentPath = queue.shift() as string
-    scanned += 1
-    const response = await robotApi.listFiles(ip, currentPath)
-    for (const entry of response.data.entries || []) {
-      if (entry.is_dir) {
-        queue.push(entry.path)
-      } else if (isSnMatchedCsv(entry, sn)) {
-        matched.set(entry.path, {
-          name: entry.name,
-          path: entry.path,
-          size: entry.size,
-          modified_at: entry.modified_at,
-          selected: true,
-          status: 'pending'
-        })
-      }
-    }
-  }
-
-  if (queue.length) {
-    ElMessage.warning(t('uploadRecords.messages.directoryLimit', { count: maxDirectories }))
-  }
-  return Array.from(matched.values()).sort((a, b) => a.path.localeCompare(b.path))
-}
-
 const searchZStageRemoteFiles = async () => {
   if (!canSearchZStageRemote.value) {
     ElMessage.warning(t('uploadRecords.messages.fillZStageIdentity'))
@@ -1283,9 +1278,10 @@ const searchZStageRemoteFiles = async () => {
   zStageRemoteFiles.value = []
   zStageSearchError.value = ''
   try {
-    const response = await robotApi.listFiles(zStageRobotIp.value.trim(), normalizeRemotePath(zStageRemotePath.value))
+    if (!resolveZStageTargetRobot()) return
+    const response = await robotApi.searchTestingData(zStageRobotIp.value.trim(), zStageBarcode.value.trim())
     zStageRemoteFiles.value = (response.data.entries || [])
-      .filter(entry => Boolean(entry.name))
+      .filter(entry => Boolean(entry.name) && entry.name.toLowerCase().endsWith('.csv'))
       .map(entry => ({
         name: entry.name,
         path: entry.path,
@@ -1295,6 +1291,7 @@ const searchZStageRemoteFiles = async () => {
         selected: false,
         status: 'pending' as const
       }))
+      .sort((a, b) => (b.modified_at || 0) - (a.modified_at || 0) || a.name.localeCompare(b.name))
     zStageRemoteSearched.value = true
     if (zStageCsvFiles.value.length) {
       ElMessage.success(t('uploadRecords.messages.csvFound', { count: zStageCsvFiles.value.length }))
@@ -1307,20 +1304,6 @@ const searchZStageRemoteFiles = async () => {
   }
 }
 
-const toggleAllZStageRemoteFiles = (checked: boolean) => {
-  zStageRemoteFiles.value = zStageRemoteFiles.value.map(file => ({
-    ...file,
-    selected: !file.is_dir && checked
-  }))
-}
-
-const toggleZStageRemoteFile = (path: string, checked: boolean) => {
-  const file = zStageRemoteFiles.value.find(item => item.path === path)
-  if (file && !file.is_dir) {
-    file.selected = checked
-  }
-}
-
 const selectZStageRemoteFile = (path: string) => {
   zStageRemoteFiles.value = zStageRemoteFiles.value.map(file => ({
     ...file,
@@ -1328,19 +1311,6 @@ const selectZStageRemoteFile = (path: string) => {
   }))
 }
 
-const openZStageDirectory = async (entry: ZStageRemoteFile) => {
-  if (!entry.is_dir) return
-  zStageRemotePath.value = entry.path
-  await searchZStageRemoteFiles()
-}
-
-const goUpZStageDirectory = async () => {
-  const normalized = normalizeRemotePath(zStageRemotePath.value)
-  if (normalized === '/data/testing_data') return
-  const parent = normalized.split('/').slice(0, -1).join('/') || '/data/testing_data'
-  zStageRemotePath.value = parent.startsWith('/data/testing_data') ? parent : '/data/testing_data'
-  await searchZStageRemoteFiles()
-}
 
 const blobToCsvFile = (blob: Blob, filename: string) => {
   return new File([blob], filename, { type: 'text/csv' })
@@ -1974,8 +1944,8 @@ const submitStandardRobotUpload = async () => {
 }
 
 const submitZStageLocalUpload = async () => {
-  if (!zStageRobotSn.value.trim()) {
-    ElMessage.warning(t('uploadRecords.messages.fillRobotSn'))
+  if (!isValidBarcode(zStageRobotBarcode.value)) {
+    ElMessage.warning(t('uploadRecords.messages.fillRobotBarcode'))
     return
   }
   if (!zStageLocalFile.value) {
@@ -2174,9 +2144,17 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.z-stage-device-select {
+.z-stage-device-name {
   flex: 1;
   min-width: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  color: #303133;
+  background: #f5f7fa;
 }
 
 .z-stage-fields :deep(.el-input__wrapper),
@@ -2354,7 +2332,7 @@ onUnmounted(() => {
 
 .remote-file-row {
   display: grid;
-  grid-template-columns: 24px 22px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 22px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   min-height: 40px;
@@ -2373,6 +2351,12 @@ onUnmounted(() => {
   font-weight: 500;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.remote-file-time {
+  color: #909399;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .remote-file-path {

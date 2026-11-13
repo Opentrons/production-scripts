@@ -101,7 +101,9 @@ Environment=PRODUCTION_PLATFORM_BRIDGE_WHITELIST_PATH=$BRIDGE_WHITELIST_PATH
 Environment=PRODUCTION_PLATFORM_BRIDGE_GMAIL_TOKEN_PATH=$BRIDGE_GMAIL_TOKEN_PATH
 Environment=PRODUCTION_PLATFORM_BRIDGE_AUTOMATION_ENABLED=$BRIDGE_AUTOMATION_ENABLED
 Environment=PYTHONUNBUFFERED=1
-ExecStart=$UV_BIN run --package production-backend uvicorn app:app --host 127.0.0.1 --port $API_PORT
+# Pin the production profile after EnvironmentFile values are applied. A stale
+# dev setting in that file must not switch the deployed service to dev storage.
+ExecStart=/usr/bin/env PRODUCTION_PLATFORM_RUN_ENV=server PRODUCTION_PLATFORM_AUTH_STORAGE=mongodb PRODUCTION_PLATFORM_DEVICE_SCAN_MODE=real $UV_BIN run --package production-backend uvicorn app:app --host 127.0.0.1 --port $API_PORT
 Restart=always
 RestartSec=3
 

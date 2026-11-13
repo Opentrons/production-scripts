@@ -54,7 +54,7 @@ from modules.bridge_tokens.runtime import (
     bridge_token_scheduler,
     bridge_token_service,
 )
-from modules.supplies.runtime import configure_supplementary_material_repository
+from modules.supplies.runtime import configure_supplementary_material_repository, supplementary_material_sync_scheduler
 from modules.test_failures.scheduler import (
     start_test_failure_scheduler,
     stop_test_failure_scheduler,
@@ -128,6 +128,7 @@ async def lifespan(_: FastAPI):
         bridge_token_scheduler.start()
         agent_schedule_scheduler.start()
         upload_scheduler.start()
+        supplementary_material_sync_scheduler.start()
     else:
         logger.warning(
             "Business workflow and Agent schedulers are disabled "
@@ -149,6 +150,7 @@ async def lifespan(_: FastAPI):
         start_test_failure_scheduler()
         yield
     finally:
+        supplementary_material_sync_scheduler.stop()
         stop_test_failure_scheduler()
         stop_report_link_service()
         ecn_monitor_service.stop()

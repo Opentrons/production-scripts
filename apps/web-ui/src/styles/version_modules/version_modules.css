@@ -1036,6 +1036,61 @@ textarea {
   font-weight: 700;
 }
 
+.sop-material-name-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sop-material-name-list > span {
+  color: #53616b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sop-material-name-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sop-material-name-rows {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.sop-material-name-row .el-input {
+  min-width: 0;
+}
+
+.sop-material-name-add {
+  justify-self: start;
+}
+
+.sop-material-name-hint {
+  margin: 0;
+  color: #7f7788;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sop-product-rule-tag {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sop-product-rule-materials {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #53616b;
+  font-size: 11px;
+}
+
+.ignore-rule-list > div:has(.sop-product-rule-tag) {
+  flex-wrap: wrap;
+}
+
 .duro-api-key-form label {
   display: grid;
   gap: 7px;
@@ -1170,6 +1225,25 @@ textarea {
 .duro-submenu-collapse-title strong {
   color: #2d3d46;
   font-size: 11px;
+}
+
+.duro-submenu-collapse-title .duro-submenu-auto-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.duro-submenu-auto-controls .el-checkbox {
+  margin-right: 0;
+}
+
+.duro-submenu-auto-controls .el-checkbox__label {
+  font-size: 11px;
+}
+
+.duro-submenu-auto-controls .el-button {
+  padding: 4px;
 }
 
 .duro-submenu-collapse-title span {

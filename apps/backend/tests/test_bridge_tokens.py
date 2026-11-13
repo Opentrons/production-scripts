@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
+import json
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
+from functools import partial
+from threading import Barrier, RLock
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -16,7 +22,9 @@ from modules.bridge_tokens.configuration import (
     BridgeTokenConfigurationService,
     BridgeTokenConfigurationUpdate,
     BridgeTokenStoredConfiguration,
+    MongoBridgeTokenConfigurationRepository,
 )
+from modules.bridge_tokens.client import BridgefloodsAuthenticationError, BridgefloodsClient
 from modules.bridge_tokens.emailer import BridgeEmailSettings
 from modules.bridge_tokens.repository import BridgeTokenRepository
 from modules.bridge_tokens.routes import (
@@ -51,6 +59,16 @@ class FakeConfigurationRepository:
     ) -> BridgeTokenStoredConfiguration:
         self.value = configuration
         return configuration
+
+    def save_credentials(self, expected, *, base_url, access_token, refresh_token):
+        if self.value is None or (
+            self.value.base_url, self.value.access_token, self.value.refresh_token
+        ) != (expected.base_url, expected.access_token, expected.refresh_token):
+            return False
+        self.value = self.value.model_copy(update={
+            "base_url": base_url, "access_token": access_token, "refresh_token": refresh_token,
+        })
+        return True
 
 
 class FakeEmailSender:
@@ -528,3 +546,270 @@ def test_only_weekly_allocation_gets_bounded_scheduled_retries(tmp_path: Path) -
         summary={"errors": ["delivery"]},
     )
     assert repository.claim_run(action="weekly_reminder", slot="2026-09-02") is False
+
+
+class RotatingAuthServer:
+    """The upstream contract: 24h AT, single-use RT renewed for 30 days."""
+    def __init__(self):
+        self.now = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        self.access_expires = self.now + timedelta(days=1)
+        self.refresh_expires = self.now + timedelta(days=30)
+        self.access_token = "TEST_ACCESS_0_SECRET"
+        self.refresh_token = "TEST_REFRESH_0_SECRET"
+        self.refresh_calls = 0
+        self.barrier = None
+        self.profile_fails = False
+        self._lock = RLock()
+
+    def request(self, method, url, **kwargs):
+        if url.endswith("/auth/refresh"):
+            assert "Authorization" not in kwargs["headers"]
+            with self._lock:
+                self.refresh_calls += 1
+                if kwargs["json"]["refresh_token"] != self.refresh_token or self.now >= self.refresh_expires:
+                    return httpx.Response(401, json={"code": 401, "message": "invalid refresh token"})
+                self.access_token = f"TEST_ACCESS_{self.refresh_calls}_SECRET"
+                self.refresh_token = f"TEST_REFRESH_{self.refresh_calls}_SECRET"
+                self.access_expires = self.now + timedelta(days=1)
+                self.refresh_expires = self.now + timedelta(days=30)
+                return httpx.Response(200, json={"code": 0, "data": {
+                    "access_token": self.access_token, "refresh_token": self.refresh_token,
+                    "expires_in": 86400,
+                }})
+        valid = kwargs["headers"].get("Authorization") == f"Bearer {self.access_token}" and self.now < self.access_expires
+        if not valid:
+            if self.barrier is not None:
+                self.barrier.wait(timeout=5)
+            return httpx.Response(401, json={"code": "TOKEN_EXPIRED"})
+        if url.endswith("/user/profile"):
+            if self.profile_fails:
+                return httpx.Response(503)
+            return httpx.Response(200, json={"code": 0, "data": {"balance": 500}})
+        return httpx.Response(200, json={"code": 0, "data": [
+            {"id": "andy-key", "name": "Andy", "quota": 100, "quota_used": 5},
+            {"id": "other-key", "name": "Other", "quota": 100, "quota_used": 10},
+        ]})
+
+
+@pytest.fixture
+def rolling_credentials(tmp_path, monkeypatch):
+    server = RotatingAuthServer()
+    monkeypatch.setattr("modules.bridge_tokens.client.httpx.request", server.request)
+    cfg, _, applied = build_configuration_service(tmp_path)
+    cfg.base_token_settings = replace(
+        cfg.base_token_settings, access_token=server.access_token, refresh_token=server.refresh_token,
+    )
+    write_whitelist(cfg.base_token_settings.whitelist_path)
+    store = SqliteDocumentStore(tmp_path / "rolling-credentials.sqlite3")
+    repository = MongoBridgeTokenConfigurationRepository()
+    collection = store["bridge_token_configuration"]
+    original_update = collection.update_one
+    def update_one(query, update, **kwargs):
+        # Mongo stores BSON dates; the local durable test store serializes JSON.
+        encoded = json.loads(json.dumps(update, default=lambda value: value.isoformat()))
+        return original_update(query, encoded, **kwargs)
+    monkeypatch.setattr(collection, "update_one", update_one)
+    monkeypatch.setattr(
+        collection, "replace_one",
+        lambda query, document, **kwargs: update_one(query, {"$set": document}, **kwargs),
+        raising=False,
+    )
+    monkeypatch.setattr(repository, "_collection", lambda: collection)
+    cfg.repository = repository
+    cfg._validate_credentials = cfg._validate_bridge_credentials
+    cfg.initialize()
+    def make_service(configuration_service=cfg):
+        settings, _ = configuration_service._runtime_settings(repository.get())
+        service = BridgeTokenService(
+            settings=settings, repository=BridgeTokenRepository(store.__getitem__),
+            email_sender=FakeEmailSender(), token_refresher=configuration_service.refresh_credentials,
+        )
+        service.initialize()
+        return service
+    return server, cfg, make_service, applied
+
+
+def test_weekly_page_visits_survive_restarts_and_slide_refresh_for_more_than_30_days(rolling_credentials):
+    server, cfg, make_service, _ = rolling_credentials
+    start = server.now
+    for week in range(1, 9):
+        server.now = start + timedelta(weeks=week)
+        restarted = BridgeTokenConfigurationService(
+            repository=cfg.repository, base_token_settings=cfg.base_token_settings,
+            base_email_settings=cfg.base_email_settings, apply_configuration=lambda *args: None,
+        )
+        restarted.initialize()
+        dashboard = make_service(restarted).current_user_dashboard(auth_user(), refresh=True)
+        assert dashboard.live is True
+        assert dashboard.error == ""
+        assert restarted.repository.get().access_token == server.access_token
+        assert restarted.repository.get().refresh_token == server.refresh_token
+        assert server.refresh_expires == server.now + timedelta(days=30)
+        assert server.refresh_calls == week
+        assert restarted.repository.get().automation_enabled is False
+
+
+@pytest.mark.parametrize("shared_client", [True, False])
+def test_concurrent_expired_requests_rotate_only_once(rolling_credentials, shared_client):
+    server, cfg, make_service, _ = rolling_credentials
+    service = make_service()
+    server.now += timedelta(days=7)
+    server.barrier = Barrier(6)
+    if shared_client:
+        clients = [service._default_client()] * 6
+    else:
+        clients = [make_service()._default_client() for _ in range(6)]
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(lambda client: client.list_keys(), clients))
+    assert all(len(result) == 2 for result in results)
+    assert server.refresh_calls == 1
+    assert cfg.repository.get().refresh_token == server.refresh_token
+
+
+def test_configuration_validation_saves_rotated_tokens_before_applying_settings(rolling_credentials):
+    server, cfg, _, applied = rolling_credentials
+    server.now += timedelta(days=7)
+    cfg.update_automation(True, updated_by="admin")
+    assert cfg.repository.get().refresh_token == server.refresh_token
+    assert cfg.repository.get().access_token == server.access_token
+    assert applied[-1].refresh_token == server.refresh_token
+    assert server.refresh_calls == 1
+
+
+def test_failed_profile_validation_keeps_successfully_rotated_pair(rolling_credentials):
+    server, cfg, _, _ = rolling_credentials
+    server.now += timedelta(days=7)
+    server.profile_fails = True
+    with pytest.raises(ValueError):
+        cfg.update_automation(True, updated_by="admin")
+    assert cfg.repository.get().automation_enabled is False
+    assert cfg.repository.get().refresh_token == server.refresh_token
+    server.profile_fails = False
+    cfg.update_automation(True, updated_by="admin")
+    assert cfg.repository.get().automation_enabled is True
+    assert server.refresh_calls == 1
+
+
+def test_editing_non_secret_configuration_retains_latest_credentials(rolling_credentials):
+    server, cfg, make_service, _ = rolling_credentials
+    server.now += timedelta(days=7)
+    assert make_service().current_user_dashboard(auth_user()).live
+    payload = BridgeTokenConfigurationUpdate.model_validate({
+        **cfg.get_configuration().model_dump(), "quota_threshold": 42,
+    })
+    cfg.update_configuration(payload, updated_by="admin")
+    assert cfg.repository.get().refresh_token == server.refresh_token
+    assert cfg.repository.get().quota_threshold == 42
+    assert make_service().current_user_dashboard(auth_user()).live
+    assert server.refresh_calls == 1
+
+
+def test_expired_refresh_token_is_reported_without_erasing_snapshots(rolling_credentials, caplog):
+    server, cfg, make_service, _ = rolling_credentials
+    service = make_service()
+    assert service.current_user_dashboard(auth_user()).live
+    old_token = cfg.repository.get().refresh_token
+    server.now += timedelta(days=31)
+    dashboard = service.current_user_dashboard(auth_user())
+    assert dashboard.error == "authentication_required"
+    assert dashboard.live is False
+    assert dashboard.total_remaining == 185
+    assert server.refresh_calls == 1
+    assert cfg.repository.get().refresh_token == old_token
+    assert old_token not in caplog.text
+
+
+def test_temporary_storage_failure_retries_saving_without_consuming_refresh_again(rolling_credentials, monkeypatch):
+    server, cfg, make_service, _ = rolling_credentials
+    service = make_service()
+    server.now += timedelta(days=7)
+    original = cfg.repository.save_credentials
+    def broken_save(*args, **kwargs):
+        raise RuntimeError("database unavailable")
+    monkeypatch.setattr(cfg.repository, "save_credentials", broken_save)
+    dashboard = service.current_user_dashboard(auth_user())
+    assert dashboard.error == "credential_save_failed"
+    assert server.refresh_calls == 1
+    monkeypatch.setattr(cfg.repository, "save_credentials", original)
+    dashboard = service.current_user_dashboard(auth_user())
+    assert dashboard.live
+    assert cfg.repository.get().refresh_token == server.refresh_token
+    assert server.refresh_calls == 1
+
+
+def test_late_rotation_cannot_overwrite_manually_replaced_credentials(rolling_credentials):
+    _, cfg, _, _ = rolling_credentials
+    original = cfg.repository.get()
+    manual = original.model_copy(update={"access_token": "manual-at", "refresh_token": "manual-rt", "quota_threshold": 37})
+    cfg.repository.save(manual)
+    assert cfg.repository.save_credentials(
+        original, base_url=original.base_url, access_token="late-at", refresh_token="late-rt",
+    ) is False
+    stored = cfg.repository.get()
+    assert stored.refresh_token == "manual-rt"
+    assert stored.quota_threshold == 37
+
+
+def test_stale_client_can_adopt_and_then_renew_an_already_expired_stored_pair(rolling_credentials):
+    server, _, make_service, _ = rolling_credentials
+    stale = make_service()
+    server.now += timedelta(days=7)
+    assert make_service().current_user_dashboard(auth_user()).live
+    server.now += timedelta(days=7)
+    assert stale.current_user_dashboard(auth_user()).live
+    assert server.refresh_calls == 2
+
+
+def test_refresh_token_alone_can_restore_balance(rolling_credentials):
+    server, cfg, make_service, _ = rolling_credentials
+    cfg.repository.save(cfg.repository.get().model_copy(update={"access_token": ""}))
+    assert make_service().current_user_dashboard(auth_user()).live
+    assert cfg.repository.get().access_token == server.access_token
+    assert server.refresh_calls == 1
+
+
+def test_rejected_renewed_access_token_has_bounded_retries(rolling_credentials, monkeypatch):
+    server, cfg, _, _ = rolling_credentials
+    original_request = server.request
+    def rejected(method, url, **kwargs):
+        if url.endswith("/auth/refresh"):
+            return original_request(method, url, **kwargs)
+        return httpx.Response(401, json={"code": "TOKEN_EXPIRED"})
+    monkeypatch.setattr("modules.bridge_tokens.client.httpx.request", rejected)
+    current = cfg.repository.get()
+    client = BridgefloodsClient(
+        base_url=current.base_url, access_token=current.access_token, refresh_token=current.refresh_token,
+        refresh_handler=partial(cfg.refresh_credentials, current.base_url),
+    )
+    with pytest.raises(BridgefloodsAuthenticationError):
+        client.list_keys()
+    assert server.refresh_calls == 2
+
+
+def test_expired_bridge_credentials_return_a_dashboard_error_without_platform_logout(rolling_credentials):
+    server, _, make_service, _ = rolling_credentials
+    service = make_service()
+    assert service.current_user_dashboard(auth_user()).live
+    server.now += timedelta(days=31)
+    app = FastAPI()
+    app.include_router(bridge_token_router)
+    app.dependency_overrides[get_bridge_token_service] = lambda: service
+    app.dependency_overrides[require_authenticated_user] = auth_user
+    with TestClient(app) as client:
+        response = client.get("/bridge-tokens/me")
+    assert response.status_code == 200
+    assert response.json()["error"] == "authentication_required"
+    assert response.json()["total_remaining"] == 185
+    assert "TEST_REFRESH_" not in response.text
+    assert "TEST_ACCESS_" not in response.text
+
+
+def test_unavailable_storage_is_detected_before_consuming_refresh_token(rolling_credentials, monkeypatch):
+    server, cfg, make_service, _ = rolling_credentials
+    service = make_service()
+    server.now += timedelta(days=7)
+    def unavailable():
+        raise RuntimeError("database unavailable")
+    monkeypatch.setattr(cfg.repository, "get", unavailable)
+    assert service.current_user_dashboard(auth_user()).error == "credential_save_failed"
+    assert server.refresh_calls == 0

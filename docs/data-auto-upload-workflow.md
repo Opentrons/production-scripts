@@ -73,7 +73,7 @@ In **数据上传设置**, set **平行度测试总表链接 ID** to the spreads
 | `ch96_leveling_test` | `Pipette To Deck Parallelism` | `P:BB` |
 | `gripper_leveling_test` | `Gripper Parallelism` | `B:K` |
 
-Parallelism uses the same system `last_row` setting and first-empty-row search as Unit Tracker. Starting at row 11, it checks the configured columns together with the actual destination columns; formulas count as occupied and gaps may be filled. With the default `F:I`, the effective checks are Z `C:AP`, CH8 `B:N`, CH96 `F:BB`, and Gripper `B:K`. Multiple measurement rows require a consecutive empty block. The four destinations are located separately, so CH8 and CH96 may use different rows. The step runs before the database write and does not wait for the other Robot tests in the combined workflow. Missing sections, invalid data, missing configuration, or Sheets errors fail the upload. Checkpoints retain the target ranges for retries; completed writes are skipped, and conflicting cells stop the retry rather than being overwritten.
+Parallelism starts searching at row 11 and locates the first blank row by one column per tab: Z Stage uses `C`, Pipette uses `B` for both CH8 and CH96, and Gripper uses `B`. Formulas in those columns count as occupied, and gaps may be filled. Multiple measurement rows require a consecutive empty block. CH8 and CH96 use the same row because they share the Pipette tab and anchor column. The step runs before the database write and does not wait for the other Robot tests in the combined workflow. Missing sections, invalid data, missing configuration, or Sheets errors fail the upload. Checkpoints retain the target ranges for retries; completed writes are skipped, and conflicting cells stop the retry rather than being overwritten.
 
 Production uses spreadsheet `1fXdzjJYb9-pNW4fdvOKS4wZpoTXgIKCzFUTheVr4XeA`. Its actual pipette tab is named `Pipette To Deck Parallelism` (one `p` after `Pi`). Engineering configuration remains separate. Its CH8 and Z slot order differs from the sample CSV; measurement reordering needs to be agreed before relying on those header labels. Gripper X also labels the pair Front/Rear while the CSV calls it Left/Right.
 
@@ -99,6 +99,21 @@ upload_data_to_google_drive
 
 **States:** `queued` → `running`/`retrying` → `success`|`failed`  
 **Retry:** lease + checkpoint + exponential backoff; Slack retries independently.
+
+Upload capacity is reserved by product: Pipette has 2 workers, Robot has 1,
+and other products (including Gripper and unrecognized CSVs) have 1. Each group
+claims its own oldest due tasks, so slow Pipette uploads cannot occupy Robot's
+worker. Slack has one additional worker. Same-device workflow locks still apply
+inside the product group. These limits apply to the single backend process.
+
+Configure `PRODUCTION_PLATFORM_UPLOAD_PIPETTE_MAX_WORKERS`,
+`PRODUCTION_PLATFORM_UPLOAD_ROBOT_MAX_WORKERS`, and
+`PRODUCTION_PLATFORM_UPLOAD_OTHER_MAX_WORKERS` (each 1–8) before starting the backend.
+The legacy `PRODUCTION_PLATFORM_UPLOAD_MAX_WORKERS` remains the Pipette default
+when its new setting is absent. Enqueue records the group from CSV metadata and
+manual serial-number overrides. Existing queued/retrying records without a group
+are classified before the group-specific query limit is applied; they retain their
+queue timestamps, attempts and checkpoints. No re-upload is needed after upgrading.
 
 ---
 

@@ -62,6 +62,7 @@ export interface DuroBomNode {
   relationship_id: string | null
   node_type: 'product' | 'component' | string
   name: string
+  description?: string
   cpn: string | null
   cpn_variant: unknown
   alias: string | null

@@ -12,6 +12,10 @@ from modules.bridge_tokens.scheduler import BridgeTokenScheduler
 from modules.bridge_tokens.service import BridgeTokenService, BridgeTokenSettings
 
 
+def refresh_bridge_credentials(base_url: str, access_token: str, refresh_token: str) -> tuple[str, str]:
+    return bridge_token_configuration_service.refresh_credentials(base_url, access_token, refresh_token)
+
+
 bridge_token_settings = BridgeTokenSettings(
     base_url=config.BRIDGEFLOODS_BASE_URL,
     access_token=config.BRIDGEFLOODS_ACCESS_TOKEN,
@@ -50,6 +54,7 @@ bridge_token_service = BridgeTokenService(
     settings=bridge_token_settings,
     repository=bridge_token_repository,
     email_sender=bridge_email_sender,
+    token_refresher=refresh_bridge_credentials,
 )
 bridge_token_scheduler = BridgeTokenScheduler(bridge_token_service)
 

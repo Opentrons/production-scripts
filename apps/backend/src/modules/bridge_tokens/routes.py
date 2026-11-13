@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from modules.auth.dependencies import require_authenticated_user
 from modules.auth.store import AuthUser
+from modules.bridge_tokens.client import BridgefloodsCredentialSaveError
 from modules.bridge_tokens.models import AllocationRecordPage, CurrentUserTokenResponse
 from modules.bridge_tokens.configuration import (
     BridgeTokenAutomationUpdate,
@@ -83,7 +84,7 @@ def get_bridge_token_configuration(
 ) -> BridgeTokenConfigurationResponse:
     try:
         return service.get_configuration()
-    except BridgeTokenConfigurationUnavailable as exc:
+    except (BridgeTokenConfigurationUnavailable, BridgefloodsCredentialSaveError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -100,7 +101,7 @@ def update_bridge_token_configuration(
 ) -> BridgeTokenConfigurationResponse:
     try:
         return service.update_configuration(payload, updated_by=user.username)
-    except BridgeTokenConfigurationUnavailable as exc:
+    except (BridgeTokenConfigurationUnavailable, BridgefloodsCredentialSaveError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -125,7 +126,7 @@ def update_bridge_token_automation(
             payload.automation_enabled,
             updated_by=user.username,
         )
-    except BridgeTokenConfigurationUnavailable as exc:
+    except (BridgeTokenConfigurationUnavailable, BridgefloodsCredentialSaveError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),

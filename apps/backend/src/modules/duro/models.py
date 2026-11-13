@@ -58,6 +58,7 @@ class DuroBomNode(BaseModel):
     relationship_id: str | None = None
     node_type: str = "component"
     name: str = ""
+    description: str = ""
     cpn: str | None = None
     cpn_variant: Any = None
     alias: str | None = None

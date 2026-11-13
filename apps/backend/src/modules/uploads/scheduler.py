@@ -22,7 +22,14 @@ class UploadScheduler:
         self._thread: threading.Thread | None = None
         self._executor: ThreadPoolExecutor | None = None
         self._lock = threading.Lock()
-        self._upload_futures: set[Future] = set()
+        self._worker_limits = {
+            "pipette": setting.UPLOAD_PIPETTE_MAX_WORKERS,
+            "robot": setting.UPLOAD_ROBOT_MAX_WORKERS,
+            "other": setting.UPLOAD_OTHER_MAX_WORKERS,
+        }
+        self._upload_futures: dict[str, set[Future]] = {
+            group: set() for group in self._worker_limits
+        }
         self._notification_futures: set[Future] = set()
 
     def start(self) -> None:
@@ -33,7 +40,7 @@ class UploadScheduler:
         upload_records.recover_expired_upload_notifications()
         self._stop_event.clear()
         self._executor = ThreadPoolExecutor(
-            max_workers=setting.UPLOAD_MAX_WORKERS + 1,
+            max_workers=sum(self._worker_limits.values()) + 1,
             thread_name_prefix="upload-worker",
         )
         self._thread = threading.Thread(
@@ -43,9 +50,10 @@ class UploadScheduler:
         )
         self._thread.start()
         logger.info(
-            "Upload scheduler started: owner=%s workers=%s",
+            "Upload scheduler started: owner=%s product_workers=%s database=%s",
             self.owner,
-            setting.UPLOAD_MAX_WORKERS,
+            self._worker_limits,
+            setting.MESSAGE_COLLECTION,
         )
 
     def stop(self) -> None:
@@ -58,7 +66,8 @@ class UploadScheduler:
         if executor is not None:
             executor.shutdown(wait=True, cancel_futures=True)
         with self._lock:
-            self._upload_futures.clear()
+            for futures in self._upload_futures.values():
+                futures.clear()
             self._notification_futures.clear()
 
     def _run(self) -> None:
@@ -76,16 +85,18 @@ class UploadScheduler:
         executor = self._executor
         if executor is None:
             return
-        while True:
+        for group, limit in self._worker_limits.items():
+            futures = self._upload_futures[group]
             with self._lock:
-                capacity = setting.UPLOAD_MAX_WORKERS - len(self._upload_futures)
-            if capacity <= 0:
-                return
-            record = upload_records.claim_due_upload_record(self.owner)
-            if record is None:
-                return
-            future = executor.submit(self._execute_upload, record)
-            self._track_future(future, self._upload_futures)
+                capacity = limit - len(futures)
+            # Bound each group's work per poll, even when jobs finish before
+            # the next claim, so later groups always get a turn.
+            for _ in range(capacity):
+                record = upload_records.claim_due_upload_record(self.owner, product_group=group)
+                if record is None:
+                    break
+                future = executor.submit(self._execute_upload, record)
+                self._track_future(future, futures)
 
     def _dispatch_notification(self) -> None:
         executor = self._executor

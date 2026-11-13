@@ -218,6 +218,8 @@ def _enrich_reference_name_occurrences(
 
 
 class SopService:
+    _PDF_CACHE_VERSION = "chinese-source-v2"
+
     def __init__(
         self,
         google_driver: GoogleDriver,
@@ -297,7 +299,7 @@ class SopService:
                 cached_pdf = self._pdf_cache.get(cache_key)
                 if cached_pdf is not None:
                     return cached_pdf.model_copy(update={"cached": True})
-                disk_cached = self._get_disk_cached(f"pdf:{cache_key}", SopPdfAnalysisResponse)
+                disk_cached = self._get_disk_cached(f"pdf:{self._PDF_CACHE_VERSION}:{cache_key}", SopPdfAnalysisResponse)
                 if disk_cached is not None:
                     self._pdf_cache[cache_key] = disk_cached
                     return disk_cached.model_copy(update={"cached": True})
@@ -462,7 +464,7 @@ class SopService:
         with self._cache_lock:
             self._instruction_pages_cache[cache_key] = list(reference_text_pages)
             self._pdf_cache[cache_key] = response
-            self._set_disk_cached(f"pdf:{cache_key}", response)
+            self._set_disk_cached(f"pdf:{self._PDF_CACHE_VERSION}:{cache_key}", response)
         return response
 
     def refine_semantic_quantities_with_names(

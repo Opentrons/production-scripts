@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 import pytest
 import requests
 
+from core.database import MongoDB
 from api.routers import uploads as uploads_router
 from modules.uploads import upload as upload_service
 from modules.uploads import upload_records
@@ -71,6 +72,68 @@ class MemoryCursor(list):
 
     def limit(self, count):
         return MemoryCursor(self[:count])
+
+
+def test_development_cannot_claim_production_uploads_or_notifications(monkeypatch, tmp_path) -> None:
+    class QueueCollection(MemoryUploadRecordCollection):
+        def find(self, query=None):
+            def matches(record):
+                for key, expected in (query or {}).items():
+                    actual = record.get(key)
+                    if not isinstance(expected, dict):
+                        if actual != expected:
+                            return False
+                    else:
+                        if "$in" in expected and actual not in expected["$in"]:
+                            return False
+                        if "$ne" in expected and actual == expected["$ne"]:
+                            return False
+                        if "$lte" in expected and (actual is None or actual > expected["$lte"]):
+                            return False
+                return True
+
+            return MemoryCursor([record for record in self.documents.values() if matches(record)])
+
+    production, development = QueueCollection(), QueueCollection()
+    mongo = MongoDB()
+    mongo.client = {
+        "ProductionsMessage": {upload_records.setting.DATA_UPLOAD_RECORD_COLLECTION: production},
+        "ProductionsMessage_dev": {upload_records.setting.DATA_UPLOAD_RECORD_COLLECTION: development},
+    }
+    monkeypatch.setattr(upload_records, "mongodb", mongo)
+    monkeypatch.setattr(upload_records.setting, "MESSAGE_COLLECTION", "ProductionsMessage")
+    monkeypatch.setattr(upload_records.setting, "use_sqlite_persistence", lambda: False)
+    monkeypatch.setattr(upload_records.setting, "IS_DEV_ENV", False)
+    csv_path = tmp_path / "assembly.csv"
+    csv_path.write_text("a,b\n1,2\n")
+
+    def enqueue():
+        record_id = upload_records.create_upload_record(str(csv_path))
+        assert upload_records.enqueue_upload_record(record_id, csv_path=str(csv_path), zip_path=None, meta={})
+        upload_records.queue_upload_notification(
+            record_id, result=None, csv_path=str(csv_path), zip_path=None,
+            error_message=None, upload_success=True, database_success=True,
+        )
+        return record_id
+
+    production_id = enqueue()
+    monkeypatch.setattr(upload_records.setting, "IS_DEV_ENV", True)
+
+    assert upload_records.get_upload_record(production_id) is None
+    assert upload_records.claim_due_upload_record("dev-worker") is None
+    assert upload_records.claim_due_upload_notification("dev-worker") is None
+    assert upload_records.recover_expired_upload_leases() == 0
+    assert upload_records.recover_expired_upload_notifications() == 0
+    assert production.documents[production_id]["status"] == "queued"
+    assert production.documents[production_id]["notification_status"] == "queued"
+
+    development_id = enqueue()
+    assert str(upload_records.claim_due_upload_record("dev-worker")["_id"]) == development_id
+    assert str(upload_records.claim_due_upload_notification("dev-worker")["_id"]) == development_id
+
+    monkeypatch.setattr(upload_records.setting, "IS_DEV_ENV", False)
+    assert str(upload_records.claim_due_upload_record("production-worker")["_id"]) == production_id
+    assert str(upload_records.claim_due_upload_notification("production-worker")["_id"]) == production_id
 
 
 def test_precreated_record_can_capture_transport_failure(monkeypatch) -> None:

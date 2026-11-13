@@ -13,6 +13,11 @@ PARALLELISM_TARGETS = {
     "ch96_leveling_test": ("Pipette To Deck Parallelism", "P", "BB", 39),
     "gripper_leveling_test": ("Gripper Parallelism", "B", "K", 10),
 }
+PARALLELISM_ROW_ANCHORS = {
+    "Z Stage Parallelism": "C",
+    "Pipette To Deck Parallelism": "B",
+    "Gripper Parallelism": "B",
+}
 _APPEND_LOCK = Lock()
 
 
@@ -70,7 +75,6 @@ def extract_parallelism_rows(csv_path: str, robot_sn: str) -> dict[str, list[lis
 
 def upload_parallelism_results(
     uploader, spreadsheet_id: str, sections: dict[str, list[list]],
-    *, last_row_range: str = "F:I",
 ) -> None:
     """Keep append positions in the upload checkpoint so retries reuse their rows."""
     if not spreadsheet_id:
@@ -86,11 +90,9 @@ def upload_parallelism_results(
         if writes is None:
             writes = []
             for name, (sheet, start, end, _) in PARALLELISM_TARGETS.items():
-                # Use the same configured empty-row search and destination
-                # protection as Unit Tracker, including the row 11 start.
-                check_range = uploader.tracker_check_range(last_row_range, start, end)
+                anchor = PARALLELISM_ROW_ANCHORS[sheet]
                 first_row = uploader.get_first_blank_tracker_row(
-                    spreadsheet_id, sheet, check_range,
+                    spreadsheet_id, sheet, f"{anchor}:{anchor}",
                     required_rows=len(sections[name]),
                 )
                 if first_row is None:

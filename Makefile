@@ -25,7 +25,7 @@ MONGO_IMAGE ?= mongo:7
 MONGO_CONTAINER ?= production-platform-mongodb
 MONGO_PORT ?= 27017
 
-.PHONY: help sync dev dev-stop-ports mongo-dev mongo-stop backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build deploy-backend deploy-web deploy-remote
+.PHONY: help sync dev dev-stop-ports mongo-dev mongo-stop backend-dev backend-prod backend-test backend-health web-install web-dev web-build hardware hardware-test hardware-build high-voltage test build deploy-backend deploy-web deploy-remote deploy_remote
 
 help:
 	@echo "Production Scripts targets:"
@@ -49,6 +49,7 @@ help:
 	@echo "  make deploy-backend   Install/restart the backend service"
 	@echo "  make deploy-web       Build/configure the nginx site"
 	@echo "  make deploy-remote    Build and deploy web/backend to $(REMOTE_HOST)"
+	@echo "  make deploy_remote    Alias for deploy-remote (production profile)"
 
 sync:
 	uv sync --all-packages
@@ -104,10 +105,10 @@ mongo-stop:
 	fi
 
 backend-dev:
-	uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT) --reload --reload-dir apps/backend/src
+	PRODUCTION_PLATFORM_RUN_ENV=dev uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT) --reload --reload-dir apps/backend/src
 
 backend-prod:
-	uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT)
+	PRODUCTION_PLATFORM_RUN_ENV=server uv run --package production-backend uvicorn app:app --host $(HOST) --port $(API_PORT)
 
 backend-test:
 	uv run --package production-backend pytest -q apps/backend/tests
@@ -145,6 +146,8 @@ deploy-backend:
 
 deploy-web:
 	sudo API_PORT=$(API_PORT) WEB_HTTP_PORT=$(WEB_HTTP_PORT) WEB_HTTPS_PORT=$(WEB_HTTPS_PORT) SERVER_NAME=$(SERVER_NAME) SSL_CERTIFICATE=$(SSL_CERTIFICATE) SSL_CERTIFICATE_KEY=$(SSL_CERTIFICATE_KEY) bash deploy/web.sh
+
+deploy_remote: deploy-remote
 
 deploy-remote: web-build
 	REMOTE_HOST="$(REMOTE_HOST)" \
