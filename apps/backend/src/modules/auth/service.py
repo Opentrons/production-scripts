@@ -19,7 +19,7 @@ from modules.auth.store import AuthSession, AuthStore, AuthUser, utc_now
 JWT_ALGORITHM = "HS256"
 PASSWORD_HASH = PasswordHash.recommended()
 DUMMY_PASSWORD_HASH = PASSWORD_HASH.hash("production-platform-invalid-password")
-VALID_ROLES = {"admin", "operator", "viewer", "device_operator"}
+VALID_ROLES = {"admin", "engineer", "operator", "guest", "viewer", "device_operator"}
 
 
 class AuthenticationError(Exception):
@@ -90,8 +90,8 @@ class AuthService:
         role: str = "operator",
     ) -> AuthUser:
         normalized_username = username.strip()
-        if len(normalized_username) < 3 or len(normalized_username) > 64:
-            raise ValueError("Username must contain between 3 and 64 characters")
+        if len(normalized_username) < 3 or len(normalized_username) > 254:
+            raise ValueError("Username must contain between 3 and 254 characters")
         normalized_role = role.strip().lower()
         if normalized_role not in VALID_ROLES:
             raise ValueError(f"Role must be one of: {', '.join(sorted(VALID_ROLES))}")

@@ -1,6 +1,28 @@
 import { testFailuresEn } from './testFailures.ts'
 
 export default {
+  accounts: {
+    "title": "Account management",
+    "email": "Email address",
+    "role": "Role",
+    "admin": "Administrator",
+    "engineer": "Engineer",
+    "operator": "Operator",
+    "guest": "Guest",
+    "add": "Add account",
+    "initialPassword": "Initial passwords are the part before {'@'}, preserving capitalization. New passwords must contain at least 12 characters.",
+    "failed": "Unable to save or load accounts. Check for duplicates and ensure at least one administrator remains.",
+    "roleWarning": "Changing a role signs this account out of all sessions. Continue?",
+    "reset": "Reset password",
+    "send": "Send verification code",
+    "code": "Verification code",
+    "newPassword": "New password (12+ characters)",
+    "repeatPassword": "Confirm new password",
+    "sent": "If the account exists, a code has been sent. It expires in 10 minutes.",
+    "sendFailed": "Unable to send. Check the email, wait before retrying, or contact an administrator to configure email.",
+    "resetDone": "Password updated. Sign in with your new password.",
+    "resetFailed": "Invalid or expired code. Request a new code if necessary."
+  },
   testFailures: testFailuresEn,
   locale: {
     label: 'Language',
@@ -76,7 +98,7 @@ export default {
       secureAccess: 'SECURE ACCESS',
       title: 'Sign in to Production Testing',
       account: 'Account',
-      accountPlaceholder: 'Enter your account',
+      accountPlaceholder: 'Enter your email address',
       password: 'Password',
       passwordPlaceholder: 'Enter your password',
       showPassword: 'Show password',

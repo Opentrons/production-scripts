@@ -62,6 +62,8 @@ const displayName = computed(() => authStore.user?.role === 'device_operator'
 
 const roleLabel = computed(() => ({
   admin: t('auth.roles.admin'),
+  engineer: t('accounts.engineer'),
+  guest: t('accounts.guest'),
   operator: t('auth.roles.operator'),
   viewer: t('auth.roles.viewer'),
   device_operator: t('auth.roles.deviceOperator'),

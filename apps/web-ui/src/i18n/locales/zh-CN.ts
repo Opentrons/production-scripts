@@ -1,6 +1,28 @@
 import { testFailuresZh } from './testFailures.ts'
 
 export default {
+  accounts: {
+    "title": "账户管理",
+    "email": "邮箱地址",
+    "role": "角色",
+    "admin": "管理员",
+    "engineer": "工程师",
+    "operator": "操作员",
+    "guest": "访客",
+    "add": "添加账户",
+    "initialPassword": "初始密码为邮箱 {'@'} 前的名称，保留大小写。新密码至少为 12 个字符。",
+    "failed": "无法保存或加载账户。请检查邮箱是否重复，并保留至少一位管理员。",
+    "roleWarning": "修改角色会使该账户的所有登录会话失效，是否继续？",
+    "reset": "重置密码",
+    "send": "发送验证码",
+    "code": "邮箱验证码",
+    "newPassword": "新密码（至少 12 个字符）",
+    "repeatPassword": "确认新密码",
+    "sent": "如果账户存在，验证码已发送，10 分钟内有效。",
+    "sendFailed": "发送失败。请检查邮箱、稍后重试，或联系管理员配置发信服务。",
+    "resetDone": "密码已更新，请使用新密码登录。",
+    "resetFailed": "验证码错误或已过期，必要时请重新获取。"
+  },
   testFailures: testFailuresZh,
   locale: {
     label: '界面语言',
@@ -76,7 +98,7 @@ export default {
       secureAccess: '安全访问',
       title: '登录生产测试平台',
       account: '账号',
-      accountPlaceholder: '请输入账号',
+      accountPlaceholder: '请输入邮箱地址',
       password: '密码',
       passwordPlaceholder: '请输入密码',
       showPassword: '显示密码',

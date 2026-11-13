@@ -2,10 +2,14 @@
 
 Production Testing, Productions Versions, the Dashboard, Downloads, and the Production Agent use one FastAPI login session.
 
-Persistence follows the platform rule:
+Authentication persistence is controlled independently of business simulation by
+`PRODUCTION_PLATFORM_AUTH_STORAGE`:
 
-- Non-simulating → MongoDB `ProductionsMessage.auth_users` / `auth_sessions`
-- Simulating → SQLite under `db-storage/simulating/auth.sqlite3` (or `PRODUCTION_PLATFORM_AUTH_DB_PATH`)
+- `mongodb` (production default): `ProductionsMessage.auth_users` / `auth_sessions`.
+- `sqlite` (local development default): `PRODUCTION_PLATFORM_AUTH_DB_PATH` or `db-storage/auth/auth.sqlite3`.
+
+Accounts, password changes, and roles use the existing store directly. No JSON
+copy is maintained. Passwords are stored as Argon2 hashes, never plaintext.
 
 Migrate legacy production `db-storage/auth/auth.sqlite3` into MongoDB with `apps/backend/scripts/migrate_sqlite_to_mongodb.py` before removing the sqlite file.
 
@@ -20,7 +24,7 @@ sudo "$(command -v uv)" run --package production-backend python apps/backend/scr
   --role admin
 ```
 
-The command prompts for a password and requires at least 12 characters. Available roles are `admin`, `operator`, `viewer`, and `device_operator`.
+The command prompts for a password and requires at least 12 characters. Available roles are `admin`, `engineer`, `operator`, and `guest`; legacy `viewer` and `device_operator` roles remain supported.
 
 `device_operator` is the standard production-floor role. It can use the dashboard and all platform modules except the device control page. The web application blocks `/devices/control` with a permission-controlled dialog. The API independently returns HTTP 403 for `/api/robots/{ip}/control/*` while allowing other authenticated platform endpoints.
 
@@ -58,3 +62,93 @@ PRODUCTION_PLATFORM_AUTH_ALLOWED_ORIGINS=<optional comma-separated origins>
 ```
 
 JWTs are held in HttpOnly cookies. State-changing cookie-authenticated API requests also require the session CSRF header. Access JWTs expire after 5 minutes by default while the login session remains valid. The login session expires after 360 hours (15 days) by default, then the web client requires a new login. Refresh tokens are rotated, and logout revokes the server-side session immediately.
+
+## Account management and initial administrators
+
+Administrators open **Settings → Account management** to list accounts, add an
+email account, or change a role. The API independently checks administrator
+access and CSRF protection. Emails are unique without regard to capitalization.
+Google Workspace addresses such as `@opentrons.com` are supported; this is
+email/password authentication, not Google OAuth.
+
+On authentication initialization, the following missing accounts are created
+as administrators:
+
+- `Jerome.li@opentrons.com`
+- `Frank.zhang@opentrons.com`
+- `zane.wang@opentrons.com`
+- `andy.hu@opentrons.com`
+- `kevin.jiang@opentrons.com`
+
+The initial password is the part before `@`, preserving the entered case
+(for example, `Jerome.li`). Existing accounts, passwords, and role assignments
+are preserved on restart. Newly added accounts follow the same initial-password
+rule. Users can change this password with the login page's **Reset password**
+action. New passwords require at least 12 characters.
+
+Changing a role or password invalidates all existing access and refresh tokens
+for that account. The last enabled administrator cannot be demoted. The four
+roles are available for future per-module authorization; this change restricts
+account management to administrators and preserves existing device-operator
+restrictions. It does not yet make guests read-only across all modules.
+
+## Password recovery email
+
+Configure these environment variables on the backend, then restart it:
+
+```text
+PRODUCTION_PLATFORM_SMTP_HOST=smtp.example.com
+PRODUCTION_PLATFORM_SMTP_PORT=587
+PRODUCTION_PLATFORM_SMTP_FROM=software.sz@opentrons.com
+PRODUCTION_PLATFORM_SMTP_USERNAME=software.sz@opentrons.com
+PRODUCTION_PLATFORM_SMTP_PASSWORD=<SMTP credential or app password>
+```
+
+Port 587 uses STARTTLS; port 465 uses implicit TLS. Both verify the server
+certificate. In SMTP mode, account emails use `software.sz@opentrons.com`. A different
+`PRODUCTION_PLATFORM_SMTP_FROM` value is rejected before sending. Configure SMTP
+credentials for this mailbox, or a relay explicitly authorized to send as it.
+Gmail mode requires a separately selected and explicitly authorized OAuth token. Changing the From header
+does not grant send-as permission. This feature does
+not need access to a user's Google password or Google OAuth token.
+
+Codes expire after 10 minutes, can be used once, and allow at most five
+verification attempts. Requests are limited per email and source IP, with a
+60-second resend cooldown. MongoDB stores recovery digests and limits in
+`auth_password_resets` and `auth_reset_rates` with TTL indexes; SQLite stores
+them in corresponding tables. Codes are HMAC-hashed using the configured JWT
+secret and are never returned through the API. A missing mail configuration
+returns HTTP 503 without changing any password. Mail delivery failures invalidate
+the affected code. Normal responses do not disclose whether an email exists.
+
+API endpoints (under `/api/auth`):
+
+- `GET /accounts`, `POST /accounts`, `PATCH /accounts/{id}`: administrators only.
+- `POST /password-reset/request`: `{ "email": "user@example.com" }`.
+- `POST /password-reset/confirm`: `{ "email": "user@example.com", "code": "123456", "password": "a-new-long-password" }`.
+
+Run the regression tests with `uv run --package production-backend pytest
+apps/backend/tests/test_auth.py apps/backend/tests/test_accounts.py
+apps/backend/tests/test_storage_modes.py`. MongoDB store tests use `mongomock`;
+live SMTP delivery and production MongoDB are not exercised by these tests.
+
+### Explicit Gmail API alternative
+
+When SMTP ports are unavailable, select Gmail API over HTTPS instead:
+
+```text
+PRODUCTION_PLATFORM_AUTH_EMAIL_PROVIDER=gmail
+PRODUCTION_PLATFORM_AUTH_GMAIL_TOKEN_PATH=/absolute/path/to/authorized-gmail-token.json
+```
+
+The token must have Gmail send permission. This mode sends as the token's actual
+mailbox owner; it does not use or impersonate `PRODUCTION_PLATFORM_SMTP_FROM`.
+Only select a mailbox whose owner has authorized its use for account recovery.
+The locally configured existing Kimmy Yang authorization is an explicitly
+approved temporary option; no credentials or local paths are committed.
+
+Gmail reuses the platform Google proxy configuration (`PRODUCTION_PLATFORM_GHELPER_DIR`).
+SMTP remains the default when the provider is unset. There is no automatic
+provider fallback: a delivery failure returns an error and invalidates its code,
+so a timed-out send cannot silently trigger another send from a different mailbox.
+Restart the backend after changing the provider or credentials.

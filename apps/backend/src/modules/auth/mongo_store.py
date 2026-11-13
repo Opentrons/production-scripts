@@ -33,6 +33,8 @@ class MongoAuthStore:
             users.create_index("username_key", unique=True)
             sessions.create_index("user_id")
             sessions.create_index("expires_at")
+            self._db['auth_password_resets'].create_index('expires_at', expireAfterSeconds=0)
+            self._db['auth_reset_rates'].create_index('expires_at', expireAfterSeconds=0)
 
     @staticmethod
     def _username_key(username: str) -> str:
@@ -183,3 +185,74 @@ class MongoAuthStore:
     def list_users(self) -> list[dict[str, Any]]:
         with self._lock:
             return list(self._users().find({}))
+
+    def list_accounts(self) -> list[AuthUser]:
+        return [self._user_from_doc(row) for row in self._users().find({}).sort('username', 1)]
+
+    def update_role(self, user_id: str, role: str) -> AuthUser:
+        from pymongo import ReturnDocument
+        from pymongo.errors import DuplicateKeyError
+        from datetime import timedelta
+        locks = self._db['auth_locks']
+        owner = str(uuid4())
+        try:
+            locks.find_one_and_update(
+                {'_id': 'roles', 'expires_at': {'$lte': utc_now()}},
+                {'$set': {'owner': owner, 'expires_at': utc_now() + timedelta(seconds=30)}},
+                upsert=True, return_document=ReturnDocument.AFTER)
+        except DuplicateKeyError as exc:
+            raise ValueError('Another role change is in progress; please retry') from exc
+        try:
+            user = self.get_user_by_id(user_id)
+            if user is None:
+                raise LookupError('Account not found')
+            if user.role == 'admin' and role != 'admin' and self._users().count_documents({'role': 'admin', 'disabled': False}) <= 1:
+                raise ValueError('Cannot remove the last administrator')
+            if user.role != role:
+                self._users().update_one({'_id': user_id}, {'$set': {'role': role, 'updated_at': to_timestamp(utc_now())}, '$inc': {'token_version': 1}})
+            return self.get_user_by_id(user_id)
+        finally:
+            locks.delete_one({'_id': 'roles', 'owner': owner})
+
+    def reserve_reset(self, email: str, digest: str, ip: str, now: float) -> AuthUser | None:
+        from pymongo.errors import DuplicateKeyError
+        # Fixed hourly windows and an independent email cooldown. Atomic updates
+        # enforce limits across all API workers; no in-memory security state.
+        rates = self._db['auth_reset_rates']
+        for key, maximum in ((f'email:{email}', 5), (f'ip:{ip}', 20)):
+            identifier = f'{key}:{int(now // 3600)}'
+            rates.update_one({'_id': identifier}, {'$setOnInsert': {'count': 0, 'expires_at': datetime.fromtimestamp(now + 7200, tz=utc_now().tzinfo)}}, upsert=True)
+            result = rates.update_one({'_id': identifier, 'count': {'$lt': maximum}}, {'$inc': {'count': 1}})
+            if result.modified_count != 1:
+                raise ValueError('Please wait before requesting another code')
+        try:
+            rates.update_one({'_id': f'cooldown:{email}', 'until': {'$lte': now}},
+                {'$set': {'until': now + 60, 'expires_at': datetime.fromtimestamp(now + 3600, tz=utc_now().tzinfo)}}, upsert=True)
+        except DuplicateKeyError as exc:
+            raise ValueError('Please wait before requesting another code') from exc
+        user = self.get_user_by_username(email)
+        if user and not user.disabled:
+            self._db['auth_password_resets'].replace_one({'_id': email}, {
+                '_id': email, 'digest': digest, 'expires': now + 600, 'attempts': 0,
+                'token_version': user.token_version,
+                'expires_at': datetime.fromtimestamp(now + 600, tz=utc_now().tzinfo)}, upsert=True)
+            return user
+        return None
+
+    def cancel_reset(self, email: str, digest: str) -> None:
+        self._db['auth_password_resets'].delete_one({'_id': email, 'digest': digest})
+
+    def confirm_reset(self, email: str, digest: str, password_hash: str, now: float) -> bool:
+        import hmac
+        resets = self._db['auth_password_resets']
+        reset = resets.find_one_and_update({'_id': email, 'expires': {'$gt': now}, 'attempts': {'$lt': 5}}, {'$inc': {'attempts': 1}})
+        if not reset or not hmac.compare_digest(reset['digest'], digest):
+            return False
+        # Only one competing confirmation can consume a code.
+        claimed = resets.delete_one({'_id': email, 'digest': digest})
+        if claimed.deleted_count != 1:
+            return False
+        result = self._users().update_one({'username_key': self._username_key(email), 'disabled': False,
+            'token_version': reset['token_version']}, {'$set': {'password_hash': password_hash,
+            'updated_at': to_timestamp(utc_now())}, '$inc': {'token_version': 1}})
+        return result.modified_count == 1
