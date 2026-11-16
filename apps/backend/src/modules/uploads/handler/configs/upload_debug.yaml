@@ -1845,13 +1845,13 @@ vacuum_update_qc:
     summary_source_sheet_name: Summary
     failures: '!C3:C3'
     copyRange:
-    - '!A3:CJ3'
+    - '!A3:CK3'
   ifpaste:
   - off/on: true
     pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
     pastelineRange:
       star: G
-      end: CP
+      end: CQ
     unit_tracker_tab: Sheet1
   unit_tracker_sheet:
     fumulu: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
@@ -1888,52 +1888,52 @@ vacuum_update_qc:
       total_result_cell: ''
       failures: '!C3:C3'
       copyRange:
-      - '!A3:CJ3'
+      - '!A3:CK3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
       pastelineRange:
         star: G
-        end: CP
+        end: CQ
     Ultima:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
       failures: '!C3:C3'
       copyRange:
-      - '!A3:CJ3'
+      - '!A3:CK3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
       pastelineRange:
         star: G
-        end: CP
+        end: CQ
     BD:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
       failures: '!C3:C3'
       copyRange:
-      - '!A3:CJ3'
+      - '!A3:CK3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
       pastelineRange:
         star: G
-        end: CP
+        end: CQ
     Millipore:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
       failures: '!C3:C3'
       copyRange:
-      - '!A3:CJ3'
+      - '!A3:CK3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
       pastelineRange:
         star: G
-        end: CP
+        end: CQ
     Sf:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
       failures: '!C3:C3'
       copyRange:
-      - '!A3:CJ3'
+      - '!A3:CK3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
       pastelineRange:
         star: G
-        end: CP
+        end: CQ
