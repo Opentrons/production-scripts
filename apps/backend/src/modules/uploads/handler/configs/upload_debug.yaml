@@ -1843,7 +1843,7 @@ vacuum_update_qc:
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
-    failures: N/A
+    failures: '!C3:C3'
     copyRange:
     - '!A3:CJ3'
   ifpaste:
@@ -1886,7 +1886,7 @@ vacuum_update_qc:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
-      failures: N/A
+      failures: '!C3:C3'
       copyRange:
       - '!A3:CJ3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
@@ -1897,7 +1897,7 @@ vacuum_update_qc:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
-      failures: N/A
+      failures: '!C3:C3'
       copyRange:
       - '!A3:CJ3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
@@ -1908,7 +1908,7 @@ vacuum_update_qc:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
-      failures: N/A
+      failures: '!C3:C3'
       copyRange:
       - '!A3:CJ3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
@@ -1919,7 +1919,7 @@ vacuum_update_qc:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
-      failures: N/A
+      failures: '!C3:C3'
       copyRange:
       - '!A3:CJ3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
@@ -1930,7 +1930,7 @@ vacuum_update_qc:
       copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
       result_cell: '!A5:A5'
       total_result_cell: ''
-      failures: N/A
+      failures: '!C3:C3'
       copyRange:
       - '!A3:CJ3'
       pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
