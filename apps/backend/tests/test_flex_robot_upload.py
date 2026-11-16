@@ -230,19 +230,23 @@ def test_five_flex_reports_complete_one_workflow_and_append_both_trackers(leveli
         for index, title in enumerate(sheets)
     ]
     context.gdrive.get_sheet_gid_map.return_value = dict(zip(sheets, range(len(sheets))))
-    # F:I stay blank on existing rows; the actual J:AI destinations must be inspected.
-    tracker_rows = [["header"]] * 10 + [["", "", "", "", '=IF(TRUE,"","")']]
+    # L and AI each block a row; content in F:K alone must not block a Robot upload.
+    tracker_rows = [["header"]] * 10 + [
+        [""] * 11 + ['=IF(TRUE,"","")'],
+        [""] * 34 + ["existing AI value"],
+        [""] * 5 + ["existing F:K value"] * 6,
+    ]
 
     def read_tracker(**kwargs):
         assert kwargs["raise_on_error"] is True
         assert kwargs["value_render_option"] == "FORMULA"
-        if kwargs["range"] != "'Opentrons OT3'!F:AI":
+        if kwargs["range"] != "'Opentrons OT3'!L:AI":
             assert kwargs["range"] in {
-                "'Z Stage Parallelism'!C:AP", "'Pipette To Deck Parallelism'!B:N",
-                "'Pipette To Deck Parallelism'!F:BB", "'Gripper Parallelism'!B:K",
+                "'Z Stage Parallelism'!C:C", "'Pipette To Deck Parallelism'!B:B",
+                "'Gripper Parallelism'!B:B",
             }
             return [["header"]] * 3
-        return deepcopy(tracker_rows)
+        return deepcopy([row[11:35] for row in tracker_rows])
 
     context.gdrive.get_excel_sheet.side_effect = read_tracker
     raw_writes, tracker_writes = {}, []
@@ -250,7 +254,12 @@ def test_five_flex_reports_complete_one_workflow_and_append_both_trackers(leveli
     def write_rows(**kwargs):
         if kwargs["sheet_name"] == "Opentrons OT3":
             tracker_writes.append(deepcopy(kwargs))
-            tracker_rows.append(["", "", "", "", *kwargs["new_values"][0]])
+            row_number = int(re.search(r"!J(\d+):", kwargs["ranges"]).group(1))
+            while len(tracker_rows) < row_number:
+                tracker_rows.append([])
+            row = tracker_rows[row_number - 1]
+            row.extend([""] * max(0, 35 - len(row)))
+            row[9:35] = deepcopy(kwargs["new_values"][0])
         else:
             raw_writes[kwargs["sheet_name"]] = deepcopy(kwargs)
         return True
@@ -296,17 +305,18 @@ def test_five_flex_reports_complete_one_workflow_and_append_both_trackers(leveli
     expansions = context.gdrive.sheet_service_client.spreadsheets.return_value.batchUpdate.call_args_list
     assert any({"appendDimension": {"sheetId": 3, "dimension": "ROWS", "length": 10450}}
                in call.kwargs["body"]["requests"] for call in expansions)
-    assert tracker_writes[0]["ranges"] == "!J12:AI12"
+    assert tracker_writes[0]["ranges"] == "!J13:AI13"
 
-    # The next append observes J:AI written above, despite F:I still being blank.
+    # The next append observes the L:AI data written above.
     plan = SimpleNamespace(
         yaml_cfg=uploader.apply_oem_config(context.config_repo.get_upload_config("robot_update_leveling"), "Opentrons"),
         result=MagicMock(total_result="PASS"), require_total_result_for_tracker=True,
+        file_desc={"model": "Robot"},
         tracker_sheet_name="Opentrons OT3", is_ultima=False, paste_file_resolver=None,
         sheet_link_index=0, sheet_link_mode="insert",
     )
     uploader.spreadsheet_workflow._paste_to_tracker(plan, [[[["next robot", *range(24)]]]], "next-link")
-    assert tracker_writes[1]["ranges"] == "!J13:AI13"
+    assert tracker_writes[1]["ranges"] == "!J14:AI14"
 
 
 def test_flex_leveling_upload_reaches_unit_tracker_and_cleans_test_row(

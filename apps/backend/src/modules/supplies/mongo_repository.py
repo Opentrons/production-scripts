@@ -13,7 +13,7 @@ from modules.supplies.models import (
     SupplementaryMaterialCreate,
     SupplementaryMaterialUpdate,
 )
-from modules.supplies.repository import DuplicateSupplementaryMaterialError
+from modules.supplies.repository import DuplicateSupplementaryMaterialError, SheetSyncPlan, prepare_sheet_sync
 from modules.supplies.seed import INITIAL_SUPPLEMENTARY_MATERIALS
 
 
@@ -95,6 +95,27 @@ class MongoSupplementaryMaterialRepository:
     def delete(self, material_id: str) -> bool:
         result = self._collection().delete_one({"_id": material_id})
         return getattr(result, "deleted_count", 0) > 0
+
+    def get_sheet_sync_state(self) -> dict:
+        state = get_document_collection(self.META_COLLECTION).find_one({"_id": "sheet_sync_state"})
+        return {key: value for key, value in state.items() if key != "_id"} if state else {}
+
+    def sync_from_sheet(self, payloads: list[SupplementaryMaterialCreate], synced_at: datetime) -> SheetSyncPlan:
+        with self._lock:
+            collection = self._collection()
+            existing = [self._from_document(document) for document in collection.find({})]
+            state = self.get_sheet_sync_state()
+            plan = prepare_sheet_sync(existing, state.get("managed_ids", []), payloads, synced_at)
+            for material in plan.materials:
+                collection.replace_one({"_id": material.id}, self._to_document(material), upsert=True)
+            for material_id in plan.removed_ids:
+                collection.delete_one({"_id": material_id})
+            get_document_collection(self.META_COLLECTION).update_one(
+                {"_id": "sheet_sync_state"},
+                {"$set": {"synced_at": synced_at.isoformat(), "managed_ids": [item.id for item in plan.materials]}},
+                upsert=True,
+            )
+            return plan
 
     def _collection(self):
         self._ensure_initialized()

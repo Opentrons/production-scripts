@@ -304,6 +304,16 @@ def list_robot_testing_data(ip: str, path: str | None = None) -> dict[str, Any]:
     return result
 
 
+def search_robot_testing_data(ip: str, z_stage_barcode: str) -> dict[str, Any]:
+    root_path = posixpath.normpath(setting.ROBOT_TESTING_DATA_DIR)
+    normalized_barcode = str(z_stage_barcode or "").strip()
+    if not normalized_barcode:
+        raise ValueError("Z轴条码不能为空")
+    result = OpentronsFileService(ip).search_testing_data(root_path, normalized_barcode)
+    result["root_path"] = root_path
+    return result
+
+
 def download_robot_testing_data(ip: str, paths: list[str]) -> tuple[str, bytes, str]:
     selected_paths = _normalize_testing_data_paths(paths)
     root_path = posixpath.normpath(setting.ROBOT_TESTING_DATA_DIR)

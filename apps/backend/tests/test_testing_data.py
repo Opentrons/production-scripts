@@ -138,6 +138,54 @@ def test_ssh_client_packages_multiple_paths_and_collapses_children(monkeypatch):
         assert archive.read("folder/a.txt") == b"alpha"
 
 
+def test_ssh_client_finds_z_stage_reports_by_barcode_and_sorts_newest_first(monkeypatch):
+    client = OpentronsSshClient("192.168.6.126")
+
+    class SearchSftp:
+        contents = {
+            "/data/testing_data/old/z-stage-test-qc-ot3_run-26-11-09-06-40-42_CSVReport-ZS10202601110001.csv": b"unrelated",
+            "/data/testing_data/nested/z-stage-test-qc-ot3_run-26-11-10-06-40-42_CSVReport-ZS10202601110001.csv": b"unrelated",
+            "/data/testing_data/other.csv": b"ZS10202601110001",
+        }
+
+        def listdir_attr(self, path: str):
+            if path == "/data/testing_data":
+                return [
+                    SimpleNamespace(filename="nested", st_mode=stat.S_IFDIR),
+                    SimpleNamespace(filename="old", st_mode=stat.S_IFDIR),
+                    SimpleNamespace(filename="other.csv", st_mode=stat.S_IFREG, st_size=20, st_mtime=30),
+                ]
+            if path == "/data/testing_data/old":
+                return [SimpleNamespace(
+                    filename="z-stage-test-qc-ot3_run-26-11-09-06-40-42_CSVReport-ZS10202601110001.csv",
+                    st_mode=stat.S_IFREG,
+                    st_size=20,
+                    st_mtime=10,
+                )]
+            return [SimpleNamespace(
+                filename="z-stage-test-qc-ot3_run-26-11-10-06-40-42_CSVReport-ZS10202601110001.csv",
+                st_mode=stat.S_IFREG,
+                st_size=20,
+                st_mtime=20,
+            )]
+
+        def open(self, path: str, _mode: str):
+            return io.BytesIO(self.contents[path])
+
+    @contextmanager
+    def fake_connect():
+        yield None, SearchSftp()
+
+    monkeypatch.setattr(client, "connect", fake_connect)
+
+    matches = client.find_z_stage_csv_reports("/data/testing_data", "ZS10202601110001")
+
+    assert [entry.path for entry in matches] == [
+        "/data/testing_data/nested/z-stage-test-qc-ot3_run-26-11-10-06-40-42_CSVReport-ZS10202601110001.csv",
+        "/data/testing_data/old/z-stage-test-qc-ot3_run-26-11-09-06-40-42_CSVReport-ZS10202601110001.csv",
+    ]
+
+
 def test_ssh_client_rejects_archive_paths_outside_root():
     with pytest.raises(OpentronsSshError, match="outside archive root"):
         OpentronsSshClient._relative_archive_name("/data/testing_data", "/etc/passwd")

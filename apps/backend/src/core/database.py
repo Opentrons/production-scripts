@@ -9,6 +9,7 @@ from core.config import (
     MONGO_SERVER_SELECTION_TIMEOUT_MS,
     MONGO_SOCKET_TIMEOUT_MS,
     MONGO_URI,
+    resolve_mongo_database_name,
 )
 
 
@@ -72,7 +73,7 @@ class MongoDB:
     def get_database(self, db_name: str = None):
         if db_name is None:
             return self.client
-        return self.client[db_name]
+        return self.client[resolve_mongo_database_name(db_name)]
 
     def close(self):
         if self.client:

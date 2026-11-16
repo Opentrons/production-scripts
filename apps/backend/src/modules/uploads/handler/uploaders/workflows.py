@@ -6,7 +6,7 @@ from typing import Callable
 
 from core.config import DATA_DB_NAME
 from core.logging import get_logger
-from modules.uploads.handler.models import UploadResult
+from modules.uploads.handler.models import Productions, UploadResult
 from modules.uploads.handler.product_catalog import get_upload_config_key, get_upload_database_config
 
 logger = get_logger(__name__)
@@ -314,9 +314,14 @@ class SpreadsheetUploadWorkflow:
                 tracker_sheet_name,
             )
             _, paste_start, paste_end = self.uploader.resolve_paste_line_range(paste_cfg, 1, plan.is_ultima)
-            check_range = self.uploader.tracker_check_range(
-                plan.yaml_cfg.get("last_row", "F:I"), paste_start, paste_end,
-            )
+            # Robot tracker rows have non-data fields before L; only L:AI
+            # determines whether the destination row is available.
+            if Productions.from_string(plan.file_desc.get("model")) == Productions.ROBOT:
+                check_range = "L:AI"
+            else:
+                check_range = self.uploader.tracker_check_range(
+                    plan.yaml_cfg.get("last_row", "F:I"), paste_start, paste_end,
+                )
             last_row_number = self.uploader.get_first_blank_tracker_row(
                 paste_file_id,
                 tracker_sheet_name,

@@ -480,11 +480,22 @@
                       <template #title>
                         <div class="duro-submenu-collapse-title">
                           <strong>{{ w('selectSubprojects') }}</strong>
-                          <span>{{ w('selectedItems', { count: sourceConfiguration.duro_submenu_ids?.length || 0 }) }}</span>
+                          <span class="duro-submenu-auto-controls" @click.stop @keydown.stop>
+                            <el-checkbox v-model="sourceConfiguration.duro_auto_select_submenus">{{ w('autoSelectSubmenus') }}</el-checkbox>
+                            <el-button
+                              link
+                              :icon="Setting"
+                              :aria-label="w('autoSubmenuSettings')"
+                              :title="w('autoSubmenuSettings')"
+                              @click="openDuroAutoSettings"
+                            />
+                          </span>
+                          <span>{{ w('selectedItems', { count: displayedDuroSubmenuIds.length }) }}</span>
                         </div>
                       </template>
                       <div class="duro-submenu-heading">
                         <span>{{ w('subprojectHint') }}</span>
+                        <span v-if="sourceConfiguration.duro_auto_select_submenus">{{ w('autoSubmenuHint') }}</span>
                       </div>
                       <div v-if="duroSubmenusLoading" class="duro-submenu-state">{{ w('loadingSubprojects') }}</div>
                       <el-alert v-else-if="duroSubmenusError" type="warning" :closable="false" show-icon>
@@ -492,9 +503,9 @@
                       </el-alert>
                       <el-checkbox-group
                         v-else-if="duroSubmenuOptions.length"
-                        v-model="sourceConfiguration.duro_submenu_ids"
+                        v-model="displayedDuroSubmenuIds"
+                        :disabled="sourceConfiguration.duro_auto_select_submenus"
                         class="duro-submenu-options"
-                        @change="handleDuroSubmenuChange"
                       >
                         <el-checkbox v-for="submenu in duroSubmenuOptions" :key="submenu.id" :value="submenu.id">
                           <span class="duro-submenu-option-copy">
@@ -534,7 +545,11 @@
                   </div>
                   <div v-if="sourceConfiguration.ignored_sop_product_keywords?.length" class="ignore-rule-list">
                     <div v-for="keyword in sourceConfiguration.ignored_sop_product_keywords" :key="keyword">
-                      <el-tag closable @close="removeIgnoredSopKeyword(keyword)">{{ keyword }}</el-tag>
+                      <el-tag class="sop-product-rule-tag" closable @click="openIgnoreRuleDialog('sop', keyword)" @close.stop="removeIgnoredSopKeyword(keyword)">{{ keyword }}</el-tag>
+                      <span class="sop-product-rule-materials">
+                        {{ sourceConfiguration.ignored_sop_product_material_names?.[keyword]?.join(' / ') || w('sopMaterialNamesMissing') }}
+                        <el-button link type="primary" @click="openIgnoreRuleDialog('sop', keyword)">{{ t('common.actions.edit') }}</el-button>
+                      </span>
                       <span>{{ sourceConfiguration.ignored_sop_product_keyword_reasons?.[keyword] }}</span>
                     </div>
                   </div>
@@ -1114,9 +1129,43 @@
     </el-dialog>
 
     <el-dialog
+      v-model="duroAutoSettingsVisible"
+      :title="w('autoSubmenuSettings')"
+      width="min(480px, calc(100vw - 24px))"
+    >
+      <div class="ignore-rule-dialog-form">
+        <label>
+          <span>{{ w('autoSubmenuExcludedKeywords') }}</span>
+          <el-input
+            v-model="pendingDuroAutoExcludedKeywords"
+            type="textarea"
+            :rows="6"
+            :placeholder="w('autoSubmenuKeywordsPlaceholder')"
+          />
+        </label>
+        <p class="sop-material-name-hint">{{ w('autoSubmenuSettingsHint') }}</p>
+        <label>
+          <span>{{ w('autoSubmenuZeroQuantityParentPrefixes') }}</span>
+          <el-input
+            v-model="pendingDuroZeroQuantityParentPrefixes"
+            type="textarea"
+            :rows="3"
+            :placeholder="w('autoSubmenuParentPrefixesPlaceholder')"
+          />
+        </label>
+        <p class="sop-material-name-hint">{{ w('autoSubmenuZeroQuantityHint') }}</p>
+      </div>
+      <template #footer>
+        <el-button @click="resetDuroAutoSettings">{{ w('restoreAutoSubmenuDefaults') }}</el-button>
+        <el-button @click="duroAutoSettingsVisible = false">{{ t('common.actions.cancel') }}</el-button>
+        <el-button type="primary" @click="applyDuroAutoSettings">{{ t('common.actions.confirm') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="ignoreRuleDialogVisible"
-      :title="ignoreRuleDialogType === 'sop' ? w('addIgnoreSopRule') : w('addIgnoreBomPart')"
-      width="480px"
+      :title="ignoreRuleDialogType === 'sop' ? w(editingSopKeyword ? 'editIgnoreSopRule' : 'addIgnoreSopRule') : w('addIgnoreBomPart')"
+      width="min(480px, calc(100vw - 24px))"
     >
       <div class="ignore-rule-dialog-form">
         <label>
@@ -1125,7 +1174,6 @@
             v-if="ignoreRuleDialogType === 'sop'"
             v-model="pendingSopKeyword"
             :placeholder="w('keywordExample')"
-            @keyup.enter="addIgnoredSopKeyword"
           />
           <el-input
             v-else
@@ -1134,6 +1182,23 @@
             @keyup.enter="addIgnoredPartNumber"
           />
         </label>
+        <div v-if="ignoreRuleDialogType === 'sop'" class="sop-material-name-list">
+          <span>{{ w('sopMaterialNames') }}</span>
+          <div class="sop-material-name-rows">
+            <div v-for="(_, index) in pendingSopMaterialNames" :key="index" class="sop-material-name-row">
+              <el-input
+                v-model="pendingSopMaterialNames[index]"
+                :aria-label="`${w('materialName')} ${index + 1}`"
+                :placeholder="w('sopMaterialNameExample')"
+              />
+              <el-button :aria-label="`${t('common.actions.delete')} ${w('materialName')} ${index + 1}`" @click="pendingSopMaterialNames.splice(index, 1)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          <el-button class="sop-material-name-add" :icon="Plus" @click="pendingSopMaterialNames.push('')">{{ w('addSopMaterialName') }}</el-button>
+          <p class="sop-material-name-hint">{{ w('sopMaterialNamesHint') }}</p>
+        </div>
         <label>
           <span>{{ w('ignoreReason') }}</span>
           <el-input
@@ -1154,7 +1219,7 @@
       </div>
       <template #footer>
         <el-button @click="ignoreRuleDialogVisible = false">{{ t('common.actions.cancel') }}</el-button>
-        <el-button type="primary" @click="confirmIgnoreRule">{{ t('common.actions.add') }}</el-button>
+        <el-button type="primary" @click="confirmIgnoreRule">{{ t(editingSopKeyword ? 'common.actions.save' : 'common.actions.add') }}</el-button>
       </template>
     </el-dialog>
 
@@ -1247,6 +1312,7 @@ import {
   Plus,
   Refresh,
   Search,
+  Setting,
   VideoPlay
 } from '@element-plus/icons-vue'
 import DuroProductsPanel from '@/views/version_modules/DuroProductsPanel.vue'
@@ -1399,12 +1465,19 @@ const duroSubmenusLoading = ref(false)
 const duroSubmenusError = ref('')
 const duroSubmenuOptions = ref<DuroBomNode[]>([])
 const duroSubmenuCollapse = ref<string[]>([])
+const defaultDuroAutoExcludedKeywords = ['PACKAGING', 'SOFTWARE', 'TOUCHPOINTS']
+const defaultDuroZeroQuantityParentPrefixes = ['991-']
+const duroAutoSettingsVisible = ref(false)
+const pendingDuroAutoExcludedKeywords = ref('')
+const pendingDuroZeroQuantityParentPrefixes = ref('')
 const reportDifferenceFilters = reactive<Record<string, ReportDifferenceFilter>>({})
 const reportSubmenuFilters = reactive<Record<string, string[]>>({})
 const reportViews = reactive<Record<string, 'differences' | 'ignored'>>({})
 const reportSearchTexts = reactive<Record<string, string>>({})
 const pendingSopKeyword = ref('')
 const pendingSopKeywordReason = ref('')
+const pendingSopMaterialNames = ref<string[]>([''])
+const editingSopKeyword = ref('')
 const pendingPartNumber = ref('')
 const pendingPartNumberReason = ref('')
 const ignoreRuleDialogVisible = ref(false)
@@ -1438,7 +1511,11 @@ interface WorkflowSourceConfiguration extends Record<string, unknown> {
   target_revision?: string
   duro_submenu_ids?: string[]
   duro_submenus?: Array<{ id: string; label: string }>
+  duro_auto_select_submenus?: boolean
+  duro_auto_excluded_keywords?: string[]
+  duro_auto_zero_quantity_parent_prefixes?: string[]
   ignored_sop_product_keywords?: string[]
+  ignored_sop_product_material_names?: Record<string, string[]>
   ignored_part_numbers?: string[]
   ignored_sop_product_keyword_reasons?: Record<string, string>
   ignored_part_number_reasons?: Record<string, string>
@@ -1629,6 +1706,54 @@ function normalizeSopProcess(value: unknown) {
   return String(value ?? '').trim().replace(/\s+/g, '').toLowerCase()
 }
 
+function normalizeDuroAutoKeywords(values: unknown): string[] {
+  const keywords = Array.isArray(values) ? values : defaultDuroAutoExcludedKeywords
+  return [...new Set(keywords.filter((value): value is string => typeof value === 'string')
+    .map((value) => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toUpperCase()).filter(Boolean))]
+}
+
+function normalizeDuroZeroQuantityParentPrefixes(values: unknown): string[] {
+  return normalizeDuroAutoKeywords(Array.isArray(values) ? values : defaultDuroZeroQuantityParentPrefixes)
+}
+
+function isDuroSubmenuAutoExcluded(submenu: DuroBomNode) {
+  const quantity = typeof submenu.quantity === 'number' || typeof submenu.quantity === 'boolean'
+    ? Number(submenu.quantity)
+    : typeof submenu.quantity === 'string' && submenu.quantity.trim() ? Number(submenu.quantity) : 1
+  if (quantity <= 0) return true
+  const keywords = normalizeDuroAutoKeywords(sourceConfiguration.value.duro_auto_excluded_keywords)
+  const fields = [submenu.name, submenu.description || ''].map((value) => value.normalize('NFKC').replace(/\s+/g, ' ').toUpperCase())
+  return keywords.some((keyword) => fields.some((field) => field.includes(keyword)))
+}
+
+const displayedDuroSubmenuIds = computed<string[]>({
+  get: () => sourceConfiguration.value.duro_auto_select_submenus
+    ? duroSubmenuOptions.value.filter((submenu) => !isDuroSubmenuAutoExcluded(submenu)).map((submenu) => submenu.id)
+    : sourceConfiguration.value.duro_submenu_ids ?? [],
+  set: (ids) => {
+    if (sourceConfiguration.value.duro_auto_select_submenus) return
+    sourceConfiguration.value.duro_submenu_ids = ids
+    handleDuroSubmenuChange(ids)
+  }
+})
+
+function openDuroAutoSettings() {
+  pendingDuroAutoExcludedKeywords.value = normalizeDuroAutoKeywords(sourceConfiguration.value.duro_auto_excluded_keywords).join('\n')
+  pendingDuroZeroQuantityParentPrefixes.value = normalizeDuroZeroQuantityParentPrefixes(sourceConfiguration.value.duro_auto_zero_quantity_parent_prefixes).join('\n')
+  duroAutoSettingsVisible.value = true
+}
+
+function applyDuroAutoSettings() {
+  sourceConfiguration.value.duro_auto_excluded_keywords = normalizeDuroAutoKeywords(pendingDuroAutoExcludedKeywords.value.split(/\r?\n/))
+  sourceConfiguration.value.duro_auto_zero_quantity_parent_prefixes = normalizeDuroZeroQuantityParentPrefixes(pendingDuroZeroQuantityParentPrefixes.value.split(/\r?\n/))
+  duroAutoSettingsVisible.value = false
+}
+
+function resetDuroAutoSettings() {
+  pendingDuroAutoExcludedKeywords.value = defaultDuroAutoExcludedKeywords.join('\n')
+  pendingDuroZeroQuantityParentPrefixes.value = defaultDuroZeroQuantityParentPrefixes.join('\n')
+}
+
 function normalizeWorkflowConfiguration(configuration: Record<string, unknown>): WorkflowSourceConfiguration {
   const singleFileId = typeof configuration.sop_drive_file_id === 'string'
     ? configuration.sop_drive_file_id.trim()
@@ -1652,6 +1777,9 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     : []
   const keywordReasons = configuration.ignored_sop_product_keyword_reasons && typeof configuration.ignored_sop_product_keyword_reasons === 'object'
     ? configuration.ignored_sop_product_keyword_reasons as Record<string, unknown>
+    : {}
+  const materialNames = configuration.ignored_sop_product_material_names && typeof configuration.ignored_sop_product_material_names === 'object'
+    ? configuration.ignored_sop_product_material_names as Record<string, unknown>
     : {}
   const partReasons = configuration.ignored_part_number_reasons && typeof configuration.ignored_part_number_reasons === 'object'
     ? configuration.ignored_part_number_reasons as Record<string, unknown>
@@ -1680,7 +1808,13 @@ function normalizeWorkflowConfiguration(configuration: Record<string, unknown>):
     sop_bom_processes: bomProcesses,
     duro_submenu_ids: submenuIds,
     duro_submenus: submenus,
+    duro_auto_select_submenus: Boolean(configuration.duro_auto_select_submenus),
+    duro_auto_excluded_keywords: normalizeDuroAutoKeywords(configuration.duro_auto_excluded_keywords),
+    duro_auto_zero_quantity_parent_prefixes: normalizeDuroZeroQuantityParentPrefixes(configuration.duro_auto_zero_quantity_parent_prefixes),
     ignored_sop_product_keywords: ignoredSopProductKeywords,
+    ignored_sop_product_material_names: Object.fromEntries(
+      ignoredSopProductKeywords.map((keyword) => [keyword, normalizeSopMaterialNames(materialNames[keyword])])
+    ),
     ignored_part_numbers: ignoredPartNumbers,
     ignored_sop_product_keyword_reasons: Object.fromEntries(
       ignoredSopProductKeywords.map((keyword) => [keyword, String(keywordReasons[keyword] || w('legacyReasonMissing'))])
@@ -2070,11 +2204,24 @@ function addIgnoredSopKeyword() {
   const keyword = pendingSopKeyword.value.trim()
   const reason = pendingSopKeywordReason.value.trim()
   if (!keyword) return ElMessage.warning(w('messages.enterSopKeyword'))
+  const materialNames = normalizeSopMaterialNames(pendingSopMaterialNames.value)
+  if (pendingSopMaterialNames.value.some((name) => name.trim() && !normalizeSopMaterialNames([name]).length)) {
+    return ElMessage.warning(w('messages.invalidSopMaterialName'))
+  }
+  const duplicate = (sourceConfiguration.value.ignored_sop_product_keywords ?? []).some(
+    (value) => value !== editingSopKeyword.value && normalizeSopRuleName(value) === normalizeSopRuleName(keyword)
+  )
+  if (duplicate) return ElMessage.warning(w('messages.sopProductExists'))
   if (!reason) return ElMessage.warning(w('messages.ignoreKeywordReasonRequired'))
+  if (editingSopKeyword.value) removeIgnoredSopKeyword(editingSopKeyword.value)
   sourceConfiguration.value.ignored_sop_product_keywords = uniqueKeywords([
     ...(sourceConfiguration.value.ignored_sop_product_keywords ?? []),
     keyword
   ])
+  sourceConfiguration.value.ignored_sop_product_material_names = {
+    ...(sourceConfiguration.value.ignored_sop_product_material_names ?? {}),
+    [keyword]: materialNames
+  }
   sourceConfiguration.value.ignored_sop_product_keyword_reasons = {
     ...(sourceConfiguration.value.ignored_sop_product_keyword_reasons ?? {}),
     [keyword]: reason
@@ -2084,10 +2231,13 @@ function addIgnoredSopKeyword() {
   ignoreRuleDialogVisible.value = false
 }
 
-function openIgnoreRuleDialog(type: 'sop' | 'part') {
+function openIgnoreRuleDialog(type: 'sop' | 'part', keyword = '') {
   ignoreRuleDialogType.value = type
-  pendingSopKeyword.value = ''
-  pendingSopKeywordReason.value = ''
+  editingSopKeyword.value = type === 'sop' ? keyword : ''
+  pendingSopKeyword.value = editingSopKeyword.value
+  pendingSopKeywordReason.value = keyword ? sourceConfiguration.value.ignored_sop_product_keyword_reasons?.[keyword] ?? '' : ''
+  const names = keyword ? sourceConfiguration.value.ignored_sop_product_material_names?.[keyword] ?? [] : []
+  pendingSopMaterialNames.value = names.length ? [...names] : ['']
   pendingPartNumber.value = ''
   pendingPartNumberReason.value = ''
   ignoreRuleDialogVisible.value = true
@@ -2104,6 +2254,26 @@ function removeIgnoredSopKeyword(keyword: string) {
   const reasons = { ...(sourceConfiguration.value.ignored_sop_product_keyword_reasons ?? {}) }
   delete reasons[keyword]
   sourceConfiguration.value.ignored_sop_product_keyword_reasons = reasons
+  const materialNames = { ...(sourceConfiguration.value.ignored_sop_product_material_names ?? {}) }
+  delete materialNames[keyword]
+  sourceConfiguration.value.ignored_sop_product_material_names = materialNames
+}
+
+function normalizeSopRuleName(value: string) {
+  return value.normalize('NFKC').toLowerCase().replace(/μ/g, 'u').trim().replace(/\s+/g, ' ')
+}
+
+function normalizeSopMaterialNames(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  const seen = new Set<string>()
+  return values.filter((value): value is string => typeof value === 'string' && !/[\r\n]/.test(value))
+    .map((value) => value.trim())
+    .filter((value) => {
+      const normalized = normalizeSopRuleName(value)
+      if (!/\p{L}/u.test(normalized) || seen.has(normalized)) return false
+      seen.add(normalized)
+      return true
+    })
 }
 
 function uniqueKeywords(values: string[]) {

@@ -36,7 +36,6 @@ class SpreadsheetUploader(ProductUploaderBase):
             sections = extract_parallelism_rows(file_desc.get("file_path"), file_desc.get("sn"))
             parallelism_writer = lambda: upload_parallelism_results(
                 self, parallelism_id, sections,
-                last_row_range=yaml_cfg.get("last_row", "F:I"),
             )
 
         model = file_desc.get("model")

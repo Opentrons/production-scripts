@@ -1,3 +1,5 @@
+import pytest
+
 from modules.sop.bom_analyzer import (
     analyze_bom_pages,
     analyze_part_references,
@@ -282,8 +284,62 @@ def test_extract_material_lines_can_keep_only_chinese_source_lines() -> None:
     ]
 
     assert extract_chinese_lines(pages) == [
-        (1, "安装 2×415-00390 到底板\n确认 438-00210 已锁紧")
+        (1, "安装 2×415-00390 到底板\n\n确认 438-00210 已锁紧")
     ]
     assert extract_material_lines(pages, chinese_only=True) == [
         (1, "安装 2×415-00390 到底板\n确认 438-00210 已锁紧")
     ]
+
+
+@pytest.mark.parametrize("text", [
+    "安装密封圈 435-\n00123",
+    "安装密封圈 435\n-00123",
+    "安装密封圈 435 -\r\n 00123",
+    "安装密封圈 ４３５－\n００１２３",
+    "435-\n00123 密封圈安装到位",
+    "安装密封圈 O-ring 435-\n00123",
+])
+def test_chinese_source_repairs_wrapped_parts_before_language_filter(text) -> None:
+    pages = [(1, text)]
+    retained = extract_chinese_lines(pages)
+    references = analyze_part_references(retained, [])
+
+    assert [item.part_number for item in references] == ["435-00123"]
+    assert references[0].occurrences == 1
+    assert "435-00123" in retained[0][1]
+    assert extract_material_lines(pages, chinese_only=True) == retained
+
+
+@pytest.mark.parametrize("text", [
+    "Install O-ring 435-00123",
+    "Install O-ring 435-\n00123",
+    "435-\n00123 O-ring",
+    "435-00123",
+    "2×435-00123",
+    "安装密封圈\n435-00123",
+    "安装密封圈\n435-\n00123",
+    "安装密封圈\nInstall O-ring 435-\n00123",
+    "安装接头 435-\nInstall the English part\n00123 固定到位",
+    "安装接头 435-\n\n00123 固定到位",
+])
+def test_english_or_unattributed_parts_do_not_enter_chinese_source(text) -> None:
+    pages = [(1, text)]
+
+    assert analyze_part_references(extract_chinese_lines(pages), []) == []
+    assert extract_material_lines(pages, chinese_only=True) == []
+
+
+def test_english_translation_does_not_add_parts_or_inflate_chinese_quantity() -> None:
+    pages = [(1, "安装 2×435-\n00123 到底板\nInstall 8×435-\n00123 and 438-00147\n检查装配完成")]
+    references = analyze_part_references(extract_chinese_lines(pages), [])
+
+    assert [item.part_number for item in references] == ["435-00123"]
+    assert references[0].quantity == 2
+    assert references[0].occurrences == 1
+
+
+def test_normalization_does_not_join_parts_across_empty_paragraphs() -> None:
+    text = "435-\n\n00123\n435\n\n-00124"
+
+    assert normalize_pdf_part_number_text(text) == text
+    assert analyze_part_references([(1, text)], []) == []

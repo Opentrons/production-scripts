@@ -19,6 +19,7 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 from modules.data_analysis.test_names import canonical_test_type
+from modules.uploads.queue_routing import UPLOAD_PRODUCT_GROUPS, resolve_upload_product_group
 
 
 STALE_UPLOAD_RECORD_MINUTES = 120
@@ -68,6 +69,7 @@ def ensure_upload_record_indexes() -> None:
         return
     create_index("idempotency_key", unique=True, sparse=True)
     create_index([("status", 1), ("next_retry_at", 1)])
+    create_index([("status", 1), ("product_group", 1), ("next_retry_at", 1)])
     create_index([("notification_status", 1), ("notification_next_retry_at", 1)])
 
 
@@ -490,10 +492,10 @@ def update_upload_record(record_id: str | None, fields: dict[str, Any]) -> None:
         return
 
     try:
-        update_fields = {
-            **to_mongo_safe(fields),
+        update_fields = to_mongo_safe({
+            **fields,
             "updated_at": datetime.now(),
-        }
+        })
         get_upload_record_collection().update_one(
             {"_id": normalize_record_id(record_id)},
             {"$set": update_fields},
@@ -642,6 +644,7 @@ def enqueue_upload_record(
             return False
     fields = {
         "status": "queued",
+        "product_group": resolve_upload_product_group(csv_path, meta),
         "job": {
             "csv_path": csv_path,
             "zip_path": zip_path,
@@ -687,7 +690,40 @@ def _record_is_due(record: dict[str, Any], field: str, now: datetime) -> bool:
     return due_at is None or due_at <= now
 
 
-def claim_due_upload_record(owner: str) -> dict[str, Any] | None:
+def backfill_upload_product_groups() -> None:
+    """Route pre-upgrade queued jobs before applying per-group query limits."""
+    collection = get_upload_record_collection()
+    query = {} if setting.use_sqlite_persistence() else {
+        "status": {"$in": ["queued", "retrying"]},
+        "product_group": {"$nin": list(UPLOAD_PRODUCT_GROUPS)},
+        "job": {"$ne": None},
+    }
+    for record in collection.find(query):
+        if (
+            record.get("status") not in {"queued", "retrying"}
+            or not record.get("job")
+            or record.get("product_group") in UPLOAD_PRODUCT_GROUPS
+        ):
+            continue
+        job = record["job"]
+        group = resolve_upload_product_group(
+            str(job.get("csv_path") or ""), job.get("meta"), record.get("file_desc"),
+        )
+        collection.update_one(
+            {
+                "_id": normalize_record_id(str(record["_id"])),
+                "status": record["status"],
+                "product_group": record.get("product_group"),
+            },
+            {"$set": {"product_group": group}},
+        )
+
+
+def claim_due_upload_record(owner: str, product_group: str | None = None) -> dict[str, Any] | None:
+    if product_group is not None:
+        if product_group not in UPLOAD_PRODUCT_GROUPS:
+            raise ValueError(f"Unknown upload product group: {product_group}")
+        backfill_upload_product_groups()
     collection = get_upload_record_collection()
     now = datetime.now()
     if setting.use_sqlite_persistence():
@@ -697,14 +733,17 @@ def claim_due_upload_record(owner: str) -> dict[str, Any] | None:
             if record.get("status") in {"queued", "retrying"}
             and record.get("job")
             and _record_is_due(record, "next_retry_at", now)
+            and (product_group is None or record.get("product_group") == product_group)
         ]
     else:
+        group_filter = {"product_group": product_group} if product_group is not None else {}
         candidates = list(
             collection.find(
                 {
                     "status": {"$in": ["queued", "retrying"]},
                     "next_retry_at": {"$lte": now},
                     "job": {"$ne": None},
+                    **group_filter,
                 }
             ).sort("next_retry_at", 1).limit(20)
         )

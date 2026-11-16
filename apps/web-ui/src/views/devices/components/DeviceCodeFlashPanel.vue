@@ -250,7 +250,7 @@ import {
 import { useAppLocale } from '@/i18n'
 
 const { t } = useAppLocale()
-const ROBOT_DIAGNOSTIC_BRANCH = 'robot.diagnostic-25-12.19'
+const ROBOT_DIAGNOSTIC_BRANCH = 'robot.diagnostic-25-12.19-upload-cdbb0a59'
 
 const props = defineProps<{
   ip: string | null

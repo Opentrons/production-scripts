@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+from threading import RLock
 from typing import Callable, Literal, Protocol
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -10,7 +11,11 @@ from pydantic import BaseModel, Field, field_validator
 
 from core import config
 from core.database import mongodb
-from modules.bridge_tokens.client import BridgefloodsClient
+from modules.bridge_tokens.client import (
+    BridgefloodsAuthenticationError,
+    BridgefloodsClient,
+    BridgefloodsCredentialSaveError,
+)
 from modules.bridge_tokens.emailer import BridgeEmailSettings
 from modules.bridge_tokens.service import BridgeTokenSettings
 
@@ -151,6 +156,10 @@ class BridgeTokenConfigurationRepositoryProtocol(Protocol):
     def initialize(self) -> None: ...
     def get(self) -> BridgeTokenStoredConfiguration | None: ...
     def save(self, configuration: BridgeTokenStoredConfiguration) -> BridgeTokenStoredConfiguration: ...
+    def save_credentials(
+        self, expected: BridgeTokenStoredConfiguration, *, base_url: str,
+        access_token: str, refresh_token: str,
+    ) -> bool: ...
 
 
 class MongoBridgeTokenConfigurationRepository:
@@ -185,6 +194,22 @@ class MongoBridgeTokenConfigurationRepository:
         )
         return configuration
 
+    def save_credentials(
+        self, expected: BridgeTokenStoredConfiguration, *, base_url: str,
+        access_token: str, refresh_token: str,
+    ) -> bool:
+        result = self._collection().update_one(
+            {
+                "_id": CONFIGURATION_ID, "base_url": expected.base_url,
+                "access_token": expected.access_token, "refresh_token": expected.refresh_token,
+            },
+            {"$set": {
+                "base_url": base_url, "access_token": access_token, "refresh_token": refresh_token,
+                "updated_at": utc_now(), "updated_by": "token-refresh",
+            }},
+        )
+        return result.matched_count == 1
+
 
 class BridgeTokenConfigurationService:
     def __init__(
@@ -206,17 +231,79 @@ class BridgeTokenConfigurationService:
         self._validate_credentials = (
             validate_credentials or self._validate_bridge_credentials
         )
+        self._credential_lock = RLock()
+        self._pending_credentials: tuple[BridgeTokenStoredConfiguration, str, str, str] | None = None
+
+    def _persist_pending_credentials(self) -> None:
+        if self._pending_credentials is None:
+            return
+        expected, base_url, access_token, refresh_token = self._pending_credentials
+        try:
+            saved = self.repository.save_credentials(
+                expected, base_url=base_url, access_token=access_token, refresh_token=refresh_token,
+            )
+            if not saved:
+                latest = self.repository.get()
+                if latest is None or (latest.base_url, latest.access_token, latest.refresh_token) != (
+                    base_url, access_token, refresh_token,
+                ):
+                    # A newer manual edit wins over an in-flight refresh.
+                    self._pending_credentials = None
+                    raise BridgefloodsCredentialSaveError("Bridgefloods credentials changed during renewal; retry the request")
+        except BridgefloodsCredentialSaveError:
+            raise
+        except Exception as exc:
+            # Keep the returned pair in memory and retry saving it before any
+            # further refresh consumes another single-use refresh token.
+            raise BridgefloodsCredentialSaveError("Bridgefloods renewed credentials could not be saved") from exc
+        self._pending_credentials = None
+
+    def _renew_credentials(
+        self, base_url: str, access_token: str, refresh_token: str,
+        expected: BridgeTokenStoredConfiguration,
+    ) -> tuple[str, str]:
+        client = BridgefloodsClient(
+            base_url=base_url, access_token=access_token, refresh_token=refresh_token,
+            timeout_seconds=self.base_token_settings.request_timeout_seconds,
+        )
+        client._refresh_access_token()
+        self._pending_credentials = (expected, base_url, client.access_token, client.refresh_token)
+        self._persist_pending_credentials()
+        return client.access_token, client.refresh_token
+
+    def refresh_credentials(
+        self, base_url: str, access_token: str, refresh_token: str,
+    ) -> tuple[str, str]:
+        """Serialize rotation and persist the complete pair before retrying an API call."""
+        with self._credential_lock:
+            self._persist_pending_credentials()
+            try:
+                current = self.repository.get()
+            except Exception as exc:
+                raise BridgefloodsCredentialSaveError("Bridgefloods credential storage is unavailable") from exc
+            if current is None or current.base_url != base_url:
+                raise BridgefloodsAuthenticationError("Bridgefloods configuration changed; reload the configuration")
+            if (current.access_token, current.refresh_token) != (access_token, refresh_token):
+                return current.access_token, current.refresh_token
+            return self._renew_credentials(base_url, access_token, refresh_token, current)
 
     def _validate_bridge_credentials(
         self,
         configuration: BridgeTokenStoredConfiguration,
     ) -> None:
         try:
+            def renew(access_token: str, refresh_token: str) -> tuple[str, str]:
+                current = self.repository.get() or self._environment_configuration()
+                pair = self._renew_credentials(configuration.base_url, access_token, refresh_token, current)
+                configuration.access_token, configuration.refresh_token = pair
+                return pair
+
             BridgefloodsClient(
                 base_url=configuration.base_url,
                 access_token=configuration.access_token,
                 refresh_token=configuration.refresh_token,
                 timeout_seconds=self.base_token_settings.request_timeout_seconds,
+                refresh_handler=renew,
             ).get_profile()
         except Exception as exc:
             raise ValueError("Bridgefloods 凭据验证失败，未开启自动化") from exc
@@ -289,10 +376,12 @@ class BridgeTokenConfigurationService:
         self._apply_configuration(stored, token_settings, email_settings)
 
     def initialize(self) -> BridgeTokenStoredConfiguration:
-        self.repository.initialize()
-        stored = self.repository.get()
-        if stored is None:
-            stored = self.repository.save(self._environment_configuration())
+        with self._credential_lock:
+            self.repository.initialize()
+            self._persist_pending_credentials()
+            stored = self.repository.get()
+            if stored is None:
+                stored = self.repository.save(self._environment_configuration())
         self._apply(stored)
         return stored
 
@@ -308,7 +397,18 @@ class BridgeTokenConfigurationService:
         *,
         updated_by: str,
     ) -> BridgeTokenConfigurationResponse:
-        current = self.repository.get() or self._environment_configuration()
+        with self._credential_lock:
+            self._persist_pending_credentials()
+            saved = self._save_configuration_update(payload, updated_by=updated_by)
+        # Reconfiguration may join a scheduler thread which is renewing tokens.
+        # Never hold the credential lock while stopping or restarting that thread.
+        self._apply(saved)
+        return self._response(saved)
+
+    def _save_configuration_update(
+        self, payload: BridgeTokenConfigurationUpdate, *, updated_by: str,
+    ) -> BridgeTokenStoredConfiguration:
+        current = self.repository.get() or self.repository.save(self._environment_configuration())
         values = payload.model_dump(
             exclude={"access_token", "refresh_token", "smtp_password"}
         )
@@ -332,9 +432,7 @@ class BridgeTokenConfigurationService:
             not current.automation_enabled or credentials_changed
         ):
             self._validate_credentials(candidate)
-        saved = self.repository.save(candidate)
-        self._apply(saved)
-        return self._response(saved)
+        return self.repository.save(candidate)
 
     def update_automation(
         self,
@@ -342,7 +440,16 @@ class BridgeTokenConfigurationService:
         *,
         updated_by: str,
     ) -> BridgeTokenConfigurationResponse:
-        current = self.repository.get() or self._environment_configuration()
+        with self._credential_lock:
+            self._persist_pending_credentials()
+            saved = self._save_automation_update(automation_enabled, updated_by=updated_by)
+        self._apply(saved)
+        return self._response(saved)
+
+    def _save_automation_update(
+        self, automation_enabled: bool, *, updated_by: str,
+    ) -> BridgeTokenStoredConfiguration:
+        current = self.repository.get() or self.repository.save(self._environment_configuration())
         candidate = current.model_copy(
             update={
                 "automation_enabled": automation_enabled,
@@ -356,9 +463,7 @@ class BridgeTokenConfigurationService:
             raise ValueError("开启自动化前必须配置 Bridgefloods access token 或 refresh token")
         if candidate.automation_enabled and not current.automation_enabled:
             self._validate_credentials(candidate)
-        saved = self.repository.save(candidate)
-        self._apply(saved)
-        return self._response(saved)
+        return self.repository.save(candidate)
 
     def _response(
         self,

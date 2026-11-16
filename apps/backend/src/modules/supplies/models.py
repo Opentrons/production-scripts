@@ -43,6 +43,25 @@ class SupplementaryMaterial(SupplementaryMaterialCreate):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class SupplementaryMaterialSyncStatus(BaseModel):
+    source_url: str
+    interval_seconds: int
+    auto_sync_enabled: bool = True
+    last_synced_at: datetime | None = None
+    last_error: str = ""
+    syncing: bool = False
+
+
 class SupplementaryMaterialListResponse(BaseModel):
     items: list[SupplementaryMaterial] = Field(default_factory=list)
     total: int = 0
+    sync_status: SupplementaryMaterialSyncStatus | None = None
+
+
+class SupplementaryMaterialSyncResult(BaseModel):
+    source_url: str
+    synced_at: datetime
+    total: int
+    created_count: int = 0
+    updated_count: int = 0
+    removed_count: int = 0

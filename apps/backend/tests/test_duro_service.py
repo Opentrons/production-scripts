@@ -40,6 +40,7 @@ class FakeDuroClient:
                     "component": {
                         "_id": "component-1",
                         "name": "Motor",
+                        "description": "Motor assembly description",
                         "cpn": "2200000001",
                         "revision": "B",
                         "status": "PRODUCTION",
@@ -61,6 +62,7 @@ class FakeDuroClient:
                     "component": {
                         "_id": "component-2",
                         "name": "Bearing",
+                        "description": "Bearing description",
                         "cpn": "2200000002",
                         "children": [],
                     },
@@ -224,6 +226,8 @@ def test_product_bom_maps_relationship_fields_and_uses_cache() -> None:
     assert first.root.name == "OT-3"
     assert first.direct_child_count == 1
     assert first.root.children[0].id == "component-1"
+    assert first.root.children[0].description == "Motor assembly description"
+    assert second.root.children[0].description == "Motor assembly description"
     assert first.root.child_count == 1
     assert first.root.children[0].child_count == 1
     assert first.material_total_count == 1
@@ -253,6 +257,7 @@ def test_component_children_are_loaded_one_level_at_a_time() -> None:
 
     assert response.count == 1
     assert response.children[0].id == "component-2"
+    assert response.children[0].description == "Bearing description"
     assert response.children[0].child_count == 0
     assert response.children[0].quantity == "2"
     assert response.children[0].has_children is False

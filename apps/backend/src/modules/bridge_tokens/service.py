@@ -3,13 +3,19 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 from threading import RLock
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
+from core.logging import get_logger
 from modules.auth.store import AuthUser
-from modules.bridge_tokens.client import BridgefloodsClient
+from modules.bridge_tokens.client import (
+    BridgefloodsAuthenticationError,
+    BridgefloodsClient,
+    BridgefloodsCredentialSaveError,
+)
 from modules.bridge_tokens.emailer import BridgeEmailSender
 from modules.bridge_tokens.models import (
     AllocationRecord,
@@ -25,6 +31,7 @@ from modules.bridge_tokens.repository import BridgeTokenRepository
 
 
 MAIN_BALANCE_ALERT_SUBJECT = "Kimmy，小桥token余额告急，记得充值。"
+logger = get_logger(__name__)
 
 
 class BridgeTokenConfigurationError(RuntimeError):
@@ -185,6 +192,7 @@ class BridgeTokenService:
         repository: BridgeTokenRepository,
         email_sender: BridgeEmailSender,
         client_factory: Callable[[], BridgefloodsClient] | None = None,
+        token_refresher: Callable[[str, str, str], tuple[str, str]] | None = None,
     ) -> None:
         self.settings = settings
         self.repository = repository
@@ -193,6 +201,7 @@ class BridgeTokenService:
         self._lock = RLock()
         self._client_lock = RLock()
         self._client: BridgefloodsClient | None = None
+        self._token_refresher = token_refresher
 
     @property
     def configured(self) -> bool:
@@ -214,6 +223,10 @@ class BridgeTokenService:
                     access_token=self.settings.access_token,
                     refresh_token=self.settings.refresh_token,
                     timeout_seconds=self.settings.request_timeout_seconds,
+                    refresh_handler=(
+                        partial(self._token_refresher, self.settings.base_url)
+                        if self._token_refresher else None
+                    ),
                 )
             return self._client
 
@@ -328,8 +341,15 @@ class BridgeTokenService:
                 live = not match_errors and len(matched) == len(entries)
                 if match_errors:
                     error = "key_match_failed"
-            except Exception:
+            except BridgefloodsAuthenticationError:
+                error = "authentication_required"
+                logger.warning("Bridge balance refresh failed: authentication_required")
+            except BridgefloodsCredentialSaveError:
+                error = "credential_save_failed"
+                logger.warning("Bridge balance refresh failed: credential_save_failed")
+            except Exception as exc:
                 error = "live_refresh_failed"
+                logger.warning("Bridge balance refresh failed (%s)", type(exc).__name__)
 
         if not snapshots:
             key_ids = {entry.key_id for entry in entries if entry.key_id}

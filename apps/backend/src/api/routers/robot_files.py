@@ -100,6 +100,21 @@ async def list_robot_testing_data(ip: str, path: str | None = None):
         raise HTTPException(status_code=502, detail={"message": f"SSH 测试数据读取失败: {exc}"}) from exc
 
 
+@router.get("/robots/{ip}/testing-data/search", response_model=RobotFileListResponse)
+async def search_robot_testing_data(ip: str, robot_sn: str):
+    try:
+        return await run_in_threadpool(
+            opentrons_control_service.search_robot_testing_data,
+            ip,
+            robot_sn,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    except OpentronsSshError as exc:
+        logger.warning("SSH testing data search failed for robot %s: %s", ip, exc)
+        raise HTTPException(status_code=502, detail={"message": f"SSH 测试数据搜索失败: {exc}"}) from exc
+
+
 @router.post("/robots/{ip}/testing-data/download")
 async def download_robot_testing_data(ip: str, request: RobotTestingDataSelectionRequest):
     try:

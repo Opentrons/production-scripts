@@ -487,7 +487,7 @@ class DuroService:
 
     def get_product_bom(self, product_id: str, refresh: bool = False) -> DuroProductBomResponse:
         normalized_id = product_id.strip()
-        disk_key = f"product-bom:rest-v3:{normalized_id}"
+        disk_key = f"product-bom:rest-v4:{normalized_id}"
         cached = self._get_cached(self._product_bom_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
@@ -539,7 +539,7 @@ class DuroService:
         refresh: bool = False,
     ) -> DuroComponentChildrenResponse:
         normalized_id = component_id.strip()
-        disk_key = f"component:rest-v2:{normalized_id}"
+        disk_key = f"component:rest-v3:{normalized_id}"
         cached = self._get_cached(self._component_cache, normalized_id, refresh)
         if cached is not None:
             return cached.model_copy(update={"cached": True})
@@ -726,6 +726,7 @@ class DuroService:
             relationship_id=self._string_value(relationship, "_id", "id"),
             node_type=node_type,
             name=str(self._value(entity, "name") or ""),
+            description=str(self._value(entity, "description") or ""),
             cpn=self._string_value(entity, "cpn"),
             cpn_variant=self._value(entity, "cpnVariant", "cpn_variant"),
             alias=self._string_value(entity, "alias"),

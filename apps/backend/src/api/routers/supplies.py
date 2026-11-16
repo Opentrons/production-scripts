@@ -8,11 +8,13 @@ from modules.supplies.models import (
     SupplementaryMaterialCreate,
     SupplementaryMaterialListResponse,
     SupplementaryMaterialUpdate,
+    SupplementaryMaterialSyncResult,
 )
 from modules.supplies.runtime import supplementary_material_service
 from modules.supplies.service import (
     DuplicateSupplementaryMaterialError,
     SupplementaryMaterialNotFoundError,
+    SupplementaryMaterialSyncInProgressError,
 )
 
 
@@ -24,7 +26,18 @@ async def list_supplies(
     q: str | None = Query(default=None, max_length=200),
 ) -> SupplementaryMaterialListResponse:
     items = await run_in_threadpool(supplementary_material_service.list, q)
-    return SupplementaryMaterialListResponse(items=items, total=len(items))
+    sync_status = await run_in_threadpool(supplementary_material_service.sync_status)
+    return SupplementaryMaterialListResponse(items=items, total=len(items), sync_status=sync_status)
+
+
+@router.post("/sync", response_model=SupplementaryMaterialSyncResult)
+async def sync_supplies() -> SupplementaryMaterialSyncResult:
+    try:
+        return await run_in_threadpool(supplementary_material_service.sync_from_source)
+    except SupplementaryMaterialSyncInProgressError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"辅料原表更新失败：{exc}") from exc
 
 
 @router.post("", response_model=SupplementaryMaterial, status_code=status.HTTP_201_CREATED)

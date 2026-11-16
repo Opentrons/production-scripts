@@ -5,6 +5,8 @@ from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 
+import pytest
+
 from modules.duro.models import DuroBomNode
 from modules.workflows.models import (
     Workflow,
@@ -36,6 +38,9 @@ def test_initialize_creates_duro_bom_workflow(tmp_path: Path) -> None:
     assert workflows[0].configuration["sop_drive_file_id"] == ""
     assert workflows[0].configuration["duro_product_id"] == ""
     assert workflows[0].configuration["duro_submenu_ids"] == []
+    assert workflows[0].configuration["duro_auto_select_submenus"] is False
+    assert workflows[0].configuration["duro_auto_excluded_keywords"] == ["PACKAGING", "SOFTWARE", "TOUCHPOINTS"]
+    assert workflows[0].configuration["duro_auto_zero_quantity_parent_prefixes"] == ["991-"]
     assert workflows[0].configuration["sop_bom_processes"] == ["packaging"]
     assert workflows[0].configuration["check_parent_bom"] is False
     assert workflows[0].configuration["check_supplies"] is False
@@ -155,22 +160,163 @@ def test_manual_duro_run_requires_sop_and_duro_sources(tmp_path: Path) -> None:
     assert current.message == "请先配置数据源：SOP、Duro 产品"
 
 
-def test_material_name_keyword_matching_normalizes_micro_symbol_case_and_spaces(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
+@pytest.mark.parametrize(("name", "part_number"), [
+    ("P50 O-ring", "435-12345"),
+    ("P50 O-ring 435-12345", "435-12345"),
+    ("P50 O-ring 999-54321", "999-54321"),
+    ("P50 O-ring 1234-54321", "1234-54321"),
+    ("P50 O-ring 435-012345", "435-12345"),
+    ("P50 O-ring ABC-123", "ABC-123"),
+    ("p50  o-RING 435-12345", "435-12345"),
+    ("Ｐ５０ O-ring 435-12345", "435-12345"),
+    ("P50 密封圈 435-12345", "435-12345"),
+    ("P50密封圈435-12345", "435-12345"),
+    ("P50 Spring 435-12345", "435-12345"),
+])
+def test_sop_product_rule_matches_listed_names_without_restricting_part_numbers(name: str, part_number: str) -> None:
+    match = WorkflowService._matching_sop_product_rule(name, {"P50": ["O-ring", "密封圈", "Spring"]}, part_number)
+    assert match is not None
+    assert match[0] == "P50"
+    assert match[1] in {"O-ring", "密封圈", "Spring"}
 
-    assert service._material_name_matches_keywords("Flex Robot Pro", ["robot"])
-    assert service._material_name_matches_keywords("FLEX ROBOT PRO", ["flex robot"])
-    assert service._material_name_matches_keywords("200ul Plunger", ["200μl"])
-    assert service._material_name_matches_keywords("200 µL O-ring", ["200ul"])
-    assert service._material_name_matches_keywords("200 μl logo", ["200 uL"])
-    assert service._material_name_matches_keywords("200容量 弹簧441-00067", ["200 容量 441-00067"])
-    assert service._material_name_matches_keywords("200 容量密封圈 441-00067", ["200 容量 441-00067"])
-    assert service._material_name_matches_keywords(
-        "96装入压块,1000容量的弹簧441-00037,200容量弹簧441-00067",
-        ["200 Volume"],
-    )
-    assert not service._material_name_matches_keywords("441-00067 弹簧 200容量", ["200 容量 441-00067"])
-    assert not service._material_name_matches_keywords("Flex Robot Pro", ["heater"])
+
+@pytest.mark.parametrize("name", [
+    "P50 ------------------- 435-12345", "P50 O-ring -------- 435-12345",
+    "P50 -------- O-ring 435-12345", "P50 Screw 435-12345",
+    "P500 O-ring 435-12345", "P50M O-ring 435-12345", "XP50 O-ring 435-12345",
+    "P50O-ring 435-12345", "P50 O-rings 435-12345", "P50 Big O-ring 435-12345",
+    "P50 Retaining Ring 435-12345", "P50 O-ring holder 435-12345",
+    "P50\nO-ring 435-12345", "P50\rO-ring 435-12345",
+    "P50 | O-ring 435-12345", "P50 P1000 O-ring 435-12345",
+    "P50 435-12345 O-ring 999-12345", "P50 435-12345", "O-ring P50 435-12345",
+])
+def test_sop_product_rule_preserves_unlisted_or_ambiguous_materials(name: str) -> None:
+    assert WorkflowService._matching_sop_product_rule(name, {"P50": ["O-ring", "Ring"]}, "435-12345") is None
+
+
+@pytest.mark.parametrize("names", [None, [], "O-ring", ["", "---", "123"], ["O-ring\nSpring"]])
+def test_sop_product_rule_without_valid_list_rejects_intervening_names(names) -> None:
+    assert WorkflowService._matching_sop_product_rule("P50 O-ring 435-12345", {"P50": names}, "435-12345") is None
+
+
+@pytest.mark.parametrize(("name", "part_number"), [
+    ("P50 435-12345", "435-12345"),
+    ("P50 999-54321", "999-54321"),
+    ("P50 ABC-123", "ABC-123"),
+    ("p50   435-12345", "435-12345"),
+    ("Ｐ５０ 435-12345", "435-12345"),
+    ("P50 435-012345", "435-12345"),
+    ("P50", "435-12345"),  # Extracted name and number are separate fields.
+])
+def test_sop_product_rule_empty_list_matches_product_directly_before_any_part_number(name: str, part_number: str) -> None:
+    assert WorkflowService._matching_sop_product_rule(name, {"P50": []}, part_number) == ("P50", "")
+
+
+@pytest.mark.parametrize(("name", "part_number"), [
+    ("P50 O-ring 435-12345", "435-12345"),
+    ("P50 Screw 435-12345", "435-12345"),
+    ("P50 ------------------- 435-12345", "435-12345"),
+    ("P50 | 435-12345", "435-12345"),
+    ("P500 435-12345", "435-12345"),
+    ("P50M 435-12345", "435-12345"),
+    ("XP50 435-12345", "435-12345"),
+    ("P50\n435-12345", "435-12345"),
+    ("P50 435-12345 999-54321", "999-54321"),
+    ("P50", ""),
+    ("P50", " "),
+])
+def test_sop_product_rule_empty_list_keeps_ambiguous_names(name: str, part_number: str) -> None:
+    assert WorkflowService._matching_sop_product_rule(name, {"P50": []}, part_number) is None
+
+
+@pytest.mark.parametrize("material_names", [None, {}, {"P50": []}])
+def test_sop_product_rule_missing_or_empty_list_uses_direct_product_match(tmp_path: Path, material_names) -> None:
+    service = make_service(tmp_path)
+    configuration = {
+        "ignored_sop_product_keywords": ["P50"],
+        "ignored_sop_product_keyword_reasons": {"P50": "直接产品料号不核对"},
+    }
+    if material_names is not None:
+        configuration["ignored_sop_product_material_names"] = material_names
+    workflow = service.create_workflow(WorkflowCreate(name="产品料号规则", kind="duro_bom_check", configuration=configuration))
+    report = WorkflowBomReport(sop_material_count=4, duro_material_count=1, differences=[
+        WorkflowBomDifference(status=status, part_number=part, name=name)
+        for status, part, name in [
+            ("missing_in_duro", "435-12345", "P50 435-12345"),
+            ("missing_in_duro", "999-54321", "P50"),
+            ("missing_in_duro", "435-12346", "P50 O-ring"),
+            ("missing_in_duro", "435-12347", "P50 ------- 435-12347"),
+            ("extra_in_duro", "435-12348", "P50"),
+        ]
+    ])
+    result = service._apply_ignored_differences(service.get_workflow(workflow.id), report)
+    assert {item.part_number for item in result.ignored_items} == {"435-12345", "999-54321"}
+    assert {item.ignore_value for item in result.ignored_items} == {"P50 + 435-12345", "P50 + 999-54321"}
+    assert {item.ignore_reason for item in result.ignored_items} == {"直接产品料号不核对"}
+    assert result.sop_material_count == 2
+    assert result.missing_in_duro_count == 2
+    assert result.extra_in_duro_count == 1
+
+
+def test_sop_product_material_lists_persist_and_update(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    workflow = service.create_workflow(WorkflowCreate(
+        name="产品与料名规则", kind="duro_bom_check",
+        configuration={
+            "ignored_sop_product_keywords": ["P50", "P1000", "Legacy"],
+            "ignored_sop_product_material_names": {
+                "P50": [" O-ring ", "o-RING", "密封圈", "---", "123", None],
+                "P1000": ["Spring"], "orphan": ["Screw"],
+            },
+        },
+    ))
+    assert service.get_workflow(workflow.id).configuration["ignored_sop_product_material_names"] == {
+        "P50": ["O-ring", "密封圈"], "P1000": ["Spring"], "Legacy": [],
+    }
+    configuration = dict(workflow.configuration)
+    configuration["ignored_sop_product_material_names"]["P50"] = ["Spring"]
+    service.update_workflow(workflow.id, WorkflowUpdate(configuration=configuration))
+    assert service.get_workflow(workflow.id).configuration["ignored_sop_product_material_names"]["P50"] == ["Spring"]
+    configuration["ignored_sop_product_material_names"]["P50"] = []
+    service.update_workflow(workflow.id, WorkflowUpdate(configuration=configuration))
+    stored = service.get_workflow(workflow.id)
+    assert stored.configuration["ignored_sop_product_material_names"]["P50"] == []
+    assert service._matching_sop_product_rule("P50 435-12345", stored.configuration["ignored_sop_product_material_names"], "435-12345") == ("P50", "")
+    assert service._matching_sop_product_rule("P50 Spring", stored.configuration["ignored_sop_product_material_names"], "435-12345") is None
+
+
+def test_sop_product_rule_audits_product_and_material_and_preserves_other_differences(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    workflow = Workflow(name="忽略规则", configuration={
+        "ignored_sop_product_keywords": ["P50"],
+        "ignored_sop_product_material_names": {"P50": ["O-ring"]},
+        "ignored_sop_product_keyword_reasons": {"P50": "不核对密封圈"},
+    })
+    differences = [
+        WorkflowBomDifference(status=status, part_number=part, name=name)
+        for status, part, name in [
+            ("missing_in_duro", "435-12345", "P50 O-ring 435-12345"),
+            ("quantity_mismatch", "999-54321", "P50 O-ring"),
+            ("missing_in_duro", "435-12346", "P50 -------- 435-12346"),
+            ("missing_in_duro", "435-12347", "P50 Screw"),
+            ("extra_in_duro", "435-12348", "P50 O-ring"),
+        ]
+    ]
+    report = WorkflowBomReport(sop_material_count=4, duro_material_count=2, differences=differences)
+    result = service._apply_ignored_differences(workflow, report)
+    assert {item.part_number for item in result.ignored_items} == {"435-12345", "999-54321"}
+    assert {item.ignore_value for item in result.ignored_items} == {"P50 + O-ring"}
+    assert {item.ignore_reason for item in result.ignored_items} == {"不核对密封圈"}
+    assert result.missing_in_duro_count == 2
+    assert result.quantity_mismatch_count == 0
+    assert result.extra_in_duro_count == 1
+    assert result.sop_material_count == 2
+    assert result.duro_material_count == 2
+    for mapping in ({}, {"P50": []}):
+        workflow.configuration["ignored_sop_product_material_names"] = mapping
+        assert not service._apply_ignored_differences(workflow, report).ignored_items
+    del workflow.configuration["ignored_sop_product_material_names"]
+    assert not service._apply_ignored_differences(workflow, report).ignored_items
 
 
 def test_database_ignore_rule_marks_history_detail_and_future_report(tmp_path: Path) -> None:
@@ -305,7 +451,7 @@ class FakeSopService:
             ],
             "sop-b": [
                 SimpleNamespace(part_number="100-00001", name="Bolt", occurrences=3, pages=[4]),
-                SimpleNamespace(part_number="100-00005", name="Clip", occurrences=4, pages=[5]),
+                SimpleNamespace(part_number="100-00005", name="P50 Clip", occurrences=4, pages=[5]),
             ],
         }
         return SimpleNamespace(full_text_references=materials[file_id])
@@ -796,9 +942,10 @@ def test_manual_duro_run_generates_bom_difference_report(tmp_path: Path) -> None
                 "duro_product_name": "Product",
                 "duro_submenu_ids": ["assembly"],
                 "duro_submenus": [{"id": "assembly", "label": "930-00004"}],
-                "ignored_sop_product_keywords": ["clip"],
+                "ignored_sop_product_keywords": ["P50"],
+                "ignored_sop_product_material_names": {"P50": ["Clip"]},
                 "ignored_part_numbers": [" 100-00004 ", "100-00004", "100-00002"],
-                "ignored_sop_product_keyword_reasons": {"clip": "该产品不参与当前核对"},
+                "ignored_sop_product_keyword_reasons": {"P50": "该产品不参与当前核对"},
                 "ignored_part_number_reasons": {
                     "100-00004": "测试用辅料",
                     "100-00002": "该料号数量不参与核对",
@@ -1088,3 +1235,237 @@ def test_manual_duro_run_rejects_sop_without_full_text_references(tmp_path: Path
     assert current.status == "failed"
     assert "未识别到全文料号引用" in current.message
     assert current.report is None
+
+
+class AutoSelectionDuroService(FakeDuroService):
+    def __init__(self) -> None:
+        self.component_calls: list[str] = []
+        self.submenus = [
+            DuroBomNode(id='assembly', name='Mechanical assembly', cpn='930-00004', quantity=1, has_children=True),
+            DuroBomNode(id='packaging', name='Shipping', description='Product PACKAGING', cpn='930-00005', quantity=1, has_children=True),
+            DuroBomNode(id='software', name='Robot Software', cpn='930-00006', quantity=1, has_children=True),
+            DuroBomNode(id='touchpoints', name='Version menu', description='firmware touchpoints', cpn='930-00007', quantity=1, has_children=True),
+        ]
+        self.children = {
+            'assembly': [
+                DuroBomNode(id='bolt', name='Bolt', cpn='100-00001', quantity=5),
+                DuroBomNode(id='nested', name='Nested Assembly', cpn='200-00001', quantity=2, has_children=True),
+                DuroBomNode(id='nested-software', name='Nested Version Menu', description='SOFTWARE', cpn='200-00002', quantity=1, has_children=True),
+            ],
+            'nested': [DuroBomNode(id='washer', name='Washer', cpn='100-00002', quantity=3)],
+            'nested-software': [DuroBomNode(id='nested-script', name='Script', cpn='710-00001', quantity=1)],
+            'packaging': [DuroBomNode(id='box', name='Box', cpn='900-00001', quantity=1)],
+            'software': [DuroBomNode(id='same-bolt', name='Bolt', cpn='100-00001', quantity=100)],
+            'touchpoints': [DuroBomNode(id='script', name='Script', cpn='710-00002', quantity=1)],
+        }
+
+    def get_product_bom(self, product_id: str, refresh: bool = False):
+        assert refresh is True
+        return SimpleNamespace(root=DuroBomNode(id='root', name='Product', children=self.submenus))
+
+    def get_component_children(self, component_id: str, refresh: bool = False):
+        assert refresh is True
+        self.component_calls.append(component_id)
+        return SimpleNamespace(children=self.children[component_id])
+
+
+@pytest.mark.parametrize(('name', 'description'), [
+    ('Robot PACKAGING', ''), ('Unrelated name', 'Robot packaging'),
+    ('Robot SOFTWARE', ''), ('Unrelated name', 'Software firmware'),
+    ('TOUCHPOINTS', ''), ('Unrelated name', 'Firmware Touchpoints'),
+    ('ＰＡＣＫＡＧＩＮＧ', ''),
+])
+def test_auto_submenu_exclusions_match_any_keyword_in_name_or_description(name, description) -> None:
+    assert WorkflowService._duro_node_matches_auto_exclusions(
+        DuroBomNode(id='node', name=name, description=description), ['PACKAGING', 'SOFTWARE', 'TOUCHPOINTS'],
+    )
+
+
+def test_auto_submenu_configuration_persists_custom_and_empty_keywords(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    workflow = service.create_workflow(WorkflowCreate(name='Auto', kind='duro_bom_check', configuration={
+        'duro_submenu_ids': ['manual-choice'], 'duro_auto_select_submenus': True,
+        'duro_auto_excluded_keywords': [' packaging ', 'PACKAGING', 'custom assembly', '', None],
+    }))
+    stored = service.get_workflow(workflow.id)
+    assert stored.configuration['duro_auto_select_submenus'] is True
+    assert stored.configuration['duro_auto_excluded_keywords'] == ['PACKAGING', 'CUSTOM ASSEMBLY']
+    assert stored.configuration['duro_submenu_ids'] == ['manual-choice']
+    configuration = dict(stored.configuration, duro_auto_excluded_keywords=[], duro_auto_select_submenus=False)
+    service.update_workflow(workflow.id, WorkflowUpdate(configuration=configuration))
+    stored = service.get_workflow(workflow.id)
+    assert stored.configuration['duro_auto_select_submenus'] is False
+    assert stored.configuration['duro_auto_excluded_keywords'] == []
+    assert stored.configuration['duro_submenu_ids'] == ['manual-choice']
+
+
+@pytest.mark.parametrize('include_parent_bom', [False, True])
+def test_auto_submenus_prune_excluded_parents_and_whole_subtrees(tmp_path: Path, include_parent_bom: bool) -> None:
+    duro = AutoSelectionDuroService()
+    service = WorkflowService(WorkflowRepository(tmp_path / 'workflows.sqlite3'), duro_service=duro)
+    materials, submenus, ignored = service._collect_duro_materials(
+        'duro-product', {'stale-manual-id'}, include_parent_bom=include_parent_bom,
+        auto_excluded_keywords=['PACKAGING', 'SOFTWARE', 'TOUCHPOINTS'],
+    )
+    assert [item['id'] for item in submenus] == ['assembly']
+    assert set(materials) == ({'100-00001', '100-00002', '200-00001'} if include_parent_bom else {'100-00001', '100-00002'})
+    assert materials['100-00001']['quantity'] == 5  # Shared part in an excluded branch contributes nothing.
+    assert materials['100-00002']['quantity'] == 6
+    assert set(duro.component_calls) == {'assembly', 'nested'}
+    assert {item.part_number for item in ignored} == (set() if include_parent_bom else {'200-00001'})
+
+
+@pytest.mark.parametrize('keywords', [[], ['CUSTOM'], ['nested assembly']])
+def test_auto_submenu_custom_keywords_and_empty_list(tmp_path: Path, keywords: list[str]) -> None:
+    duro = AutoSelectionDuroService()
+    service = WorkflowService(WorkflowRepository(tmp_path / 'workflows.sqlite3'), duro_service=duro)
+    materials, submenus, _ = service._collect_duro_materials('duro-product', set(), auto_excluded_keywords=keywords)
+    assert len(submenus) == 4
+    assert '900-00001' in materials
+    assert '710-00001' in materials
+    assert '710-00002' in materials
+    assert materials['100-00001']['quantity'] == 105
+    assert ('100-00002' in materials) is (keywords != ['nested assembly'])
+
+
+def test_manual_submenus_remain_unfiltered_by_auto_rules(tmp_path: Path) -> None:
+    duro = AutoSelectionDuroService()
+    service = WorkflowService(WorkflowRepository(tmp_path / 'workflows.sqlite3'), duro_service=duro)
+    materials, submenus, _ = service._collect_duro_materials('duro-product', {'assembly', 'packaging'})
+    assert {item['id'] for item in submenus} == {'assembly', 'packaging'}
+    assert '900-00001' in materials
+    assert '710-00001' in materials
+    assert 'software' not in duro.component_calls
+
+
+def test_auto_submenu_all_excluded_does_not_fall_back_to_manual_selection(tmp_path: Path) -> None:
+    duro = AutoSelectionDuroService()
+    service = WorkflowService(WorkflowRepository(tmp_path / 'workflows.sqlite3'), duro_service=duro)
+    with pytest.raises(RuntimeError, match='自动选择未找到可核对的子项目'):
+        service._collect_duro_materials('duro-product', {'assembly'}, auto_excluded_keywords=['assembly', 'shipping', 'software', 'version'])
+    assert not duro.component_calls
+
+
+@pytest.mark.parametrize('manual_ids', [[], ['deleted-submenu']])
+def test_auto_workflow_run_uses_fresh_submenus_without_requiring_manual_selection(tmp_path: Path, manual_ids) -> None:
+    duro = AutoSelectionDuroService()
+    service = WorkflowService(
+        WorkflowRepository(tmp_path / 'workflows.sqlite3'),
+        sop_service=FakeSopService(), duro_service=duro,
+    )
+    workflow = service.create_workflow(WorkflowCreate(name='Auto', kind='duro_bom_check', configuration={
+        'sop_sources': [{'drive_file_id': 'sop-a', 'project': 'Robot', 'process': 'Assembly A'}],
+        'duro_product_id': 'duro-product', 'duro_submenu_ids': manual_ids, 'duro_auto_select_submenus': True,
+    }))
+    run = WorkflowRun(workflow_id=workflow.id, workflow_name=workflow.name, trigger_type='manual', status='queued')
+    service._execute_run(workflow, run)
+    assert run.status == 'succeeded', run.message
+    assert run.report is not None
+    assert [item['id'] for item in run.report.duro_submenus] == ['assembly']
+    assert service.get_workflow(workflow.id).configuration['duro_submenu_ids'] == manual_ids
+    assert any('自动选择子项目' in log for log in run.logs)
+
+
+@pytest.mark.parametrize("auto", [False, True])
+@pytest.mark.parametrize("zero", [0, "0", "0.0"])
+def test_zero_quantity_subtrees_are_skipped_at_every_level(tmp_path: Path, auto: bool, zero) -> None:
+    duro = AutoSelectionDuroService()
+    duro.submenus = [duro.submenus[0], DuroBomNode(
+        id="zero-root", name="Zero root", cpn="991-00001", quantity=zero, has_children=True,
+    )]
+    # No child data is provided for zero nodes: expansion would fail this test.
+    duro.children["assembly"] = [
+        DuroBomNode(id="zero-child", name="Zero child", cpn="991-00002", quantity=zero, has_children=True),
+        DuroBomNode(id="zero-leaf", name="Zero leaf", cpn="100-00003", quantity=zero),
+        DuroBomNode(id="active-parent", name="Active parent", cpn="991-00003", quantity=2, has_children=True),
+        DuroBomNode(id="shared-active", name="Shared active", cpn="100-00001", quantity=3),
+    ]
+    duro.children["active-parent"] = [
+        DuroBomNode(id="deep-zero", name="Deep zero", cpn="991-00004", quantity=zero, has_children=True),
+        DuroBomNode(id="shared-zero", name="Shared zero", cpn="100-00001", quantity=zero),
+        DuroBomNode(id="active-leaf", name="Active leaf", cpn="100-00002", quantity=4),
+    ]
+    service = WorkflowService(WorkflowRepository(tmp_path / "workflows.sqlite3"), duro_service=duro)
+    materials, submenus, ignored = service._collect_duro_materials(
+        "duro-product", {"assembly", "zero-root"}, auto_excluded_keywords=[] if auto else None,
+    )
+    assert [item["id"] for item in submenus] == ["assembly"]
+    assert set(duro.component_calls) == {"assembly", "active-parent"}
+    assert set(materials) == {"100-00001", "100-00002"}
+    assert materials["100-00001"]["quantity"] == 3
+    assert materials["100-00002"]["quantity"] == 8
+    assert {item.part_number for item in ignored} == {"991-00003"}
+
+
+@pytest.mark.parametrize(("parent_part", "quantity", "prefixes", "expected"), [
+    ("991-00001", 0, ["991-"], True),
+    ("991-00001", "0", ["991-"], True),
+    ("991-00001", "0.0", ["991-"], True),
+    ("991-00001", 1, ["991-"], False),
+    ("991-00001", None, ["991-"], False),
+    ("991-00001", "", ["991-"], False),
+    ("991-00001", "unknown", ["991-"], False),
+    ("992-00001", 0, ["991-"], False),
+    ("1991-00001", 0, ["991-"], False),
+    ("992-00001", 0, ["992-"], True),
+    ("991-00001", 0, [], False),
+    ("991-00001", 0, None, False),
+])
+def test_zero_quantity_rule_is_scoped_to_configured_parent_prefixes(parent_part, quantity, prefixes, expected) -> None:
+    parent = DuroBomNode(id="parent", cpn=parent_part, has_children=True)
+    child = DuroBomNode(id="child", cpn="100-00001", quantity=quantity)
+    assert WorkflowService._duro_is_zero_quantity_child(parent, child, prefixes) is expected
+
+
+def test_zero_quantity_parent_prefix_settings_persist_and_can_be_disabled(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    workflow = service.create_workflow(WorkflowCreate(name="Prefix rule", kind="duro_bom_check", configuration={
+        "duro_auto_select_submenus": True,
+        "duro_auto_zero_quantity_parent_prefixes": [" 991- ", "991-", "992-", "", None],
+    }))
+    stored = service.get_workflow(workflow.id)
+    assert stored.configuration["duro_auto_zero_quantity_parent_prefixes"] == ["991-", "992-"]
+    configuration = dict(stored.configuration, duro_auto_zero_quantity_parent_prefixes=[])
+    service.update_workflow(workflow.id, WorkflowUpdate(configuration=configuration))
+    assert service.get_workflow(workflow.id).configuration["duro_auto_zero_quantity_parent_prefixes"] == []
+
+
+@pytest.mark.parametrize("include_parent_bom", [False, True])
+def test_prefix_rule_keeps_nonzero_991_parents_and_checks_each_deeper_level(tmp_path: Path, include_parent_bom: bool) -> None:
+    duro = AutoSelectionDuroService()
+    duro.submenus = [DuroBomNode(id="root-991", name="Root assembly", cpn="991-00001", quantity=2, has_children=True)]
+    duro.children = {
+        "root-991": [
+            DuroBomNode(id="zero-root-child", cpn="991-00002", quantity=0, has_children=True),
+            DuroBomNode(id="next-991", cpn="991-00003", quantity=2, has_children=True),
+            DuroBomNode(id="non-prefix-parent", cpn="930-00001", quantity=3, has_children=True),
+            DuroBomNode(id="root-leaf", cpn="100-00001", quantity=5),
+        ],
+        "next-991": [
+            DuroBomNode(id="zero-next-child", cpn="100-00005", quantity="0"),
+            DuroBomNode(id="next-leaf", cpn="100-00002", quantity=4),
+            DuroBomNode(id="third-991", cpn="991-00004", quantity=3, has_children=True),
+        ],
+        "third-991": [
+            DuroBomNode(id="zero-third-child", cpn="991-00005", quantity="0.0", has_children=True),
+            DuroBomNode(id="third-leaf", cpn="100-00003", quantity=5),
+        ],
+        "non-prefix-parent": [DuroBomNode(id="deep-991", cpn="991-00006", quantity=2, has_children=True)],
+        "deep-991": [
+            DuroBomNode(id="zero-deep-child", cpn="100-00006", quantity=0),
+            DuroBomNode(id="deep-leaf", cpn="100-00004", quantity=7),
+        ],
+    }
+    service = WorkflowService(WorkflowRepository(tmp_path / "workflows.sqlite3"), duro_service=duro)
+    materials, submenus, ignored = service._collect_duro_materials(
+        "duro-product", set(), include_parent_bom=include_parent_bom,
+        auto_excluded_keywords=[], zero_quantity_parent_prefixes=["991-"],
+    )
+    assert [item["id"] for item in submenus] == ["root-991"]
+    assert set(duro.component_calls) == {"root-991", "next-991", "third-991", "non-prefix-parent", "deep-991"}
+    assert {part: materials[part]["quantity"] for part in ["100-00001", "100-00002", "100-00003", "100-00004"]} == {
+        "100-00001": 10, "100-00002": 16, "100-00003": 60, "100-00004": 84,
+    }
+    parent_parts = {"991-00003", "991-00004", "991-00006", "930-00001"}
+    assert set(materials) == ({"100-00001", "100-00002", "100-00003", "100-00004"} | (parent_parts if include_parent_bom else set()))
+    assert {item.part_number for item in ignored} == (set() if include_parent_bom else parent_parts)

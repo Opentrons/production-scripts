@@ -245,17 +245,25 @@ def _reference_line_language(source_line: str) -> ReferenceLanguage:
 
 
 def extract_chinese_lines(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
-    """Return only pages and source lines that contain Chinese text."""
+    """Repair wrapped part numbers, then retain only Chinese source lines.
+
+    A number-only continuation of a Chinese line belongs to that line. Standalone
+    callouts and English sentences do not qualify just because the page has Chinese.
+    Keep paragraph boundaries where lines were omitted so later normalization cannot
+    join unrelated numeric fragments across discarded English content.
+    """
 
     chinese_pages: list[tuple[int, str]] = []
     for page_number, text in pages:
-        matching_lines = [
-            source_line.strip()
-            for source_line in text.splitlines()
-            if CJK_PATTERN.search(source_line)
-        ]
-        if matching_lines:
-            chinese_pages.append((page_number, "\n".join(matching_lines)))
+        matching_lines: list[str] = []
+        for source_line in normalize_pdf_part_number_text(text).splitlines():
+            if CJK_PATTERN.search(source_line):
+                matching_lines.append(source_line.strip())
+            elif matching_lines and matching_lines[-1]:
+                matching_lines.append("")
+        retained_text = "\n".join(matching_lines).strip()
+        if retained_text:
+            chinese_pages.append((page_number, retained_text))
     return chinese_pages
 
 
@@ -266,13 +274,13 @@ def extract_material_lines(
     """Return only pages and source lines that contain a material part number."""
 
     material_pages: list[tuple[int, str]] = []
-    for page_number, text in pages:
+    source_pages = extract_chinese_lines(pages) if chinese_only else pages
+    for page_number, text in source_pages:
         text = normalize_pdf_part_number_text(text)
         matching_lines = [
             source_line.strip()
             for source_line in text.splitlines()
             if extract_part_number_matches(source_line)
-            and (not chinese_only or CJK_PATTERN.search(source_line))
         ]
         if matching_lines:
             material_pages.append((page_number, "\n".join(matching_lines)))
@@ -482,8 +490,12 @@ def normalize_pdf_part_number_text(text: str) -> str:
         str.maketrans("０１２３４５６７８９", "0123456789")
     )
     normalized = normalized.replace("\u00ad", "").replace("－", "-")
+    normalized = normalized.replace("\r\n", "\n").replace("\r", "\n")
+    # Repair a wrapped token, but never cross an empty paragraph. Such a boundary
+    # may separate text boxes, or mark an English sentence removed by the filter.
+    token_spacing = r"[^\S\n]*(?:\n[^\S\n]*)?"
     return re.sub(
-        r"(?<!\d)(\d{3,4})\s*-\s*(\d{5})(?!\d)",
+        rf"(?<!\d)(\d{{3,4}}){token_spacing}-{token_spacing}(\d{{5}})(?!\d)",
         r"\1-\2",
         normalized,
     )

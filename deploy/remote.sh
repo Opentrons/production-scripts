@@ -160,9 +160,10 @@ install_remote_secret "$BRIDGE_WHITELIST_PATH" "$REMOTE_BRIDGE_WHITELIST_PATH"
 install_remote_secret "$BRIDGE_GMAIL_TOKEN_PATH" "$REMOTE_BRIDGE_GMAIL_TOKEN_PATH"
 install_remote_secret "$BRIDGE_ALERT_STATE_PATH" "$REMOTE_BRIDGE_ALERT_STATE_PATH"
 
-echo "Syncing backend code..."
+echo "Syncing backend code for the production profile (RUN_ENV=server)..."
 rsync -az --delete \
     --exclude '.env' \
+    --exclude '.env.*' \
     --exclude 'data/' \
     --exclude 'db-storage/' \
     --exclude 'auth-files/' \
@@ -223,6 +224,7 @@ bridge_whitelist_path="${13}"
 bridge_gmail_token_path="${14}"
 
 cd "$remote_root"
+PRODUCTION_PLATFORM_RUN_ENV=server \
 UV_BIN="$uv_bin" \
 API_PORT="$api_port" \
 BRIDGE_AUTH_DIR="$bridge_auth_dir" \

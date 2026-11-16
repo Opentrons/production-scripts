@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import posixpath
+import re
 import shlex
 import stat
 import zipfile
@@ -106,6 +107,50 @@ class OpentronsSshClient:
                 )
         entries.sort(key=lambda item: (not item.is_dir, item.name.lower()))
         return entries
+
+    def find_z_stage_csv_reports(
+        self,
+        remote_root: str,
+        needle: str,
+    ) -> list[RemoteFileEntry]:
+        """Find Z-stage CSV reports below a testing-data directory by barcode."""
+        normalized_root = posixpath.normpath(remote_root)
+        barcode = needle.strip()
+        if not barcode:
+            return []
+        report_pattern = re.compile(
+            rf"^z-stage-test-qc-ot3_run-(?:\d{{2}}-){{5}}\d{{2}}_CSVReport-{re.escape(barcode)}\.csv$",
+            re.IGNORECASE,
+        )
+
+        matches: list[RemoteFileEntry] = []
+        queue = [normalized_root]
+        with self.connect() as (_client, sftp):
+            while queue:
+                current = queue.pop(0)
+                try:
+                    children = sftp.listdir_attr(current)
+                except FileNotFoundError:
+                    continue
+                for attr in children:
+                    path = f"{current.rstrip('/')}/{attr.filename}"
+                    if stat.S_ISDIR(attr.st_mode):
+                        queue.append(path)
+                        continue
+                    if not report_pattern.fullmatch(attr.filename):
+                        continue
+                    matches.append(
+                        RemoteFileEntry(
+                            name=attr.filename,
+                            path=path,
+                            is_dir=False,
+                            size=attr.st_size,
+                            modified_at=attr.st_mtime,
+                        )
+                    )
+
+        matches.sort(key=lambda item: (item.modified_at or 0, item.path), reverse=True)
+        return matches
 
     def read_text(self, remote_path: str) -> str:
         with self.connect() as (_client, sftp):

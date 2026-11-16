@@ -70,31 +70,27 @@ def make_uploader():
     return uploader, values
 
 
-@pytest.mark.parametrize("last_row_range, expected_checks", [
-    ("F:I", ["C:AP", "B:N", "F:BB", "B:K"]),
-    ("AQ:AR", ["C:AR", "B:AR", "P:BB", "B:AR"]),
-])
-def test_uses_configured_first_empty_row_search(last_row_range, expected_checks):
+def test_uses_each_sheet_anchor_column_for_first_empty_row():
     uploader, values = make_uploader()
     histories = [
         [["header"]] * 10 + [[0], [], ["later data"]],
         [["header"]] * 10 + [[1], ['=IF(TRUE,"","")'], [], [2]],
-        [["header"]] * 10 + [[], [3]],
+        [["header"]] * 10 + [[1], ['=IF(TRUE,"","")'], [], [2]],
         [],
     ]
     uploader.gdrive.get_excel_sheet.side_effect = histories
     sections = extract_parallelism_rows(str(SAMPLE), ROBOT_SN)
-    upload_parallelism_results(uploader, "master-id", sections, last_row_range=last_row_range)
+    upload_parallelism_results(uploader, "master-id", sections)
     body = values.batchUpdate.call_args.kwargs["body"]
     assert body["valueInputOption"] == "RAW"
     assert [write["range"] for write in body["data"]] == [
         "'Z Stage Parallelism'!C12:AP12",
         "'Pipette To Deck Parallelism'!B13:N13",
-        "'Pipette To Deck Parallelism'!P11:BB11",
+        "'Pipette To Deck Parallelism'!P13:BB13",
         "'Gripper Parallelism'!B11:K11",
     ]
     read_calls = uploader.gdrive.get_excel_sheet.call_args_list
-    assert [call.kwargs["range"].split("!")[1] for call in read_calls] == expected_checks
+    assert [call.kwargs["range"].split("!")[1] for call in read_calls] == ["C:C", "B:B", "B:B", "B:B"]
     assert all(call.kwargs["raise_on_error"] is True for call in read_calls)
     assert all(call.kwargs["value_render_option"] == "FORMULA" for call in read_calls)
     assert uploader.get_upload_checkpoint()["parallelism_upload"]["complete"] is True
@@ -249,9 +245,8 @@ def test_leveling_pastes_whole_source_into_template_before_master(monkeypatch, t
     uploader.log_upload_links = lambda *_args: None
     checked = []
 
-    def check_raw_data_before_master(_uploader, master_id, _sections, *, last_row_range):
+    def check_raw_data_before_master(_uploader, master_id, _sections):
         assert master_id == "master-id"
-        assert last_row_range == "D:G"
         write = context.gdrive.update_excel_sheet_page_batch.call_args.kwargs
         assert write["spreadsheet_id"] == "working-sheet"
         assert write["sheet_name"] == "Leveling"

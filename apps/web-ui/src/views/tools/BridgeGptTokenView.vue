@@ -71,7 +71,7 @@
       <template v-else-if="balance">
         <p v-if="balance.error" class="inline-notice" role="status">
           <CircleAlert :size="16" aria-hidden="true" />
-          {{ t('bridgeTokens.states.balanceFailed') }}
+          {{ balanceErrorMessage }}
         </p>
 
         <section class="balance-panel" aria-labelledby="balance-heading">
@@ -346,6 +346,7 @@
                   autocomplete="new-password"
                   :placeholder="t('bridgeTokens.configuration.secretPlaceholder')"
                 />
+                <small>{{ t('bridgeTokens.configuration.refreshTokenHint') }}</small>
               </label>
             </div>
           </section>
@@ -511,6 +512,11 @@ import {
 const { locale, t } = useAppLocale()
 const authStore = useAuthStore()
 const balance = ref<CurrentUserBridgeTokens | null>(null)
+const balanceErrorMessage = computed(() => {
+  if (balance.value?.error === 'authentication_required') return t('bridgeTokens.states.authenticationRequired')
+  if (balance.value?.error === 'credential_save_failed') return t('bridgeTokens.states.credentialSaveFailed')
+  return t('bridgeTokens.states.balanceFailed')
+})
 const initialLoading = ref(true)
 const refreshing = ref(false)
 const recordsLoading = ref(false)
@@ -1113,6 +1119,12 @@ onBeforeUnmount(() => {
   display: grid;
   min-width: 0;
   gap: 6px;
+}
+
+.configuration-field > small {
+  color: #748087;
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .configuration-field.is-wide,

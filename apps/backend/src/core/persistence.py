@@ -33,15 +33,15 @@ def require_mongodb() -> Any:
 
 
 def get_message_database():
-    """Return ProductionsMessage database (Mongo) or raise when unavailable."""
-    client = require_mongodb()
-    return client[setting.MESSAGE_COLLECTION]
+    """Return the environment's business database or raise when unavailable."""
+    require_mongodb()
+    return mongodb.get_database(setting.MESSAGE_COLLECTION)
 
 
 def get_document_collection(name: str):
     """Return a Mongo-like collection for business documents.
 
-    - normal operation -> MongoDB ProductionsMessage.<name>
+    - normal operation -> environment-specific MongoDB business collection
     - simulating or dev connection fallback -> local platform.sqlite3 collection
     """
     if setting.use_sqlite_persistence():

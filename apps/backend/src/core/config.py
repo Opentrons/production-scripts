@@ -105,6 +105,17 @@ RUN_ENV = os.getenv("PRODUCTION_PLATFORM_RUN_ENV", "dev" if IS_WINDOWS or IS_MAC
 IS_DEV_ENV = RUN_ENV in ("dev", "local", "development")
 
 
+def resolve_mongo_database_name(name: str) -> str:
+    """Keep development documents and background queues out of production DBs.
+
+    Apply this even to explicitly configured names and upload YAML database
+    names, since a development process can connect to the production Mongo host.
+    """
+    if IS_DEV_ENV and not name.endswith("_dev"):
+        return f"{name}_dev"
+    return name
+
+
 def _configured_choice(name: str, default: str, choices: set[str]) -> str:
     value = os.getenv(name, default).strip().lower()
     if value not in choices:
@@ -272,9 +283,9 @@ SHEET_TOKEN_PATH = os.path.join(GOOGLE_AUTH_DIR, "sheettoken.json")
 ENVIRONMENT = "production"  # debug or production
 # ENVIRONMENT = "production"  # debug or production
 # database
-DATA_DB_NAME = "ProductionsData2026"  # 数据库名称
+DATA_DB_NAME = resolve_mongo_database_name("ProductionsData2026")
 EXPIRE_DAYS = 10  # 数据过期时间，默认1天过期
-MESSAGE_COLLECTION = (
+MESSAGE_COLLECTION = resolve_mongo_database_name(
     os.getenv("PRODUCTION_PLATFORM_MESSAGE_DATABASE", "ProductionsMessage").strip()
     or "ProductionsMessage"
 )
@@ -319,6 +330,20 @@ UPLOAD_SCHEDULER_POLL_SECONDS = max(
 UPLOAD_MAX_WORKERS = max(
     1,
     min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_MAX_WORKERS", "2"))),
+)
+# Keep the legacy limit as the default for Pipette; Robot and other products
+# have reserved capacity so a stalled Pipette request cannot occupy their slots.
+UPLOAD_PIPETTE_MAX_WORKERS = max(
+    1,
+    min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_PIPETTE_MAX_WORKERS", str(UPLOAD_MAX_WORKERS)))),
+)
+UPLOAD_ROBOT_MAX_WORKERS = max(
+    1,
+    min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_ROBOT_MAX_WORKERS", "1"))),
+)
+UPLOAD_OTHER_MAX_WORKERS = max(
+    1,
+    min(8, int(os.getenv("PRODUCTION_PLATFORM_UPLOAD_OTHER_MAX_WORKERS", "1"))),
 )
 UPLOAD_MAX_ATTEMPTS = max(
     1,
@@ -388,6 +413,15 @@ SOP_MASTER_SPREADSHEET_ID = os.getenv(
 )
 SOP_MASTER_SHEET_GID = int(os.getenv("PRODUCTION_PLATFORM_SOP_SHEET_GID", "991624078"))
 SOP_MASTER_CACHE_SECONDS = int(os.getenv("PRODUCTION_PLATFORM_SOP_CACHE_SECONDS", "300"))
+SUPPLIES_SOURCE_SPREADSHEET_ID = os.getenv(
+    "PRODUCTION_PLATFORM_SUPPLIES_SPREADSHEET_ID", "1GhGXTfEEXbN-LYry2bwKJirQJcKP4xAA"
+)
+SUPPLIES_SOURCE_SHEET_GID = int(os.getenv("PRODUCTION_PLATFORM_SUPPLIES_SHEET_GID", "921765553"))
+SUPPLIES_SOURCE_SHEET_TITLE = os.getenv("PRODUCTION_PLATFORM_SUPPLIES_SHEET_TITLE", "辅料料号")
+SUPPLIES_AUTO_SYNC_SECONDS = max(60, int(os.getenv("PRODUCTION_PLATFORM_SUPPLIES_AUTO_SYNC_SECONDS", "3600")))
+SUPPLIES_AUTO_SYNC_ENABLED = os.getenv("PRODUCTION_PLATFORM_SUPPLIES_AUTO_SYNC_ENABLED", "true").lower() not in {
+    "0", "false", "no", "off",
+}
 SOP_CACHE_PATH = Path(
     os.getenv("PRODUCTION_PLATFORM_SOP_CACHE_PATH", DB_BUSINESS_DIR / "sop_cache.sqlite3")
 )

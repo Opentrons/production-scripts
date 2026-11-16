@@ -7,6 +7,12 @@
         <p>{{ t('versions.supplies.subtitle') }}</p>
       </div>
       <div class="versions-topbar-actions">
+        <el-button tag="a" :href="sourceUrl" target="_blank" rel="noopener noreferrer" :icon="Link">
+          {{ t('versions.supplies.openSource') }}
+        </el-button>
+        <el-button :icon="Download" :loading="syncing || syncStatus?.syncing" :disabled="syncing || syncStatus?.syncing" @click="syncMaterials">
+          {{ t('versions.supplies.syncSource') }}
+        </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadMaterials">
           {{ t('common.actions.refresh') }}
         </el-button>
@@ -17,6 +23,13 @@
     </header>
 
     <section class="supplies-card">
+      <div v-if="syncStatus" class="supplies-sync-status">
+        <span>{{ syncStatus?.auto_sync_enabled ? t('versions.supplies.autoSync', { minutes: Math.round(syncStatus.interval_seconds / 60) }) : t('versions.supplies.autoSyncDisabled') }}</span>
+        <span>{{ syncStatus?.last_synced_at ? t('versions.supplies.lastSynced', { time: formatSyncTime(syncStatus.last_synced_at) }) : t('versions.supplies.neverSynced') }}</span>
+      </div>
+      <el-alert v-if="syncStatus?.last_error" class="supplies-error" type="warning" :closable="false" show-icon>
+        {{ t('versions.supplies.syncFailed', { error: syncStatus.last_error }) }}
+      </el-alert>
       <div class="supplies-toolbar">
         <div class="section-label">
           <span>ACCESSORY CATALOG</span>
@@ -180,16 +193,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { Delete, Edit, Files, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { Delete, Download, Edit, Files, Link, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { useAppLocale } from '@/i18n'
 import {
   suppliesApi,
+  SUPPLIES_SOURCE_URL,
   type SupplementaryMaterial,
   type SupplementaryMaterialPayload,
+  type SupplementaryMaterialSyncStatus,
 } from '@/scripts/modules/version_modules/api/supplies'
 
 const { t } = useI18n()
@@ -197,6 +212,10 @@ const { locale } = useAppLocale()
 const materials = ref<SupplementaryMaterial[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const syncing = ref(false)
+const syncStatus = ref<SupplementaryMaterialSyncStatus | null>(null)
+const sourceUrl = computed(() => syncStatus.value?.source_url || SUPPLIES_SOURCE_URL)
+let refreshTimer: ReturnType<typeof setInterval> | undefined
 const loadError = ref('')
 const searchText = ref('')
 const dialogVisible = ref(false)
@@ -230,10 +249,29 @@ async function loadMaterials() {
   try {
     const response = await suppliesApi.list(searchText.value)
     materials.value = response.data.items
+    syncStatus.value = response.data.sync_status ?? null
   } catch (error: any) {
     loadError.value = apiError(error)
   } finally {
     loading.value = false
+  }
+}
+
+function formatSyncTime(value: string) {
+  return new Date(value).toLocaleString(locale.value)
+}
+
+async function syncMaterials() {
+  if (syncing.value || syncStatus.value?.syncing) return
+  syncing.value = true
+  try {
+    const response = await suppliesApi.sync()
+    ElMessage.success(t('versions.supplies.messages.synced', { count: response.data.total }))
+  } catch (error: any) {
+    ElMessage.error(t('versions.supplies.syncFailed', { error: apiError(error) }))
+  } finally {
+    syncing.value = false
+    await loadMaterials()
   }
 }
 
@@ -310,6 +348,13 @@ async function deleteMaterial(material: SupplementaryMaterial) {
 
 onMounted(() => {
   void loadMaterials()
+  refreshTimer = setInterval(() => {
+    if (!document.hidden && !loading.value && !syncing.value) void loadMaterials()
+  }, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 </script>
 
@@ -324,6 +369,20 @@ onMounted(() => {
 
 .supplies-topbar {
   flex: 0 0 auto;
+}
+
+.supplies-sync-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e4e9ec;
+  color: #71828a;
+  font-size: 12px;
+}
+
+.supplies-topbar .versions-topbar-actions {
+  flex-wrap: wrap;
 }
 
 .supplies-card {
