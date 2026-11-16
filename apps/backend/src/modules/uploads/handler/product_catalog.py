@@ -231,6 +231,8 @@ UPLOAD_HANDLER_CONFIGS = {
         test_display_name="Vacuum Module QC",
         new_filename_template="{sn}-VacuumQC-{timestamp}",
         tracker_sheet_name_template="Sheet1",
+        sheet_link_index=0,
+        sheet_link_mode="set",
     ),
 }
 
