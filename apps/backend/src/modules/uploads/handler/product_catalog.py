@@ -57,6 +57,7 @@ class UploadHandlerConfig:
     tracker_sheet_name_template: str = "{oem} {model}"
     sheet_link_index: int = 0
     sheet_link_mode: str = "insert"
+    tracker_data_start_row: int = 11
 
 
 @dataclass(frozen=True)
@@ -233,6 +234,7 @@ UPLOAD_HANDLER_CONFIGS = {
         tracker_sheet_name_template="Sheet1",
         sheet_link_index=0,
         sheet_link_mode="set",
+        tracker_data_start_row=3,
     ),
 }
 

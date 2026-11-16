@@ -413,10 +413,14 @@ class UploadCommonMixin:
         row_range: str = "F:I",
         *,
         required_rows: int = 1,
+        start_row: int | None = None,
     ) -> int | None:
         """Find the first consecutive empty data rows in the configured columns."""
         if required_rows < 1:
             raise ValueError("required_rows must be positive")
+        data_start_row = self.TRACKER_DATA_START_ROW if start_row is None else int(start_row)
+        if data_start_row < 1:
+            raise ValueError("start_row must be positive")
         match = re.fullmatch(r"\s*([A-Z]+)\s*:\s*([A-Z]+)\s*", str(row_range).upper())
         if not match:
             raise ValueError(f"Invalid last row range: {row_range}")
@@ -436,7 +440,7 @@ class UploadCommonMixin:
         first_blank = None
         blank_count = 0
         for row_number, row in enumerate(values, start=1):
-            if row_number < self.TRACKER_DATA_START_ROW:
+            if row_number < data_start_row:
                 continue
             cells = list(row or [])[:width]
             cells.extend([""] * (width - len(cells)))
@@ -450,7 +454,7 @@ class UploadCommonMixin:
                 first_blank = None
                 blank_count = 0
         # Omitted rows beyond the values response are empty as well.
-        return first_blank if first_blank is not None else max(len(values) + 1, self.TRACKER_DATA_START_ROW)
+        return first_blank if first_blank is not None else max(len(values) + 1, data_start_row)
 
     @classmethod
     def tracker_check_range(cls, configured_range: str, paste_start: str, paste_end: str) -> str:

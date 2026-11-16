@@ -38,6 +38,7 @@ class SpreadsheetUploadPlan:
     model_key: str | None = None
     sheet_link_index: int = 0
     sheet_link_mode: str = "insert"
+    tracker_data_start_row: int = 11
     paste_file_resolver: PasteFileResolver | None = None
     require_total_result_for_tracker: bool = True
     parallelism_writer: Callable[[], None] | None = None
@@ -326,6 +327,7 @@ class SpreadsheetUploadWorkflow:
                 paste_file_id,
                 tracker_sheet_name,
                 check_range,
+                start_row=plan.tracker_data_start_row,
             )
             if last_row_number is None:
                 logger.warning(f"Cannot read tracker sheet: {tracker_sheet_name}")
