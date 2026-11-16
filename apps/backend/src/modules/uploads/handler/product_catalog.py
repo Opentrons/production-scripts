@@ -22,6 +22,7 @@ SERIAL_NUMBER_MODEL_MAPPING = {
     "FLX": Productions.ROBOT,
     "ZS": Productions.ROBOT,
     "GRPV": Productions.GRIPPER,
+    "VM": Productions.VACUUM,
 }
 
 PIPETTE_1CH_MODELS = {
@@ -97,6 +98,10 @@ UPLOAD_PRODUCT_PROFILES = {
     Productions.GRIPPER: UploadProductProfile(
         uploader_key="spreadsheet",
         collection_prefix="gripper",
+    ),
+    Productions.VACUUM: UploadProductProfile(
+        uploader_key="spreadsheet",
+        collection_prefix="vacuum",
     ),
 }
 
@@ -220,6 +225,13 @@ UPLOAD_HANDLER_CONFIGS = {
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
         tracker_sheet_name_template="{oem} OT3",
     ),
+    "vacuum_update_qc": UploadHandlerConfig(
+        uploader_key="spreadsheet",
+        upload_method="upload",
+        test_display_name="Vacuum Module QC",
+        new_filename_template="{sn}-VacuumQC-{timestamp}",
+        tracker_sheet_name_template="Sheet1",
+    ),
 }
 
 UPLOAD_DATABASE_CONFIGS = {
@@ -298,6 +310,11 @@ UPLOAD_DATABASE_CONFIGS = {
         test_field="z_stage",
         upload_flag_field="z_stage_test",
     ),
+    "vacuum_update_qc": UploadDatabaseConfig(
+        collection_workflow="qc",
+        test_field="qc",
+        upload_flag_field="vacuum_qc",
+    ),
 }
 
 SERIAL_NUMBER_METADATA_KEYS = ("test_tag", "pipette", "test_device_id", "serial-number", "robot", "test_robot_id")
@@ -333,6 +350,8 @@ def get_test_type_from_name(test_name: str) -> str:
         return TestTypes.Gravimetric.value
     if "speed" in test_name_lower or "current" in test_name_lower:
         return TestTypes.Speed_Current_Test.value
+    if "vacuum-module-qc" in test_name_lower or "vacuum module qc" in test_name_lower:
+        return TestTypes.Vacuum_QC.value
     if "z-stage" in test_name_lower or "z stage" in test_name_lower:
         return TestTypes.ZStage_Test.value
     if "robot-assembly" in test_name_lower:
@@ -432,6 +451,9 @@ def get_upload_config_key(model: str, test_type: str | TestTypes | None) -> str:
             return "robot_update_leveling"
         if normalized_test_type == TestTypes.ZStage_Test:
             return "robot_update_z_stage"
+
+    if production == Productions.VACUUM and normalized_test_type == TestTypes.Vacuum_QC:
+        return "vacuum_update_qc"
 
     raise ValueError(f"Upload config key not found: model={model}, test_type={test_type}")
 

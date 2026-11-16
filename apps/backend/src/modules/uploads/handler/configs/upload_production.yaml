@@ -1826,3 +1826,114 @@ gripper_update_diagnostic:
       pastelineRange:
         star: J
         end: AI
+
+vacuum_update_qc:
+- ifupdate: true
+  spreadsheet_strategy: always_new
+  ifcopytemplate:
+    default: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+  csv_target_sheet_name: Diagnostic Test Results
+  result_cell: '!A5:A5'
+  Range:
+  - A
+  - B
+  - C
+  - D
+  - E
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Summary
+    failures: N/A
+    copyRange:
+    - '!A3:CJ3'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+    pastelineRange:
+      star: G
+      end: CP
+    unit_tracker_tab: Sheet1
+  unit_tracker_sheet:
+    fumulu: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    1: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    2: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    3: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    4: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    5: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    6: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    7: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    8: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    9: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    10: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    11: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    12: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+  ifupdaterawdata:
+    fumulu: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    1: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    2: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    3: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    4: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    5: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    6: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    7: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    8: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    9: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    10: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    11: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+    12: 16sHtnqsXtLxsGncQkO81KR3sEdbXElSH
+  oem:
+    Opentrons:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!A3:CJ3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CP
+    Ultima:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!A3:CJ3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CP
+    BD:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!A3:CJ3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CP
+    Millipore:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!A3:CJ3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CP
+    Sf:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: N/A
+      copyRange:
+      - '!A3:CJ3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CP
