@@ -1835,11 +1835,7 @@ vacuum_update_qc:
   csv_target_sheet_name: Diagnostic Test Results
   result_cell: '!A5:A5'
   Range:
-  - A
-  - B
-  - C
-  - D
-  - E
+  - A-HA
   ifcopydata:
   - off/on: true
     summary_source_sheet_name: Summary
