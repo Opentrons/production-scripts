@@ -313,6 +313,36 @@ class UploadCommonMixin:
         except (IndexError, TypeError, KeyError):
             return default
 
+    def write_summary_sheet_link(
+        self,
+        yaml_cfg: dict,
+        updatefileid: str,
+        cell: str,
+        sheet_link: str,
+    ) -> bool:
+        """Write the working spreadsheet's own link into its summary sheet.
+
+        A copied template keeps whatever link the template had in this cell,
+        so it must be overwritten before the summary row is read.
+        """
+        sheet_names = {
+            cop["summary_source_sheet_name"]
+            for cop in yaml_cfg.get("ifcopydata") or []
+            if cop.get("off/on") and cop.get("summary_source_sheet_name")
+        }
+        cell = cell.lstrip("!")
+        for sheet_name in sorted(sheet_names):
+            ok = self.gdrive.update_excel_sheet_page_batch(
+                spreadsheet_id=updatefileid,
+                sheet_name=sheet_name,
+                ranges=f"!{cell}",
+                new_values=[[sheet_link]],
+            )
+            if not ok:
+                logger.error("Failed to write sheet link to %s!%s", sheet_name, cell)
+                return False
+        return True
+
     def copy_summary_ranges(
         self,
         yaml_cfg: dict,

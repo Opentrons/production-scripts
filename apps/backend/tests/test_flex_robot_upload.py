@@ -306,6 +306,12 @@ def test_five_flex_reports_complete_one_workflow_and_append_both_trackers(leveli
     assert any({"appendDimension": {"sheetId": 3, "dimension": "ROWS", "length": 10450}}
                in call.kwargs["body"]["requests"] for call in expansions)
     assert tracker_writes[0]["ranges"] == "!J13:AI13"
+    # The copied sheet's own link replaces the template link in Summary!A4
+    # and is what lands in the Unit Tracker Link column (J).
+    working_link = "https://docs.google.com/spreadsheets/d/working-sheet/edit#gid=0"
+    assert raw_writes["Summary"]["ranges"] == "!A4"
+    assert raw_writes["Summary"]["new_values"] == [[working_link]]
+    assert tracker_writes[0]["new_values"][0][0] == working_link
 
     # The next append observes the L:AI data written above.
     plan = SimpleNamespace(

@@ -38,6 +38,7 @@ class SpreadsheetUploadPlan:
     model_key: str | None = None
     sheet_link_index: int = 0
     sheet_link_mode: str = "insert"
+    summary_link_cell: str = ""
     tracker_data_start_row: int = 11
     paste_file_resolver: PasteFileResolver | None = None
     require_total_result_for_tracker: bool = True
@@ -100,6 +101,17 @@ class SpreadsheetUploadWorkflow:
             "CSV 数据已写入 Google Spreadsheet",
             {"spreadsheet_written": True},
         )
+
+        if plan.summary_link_cell and not self.uploader.write_summary_sheet_link(
+            plan.yaml_cfg,
+            updatefileid,
+            plan.summary_link_cell,
+            sheetlink,
+        ):
+            google_error = getattr(self.uploader.gdrive, "last_error", None)
+            detail = f": {google_error}" if google_error else ""
+            plan.result.set_error(f"写入 Summary {plan.summary_link_cell} 数据链接失败{detail}")
+            return plan.result.to_dict()
 
         self.uploader.report_progress("read_summary", "正在读取测试汇总结果")
         copy_data_list = self.uploader.copy_summary_ranges(
