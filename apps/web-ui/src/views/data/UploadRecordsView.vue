@@ -584,13 +584,25 @@
                       <el-icon><DocumentIcon /></el-icon>
                       <span class="remote-file-name" :title="file.name">{{ file.name }}</span>
                       <span class="remote-file-time">{{ formatDateTime(file.modified_at ? new Date(file.modified_at * 1000).toISOString() : null) }}</span>
-                      <el-tag
-                        v-if="file.status && file.status !== 'pending'"
-                        :type="file.status === 'success' ? 'success' : file.status === 'failed' ? 'danger' : 'warning'"
-                        size="small"
-                      >
-                        {{ getZStageFileStatusLabel(file.status) }}
-                      </el-tag>
+                      <span class="remote-file-status">
+                        <el-tag
+                          v-if="file.status && file.status !== 'pending'"
+                          :type="file.status === 'success' ? 'success' : file.status === 'failed' ? 'danger' : 'warning'"
+                          size="small"
+                        >
+                          {{ getZStageFileStatusLabel(file.status) }}
+                        </el-tag>
+                      </span>
+                      <el-button
+                        class="remote-file-preview"
+                        text
+                        :icon="View"
+                        :aria-label="t('uploadRecords.previewCsv')"
+                        :title="t('uploadRecords.previewCsv')"
+                        :loading="zStagePreviewLoadingPath === file.path"
+                        :disabled="zStageUploading"
+                        @click.stop.prevent="previewZStageRemoteFile(file)"
+                      />
                     </label>
                   </div>
                 </div>
@@ -688,6 +700,64 @@
           <el-button v-else-if="manualUploadTab === 'pipette_optical'" type="primary" disabled>{{ t('uploadRecords.submitUpload') }}</el-button>
         </template>
       </el-dialog>
+
+      <el-dialog
+        v-model="zStagePreviewVisible"
+        :title="t('uploadRecords.previewTitle', { name: zStagePreviewName })"
+        width="860px"
+        append-to-body
+        destroy-on-close
+        class="csv-preview-dialog"
+        @closed="resetZStagePreviewState"
+      >
+        <div v-if="zStagePreviewLoadingPath" class="csv-preview-loading">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <span>{{ t('uploadRecords.previewLoading') }}</span>
+        </div>
+        <el-alert
+          v-else-if="zStagePreviewError"
+          type="error"
+          show-icon
+          :closable="false"
+          :title="t('uploadRecords.messages.previewFailed', { error: zStagePreviewError })"
+        />
+        <el-empty
+          v-else-if="!zStagePreviewRows.length && !zStagePreviewRaw"
+          :description="t('uploadRecords.previewEmpty')"
+        />
+        <div v-else class="csv-preview-body">
+          <el-alert
+            v-if="zStagePreviewTruncated"
+            class="csv-preview-truncated"
+            type="info"
+            show-icon
+            :closable="false"
+            :title="t('uploadRecords.previewTruncated', { count: zStagePreviewDisplayedRows })"
+          />
+          <div v-if="zStagePreviewRows.length" class="csv-preview-table-wrap">
+            <table class="csv-preview-table">
+              <thead>
+                <tr>
+                  <th v-for="columnIndex in zStagePreviewColumnCount" :key="`h-${columnIndex}`">
+                    {{ zStagePreviewRows[0][columnIndex - 1] || '' }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in zStagePreviewRows.slice(1)" :key="`r-${rowIndex}`">
+                  <td v-for="columnIndex in zStagePreviewColumnCount" :key="`c-${rowIndex}-${columnIndex}`">
+                    {{ row[columnIndex - 1] || '' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre v-else class="csv-preview-raw">{{ zStagePreviewRaw }}</pre>
+        </div>
+        <template #footer>
+          <el-button type="primary" @click="zStagePreviewVisible = false">{{ t('common.actions.close') }}</el-button>
+        </template>
+      </el-dialog>
     </el-card>
   </div>
 </template>
@@ -697,7 +767,7 @@ import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch } from
 import { useI18n } from 'vue-i18n'
 import { ElIcon, ElMessage, ElMessageBox, ElTag, ElTooltip } from 'element-plus'
 import type { UploadFile, UploadFiles } from 'element-plus'
-import { Check, Close, Document as DocumentIcon, FolderOpened, Loading, Minus, Refresh, Upload, UploadFilled } from '@element-plus/icons-vue'
+import { Check, Close, Document as DocumentIcon, FolderOpened, Loading, Minus, Refresh, Upload, UploadFilled, View } from '@element-plus/icons-vue'
 import { robotApi, uploadRecordApi } from '@/scripts/api'
 import type { RobotFileEntry, RobotInfo } from '@/scripts/api'
 import { useRobotScanStore } from '@/scripts/stores/robotScan'
@@ -858,6 +928,16 @@ const zStageRemoteFiles = ref<ZStageRemoteFile[]>([])
 const zStageSearchError = ref('')
 const zStageLocalFile = ref<File | null>(null)
 const zStageOfflineAlertShown = ref(false)
+const zStagePreviewVisible = ref(false)
+const zStagePreviewLoadingPath = ref('')
+const zStagePreviewName = ref('')
+const zStagePreviewError = ref('')
+const zStagePreviewRows = ref<string[][]>([])
+const zStagePreviewRaw = ref('')
+const zStagePreviewTruncated = ref(false)
+const zStagePreviewRequestId = ref(0)
+const CSV_PREVIEW_MAX_BYTES = 512 * 1024
+const CSV_PREVIEW_MAX_ROWS = 500
 const watchedRecordId = ref('')
 const filterOptions = ref({
   models: [] as string[],
@@ -928,6 +1008,8 @@ const canGoUpStandardRobotPath = computed(() => {
 const selectedZStageRemoteFiles = computed(() => zStageRemoteFiles.value.filter(file => file.selected))
 const selectedZStageRemotePath = computed(() => selectedZStageRemoteFiles.value[0]?.path || '')
 const zStageCsvFiles = computed(() => zStageRemoteFiles.value.filter(file => !file.is_dir && file.name.toLowerCase().endsWith('.csv')))
+const zStagePreviewColumnCount = computed(() => zStagePreviewRows.value.reduce((max, row) => Math.max(max, row.length), 0))
+const zStagePreviewDisplayedRows = computed(() => zStagePreviewRows.value.length)
 const allZStageRemoteSelected = computed(
   () => zStageCsvFiles.value.length > 0 && selectedZStageRemoteFiles.value.length === zStageCsvFiles.value.length
 )
@@ -1008,6 +1090,7 @@ const resetManualUploadState = () => {
   zStageSearchError.value = ''
   zStageLocalFile.value = null
   zStageOfflineAlertShown.value = false
+  resetZStagePreviewState()
 }
 
 const normalizeUploadError = (error: any) => {
@@ -1265,6 +1348,112 @@ const getZStageFileStatusLabel = (status: ZStageRemoteFileStatus) => {
 const normalizeRemotePath = (path: string) => {
   const normalized = path.trim().replace(/\/+$/, '')
   return normalized || '/'
+}
+
+const resetZStagePreviewState = () => {
+  zStagePreviewRequestId.value += 1
+  zStagePreviewVisible.value = false
+  zStagePreviewLoadingPath.value = ''
+  zStagePreviewName.value = ''
+  zStagePreviewError.value = ''
+  zStagePreviewRows.value = []
+  zStagePreviewRaw.value = ''
+  zStagePreviewTruncated.value = false
+}
+
+const parseCsvPreview = (text: string, maxRows: number) => {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          field += '"'
+          index += 1
+        } else {
+          inQuotes = false
+        }
+      } else {
+        field += char
+      }
+      continue
+    }
+    if (char === '"') {
+      inQuotes = true
+      continue
+    }
+    if (char === ',') {
+      row.push(field)
+      field = ''
+      continue
+    }
+    if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[index + 1] === '\n') index += 1
+      row.push(field)
+      field = ''
+      if (row.some(cell => cell.length > 0) || row.length > 1) rows.push(row)
+      row = []
+      if (rows.length >= maxRows) return { rows, truncated: true }
+      continue
+    }
+    field += char
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field)
+    rows.push(row)
+  }
+  return { rows, truncated: false }
+}
+
+const messageFromDownloadError = async (error: any) => {
+  const data = error?.response?.data
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text())
+      return parsed?.detail?.message || parsed?.detail?.error || parsed?.message || ''
+    } catch {
+      // Fall through to the regular upload error message.
+    }
+  }
+  return normalizeUploadError(error)
+}
+
+const previewZStageRemoteFile = async (file: ZStageRemoteFile) => {
+  if (!zStageRobotIp.value.trim()) {
+    ElMessage.warning(t('uploadRecords.messages.zStageFixtureOffline'))
+    return
+  }
+
+  const requestId = zStagePreviewRequestId.value + 1
+  zStagePreviewRequestId.value = requestId
+  zStagePreviewVisible.value = true
+  zStagePreviewLoadingPath.value = file.path
+  zStagePreviewName.value = file.name
+  zStagePreviewError.value = ''
+  zStagePreviewRows.value = []
+  zStagePreviewRaw.value = ''
+  zStagePreviewTruncated.value = false
+
+  try {
+    const response = await robotApi.downloadFile(zStageRobotIp.value.trim(), file.path)
+    if (zStagePreviewRequestId.value !== requestId) return
+    const blob = response.data
+    const previewBlob = blob.size > CSV_PREVIEW_MAX_BYTES ? blob.slice(0, CSV_PREVIEW_MAX_BYTES) : blob
+    const text = (await previewBlob.text()).replace(/^\uFEFF/, '')
+    if (zStagePreviewRequestId.value !== requestId) return
+    const parsed = parseCsvPreview(text, CSV_PREVIEW_MAX_ROWS)
+    zStagePreviewRows.value = parsed.rows
+    zStagePreviewTruncated.value = blob.size > CSV_PREVIEW_MAX_BYTES || parsed.truncated
+    if (!parsed.rows.length) zStagePreviewRaw.value = text
+  } catch (error: any) {
+    if (zStagePreviewRequestId.value !== requestId) return
+    zStagePreviewError.value = await messageFromDownloadError(error) || t('errors.unknown')
+  } finally {
+    if (zStagePreviewRequestId.value === requestId) zStagePreviewLoadingPath.value = ''
+  }
 }
 
 const searchZStageRemoteFiles = async () => {
@@ -2332,13 +2521,98 @@ onUnmounted(() => {
 
 .remote-file-row {
   display: grid;
-  grid-template-columns: 24px 22px minmax(0, 1fr) auto auto;
+  grid-template-columns: 24px 22px minmax(0, 1fr) auto auto 32px;
   align-items: center;
   gap: 10px;
   min-height: 40px;
   padding: 6px 0;
   border-bottom: 1px solid #f2f3f5;
   text-align: left;
+}
+
+.remote-file-status {
+  min-width: 48px;
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.remote-file-preview {
+  margin: 0;
+  padding: 4px;
+  height: 28px;
+  width: 28px;
+  color: #409eff;
+}
+
+.remote-file-preview:hover {
+  color: #337ecc;
+}
+
+.csv-preview-loading,
+.csv-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.csv-preview-loading {
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  color: #606266;
+  gap: 8px;
+}
+
+.csv-preview-truncated {
+  margin: 0;
+}
+
+.csv-preview-table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+}
+
+.csv-preview-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.csv-preview-table th,
+.csv-preview-table td {
+  border: 1px solid #ebeef5;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  white-space: pre;
+}
+
+.csv-preview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f5f7fa;
+  font-weight: 600;
+  color: #303133;
+}
+
+.csv-preview-raw {
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border-radius: 4px;
+  background: #f5f7fa;
+  color: #303133;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
 }
 
 .remote-file-name,
