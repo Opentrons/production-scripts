@@ -93,6 +93,7 @@ class SpreadsheetUploader(ProductUploaderBase):
                 is_ultima=self.is_ultima_oem(oem_type),
                 sheet_link_index=handler_config.sheet_link_index,
                 sheet_link_mode=handler_config.sheet_link_mode,
+                summary_link_cell=handler_config.summary_link_cell,
                 tracker_data_start_row=handler_config.tracker_data_start_row,
                 require_total_result_for_tracker=bool(total_result_cell),
                 parallelism_writer=parallelism_writer,

@@ -58,6 +58,9 @@ class UploadHandlerConfig:
     sheet_link_index: int = 0
     sheet_link_mode: str = "insert"
     tracker_data_start_row: int = 11
+    # Cell in the summary sheet that must hold the new spreadsheet's own link
+    # (e.g. "A4"). Copied templates otherwise keep the template's link there.
+    summary_link_cell: str = ""
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,7 @@ UPLOAD_HANDLER_CONFIGS = {
         test_display_name="Z Stage",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
         tracker_sheet_name_template="{oem} OT3",
+        summary_link_cell="A4",
     ),
     "robot_update_diagnostic": UploadHandlerConfig(
         uploader_key="spreadsheet",
@@ -204,6 +208,7 @@ UPLOAD_HANDLER_CONFIGS = {
         test_display_name="Diagnostic",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
         tracker_sheet_name_template="{oem} OT3",
+        summary_link_cell="A4",
     ),
     "robot_update_xy_belt_calibration": UploadHandlerConfig(
         uploader_key="spreadsheet",
@@ -211,6 +216,7 @@ UPLOAD_HANDLER_CONFIGS = {
         test_display_name="XY Belt Calibration",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
         tracker_sheet_name_template="{oem} OT3",
+        summary_link_cell="A4",
     ),
     "robot_update_gantry_stress": UploadHandlerConfig(
         uploader_key="spreadsheet",
@@ -218,6 +224,7 @@ UPLOAD_HANDLER_CONFIGS = {
         test_display_name="Gantry Stress",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
         tracker_sheet_name_template="{oem} OT3",
+        summary_link_cell="A4",
     ),
     "robot_update_leveling": UploadHandlerConfig(
         uploader_key="spreadsheet",
@@ -225,6 +232,7 @@ UPLOAD_HANDLER_CONFIGS = {
         test_display_name="Leveling",
         new_filename_template="{sn}-RobotAssembly-{timestamp}",
         tracker_sheet_name_template="{oem} OT3",
+        summary_link_cell="A4",
     ),
     "vacuum_update_qc": UploadHandlerConfig(
         uploader_key="spreadsheet",
