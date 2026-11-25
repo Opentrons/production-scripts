@@ -9,8 +9,9 @@ from modules.robots import code_flash
 
 
 @pytest.fixture(autouse=True)
-def clear_flash_tasks():
+def clear_flash_tasks(monkeypatch):
     code_flash._TASKS.clear()
+    monkeypatch.setattr(code_flash, "_clear_robot_known_host", lambda *_args: None)
     yield
     code_flash._TASKS.clear()
 
@@ -151,6 +152,8 @@ def test_classify_result_uses_exit_code_timeout_and_failure_output() -> None:
     assert code_flash._classify_result(2, "", False) == (False, "烧录失败，make 退出码 2")
     assert code_flash._classify_result(0, "make: *** [push] Error 1", False)[0] is False
     assert code_flash._classify_result(0, "", True)[0] is False
+    assert code_flash._classify_result(0, "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", False)[0] is False
+    assert code_flash._classify_result(0, "Host key verification failed.", False)[0] is False
 
 
 def test_repository_state_lists_current_branch_and_detects_dirty_files(
