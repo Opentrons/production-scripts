@@ -1,4 +1,4 @@
-export interface StoredFailureDraft { text: string; version: string }
+export interface StoredFailureDraft { text: string; version: string; confirmer?: string }
 type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 /** Session-only drafts are isolated by authenticated account and independent folder ID. */
@@ -13,16 +13,18 @@ export function createFailureDraftStorage(getStorage: () => DraftStorage = () =>
         const value: unknown = JSON.parse(stored)
         if (!value || typeof value !== 'object') return null
         const draft = value as Partial<StoredFailureDraft>
-        return typeof draft.text === 'string' && draft.text.length <= 4000 && draft.text.trim()
-          && typeof draft.version === 'string' && draft.version.length > 0 && draft.version.length < 500
-          ? { text: draft.text, version: draft.version } : null
+        const confirmer = typeof draft.confirmer === 'string' && draft.confirmer.length <= 128 ? draft.confirmer : ''
+        if (typeof draft.text !== 'string' || draft.text.length > 4000 || !(draft.text.trim() || confirmer)
+          || typeof draft.version !== 'string' || !draft.version || draft.version.length >= 500) return null
+        return { text: draft.text, version: draft.version, ...(confirmer ? { confirmer } : {}) }
       } catch { return null }
     },
     write(userId: string, folderId: string, draft: StoredFailureDraft): boolean {
       if (!userId || !folderId) return false
       try {
         const storage = getStorage()
-        if (draft.text.trim()) storage.setItem(key(userId, folderId), JSON.stringify({ text: draft.text, version: draft.version }))
+        const { text, version, confirmer } = draft
+        if (text.trim() || confirmer) storage.setItem(key(userId, folderId), JSON.stringify({ text, version, confirmer }))
         else storage.removeItem(key(userId, folderId))
         return true
       } catch { return false }

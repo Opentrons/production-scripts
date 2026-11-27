@@ -192,11 +192,16 @@ class GoogleReportLinkSource:
                                         "source_url": f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/edit#gid={sheet['sheetId']}&range={GoogleDriver.column_name(col + 1)}{row_number + 1}"})
         return catalog
 
-    def read_identity(self, url: str) -> dict[str, str]:
+    def read_identity(self, url: str, *, worksheet: str | None = None) -> dict[str, str]:
         spreadsheet_id, gid = report_target(url)
         sheets = [s for s in self.driver.get_sheet_metadata(spreadsheet_id) if s.get("sheetType", "GRID") == "GRID"]
         resolved_url = None
-        if gid is not None:
+        if worksheet is not None:
+            # Combined uploads can link to a summary or the other test's tab.
+            sheets = [s for s in sheets if normalized(s["title"]) == normalized(worksheet)]
+            if len(sheets) != 1:
+                raise ValueError("Linked test worksheet missing or ambiguous")
+        elif gid is not None:
             selected = [s for s in sheets if s["sheetId"] == gid]
             # Some legacy links retain Google's default gid=0 after Assembly QC
             # acquired another sheet ID. Only repair that obsolete default when
@@ -217,3 +222,54 @@ class GoogleReportLinkSource:
         if len({(i["sn"], i["report_run_id"]) for i in identities}) != 1:
             raise ValueError("Linked report identity ambiguous")
         return {**identities[0], **({"resolved_url": resolved_url} if resolved_url else {})}
+
+    def read_failed_rows(self, url: str, sn: str, runs: dict, tabs: list[str]) -> list[dict]:
+        """Use explicit FAIL/NG cells in tabs whose metadata matches the uploaded test."""
+        spreadsheet_id, gid = report_target(url)
+        sheets = [sheet for sheet in self.driver.get_sheet_metadata(spreadsheet_id)
+                  if sheet.get("sheetType", "GRID") == "GRID"]
+        titles = {normalized(name) for name in tabs}
+        if titles:
+            sheets = [sheet for sheet in sheets if normalized(sheet["title"]) in titles]
+        elif gid is not None:
+            sheets = [sheet for sheet in sheets if sheet["sheetId"] == gid]
+        if not sheets or len(sheets) > 12:
+            raise ValueError("找不到可核对的测试工作表")
+        grids = self._read_ranges(spreadsheet_id, [
+            f"{GoogleDriver._quote_sheet_title(sheet['title'])}!A1:AD2000" for sheet in sheets
+        ])
+        matched = False
+        findings = []
+        for sheet in sheets:
+            rows = grids.get(sheet["sheetId"], {})
+            try:
+                identity = metadata_identity(rows)
+            except ValueError:
+                continue
+            title = sheet["title"]
+            mode = {"assemblyqc": "assembly_qc", "currentspeedtest": "current_speed"}.get(normalized(title))
+            if identity["sn"] != sn or (mode and runs.get(mode) and identity["report_run_id"] != runs[mode]):
+                continue
+            if mode is None and runs and identity["report_run_id"] not in runs.values():
+                continue
+            if mode and runs and mode not in runs:
+                continue
+            matched = True
+            in_metadata = False
+            for row_number, cells in sorted(rows.items()):
+                tag = cell_value(cells, 1)
+                if normalized(tag) in {"metadata", "metadatastart"}:
+                    in_metadata = True
+                    continue
+                if in_metadata and (normalized(tag) == "metadataend" or re.fullmatch(r"[-=]{3,}", tag)):
+                    in_metadata = False
+                    continue
+                if not in_metadata and tag and any(
+                    cell_value(cells, col).upper() in {"FAIL", "FAILED", "NG"} for col in cells if col >= 2
+                ):
+                    if len(findings) < 50:
+                        values = [cell_value(cells, col) for col in sorted(cells)[:12]]
+                        findings.append({"tab": title, "row": row_number + 1, "item": tag, "values": values})
+        if not matched:
+            raise ValueError("测试工作表的 SN 或运行编号无法与记录核对")
+        return findings

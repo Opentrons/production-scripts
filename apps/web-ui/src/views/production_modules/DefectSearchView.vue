@@ -17,7 +17,9 @@
         <span>/</span>
         <a href="/#modules">{{ copy.modules }}</a>
         <span>/</span>
-        <span>{{ copy.title }}</span>
+        <RouterLink :to="{ name: 'DefectAnalysis' }">{{ copy.title }}</RouterLink>
+        <span>/</span>
+        <span>{{ t('testFailures.knowledgeTab') }}</span>
       </nav>
 
       <section class="defect-search-heading">
@@ -30,8 +32,8 @@
       </section>
 
       <nav class="defect-section-tabs" :aria-label="copy.title">
-        <RouterLink :to="{ name: 'DefectSearch' }" exact-active-class="is-active">{{ t('testFailures.knowledgeTab') }}</RouterLink>
         <RouterLink :to="{ name: 'TestFailures' }" exact-active-class="is-active">{{ t('testFailures.failuresTab') }}</RouterLink>
+        <RouterLink :to="{ name: 'DefectSearch' }" exact-active-class="is-active">{{ t('testFailures.knowledgeTab') }}</RouterLink>
       </nav>
 
       <section class="defect-search-stats" :aria-label="copy.summaryLabel">

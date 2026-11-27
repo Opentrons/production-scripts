@@ -47,6 +47,15 @@
             </div>
             <p v-else class="tf-note">{{ t('testFailures.knowledgeEmpty') }}</p>
             <TestFailureSummary v-if="report.summary.length" :items="report.summary" />
+            <div v-if="canWriteConfirmation" class="tf-detail-section">
+              <button class="tf-button" type="button" :disabled="Boolean(writebackPending)" @click="writeConfirmation">
+                {{ t('testFailures.writeback.' + (writebackPending === writebackKey ? 'writing' : 'action')) }}
+              </button>
+              <p v-if="writebackResult?.key === writebackKey" role="status">
+                {{ t('testFailures.writeback.' + writebackResult.status, { collection: writebackResult.collection }) }}
+              </p>
+              <p v-if="writebackError?.key === writebackKey" class="tf-error" role="alert">{{ writebackError.message }}</p>
+            </div>
 
             <TestFailureAnalysis :key="report.id + report.revision" :report-id="report.id" :report-revision="report.revision" :evidence-version="report.evidence_version" @refresh-report="selectReport(selectedId)" />
 
@@ -96,7 +105,7 @@
         <p v-else-if="historyError" class="tf-error" role="alert">{{ historyError }} <button class="tf-link" type="button" @click="loadHistory">{{ t('testFailures.retry') }}</button></p>
         <p v-else-if="!history.length" class="tf-muted">{{ t('testFailures.historyEmpty') }}</p>
         <article v-for="item in history" :key="item.id" class="tf-history-entry">
-          <p>{{ item.text }}</p><small>{{ item.created_by_name || item.created_by }} · {{ formatFailureTime(item.created_at, locale) }}</small>
+          <p>{{ item.text }}</p><small>{{ item.confirmed_by_name || item.created_by_name || item.created_by }} · {{ formatFailureTime(item.created_at, locale) }}</small>
           <details v-if="item.coverage?.length" class="tf-confirmation-coverage">
             <summary>{{ t('testFailures.coverage', { count: item.coverage.length }) }}</summary>
             <ul>
@@ -123,6 +132,8 @@ import { testFailuresEn } from '@/i18n/locales/testFailures'
 import { failureValue, formatFailureTime, testFailuresApi, type FailureConfirmation, type FailureDevice, type FailureKind, type FailureReport, type FailureReportSummary } from '@/scripts/api/testFailures'
 import { failureKnowledgeProduct, failureKnowledgeQueries } from '@/scripts/utils/failureKnowledge'
 import { defaultFailureReportId } from '@/scripts/utils/failureReportSelection'
+import { useAuthStore } from '@/scripts/stores/auth'
+import { isAxiosError } from 'axios'
 import TestFailureAttachments from './TestFailureAttachments.vue'
 import TestFailureAnalysis from './TestFailureAnalysis.vue'
 import TestFailureSummary from './TestFailureSummary.vue'
@@ -131,6 +142,7 @@ import TestFailureReportLink from './TestFailureReportLink.vue'
 const props = defineProps<{ device: FailureDevice | null; section?: 'reports' | 'history'; reportId?: string }>()
 const emit = defineEmits<{ close: [] }>()
 const { t, locale } = useAppLocale()
+const authStore = useAuthStore()
 const selectedId = ref('')
 const report = ref<FailureReport | null>(null)
 const loading = ref(false)
@@ -144,6 +156,21 @@ let reportController: AbortController | null = null
 let reportRequestKey = ''
 let historyController: AbortController | null = null
 const selectedKnowledgeQuery = ref('')
+const writebackPending = ref('')
+const writebackResult = ref<{ key: string; status: 'written' | 'unchanged'; collection: string } | null>(null)
+const writebackError = ref<{ key: string; message: string } | null>(null)
+const writebackKey = computed(() => report.value
+  ? `${report.value.id}:${report.value.revision}:${report.value.evidence_version}`
+  : '')
+const canWriteConfirmation = computed(() => {
+  const current = report.value
+  if (!authStore.user || authStore.user.role === 'viewer' || !current?.evidence_version) return false
+  if (current.source_format === 'test_report') return true
+  return Boolean(current.report_role === 'main' && current.parse_status === 'ready'
+    && current.report_run_id
+    && ['assembly_qc', 'current_speed'].includes(current.mode)
+    && ['P50S', 'P1000S', 'P50M', 'P1000M'].includes(current.product || ''))
+})
 const reportGroups = computed(() => {
   const groups = new Map<string, { id: string; reports: FailureReportSummary[] }>()
   for (const item of props.device?.reports || []) {
@@ -171,12 +198,31 @@ watch(knowledgeQueries, queries => {
   if (!queries.includes(selectedKnowledgeQuery.value)) selectedKnowledgeQuery.value = queries[0] || ''
 })
 
+async function writeConfirmation(): Promise<void> {
+  const current = report.value
+  if (!current?.evidence_version || !canWriteConfirmation.value || writebackPending.value) return
+  const key = writebackKey.value
+  writebackPending.value = key
+  writebackResult.value = null
+  writebackError.value = null
+  try {
+    const { data } = await testFailuresApi.writeConfirmation(current.id, current.revision, current.evidence_version)
+    writebackResult.value = { key, status: data.status, collection: data.collection }
+  } catch (error) {
+    const detail = isAxiosError(error) ? error.response?.data?.detail : undefined
+    writebackError.value = { key, message: typeof detail === 'string' ? detail : t('testFailures.writeback.failed') }
+  } finally {
+    writebackPending.value = ''
+  }
+}
+
 function focusSection(): void {
   if (props.section === 'history') { historySection.value?.scrollIntoView({ block: 'start' }); historySection.value?.focus({ preventScroll: true }) }
 }
 
 function kindLabel(kind: FailureKind): string { return t(`testFailures.kinds.${kind}`) }
 function reportLabel(item: FailureReportSummary): string {
+  if (item.source_format === 'test_report') return t('testFailures.uploadedTestReport')
   return item.report_role === 'right_reference'
     ? t('testFailures.referenceSnapshot', { volume: item.reference_tip_volume_ul ?? '—' })
     : t(item.stage === 'result-summary' ? 'testFailures.finalReport' : 'testFailures.mainReport')

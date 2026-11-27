@@ -270,6 +270,11 @@ class CollectionFilterOptionsResponse(BaseModel):
 
 
 class IntegrationCollectionDataItem(BaseModel):
+    record_key: str
+    sync_updated_at: str
+    repair_confirmation: str | None = None
+    repair_confirmed_by: str | None = None
+    repair_confirmation_updated_at: str | None = None
     collection: str
     update_time: str
     sn: str | None = None

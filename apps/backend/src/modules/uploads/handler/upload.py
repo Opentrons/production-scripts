@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from pprint import pformat
@@ -636,6 +636,13 @@ class UploadData:
         if self.upload_record_id:
             db_result["upload_record_id"] = self.upload_record_id
 
+        test_field = db_config.test_field
+        if test_field in {"assembly_qc", "current_speed"}:
+            metadata = file_desc.get("metadata") or {}
+            run_id = metadata.get("test_run_id") or metadata.get("date")
+            if isinstance(run_id, str) and run_id.strip():
+                db_result[f"{test_field}_run_id"] = run_id.strip()
+
         if is_combined_upload_config(config_key):
             for test_field in get_combined_test_fields(config_key):
                 db_result.setdefault(test_field, False)
@@ -756,7 +763,7 @@ class UploadData:
             return False, error
         
         try:
-            db_result = {**result, "update_time": datetime.now()}
+            db_result = {**result, "update_time": datetime.now(), "sync_updated_at": datetime.now(timezone.utc)}
             db = self.mongo.get_database(db_name)
             collection = db[collection_name]
             upload_record_id = db_result.get("upload_record_id")
@@ -764,7 +771,8 @@ class UploadData:
                 collection.create_index("upload_record_id", unique=True, sparse=True)
                 write_result = collection.update_one(
                     {"upload_record_id": upload_record_id},
-                    {"$set": db_result},
+                    {"$set": {key: value for key, value in db_result.items() if key != "sync_updated_at"},
+                     "$currentDate": {"sync_updated_at": True}},
                     upsert=True,
                 )
                 saved_id = write_result.upserted_id or upload_record_id
@@ -805,18 +813,12 @@ class UploadData:
         try:
             db = self.mongo.get_database(db_name)
             collection = db[collection_name]
-            db_result = {**result, "update_time": datetime.now()}
+            db_result = {**result, "update_time": datetime.now(), "sync_updated_at": datetime.now(timezone.utc)}
             
             existing_record = collection.find_one(query, sort=[("update_time", -1)])
             
             if existing_record:
-                for key, value in list(db_result.items()):
-                    if value is False and existing_record.get(key) is True:
-                        db_result[key] = True
-                collection.update_one(
-                    {"_id": existing_record["_id"]},
-                    {"$set": db_result}
-                )
+                db_result = self._update_combined_record(collection, query, existing_record, db_result)
                 logger.info(f"Updated record in {db_name}.{collection_name}, id: {existing_record['_id']}")
                 
                 delete_query = {"_id": {"$ne": existing_record["_id"]}}
@@ -837,6 +839,46 @@ class UploadData:
             error = f"Failed to edit result in {db_name}.{collection_name}: {e}"
             logger.error(error)
             return False, error
+
+    @staticmethod
+    def _update_combined_record(collection, query: dict, existing: dict, result: dict) -> dict:
+        qc_upload = result.get("upload_config_key") in {
+            "1ch_update_assembly_qc", "8ch_update_assembly_qc",
+            "1ch_update_current_speed", "8ch_update_current_speed",
+        }
+        record_id = existing["_id"]
+        for _ in range(3):
+            merged = {
+                key: True if value is False and existing.get(key) is True else value
+                for key, value in result.items()
+            }
+            selector = {"_id": record_id}
+            if qc_upload:
+                selector.update({key: existing.get(key) for key in (
+                    "update_time", "assembly_qc_run_id", "current_speed_run_id", "repair_confirmation", "repair_confirmed_by",
+                )})
+                if existing.get("repair_confirmation") and any(
+                    key in merged and existing.get(key) and merged[key] != existing[key]
+                    for key in ("assembly_qc_run_id", "current_speed_run_id")
+                ):
+                    from modules.test_failures.service import get_service
+                    from modules.test_failures.writeback import WORKSHEETS, repair_confirmation_fields
+
+                    current = existing | merged
+                    run_ids = {mode: current.get(f"{mode}_run_id") for mode in WORKSHEETS}
+                    merged.update(repair_confirmation_fields(get_service().repository, existing["sn"], run_ids))
+            dates = {"sync_updated_at": True}
+            if any(key in merged and merged[key] != existing.get(key)
+                   for key in ("repair_confirmation", "repair_confirmed_by")):
+                dates["repair_confirmation_updated_at"] = True
+            update_fields = {key: value for key, value in merged.items() if key not in dates}
+            if collection.update_one(selector, {"$set": update_fields, "$currentDate": dates}).matched_count:
+                return merged
+            existing = collection.find_one({"$and": [query, {"_id": record_id}]})
+            if existing is None:
+                break
+        raise RuntimeError("The selected test record changed during upload")
+
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Upload a CSV test result to Google Drive.")

@@ -5,11 +5,11 @@
       <div class="defect-search-account"><LocaleSwitcher /><AuthUserMenu /></div>
     </header>
     <div class="defect-search-content tf-content">
-      <nav class="defect-search-breadcrumb" aria-label="breadcrumb"><RouterLink to="/">{{ knowledgeCopy.home }}</RouterLink><span>/</span><RouterLink :to="{ name: 'DefectSearch' }">{{ knowledgeCopy.title }}</RouterLink><span>/</span><span>{{ t('testFailures.title') }}</span></nav>
+      <nav class="defect-search-breadcrumb" aria-label="breadcrumb"><RouterLink to="/">{{ knowledgeCopy.home }}</RouterLink><span>/</span><RouterLink :to="{ name: 'DefectAnalysis' }">{{ knowledgeCopy.title }}</RouterLink><span>/</span><span>{{ t('testFailures.title') }}</span></nav>
       <section class="defect-search-heading"><div><p class="defect-search-eyebrow">QUALITY OPERATIONS</p><h1>{{ knowledgeCopy.title }}</h1><p class="defect-search-intro">{{ t('testFailures.intro') }}</p></div></section>
       <nav class="defect-section-tabs" :aria-label="knowledgeCopy.title">
-        <RouterLink :to="{ name: 'DefectSearch' }" exact-active-class="is-active">{{ t('testFailures.knowledgeTab') }}</RouterLink>
         <RouterLink :to="{ name: 'TestFailures' }" exact-active-class="is-active">{{ t('testFailures.failuresTab') }}</RouterLink>
+        <RouterLink :to="{ name: 'DefectSearch' }" exact-active-class="is-active">{{ t('testFailures.knowledgeTab') }}</RouterLink>
       </nav>
       <section class="tf-panel tf-results" :aria-busy="loading">
         <div class="tf-results-heading">
@@ -76,18 +76,26 @@
                   <li v-for="(item, index) in recentConfirmations(device)" :key="item.id" class="tf-confirmation-card" :class="{ 'is-latest': index === 0 }">
                     <span class="tf-confirmation-label">{{ t(index === 0 ? 'testFailures.latestConfirmation' : 'testFailures.previousConfirmation') }}</span>
                     <p class="tf-confirmation-text">{{ item.text }}</p>
-                    <small class="tf-confirmation-meta">{{ item.created_by_name || item.created_by }} · <time :datetime="item.created_at">{{ formatFailureTime(item.created_at, locale) }}</time></small>
+                    <small class="tf-confirmation-meta">{{ item.confirmed_by_name || item.created_by_name || item.created_by }} · <time :datetime="item.created_at">{{ formatFailureTime(item.created_at, locale) }}</time></small>
                   </li>
                 </ol>
                 <p v-else class="tf-muted">{{ t('testFailures.noConfirmation') }}</p>
                 <template v-if="canEdit">
-                  <textarea :value="drafts[device.id]?.text || ''" rows="3" maxlength="4000" :aria-label="`${t('testFailures.confirmation')} ${device.report_folder}`" :placeholder="t('testFailures.placeholder')" :disabled="saving.has(device.id)" @input="editDraft(device, ($event.target as HTMLTextAreaElement).value)" />
+                  <label class="tf-confirmation-reviewer">
+                    <span>{{ t('testFailures.confirmer') }}</span>
+                    <select :value="drafts[device.id]?.confirmer || ''" :disabled="saving.has(device.id)"
+                      @change="editDraft(device, { confirmer: ($event.target as HTMLSelectElement).value })">
+                      <option value="" disabled>{{ t('testFailures.selectConfirmer') }}</option>
+                      <option v-for="name in repairConfirmers" :key="name" :value="name">{{ name }}</option>
+                    </select>
+                  </label>
+                  <textarea :value="drafts[device.id]?.text || ''" rows="3" maxlength="4000" :aria-label="`${t('testFailures.confirmation')} ${device.report_folder}`" :placeholder="t('testFailures.placeholder')" :disabled="saving.has(device.id)" @input="editDraft(device, { text: ($event.target as HTMLTextAreaElement).value })" />
                   <small class="tf-muted">{{ t('testFailures.signedBy') }}</small>
                   <p v-if="drafts[device.id]?.restored" class="tf-note">{{ t('testFailures.draftRestored') }}</p>
                   <p v-if="drafts[device.id]?.storageFailed" class="tf-note">{{ t('testFailures.draftStorageUnavailable') }}</p>
                   <p v-if="drafts[device.id]?.version && drafts[device.id].version !== device.version" class="tf-note">{{ t('testFailures.changed') }}</p>
                   <p v-if="drafts[device.id]?.error" class="tf-error" role="alert">{{ drafts[device.id].error }}</p>
-                  <div class="tf-actions"><button class="tf-button is-primary" type="button" :disabled="saving.has(device.id) || !drafts[device.id]?.text.trim()" @click="save(device)">{{ t(saving.has(device.id) ? 'testFailures.saving' : 'testFailures.save') }}</button><button v-if="drafts[device.id]?.conflict || (drafts[device.id]?.version && drafts[device.id].version !== device.version)" class="tf-link" type="button" :disabled="loading" @click="loadDevices(device.id)">{{ t('testFailures.rebase') }}</button></div>
+                  <div class="tf-actions"><button class="tf-button is-primary" type="button" :disabled="saving.has(device.id) || !drafts[device.id]?.text.trim() || !repairConfirmers.includes(drafts[device.id]?.confirmer || '')" @click="save(device)">{{ t(saving.has(device.id) ? 'testFailures.saving' : 'testFailures.save') }}</button><button v-if="drafts[device.id]?.conflict || (drafts[device.id]?.version && drafts[device.id].version !== device.version)" class="tf-link" type="button" :disabled="loading" @click="loadDevices(device.id)">{{ t('testFailures.rebase') }}</button></div>
                 </template>
                 <button class="tf-link tf-history-link" type="button" @click="openHistory(device)">{{ t('testFailures.history') }}</button>
               </td>
@@ -113,7 +121,7 @@ import { chineseCopy, englishCopy } from '@/i18n/locales/defectSearch'
 import { useAuthStore } from '@/scripts/stores/auth'
 import { formatFailureTime, testFailuresApi, type FailureConfirmationFilter, type FailureDevice, type FailureDeviceQuery, type FailureDevicesResponse, type FailureKind, type FailureScan } from '@/scripts/api/testFailures'
 import { defaultFailureReportId } from '@/scripts/utils/failureReportSelection'
-import { createFailureDraftStorage } from '@/scripts/utils/failureDraftStorage'
+import { createFailureDraftStorage, type StoredFailureDraft } from '@/scripts/utils/failureDraftStorage'
 import TestFailureDetail from './TestFailureDetail.vue'
 import TestFailureSummary from './TestFailureSummary.vue'
 import TestFailureDeviceAnalysis from './TestFailureDeviceAnalysis.vue'
@@ -137,6 +145,7 @@ const activeAdvancedFilters = computed(() => [
   { key: 'date_to', value: applied.date_to, text: `${t('testFailures.dateTo')}: ${applied.date_to}` },
 ].filter(item => item.value))
 const response = ref<FailureDevicesResponse | null>(null)
+const repairConfirmers = computed(() => response.value?.options.repair_confirmers || [])
 const loadedQuery = ref<FailureDeviceQuery | null>(null)
 const currentResults = computed(() => loadedQuery.value && JSON.stringify(loadedQuery.value) === JSON.stringify(applied))
 const devices = computed(() => currentResults.value ? response.value?.devices || [] : [])
@@ -168,7 +177,7 @@ const startingScan = ref(false)
 const selectedDevice = ref<FailureDevice | null>(null)
 const detailSection = ref<'reports' | 'history'>('reports')
 const detailReportId = ref('')
-interface Draft { text: string; version: string; error: string; conflict: boolean; restored?: boolean; storageFailed?: boolean }
+interface Draft extends StoredFailureDraft { error: string; conflict: boolean; restored?: boolean; storageFailed?: boolean }
 const drafts = reactive<Record<string, Draft>>({})
 const draftStorage = createFailureDraftStorage()
 const draftUserId = computed(() => authStore.user?.id || '')
@@ -190,9 +199,9 @@ function selectProduct(product: string): void { applied.product = product; appli
 function selectConfirmation(confirmation: FailureConfirmationFilter): void { applied.confirmation = confirmation; applied.page = 1; void loadDevices() }
 function openReport(device: FailureDevice, reportId = ''): void { detailSection.value = 'reports'; detailReportId.value = reportId || defaultFailureReportId(device); selectedDevice.value = device }
 function openHistory(device: FailureDevice): void { detailSection.value = 'history'; detailReportId.value = ''; selectedDevice.value = device }
-function editDraft(device: FailureDevice, text: string): void {
-  const draft = drafts[device.id] || { text: '', version: device.version, error: '', conflict: false }
-  draft.text = text
+function editDraft(device: FailureDevice, changes: Partial<Pick<StoredFailureDraft, 'text' | 'confirmer'>>): void {
+  const draft: Draft = drafts[device.id] || { text: '', version: device.version, error: '', conflict: false }
+  Object.assign(draft, changes)
   if (!draft.conflict) draft.error = ''
   drafts[device.id] = draft
   draft.storageFailed = !draftStorage.write(draftUserId.value, device.id, draft)
@@ -284,18 +293,24 @@ async function startScan(): Promise<void> {
 }
 async function save(device: FailureDevice): Promise<void> {
   const draft = drafts[device.id]
-  if (!canEdit.value || !draft?.text.trim() || saving.has(device.id)) return
+  if (!canEdit.value || !draft?.text.trim() || !draft.confirmer
+    || !repairConfirmers.value.includes(draft.confirmer) || saving.has(device.id)) return
   const controller = new AbortController(); mutationControllers.add(controller)
   const userId = draftUserId.value
-  const submitted = { text: draft.text, version: draft.version }
+  const submitted = { text: draft.text, version: draft.version, confirmer: draft.confirmer }
   saving.add(device.id); draft.error = ''; savedReportFolder.value = ''
   try {
-    const { data } = await testFailuresApi.confirm(device.id, submitted.text.trim(), submitted.version, controller.signal)
+    const { data } = await testFailuresApi.confirm(device.id, {
+      text: submitted.text.trim(), version: submitted.version, confirmed_by_name: submitted.confirmer,
+    }, controller.signal)
     if (controller.signal.aborted) return
     const stored = draftStorage.read(userId, device.id)
-    if (stored?.text === submitted.text && stored.version === submitted.version) draftStorage.remove(userId, device.id)
+    if (stored?.text === submitted.text && stored.version === submitted.version && stored.confirmer === submitted.confirmer) {
+      draftStorage.remove(userId, device.id)
+    }
     if (draftUserId.value !== userId) return
-    if (drafts[device.id] === draft && draft.text === submitted.text && draft.version === submitted.version) delete drafts[device.id]
+    if (drafts[device.id] === draft && draft.text === submitted.text && draft.version === submitted.version
+      && draft.confirmer === submitted.confirmer) delete drafts[device.id]
     savedReportFolder.value = data.device.report_folder
     // The confirmation response has no active filter context. Retain this view's
     // matched evidence until the filtered list response is available.

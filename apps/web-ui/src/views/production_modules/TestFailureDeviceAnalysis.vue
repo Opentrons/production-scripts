@@ -49,6 +49,7 @@ onMounted(() => {
 onBeforeUnmount(() => { observer?.disconnect(); observer = null })
 
 function reportLabel(item: FailureReportSummary): string {
+  if (item.source_format === 'test_report') return t('testFailures.uploadedTestReport')
   return item.report_role === 'right_reference'
     ? t('testFailures.referenceSnapshot', { volume: item.reference_tip_volume_ul ?? '—' })
     : t(item.stage === 'result-summary' ? 'testFailures.finalReport' : 'testFailures.mainReport')

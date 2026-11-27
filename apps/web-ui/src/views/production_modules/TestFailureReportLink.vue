@@ -5,7 +5,9 @@
       <button v-if="completeIdentity" type="button" class="tf-link" :disabled="loading || (result?.status === 'running' && !failed)" :aria-label="`${t(canEdit ? 'testFailures.reportLink.refresh' : 'testFailures.reportLink.refreshStatus')} ${report.report_run_id}`" @click="refresh(canEdit)">{{ t(canEdit ? 'testFailures.reportLink.refresh' : 'testFailures.reportLink.refreshStatus') }}</button>
     </div>
     <p v-if="showIdentity" class="tf-report-link-identity">{{ report.sn || '—' }} · <span>{{ report.report_run_id || '—' }}</span></p>
-    <p v-if="!completeIdentity" class="tf-muted">{{ t(!report.sn?.trim() ? 'testFailures.reportLink.missingSerial' : 'testFailures.reportLink.missingRun') }}</p>
+    <a v-if="uploadedReportUrl" class="tf-link" :href="uploadedReportUrl" target="_blank" rel="noopener noreferrer">{{ t('testFailures.reportLink.open') }} ↗</a>
+    <p v-else-if="report.source_format === 'test_report'" class="tf-muted">{{ t('testFailures.reportLink.noUploadedReport') }}</p>
+    <p v-else-if="!completeIdentity" class="tf-muted">{{ t(!report.sn?.trim() ? 'testFailures.reportLink.missingSerial' : 'testFailures.reportLink.missingRun') }}</p>
     <template v-else>
       <p v-if="failed" class="tf-report-link-warning" role="status">{{ t('testFailures.reportLink.loadFailed') }}</p>
       <p v-if="result?.stale || (failed && result?.matches.length)" class="tf-report-link-warning">{{ t('testFailures.reportLink.stale') }}</p>
@@ -36,8 +38,10 @@ const { t, locale } = useAppLocale()
 const authStore = useAuthStore()
 const canEdit = computed(() => Boolean(authStore.user && authStore.user.role !== 'viewer'))
 const container = ref<HTMLElement | null>(null), visible = ref(false)
-const completeIdentity = computed(() => Boolean(props.report.sn?.trim() && props.report.report_run_id?.trim()))
-const { result, loading, failed, refresh } = useFailureReportLink(() => props.report, () => visible.value)
+const uploadedReportUrl = computed(() => safeFailureReportUrl(props.report.report_url || ''))
+const completeIdentity = computed(() => !uploadedReportUrl.value && props.report.source_format !== 'test_report'
+  && Boolean(props.report.sn?.trim() && props.report.report_run_id?.trim()))
+const { result, loading, failed, refresh } = useFailureReportLink(() => props.report, () => visible.value && completeIdentity.value)
 const matches = computed(() => (result.value?.matches || []).flatMap(match => {
   const url = safeFailureReportUrl(match.url)
   return url ? [{ ...match, url, source_url: safeFailureReportUrl(match.source_url) }] : []

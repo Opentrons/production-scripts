@@ -14,7 +14,8 @@ Accept: application/json
 - 使用 `next_cursor` 读取下一页，不使用页码或 MongoDB `skip`。
 - 每次分页会固定首次请求时的 `snapshot_time`，分页期间新写入的数据不会插入当前批次。
 - 不计算全量 `total`，避免每页执行高成本统计。
-- 数据按 `update_time` 倒序排列；相同时间使用数据集合和内部 ID 保证顺序稳定。
+- 默认按 `update_time` 倒序排列；生产同步返修确认时使用 `time_field=sync_updated_at`，按同步更新时间倒序排列。相同时间使用数据集合和内部 ID 保证顺序稳定。
+- 接口提供每条测试记录当前的最新返修确认，不提供完整确认历史。
 
 ## 配置访问令牌
 
@@ -50,12 +51,13 @@ openssl rand -hex 32
 | `type` | 否 | - | 产品类型精确匹配，例如 `Opentrons` |
 | `total_result` | 否 | - | 测试结果精确匹配，同时兼容源数据的 `total_result` 和 `total_qc_result` |
 | `barcode` | 否 | - | 条码/SN 模糊匹配，不区分大小写 |
+| `time_field` | 否 | `update_time` | 时间筛选、排序和游标使用的字段：`update_time`（测试数据更新时间）或 `sync_updated_at`（测试数据及返修确认的同步更新时间） |
 | `updated_after` | 否 | - | 更新时间下限，支持 `YYYY-MM-DD` 或 ISO 8601 时间 |
 | `updated_before` | 否 | - | 更新时间上限；只传日期时包含当天全部时间 |
 
 `barcode` 会依次匹配源数据中的 `sn`、`serial_number`、`barcode` 和 `test_tag` 字段。
 
-同一个游标只能和创建它时相同的集合及筛选条件一起使用。可以调整 `limit`，但修改其他筛选参数会返回 `400 integration.invalid_cursor`。
+同一个游标只能和创建它时相同的集合、`time_field` 及筛选条件一起使用。可以调整 `limit`，但修改其他筛选参数会返回 `400 integration.invalid_cursor`。
 
 ## 返回字段
 
@@ -63,12 +65,18 @@ openssl rand -hex 32
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
+| `record_key` | string | 稳定、不透明的记录标识，用于调用方幂等更新。区分数据库、集合及测试记录，同一 SN 的不同记录具有不同标识；修改确认不改变标识 |
 | `collection` | string | 数据集合 |
-| `update_time` | string | UTC ISO 8601 更新时间 |
+| `update_time` | string | UTC ISO 8601 测试数据更新时间；仅修改返修确认不会改变此值 |
+| `sync_updated_at` | string | UTC ISO 8601 同步更新时间，覆盖测试上传、确认修改及清空。历史记录缺少该字段时回退到原更新时间，无需迁移 |
+| `repair_confirmation` | string/null | 当前有效的最新返修确认正文；`null` 表示当前无有效确认，调用方应清除已有值 |
+| `repair_confirmed_by` | string/null | 对应确认人的显示名称；与确认正文一起更新或清空 |
+| `repair_confirmation_updated_at` | string/null | UTC ISO 8601 确认字段最近同步变化的时间，包含清空；不是人工填写时间。无记录或旧数据未记录该时间时为 `null` |
 | `sn` | string/null | 条码 / SN |
 | `model` | string/null | 产品型号 |
 | `type` | string/null | 产品类型 |
 | `total_result` | string/null | 测试结果 |
+| `failure` | string/null | MongoDB 测试文档中存储的失败详情，优先读取 `failure`，兼容旧字段 `failures`。多项以换行分隔。历史记录可能返回 `N/A` 或 `null` |
 
 响应示例：
 
@@ -76,12 +84,18 @@ openssl rand -hex 32
 {
   "data": [
     {
+      "record_key": "8929d79fd09fb977058159a7670fb5bc48f1e65bb89169b2dfb7269a029118cd8",
       "collection": "pipette_8ch_assembly_qc",
       "update_time": "2026-08-18T07:48:10Z",
+      "sync_updated_at": "2026-11-27T02:30:00Z",
+      "repair_confirmation": "更换密封圈，完成复测核对",
+      "repair_confirmed_by": "李杰_Jerome",
+      "repair_confirmation_updated_at": "2026-11-27T02:30:00Z",
       "sn": "P1KMV3520260814A01",
       "model": "P1000M",
       "type": "Opentrons",
-      "total_result": "PASS"
+      "total_result": "FAIL",
+      "failure": "PRESSURE / Leak Check (PRESSURE_OUT_OF_RANGE)"
     }
   ],
   "count": 1,
@@ -89,7 +103,7 @@ openssl rand -hex 32
   "has_more": true,
   "next_cursor": "eyJwb3NpdGlvbiI6...",
   "collection": "__all__",
-  "snapshot_time": "2026-08-18T08:00:00Z"
+  "snapshot_time": "2026-11-27T03:00:00Z"
 }
 ```
 
@@ -130,6 +144,7 @@ let cursor = null;
 do {
   const params = new URLSearchParams({
     collection_name: "__all__",
+    time_field: "sync_updated_at",
     limit: "500",
   });
   if (cursor) params.set("cursor", cursor);
@@ -150,15 +165,39 @@ do {
 } while (cursor);
 ```
 
-## 增量同步
+## 增量同步（生产推荐）
 
-首次同步读取完整游标链，并保存本批响应中的最大 `update_time`。后续同步从该时间开始：
+首次切换到新版接口时，使用 `time_field=sync_updated_at` 重新全量读取并建立 `record_key` 映射。仅有旧 `update_time` 检查点时，不应直接作为新版同步时间检查点，否则可能漏掉历史返修确认。
 
-```http
-GET /api/integrations/collection-data?updated_after=2026-08-18T07:48:10Z&limit=500
+```bash
+curl --fail-with-body --get \
+  --header "Authorization: Bearer $COLLECTION_DATA_ACCESS_TOKEN" \
+  --data-urlencode "time_field=sync_updated_at" \
+  --data-urlencode "limit=500" \
+  "https://183.11.226.250:10443/api/integrations/collection-data"
 ```
 
-`updated_after` 当前为包含边界的查询。调用方写入数据时应以业务唯一键做幂等更新，以处理边界时间上可能重复返回的记录。
+完整读取本批游标链，按 `record_key` 幂等保存每条数据，然后持久化本批最大的 `sync_updated_at`。后续同步：
+
+```http
+GET /api/integrations/collection-data?time_field=sync_updated_at&updated_after=2026-11-27T02:30:00Z&limit=500
+Authorization: Bearer <access-token>
+```
+
+下一页必须保留相同的 `time_field`、`updated_after` 及其他筛选条件，再增加 `cursor`。只有整批全部处理成功后才提交检查点；失败时保留旧检查点，允许重读。空批次保留原检查点。
+
+`updated_after` 为包含边界的查询，因此边界记录可能重复，调用方须按 `record_key` 覆盖更新。同一 SN 可以有多份测试记录，不可仅以 SN 作为唯一键。无时区的时间参数按 UTC 处理。
+
+同步约定：
+
+- 上传测试数据或返修确认字段发生变化时，推进 `sync_updated_at`。重复同步相同确认不会推进时间。
+- 确认被清空时仍返回该记录，两个确认字段为 `null`；调用方应覆盖旧值，不能忽略 `null`。
+- `total_result` 仍是测试结果，存在返修确认不代表测试已通过。有有效 `failure` 时，即使总结果为 `PASS`，也可能需要返修处理；同步全部确认时不要仅筛选 `total_result=FAIL`。
+- 返修确认通过后台异步写回，本接口返回当前已经同步到测试数据库的值。尚未匹配测试记录的归档报告不会单独出现在此接口中。
+- `snapshot_time` 是当前分页批次的时间上界，并非数据库事务快照。分页期间更新到上界之后的记录会在后续增量批次中读取。
+- 本接口不提供删除事件，也不提供完整确认历史。
+
+不传 `time_field` 时继续沿用旧版 `update_time` 的筛选、排序和游标行为，但该模式无法可靠跟踪仅返修确认发生的变化。
 
 ## 按产品型号读取
 

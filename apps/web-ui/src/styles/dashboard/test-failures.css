@@ -113,6 +113,8 @@
 .tf-confirmation-card.is-latest .tf-confirmation-label { color: #087e8b; }
 .tf-confirmation-text { margin: 6px 0 9px; color: #204b58; font-size: 16px; font-weight: 700; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tf-device-table .tf-confirmation-meta { display: block; color: #677f8a; font-size: 12px; line-height: 1.6; }
+.tf-confirmation-reviewer { display: grid; gap: 5px; margin-bottom: 8px; color: #405d6b; font-size: 12px; font-weight: 600; }
+.tf-confirmation-reviewer select { width: 100%; }
 .tf-history-entry p { white-space: pre-wrap; line-height: 1.6; margin-bottom: 6px; }
 .tf-history-link { display: inline-block; margin-top: 12px; }
 .tf-device-table .tf-actions { margin-top: 10px; }

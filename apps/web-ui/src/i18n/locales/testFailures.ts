@@ -1,5 +1,12 @@
 export const testFailuresZh = {
+  uploadedTestReport: '上传的测试报告',
+  writeback: {
+    action: '同步返修确认', writing: '正在同步…',
+    written: '返修确认已同步到 {collection}', unchanged: '{collection} 中的返修确认已同步',
+    failed: '返修确认同步失败，请稍后重试。',
+  },
   reportLink: {
+    noUploadedReport: '测试记录未提供可打开的报告链接',
     title: '测试报告链接', open: '查看测试报告', source: '总表位置', candidate: '候选报告 {index}', row: '第 {row} 行',
     refresh: '刷新匹配', refreshStatus: '刷新状态', checked: '匹配检查：', waiting: '等待匹配',
     missingSerial: '缺少移液器 SN，无法精确匹配', missingRun: '缺少 report_run_id，无法精确匹配',
@@ -27,7 +34,7 @@ export const testFailuresZh = {
     blocked: '前序失败导致的未执行项目', blockedHint: '以下项目缺少有效测量结果，不能据此认定相应传感器故障。',
     placeholderValues: '该数值是未执行项目的占位值，不是实际测量值。', limitations: '分析范围与限制', thresholds: '该次报告相关阈值',
     statuses: { idle: '未生成', running: '分析中', complete: '已完成', failed: '分析失败', unsupported: '格式暂不支持', stale: '证据已更新' },
-    modes: { rules_only: '证据规则分析', model: '证据规则 + 模型解释' },
+    modes: { rules_only: '证据规则分析', model: '证据规则 + 模型解释', test_report: '测试报告分析' },
     findingStatuses: { needs_confirmation: '原因待确认', confirmed_configuration_issue: '已确认配置问题', insufficient_evidence: '证据不足' },
     blockedStatuses: { not_run_due_to_right_reference_failure: '右侧参考测量失败，未执行', not_run_due_to_calibration_failure: '校准失败，未执行' },
     categories: { software_interface: '软件接口与配置', sensor_support: '传感器支持配置', overpressure: '压力超限', identity: '设备身份核对', barcode: '扫码与设备编号', right_reference: '右侧参考测量', plunger_travel_setup: '柱塞行程设置', diagnostic_pressure: '诊断压力', pressure_fixture: '压力夹具', temperature: '环境温度', humidity: '环境湿度', capacitance: '电容检测与校准', encoder_motion: '编码器与运动', current_speed: '电流与速度', plunger_position: '柱塞位置', tip_sensor: '吸头传感器', liquid_leak: '漏液检查', liquid_probe: '液面探测', unclassified: '其他异常' },
@@ -39,6 +46,7 @@ export const testFailuresZh = {
   mode: '测试模式', allModes: '全部模式', kind: '异常类型', allKinds: '全部类型',
   dateFrom: '开始日期', dateTo: '结束日期', dateHint: '日期筛选及显示均为上海时间（UTC+8）',
   confirmation: '本报告返修确认', all: '全部', pendingOnly: '未确认', confirmedOnly: '已确认', unknownProduct: '未记录型号',
+  confirmer: '确认人', selectConfirmer: '请选择确认人',
   apply: '应用筛选', reset: '重置', refresh: '刷新数据', scan: '扫描新报告', scanning: '正在扫描…',
   searchAction: '搜索', moreFilters: '更多筛选', lessFilters: '收起筛选', activeFilters: '已应用筛选：',
   scanIdle: '扫描空闲', lastScan: '最近扫描', pendingFiles: '待处理文件', scanErrors: '扫描异常详情',
@@ -92,7 +100,14 @@ export const testFailuresZh = {
 }
 
 export const testFailuresEn = {
+  uploadedTestReport: 'Uploaded test report',
+  writeback: {
+    action: 'Sync repair confirmation', writing: 'Syncing…',
+    written: 'Repair confirmation synced to {collection}', unchanged: 'Repair confirmation is already up to date in {collection}',
+    failed: 'Could not sync the repair confirmation. Please try again.',
+  },
   reportLink: {
+    noUploadedReport: 'This test record has no report link available',
     title: 'Test report link', open: 'View test report', source: 'Master sheet row', candidate: 'Candidate report {index}', row: 'Row {row}',
     refresh: 'Refresh match', refreshStatus: 'Refresh status', checked: 'Checked:', waiting: 'Waiting to match',
     missingSerial: 'Pipette SN is missing; an exact match is unavailable.', missingRun: 'report_run_id is missing; an exact match is unavailable.',
@@ -120,7 +135,7 @@ export const testFailuresEn = {
     blocked: 'Tests blocked by an earlier failure', blockedHint: 'These tests have no valid measurement and cannot establish a fault in the corresponding sensor.',
     placeholderValues: 'This value is a placeholder for an unexecuted test, not a measurement.', limitations: 'Analysis scope and limitations', thresholds: 'Relevant thresholds recorded in this report',
     statuses: { idle: 'Not generated', running: 'Analyzing', complete: 'Complete', failed: 'Analysis failed', unsupported: 'Unsupported format', stale: 'Evidence changed' },
-    modes: { rules_only: 'Evidence rules', model: 'Evidence rules + model interpretation' },
+    modes: { rules_only: 'Evidence rules', model: 'Evidence rules + model interpretation', test_report: 'Test report analysis' },
     findingStatuses: { needs_confirmation: 'Cause needs confirmation', confirmed_configuration_issue: 'Confirmed configuration issue', insufficient_evidence: 'Insufficient evidence' },
     blockedStatuses: { not_run_due_to_right_reference_failure: 'Not run after right reference failure', not_run_due_to_calibration_failure: 'Not run after calibration failure' },
     categories: { software_interface: 'Software interface and configuration', sensor_support: 'Sensor support configuration', overpressure: 'Overpressure', identity: 'Device identity', barcode: 'Barcode and device identification', right_reference: 'Right reference measurement', plunger_travel_setup: 'Plunger travel setup', diagnostic_pressure: 'Diagnostic pressure', pressure_fixture: 'Pressure fixture', temperature: 'Ambient temperature', humidity: 'Ambient humidity', capacitance: 'Capacitance and calibration', encoder_motion: 'Encoder and motion', current_speed: 'Current and speed', plunger_position: 'Plunger position', tip_sensor: 'Tip sensor', liquid_leak: 'Liquid leak', liquid_probe: 'Liquid probing', unclassified: 'Other incidents' },
@@ -132,6 +147,7 @@ export const testFailuresEn = {
   mode: 'Test mode', allModes: 'All modes', kind: 'Incident type', allKinds: 'All types',
   dateFrom: 'Start date', dateTo: 'End date', dateHint: 'Dates and times use Shanghai time (UTC+8)',
   confirmation: 'Confirmation for this report', all: 'All', pendingOnly: 'Unconfirmed', confirmedOnly: 'Confirmed', unknownProduct: 'Unrecorded model',
+  confirmer: 'Confirmed by', selectConfirmer: 'Select a confirmer',
   apply: 'Apply filters', reset: 'Reset', refresh: 'Refresh data', scan: 'Scan new reports', scanning: 'Scanning…',
   searchAction: 'Search', moreFilters: 'More filters', lessFilters: 'Hide filters', activeFilters: 'Active filters:',
   scanIdle: 'Scan idle', lastScan: 'Last scan', pendingFiles: 'Pending files', scanErrors: 'Scan error details',

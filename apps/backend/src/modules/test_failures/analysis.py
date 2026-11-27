@@ -26,7 +26,8 @@ from .parser import parse_report
 from .qc_agent import __version__
 from .qc_agent.analyzer import ModelAnalysisError, _validate_assessments, analyze_report, render_markdown
 from .qc_agent.evidence import prepare_evidence
-from .repository import ConflictError, NotFoundError, now
+from .report_link_source import GoogleReportLinkSource
+from .repository import ConflictError, NotFoundError, evidence_version, now
 from .service import TestFailureService, get_service
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,10 @@ class UnsupportedReportError(ValueError):
 
 def _digest(value) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+def _sheet_source(report: dict) -> dict | None:
+    return report.get("mongo_record") or report.get("test_report_fallback")
 
 
 def _write_json(path: Path, value: dict) -> None:
@@ -121,7 +126,8 @@ class FailureAnalysisService:
         # source changes; a rules-only result cannot masquerade as a model run.
         source_dir = Path(__file__).parent
         code_hashes = {name: hashlib.sha256((source_dir / name).read_bytes()).hexdigest()
-                       for name in ("analysis.py", "parser.py", "reference.py", "qc_agent/analyzer.py", "qc_agent/evidence.py")}
+                       for name in ("analysis.py", "parser.py", "reference.py", "report_link_source.py",
+                                    "qc_agent/analyzer.py", "qc_agent/evidence.py")}
         self.settings_key = _digest({"mode": self.mode, "settings": self.settings, "code": code_hashes})
 
     def _reference_hash(self) -> str | None:
@@ -141,10 +147,17 @@ class FailureAnalysisService:
     def _response(self, report: dict, status: str, *, error=None, state=None, result=None) -> dict:
         return {"status": status, "report_id": report["id"], "report_revision": report["revision"],
                 "generated_at": state.get("generated_at") if state else None,
-                "mode": self.mode, "error": error, "result": result}
+                "mode": "test_report" if _sheet_source(report) else self.mode,
+                "error": error, "result": result}
 
     def _fingerprint(self, report: dict, snapshot: Path | None = None, *, use_cache: bool = False) -> tuple[str, str]:
         """Hash bounded reads through the attachment API, checking both ends."""
+        if _sheet_source(report):
+            current = self.reports.repository.get_report(report["id"])
+            version = evidence_version(report)
+            if current.get("inactive") or evidence_version(current) != version:
+                raise SourceChangedError("测试报告已更新，请刷新后再分析")
+            return _digest([version, self.settings_key]), report["source_name"]
         paths = report.get("attachment_paths", {})
         if not paths.get("json"):
             raise UnsupportedReportError("当前报告没有结构化 JSON 证据包，暂不支持自动分析")
@@ -309,6 +322,11 @@ class FailureAnalysisService:
 
     def _valid_result(self, result: dict | None, report: dict, state: dict, name: str) -> bool:
         """Reject incomplete, cross-report, or corrupted cached analyzer output."""
+        if _sheet_source(report):
+            return bool(result and result.get("report_id") == report["id"]
+                        and result.get("report_revision") == report["revision"]
+                        and result.get("source_fingerprint") == state.get("fingerprint")
+                        and _digest(result) == state.get("result_sha256"))
         if not result or type(result.get("analysis_schema_version")) is not int or result["analysis_schema_version"] != 1:
             return False
         if any(result.get(field) != value for field, value in {
@@ -433,7 +451,7 @@ class FailureAnalysisService:
     def request(self, report_id: str, expected_revision: str, *, force: bool = False) -> dict:
         with self._guard:
             report = self.reports.repository.get_report(report_id)
-            if report["revision"] != expected_revision:
+            if report.get("inactive") or report["revision"] != expected_revision:
                 raise ConflictError("报告版本已更新，请刷新并核对最新报告后重新生成")
             try:
                 fingerprint, name = self._fingerprint(report, use_cache=True)
@@ -452,7 +470,8 @@ class FailureAnalysisService:
                 raise
             job = uuid4().hex
             state = {"status": "running", "fingerprint": fingerprint, "job": job, "report_id": report["id"],
-                     "report_revision": report["revision"], "mode": self.mode, "started_at": now(), "error": None}
+                     "report_revision": report["revision"], "mode": self._response(report, "running")["mode"],
+                     "started_at": now(), "error": None}
             try:
                 # Another process may have finished after our initial cache read.
                 completed = _read_json(self._state_path(key))
@@ -478,6 +497,18 @@ class FailureAnalysisService:
         key = self._key(report)
         staging = self.cache_dir / key / (".pending-" + state["job"])
         try:
+            if _sheet_source(report):
+                result = self._analyze_test_report(report, state["fingerprint"])
+                after, _ = self._fingerprint(report)
+                if after != state["fingerprint"]:
+                    raise SourceChangedError("分析期间测试报告已更新")
+                _write_json(staging / "analysis.json", result)
+                directory = "result-" + state["job"]
+                staging.rename(self.cache_dir / key / directory)
+                _write_json(self._state_path(key), {**state, "status": "complete", "result_directory": directory,
+                                                   "generated_at": now(), "result_sha256": _digest(result)})
+                self._clean_cache(key, directory)
+                return
             fingerprint, actual_name = self._fingerprint(report, staging / "_inputs")
             if fingerprint != state["fingerprint"] or actual_name != name:
                 raise SourceChangedError("分析开始前报告或协议源码已变化，请重新分析")
@@ -516,6 +547,8 @@ class FailureAnalysisService:
                 status, message = "unsupported", "当前报告格式不支持自动分析；需要 schema_version=1 的协议 JSON 证据包"
             elif isinstance(error, ModelAnalysisError):
                 status, message = "failed", "本地模型不可用或输出未通过校验，请检查模型配置后重试"
+            elif _sheet_source(report):
+                status, message = "failed", "无法读取或核对对应测试工作表，请检查报告链接及访问权限后重试"
             else:
                 status, message = "failed", "分析未完成，请核对报告是否完整后重试"
             logger.warning("QC failure analysis did not complete: report=%s error=%s", report["id"], type(error).__name__)
@@ -526,6 +559,40 @@ class FailureAnalysisService:
                 self._active_keys.discard(key)
                 self._threads.pop(key, None)
                 lock.close()
+
+    @staticmethod
+    def _analyze_test_report(report: dict, fingerprint: str) -> dict:
+        source = _sheet_source(report)
+        assert source is not None
+        summary = source.get("summary") or report["summary"]
+        rows = []
+        limitations = ["依据为测试数据及工作表中明确标记的失败项，缺少设备运行过程。"]
+        if source["url"] and report["known_sn"]:
+            rows = GoogleReportLinkSource().read_failed_rows(source["url"], report["sn"], source["runs"], source["tabs"])
+            if not rows:
+                limitations.append("已核对工作表，读取范围内没有明确标记失败的行。")
+        else:
+            limitations.append("缺少可核对的工作表链接或 SN，当前依据为数据库记录的失败详情。")
+        catalog = {"MongoDB.failure": summary}
+        observed = []
+        for row in rows:
+            reference = f"{row['tab']} · 第 {row['row']} 行"
+            catalog[reference] = row["values"]
+            observed.append((reference, row["item"]))
+        if not observed:
+            observed = [("MongoDB.failure", "；".join(summary))]
+        findings = [{
+            "finding_id": f"F{index}", "category": "unclassified", "status": "needs_confirmation",
+            "observed": item, "checks": ["核对工位记录与该测试项的原始结果。"],
+            "direction": ["按该项测试的工艺规范排查，记录实际返修措施。"],
+            "retest": ["返修后重复该测试项并记录复测结果。"], "evidence_refs": [reference],
+        } for index, (reference, item) in enumerate(observed, 1)]
+        return {
+            "report_id": report["id"], "report_revision": report["revision"], "source_fingerprint": fingerprint,
+            "evidence": {"deterministic_findings": findings, "blocked_tests": [], "limitations": limitations,
+                         "evidence_catalog": catalog},
+            "model_analysis": {"status": "disabled", "assessments": []},
+        }
 
 
 @lru_cache(maxsize=1)

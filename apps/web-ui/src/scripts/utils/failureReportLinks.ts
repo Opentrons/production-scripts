@@ -1,6 +1,7 @@
 import type { FailureReportSummary } from '../api/testFailures'
 
 export type FailureReportLinkIdentity = Pick<FailureReportSummary, 'id' | 'report_folder' | 'sn' | 'report_run_id' | 'product'>
+  & Partial<Pick<FailureReportSummary, 'source_format' | 'report_url'>>
 
 export function failureReportLinkKey(report: FailureReportLinkIdentity): string {
   const sn = (report.sn || '').trim(), run = (report.report_run_id || '').trim()

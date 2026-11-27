@@ -231,6 +231,7 @@ def _cursor_scope(
     barcode: str | None,
     start_date: str | None,
     end_date: str | None,
+    time_field: str = "update_time",
 ) -> str:
     payload = {
         "barcode": barcode or "",
@@ -241,6 +242,8 @@ def _cursor_scope(
         "total_result": total_result or "",
         "type": production_type or "",
     }
+    if time_field != "update_time":
+        payload["time_field"] = time_field
     canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -300,16 +303,16 @@ def _decode_collection_cursor(cursor: str, *, expected_scope: str) -> dict[str, 
     }
 
 
-def _cursor_position_query(position: dict[str, Any]) -> dict[str, Any]:
+def _cursor_position_query(position: dict[str, Any], time_field: str = "update_time") -> dict[str, Any]:
     update_time = position["update_time"]
     collection = position["collection"]
     document_id = position["document_id"]
     return {
         "$or": [
-            {"update_time": {"$lt": update_time}},
-            {"update_time": update_time, "collection": {"$gt": collection}},
+            {time_field: {"$lt": update_time}},
+            {time_field: update_time, "collection": {"$gt": collection}},
             {
-                "update_time": update_time,
+                time_field: update_time,
                 "collection": collection,
                 "_id": {"$lt": document_id},
             },
@@ -330,11 +333,33 @@ def _public_text(document: dict[str, Any], *keys: str) -> str | None:
     return str(value) if value is not None else None
 
 
+def _sync_time_expression() -> dict[str, Any]:
+    # Prefer UTC sync clocks. Legacy update_time can contain server-local wall time.
+    return {"$ifNull": [
+        {"$max": ["$sync_updated_at", "$repair_confirmation_updated_at"]}, "$update_time",
+    ]}
+
+
 def _public_collection_item(document: dict[str, Any]) -> dict[str, Any]:
     update_time = document.get("update_time")
     if not isinstance(update_time, datetime):
         raise CollectionDataUnavailableError("Collection record has an invalid update_time")
+    sync_times = [document.get(field) for field in (
+        "sync_updated_at", "repair_confirmation_updated_at",
+    ) if isinstance(document.get(field), datetime)] or [update_time]
+    sync_time = max(_normalize_utc_datetime(value) for value in sync_times)
+    identity = [setting.DATA_DB_NAME, document.get("collection"),
+                type(document.get("_id")).__name__, str(document.get("_id"))]
+    record_key = hashlib.sha256(json.dumps(identity, separators=(",", ":")).encode()).hexdigest()
+    confirmation_time = document.get("repair_confirmation_updated_at")
     return {
+        "record_key": record_key,
+        "sync_updated_at": _format_utc_datetime(sync_time),
+        "repair_confirmation": _public_text(document, "repair_confirmation"),
+        "repair_confirmed_by": _public_text(document, "repair_confirmed_by"),
+        "repair_confirmation_updated_at": (
+            _format_utc_datetime(confirmation_time) if isinstance(confirmation_time, datetime) else None
+        ),
         "collection": str(document.get("collection") or ""),
         "update_time": _format_utc_datetime(update_time),
         "sn": _public_text(document, "sn", "serial_number", "barcode", "test_tag"),
@@ -355,7 +380,10 @@ def get_collection_data_cursor(
     barcode: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    time_field: str = "update_time",
 ) -> dict[str, Any]:
+    if time_field not in {"update_time", "sync_updated_at"}:
+        raise ValueError("Unsupported integration time field")
     limit = min(max(limit, 1), 1000)
     scope = _cursor_scope(
         collection_name=collection_name,
@@ -365,6 +393,7 @@ def get_collection_data_cursor(
         barcode=barcode,
         start_date=start_date,
         end_date=end_date,
+        time_field=time_field,
     )
     position = _decode_collection_cursor(cursor, expected_scope=scope) if cursor else None
     snapshot_time = (
@@ -402,35 +431,47 @@ def get_collection_data_cursor(
             start_date=start_date,
             end_date=end_date,
         )
+        if time_field != "update_time" and "update_time" in base_query:
+            base_query[time_field] = base_query.pop("update_time")
         collection_query = _combine_queries(
             base_query,
-            {"update_time": {"$type": "date", "$lte": snapshot_time}},
+            {time_field: {"$type": "date", "$lte": snapshot_time}},
+            {"update_time": {"$type": "date"}} if time_field != "update_time" else {},
         )
-        pipeline: list[dict[str, Any]] = [
-            {"$match": collection_query},
-            {"$addFields": {"collection": {"$literal": collections[0]}}},
-        ]
+
+        def source_pipeline(name: str) -> list[dict[str, Any]]:
+            stages = []
+            if time_field == "sync_updated_at":
+                stages.append({"$addFields": {"sync_updated_at": _sync_time_expression()}})
+            stages.extend([
+                {"$match": collection_query},
+                {"$addFields": {"collection": {"$literal": name}}},
+            ])
+            return stages
+
+        pipeline = source_pipeline(collections[0])
         for name in collections[1:]:
             pipeline.append(
                 {
                     "$unionWith": {
                         "coll": name,
-                        "pipeline": [
-                            {"$match": collection_query},
-                            {"$addFields": {"collection": {"$literal": name}}},
-                        ],
+                        "pipeline": source_pipeline(name),
                     }
                 }
             )
         if position:
-            pipeline.append({"$match": _cursor_position_query(position)})
+            pipeline.append({"$match": _cursor_position_query(position, time_field)})
         pipeline.extend(
             [
-                {"$sort": {"update_time": -1, "collection": 1, "_id": -1}},
+                {"$sort": {time_field: -1, "collection": 1, "_id": -1}},
                 {"$limit": limit + 1},
                 {
                     "$project": {
                         "_id": 1,
+                        "sync_updated_at": 1,
+                        "repair_confirmation": 1,
+                        "repair_confirmed_by": 1,
+                        "repair_confirmation_updated_at": 1,
                         "barcode": 1,
                         "collection": 1,
                         "failure": 1,
@@ -456,7 +497,7 @@ def get_collection_data_cursor(
         if has_more and page_documents:
             last = page_documents[-1]
             document_id = last.get("_id")
-            update_time = last.get("update_time")
+            update_time = last.get(time_field)
             if not isinstance(document_id, ObjectId) or not isinstance(update_time, datetime):
                 raise CollectionDataUnavailableError("Collection cursor fields are invalid")
             next_cursor = _encode_collection_cursor(
