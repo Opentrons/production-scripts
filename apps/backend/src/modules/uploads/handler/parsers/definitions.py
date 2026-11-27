@@ -340,6 +340,11 @@ PARSER_DEFINITIONS: dict[str, CsvParserDefinition] = {
         test_type=TestTypes.Leveling_Test,
         **TEST_CLI_LEVELING_DEFINITION,
     ),
+    "vacuum_update_qc": CsvParserDefinition(
+        upload_config_key="vacuum_update_qc",
+        test_type=TestTypes.Vacuum_QC,
+        **GENERAl_QC_DEFINITION,
+    ),
 }
 
 

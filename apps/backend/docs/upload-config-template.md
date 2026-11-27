@@ -48,6 +48,7 @@ CSV 文件进入系统后的解析和上传顺序如下：
 | `96_p1000_update_qc` | 96ch P1000 Assembly QC |
 | `8ch_update_burn_in_result` | 8ch Burn-in result |
 | `8ch_update_burn_in_records` | 8ch Burn-in recorder |
+| `vacuum_update_qc` | Vacuum Module QC |
 
 命名约定：
 

@@ -1575,7 +1575,7 @@ export default {
     folderLimit: 'The upload stops if the packaged .zip exceeds 10 MB.', robotPlaceholder: 'Select or enter Robot IP', refreshDevices: 'Refresh Devices',
     refreshDirectory: 'Refresh Directory', searchCsv: 'Search CSV', parentDirectory: 'Up One Level', robotScanFailed: 'Unable to scan Robot data: {error}', directory: 'Directory', directoryEmpty: 'This directory is empty',
     zStageFixture: 'Z-axis Fixture', robotBarcode: 'Robot Barcode', zStageBarcode: 'Z-axis Barcode', zStageScanFailed: 'Unable to scan Z-axis CSVs: {error}', csvFound: '{count} CSV files found', noMatchingCsv: 'No matching CSV files',
-    chooseZStageCsv: 'Select or drag a Z-axis CSV file', chooseRobotParallelismCsv: 'Select or drag a Robot parallelism CSV file', pipetteOpticalPending: 'Pipette optical upload is not configured', submitUpload: 'Submit Upload', uploadSelected: 'Upload Selected Files',
+    chooseZStageCsv: 'Select or drag a Z-axis CSV file', chooseRobotParallelismCsv: 'Select or drag a Robot parallelism CSV file', pipetteOpticalPending: 'Pipette optical upload is not configured', submitUpload: 'Submit Upload', uploadSelected: 'Upload Selected Files', previewCsv: 'Preview', previewTitle: 'Preview {name}', previewLoading: 'Loading CSV...', previewEmpty: 'The CSV file is empty', previewTruncated: 'The file is large; showing the first {count} rows',
     localFile: 'Local File', onlineRobot: 'Online Robot', fixtureSearch: 'Fixture Search', localCsv: 'Local CSV',
     status: { all: 'All', queued: 'Queued', uploading: 'Uploading', retrying: 'Retrying', success: 'Succeeded', pending: 'Pending' },
     folderConfirmBody: 'The server temporary directory containing this CSV will be packaged as a .zip and uploaded. The upload stops if the .zip exceeds 10 MB.',
@@ -1587,7 +1587,7 @@ export default {
       manualFailedWithReason: 'Manual upload failed: {error}', manualFailed: 'Manual upload failed', selectRobotCsv: 'Select a CSV file on the Robot',
       robotFailedWithReason: 'Online Robot upload failed: {error}', robotFailed: 'Online Robot upload failed', fillRobotSn: 'Enter the Robot SN',
       zStageSubmitted: 'Z-axis data upload submitted', zStageFailedWithReason: 'Z-axis data upload failed: {error}', zStageFailed: 'Z-axis data upload failed',
-      selectCsvToUpload: 'Select CSV files to upload', zStageBatchPartial: 'Submitted {success} Z-axis files; {failed} failed', zStageBatchSuccess: 'Submitted {count} Z-axis files',
+      selectCsvToUpload: 'Select CSV files to upload', zStageBatchPartial: 'Submitted {success} Z-axis files; {failed} failed', zStageBatchSuccess: 'Submitted {count} Z-axis files', previewFailed: 'Unable to load CSV content: {error}',
     },
   },
   analysis: {

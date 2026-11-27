@@ -1826,3 +1826,110 @@ gripper_update_diagnostic:
       pastelineRange:
         star: J
         end: AI
+
+vacuum_update_qc:
+- ifupdate: true
+  spreadsheet_strategy: always_new
+  ifcopytemplate:
+    default: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+  csv_target_sheet_name: Diagnostic Test Results
+  result_cell: '!A5:A5'
+  Range:
+  - A-HA
+  ifcopydata:
+  - off/on: true
+    summary_source_sheet_name: Summary
+    failures: '!C3:C3'
+    copyRange:
+    - '!A3:CK3'
+  ifpaste:
+  - off/on: true
+    pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+    pastelineRange:
+      star: G
+      end: CQ
+    unit_tracker_tab: Sheet1
+  unit_tracker_sheet:
+    fumulu: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    1: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    2: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    3: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    4: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    5: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    6: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    7: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    8: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    9: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    10: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    11: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    12: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+  ifupdaterawdata:
+    fumulu: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    1: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    2: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    3: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    4: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    5: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    6: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    7: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    8: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    9: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    10: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    11: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+    12: 1I7mpAHLHjGmhMG9BMWDAFXIsk4Aq5NS-
+  oem:
+    Opentrons:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: '!C3:C3'
+      copyRange:
+      - '!A3:CK3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CQ
+    Ultima:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: '!C3:C3'
+      copyRange:
+      - '!A3:CK3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CQ
+    BD:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: '!C3:C3'
+      copyRange:
+      - '!A3:CK3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CQ
+    Millipore:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: '!C3:C3'
+      copyRange:
+      - '!A3:CK3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CQ
+    Sf:
+      copytemplate: 1aKAs0MBUagmKKbToKxZn9qZ5zb-cEJ-6wt-nKPIszZ8
+      result_cell: '!A5:A5'
+      total_result_cell: ''
+      failures: '!C3:C3'
+      copyRange:
+      - '!A3:CK3'
+      pastefileid: 1epK9gchoF9wzj3N887E5kYeTIBZzs3a7mQCe0xVcZR0
+      pastelineRange:
+        star: G
+        end: CQ

@@ -17,7 +17,6 @@ from time import monotonic, perf_counter
 from typing import Any, Callable
 from uuid import uuid4
 
-
 OPENTRONS_FLASH_DIR_ENV = "PRODUCTION_PLATFORM_OPENTRONS_FLASH_DIR"
 DEFAULT_OPENTRONS_FLASH_DIR = Path("/opentrons")
 DEFAULT_RESTORE_BRANCH = "edge"
@@ -83,6 +82,7 @@ _FAILURE_PATTERNS = (
     re.compile(r"(?im)^fatal:"),
     re.compile(r"(?im)no rule to make target"),
     re.compile(r"(?im)(connection refused|permission denied|host is down)"),
+    re.compile(r"(?im)(remote host identification has changed|host key verification failed)"),
 )
 _DISALLOWED_TOKEN_PATTERN = re.compile(r"[;&|<>`$()\n\r\x00]")
 _SAFE_ARGUMENT_PATTERN = re.compile(r"^[A-Za-z0-9_./=:+,@%-]+$")
@@ -367,6 +367,29 @@ def _classify_result(exit_code: int, output: str, timed_out: bool) -> tuple[bool
     return True, "烧录成功"
 
 
+def _clear_robot_known_host(task_id: str, ip: str) -> None:
+    # Production robot IPs are reused after replacing or reimaging devices.
+    # Remove only the selected IP, including hashed entries, using OpenSSH.
+    ip = _normalize_robot_ip(ip)
+    known_hosts = Path.home() / ".ssh" / "known_hosts"
+    if not known_hosts.is_file():
+        _append_log(task_id, "[SSH] known_hosts 不存在，无需清理")
+        return
+    try:
+        result = subprocess.run(
+            ["ssh-keygen", "-f", str(known_hosts), "-R", ip],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"清理 {ip} 的旧 SSH 主机密钥失败: {exc}") from exc
+    if result.returncode != 0:
+        raise RuntimeError(f"清理 {ip} 的旧 SSH 主机密钥失败: {result.stderr.strip()}")
+    _append_log(task_id, f"[SSH] 已检查并清理 {ip} 的旧 known_hosts 记录")
+
+
 def _append_log(task_id: str, line: str) -> None:
     normalized = str(line).rstrip("\r\n")
     if not normalized:
@@ -634,6 +657,7 @@ def _run_flash_task(task_id: str, workdir: Path, timeout: int) -> None:
     _append_log(task_id, f"[平台] 工作目录: {workdir}")
     try:
         _prepare_repository(task_id, workdir, branch, pull)
+        _clear_robot_known_host(task_id, task["ip"])
         _append_log(task_id, f"[平台] 执行命令: {shlex.join(arguments)}")
         exit_code, timed_out = _execute_make_process(
             arguments,

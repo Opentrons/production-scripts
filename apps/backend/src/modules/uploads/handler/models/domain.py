@@ -14,6 +14,7 @@ class Productions(Enum):
     P2HH = "P2HH"
     P1KH = "P1KH"
     GRIPPER = "Gripper"
+    VACUUM = "Vacuum"
 
     @classmethod
     def from_string(cls, value: str) -> Optional["Productions"]:
@@ -57,6 +58,7 @@ class TestTypes(Enum):
     XY_Calibration = "xy_calibration"
     Gantry_Stress = "gantry_stress_test"
     Leveling_Test = "leveling_test"
+    Vacuum_QC = "vacuum_qc"
 
     @classmethod
     def from_string(cls, value: str) -> Optional["TestTypes"]:

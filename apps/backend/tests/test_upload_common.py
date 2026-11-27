@@ -210,6 +210,22 @@ def test_get_first_blank_tracker_row_skips_first_ten_rows() -> None:
     assert uploader.get_first_blank_tracker_row("tracker-id", "Unit Tracker", "F:I") == 12
 
 
+def test_get_first_blank_tracker_row_can_start_after_two_header_rows() -> None:
+    uploader = UploadCommonMixin()
+    uploader.gdrive = SimpleNamespace(
+        get_excel_sheet=lambda **_kwargs: [
+            ["header"],
+            ["header"],
+            ["used", "VM1020260615001", "FAIL", ""],
+            ["", "", "", ""],
+        ],
+    )
+
+    assert uploader.get_first_blank_tracker_row(
+        "tracker-id", "Sheet1", "G:CP", start_row=3
+    ) == 4
+
+
 def test_tracker_capacity_expands_a_full_sheet() -> None:
     spreadsheets = _FakeSpreadsheets()
     uploader = UploadCommonMixin()
