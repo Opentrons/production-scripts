@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .products import normalize_product, product_from_serial
 from .reference import reference_snapshot
@@ -28,6 +29,13 @@ def normalized_time(value: Any) -> str | None:
         return parsed.replace(tzinfo=parsed.tzinfo or timezone.utc).astimezone(timezone.utc).isoformat()
     except ValueError:
         return None
+
+
+def shanghai_test_date(value: str | None) -> str:
+    timestamp = normalized_time(value)
+    if timestamp is None:
+        return ""
+    return datetime.fromisoformat(timestamp).astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()
 
 
 def _strings(value: Any) -> list[str]:

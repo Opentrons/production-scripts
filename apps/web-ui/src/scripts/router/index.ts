@@ -56,15 +56,23 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/production/defect-search',
-    name: 'DefectSearch',
-    component: () => import('@/views/production_modules/DefectSearchView.vue'),
-    meta: { standalone: true, titleKey: 'titles.defectSearch', favicon: TESTING_FAVICON },
+    name: 'DefectAnalysis',
+    redirect: to => {
+      const hasKnowledgeFilters = ['q', 'product', 'station', 'code', 'defect_code', 'action'].some(key => to.query[key])
+      return { name: hasKnowledgeFilters ? 'DefectSearch' : 'TestFailures' }
+    },
   },
   {
     path: '/production/defect-search/test-failures',
     name: 'TestFailures',
     component: () => import('@/views/production_modules/TestFailuresView.vue'),
     meta: { standalone: true, titleKey: 'titles.testFailures', favicon: TESTING_FAVICON },
+  },
+  {
+    path: '/production/defect-search/knowledge',
+    name: 'DefectSearch',
+    component: () => import('@/views/production_modules/DefectSearchView.vue'),
+    meta: { standalone: true, titleKey: 'titles.defectSearch', favicon: TESTING_FAVICON },
   },
   {
     path: '/tools/bridge-gpt-token',

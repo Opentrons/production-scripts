@@ -18,6 +18,7 @@ export interface FailureConfirmation {
   text: string
   created_by: string
   created_by_name: string
+  confirmed_by_name?: string
   created_at: string
   coverage?: FailureConfirmationCoverage[]
 }
@@ -40,6 +41,7 @@ export interface FailureReportSummary {
   failure_count: number
   parse_status: 'ready' | 'log_only' | 'incomplete'
   source_format: string
+  report_url?: string | null
   confirmation_status?: 'confirmed' | 'pending'
   covered_by?: string[]
 }
@@ -119,7 +121,7 @@ export interface FailureDevicesResponse {
   page: number
   page_size: number
   summary: { devices: number; pending: number; reports: number; parse_errors: number }
-  options: { products: string[]; modes: string[] }
+  options: { products: string[]; modes: string[]; repair_confirmers: string[] }
   facets: {
     all: FailureDeviceCounts
     products: (FailureDeviceCounts & { product: string })[]
@@ -173,7 +175,7 @@ export interface FailureAnalysis {
   report_id: string
   report_revision: string
   generated_at: string | null
-  mode: 'rules_only' | 'model'
+  mode: 'rules_only' | 'model' | 'test_report'
   error: string | null
   result: {
     evidence: {
@@ -196,6 +198,12 @@ export const testFailuresApi = {
   report: (id: string, signal?: AbortSignal) => client.get<FailureReport>(reportPath(id), { signal }),
   reportLink: (id: string, signal?: AbortSignal) => client.get<FailureReportLink>(`${reportPath(id)}/report-link`, { signal }),
   refreshReportLink: (id: string, signal?: AbortSignal) => client.post<FailureReportLink>(`${reportPath(id)}/report-link`, {}, { signal }),
+  writeConfirmation: (id: string, revision: string, evidenceVersion: string) =>
+    client.post<{ status: 'written' | 'unchanged'; collection: string }>(
+      `${reportPath(id)}/confirmation-writeback`,
+      { report_revision: revision, evidence_version: evidenceVersion },
+      { timeout: 120000 },
+    ),
   analysis: (id: string, signal?: AbortSignal) => client.get<FailureAnalysis>(`${reportPath(id)}/analysis`, { signal }),
   startAnalysis: (id: string, reportRevision: string, signal?: AbortSignal, force = false) => client.post<FailureAnalysis>(`${reportPath(id)}/analysis`, { report_revision: reportRevision, force }, { signal }),
   preview: (id: string, kind: AttachmentKind, signal?: AbortSignal) => client.get<FailureAttachmentPreview>(`${reportPath(id)}/attachments/${kind}/preview`, { signal }),
@@ -203,7 +211,10 @@ export const testFailuresApi = {
   scan: (signal?: AbortSignal) => client.get<FailureScan>(`${base}/scan`, { signal }),
   startScan: (signal?: AbortSignal) => client.post<FailureScan>(`${base}/scan`, {}, { signal }),
   confirmations: (id: string, signal?: AbortSignal) => client.get<{ items: FailureConfirmation[] }>(`${base}/devices/${encodeURIComponent(id)}/confirmations`, { signal }),
-  confirm: (id: string, text: string, version: string, signal?: AbortSignal) => client.post<{ confirmation: FailureConfirmation; device: FailureDevice }>(`${base}/devices/${encodeURIComponent(id)}/confirmations`, { text, version }, { signal }),
+  confirm: (id: string, body: { text: string; version: string; confirmed_by_name: string }, signal?: AbortSignal) =>
+    client.post<{ confirmation: FailureConfirmation; device: FailureDevice }>(
+      `${base}/devices/${encodeURIComponent(id)}/confirmations`, body, { signal },
+    ),
 }
 
 export function formatFailureTime(value: string | null | undefined, locale: string): string {

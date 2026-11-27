@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 
@@ -26,6 +28,7 @@ async def get_collection_data(
     product_type: str | None = Query(default=None, alias="type", max_length=128),
     total_result: str | None = Query(default=None, max_length=64),
     barcode: str | None = Query(default=None, max_length=256),
+    time_field: Literal["update_time", "sync_updated_at"] = "update_time",
     updated_after: str | None = Query(default=None, max_length=64),
     updated_before: str | None = Query(default=None, max_length=64),
 ):
@@ -41,6 +44,7 @@ async def get_collection_data(
             barcode=barcode,
             start_date=updated_after,
             end_date=updated_before,
+            time_field=time_field,
         )
     except data_service.InvalidCollectionCursor as exc:
         raise api_error(

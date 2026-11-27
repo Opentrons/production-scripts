@@ -10,12 +10,14 @@ import tempfile
 import time
 from functools import lru_cache
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from typing import Literal, get_args
 from datetime import datetime
 
 from core import config
+from core.runtime_mode import is_simulating
 from .filesystem import content_signature, open_source, source_stat, stat_signature
-from .parser import digest
+from .mongo_reports import WORKSHEETS, read_mongo_reports
+from .parser import digest, shanghai_test_date
 from .products import normalize_product
 from .repository import ConflictError, NotFoundError, Repository, evidence_version, now
 from .scanner import Scanner
@@ -23,6 +25,8 @@ from .scanner import Scanner
 
 logger = logging.getLogger(__name__)
 PREVIEW_BYTES = 256 * 1024
+FIRST_VISIBLE_TEST_DATE = "2026-11-02"
+RepairConfirmer = Literal["王伟业_Zane", "李杰_Jerome", "胡金涌_Andy", "柯伟强_Ken"]
 
 
 def _confirmation_counts(devices: list[dict]) -> dict[str, int]:
@@ -33,10 +37,15 @@ def _confirmation_counts(devices: list[dict]) -> dict[str, int]:
 class TestFailureService:
     __test__ = False
 
-    def __init__(self, root: Path, database_path: Path, stable_seconds: float = 2):
+    def __init__(
+        self, root: Path, database_path: Path, stable_seconds: float = 2, *,
+        mongo_reports: bool = False, first_visible_test_date: str = "",
+    ):
         self.root = Path(root).expanduser().resolve()
-        self.repository = Repository(database_path, digest(str(self.root)))
+        self.repository = Repository(database_path, digest(str(self.root)), first_visible_test_date=first_visible_test_date)
         self.scanner = Scanner(self.root, self.repository, stable_seconds)
+        self.mongo_reports = mongo_reports
+        self.writeback_ready = threading.Event()
         self._scan_lock = threading.Lock()
         self._state_lock = threading.Lock()
         self._state = {"running": False, "last_scan_at": None, "last_successful_scan_at": None, "source_status": "unknown", "error": None, "errors": [], "pending_files": 0, "parse_errors": 0}
@@ -60,10 +69,66 @@ class TestFailureService:
             with self._state_lock:
                 self._state.update(error=str(exc), last_scan_at=now(), source_status="unavailable", errors=[], pending_files=0, parse_errors=0)
         finally:
+            if self.mongo_reports and not is_simulating():
+                try:
+                    self.refresh_mongo_reports()
+                    mongo_status = "available"
+                except Exception as exc:
+                    logger.warning("Mongo test failure scan failed: %s", type(exc).__name__)
+                    mongo_status = "unavailable"
+                with self._state_lock:
+                    self._state["mongo_status"] = mongo_status
+            self.writeback_ready.set()
             with self._state_lock:
                 self._state["running"] = False
             self._scan_lock.release()
         return self.scan_status()
+
+    def refresh_mongo_reports(self, database=None) -> None:
+        reports = read_mongo_reports(database)
+        archived: dict[tuple[str, str, str], list[dict]] = {}
+        for report in self.repository.archived_reports():
+            if report["report_role"] != "main" or report["parse_status"] != "ready":
+                continue
+            paths = report.get("attachment_paths", {})
+            if path := paths.get("json"):
+                try:
+                    info = source_stat(self.root, path)
+                    if list(stat_signature(info)) == report.get("attachment_signatures", {}).get("json"):
+                        identity = (report["sn"], report["mode"], report["report_run_id"])
+                        archived.setdefault(identity, []).append(report)
+                except OSError:
+                    pass
+        # For merged uploads retain the database report when only one of its
+        # recorded runs is archived. Its other run may still need sheet evidence.
+        selected = []
+        fallbacks: dict[str, list[dict]] = {}
+        for report in reports:
+            source = report["mongo_record"]
+            runs = source["runs"]
+            can_use_archive = source["collection"] in {"pipette_1ch_assembly_qc", "pipette_8ch_assembly_qc"}
+            matches = [archived.get((report["sn"], mode, run), []) for mode, run in runs.items()]
+            if can_use_archive and runs and all(mode in WORKSHEETS for mode in runs) and all(len(items) == 1 for items in matches):
+                if source["url"]:
+                    for items in matches:
+                        native = items[0]
+                        log = native.get("attachment_paths", {}).get("log")
+                        if log:
+                            try:
+                                source_stat(self.root, log)
+                                continue
+                            except OSError:
+                                pass
+                        mode = native["mode"]
+                        fallbacks.setdefault(native["id"], []).append({
+                            "url": source["url"], "runs": {mode: runs[mode]}, "tabs": [WORKSHEETS[mode]],
+                            "summary": report["summary"],
+                        })
+                continue
+            selected.append(report)
+        self.repository.replace_mongo_reports(selected, {
+            report_id: items[0] for report_id, items in fallbacks.items() if len(items) == 1
+        })
 
     def _claim_scan(self) -> bool:
         if not self._scan_lock.acquire(blocking=False):
@@ -81,15 +146,6 @@ class TestFailureService:
             self._scan_thread.start()
         return self.scan_status()
 
-    @staticmethod
-    def _test_date(value: str | None) -> str:
-        if not value:
-            return ""
-        try:
-            return datetime.fromisoformat(value).astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()
-        except ValueError:
-            return ""
-
     def list_devices(self, *, q: str = "", product: str = "", date_from: str = "", date_to: str = "", mode: str = "", kind: str = "", confirmation: str = "all", page: int = 1, page_size: int = 20) -> dict:
         if confirmation not in {"all", "pending", "confirmed"}:
             raise ValueError("返修确认筛选无效")
@@ -99,12 +155,16 @@ class TestFailureService:
         if date_from and date_to and date_from > date_to:
             raise ValueError("开始日期不能晚于结束日期")
         all_devices = self.repository.devices(q=q)
-        options = {"products": sorted({item["product"] for item in all_devices}), "modes": sorted({report["mode"] for item in all_devices for report in item["reports"]})}
+        options = {
+            "products": sorted({item["product"] for item in all_devices}),
+            "modes": sorted({report["mode"] for item in all_devices for report in item["reports"]}),
+            "repair_confirmers": list(get_args(RepairConfirmer)),
+        }
         base = []
         by_product: dict[str, list[dict]] = {name: [] for name in options["products"]}
 
         def matches(report: dict) -> bool:
-            date = self._test_date(report.get("test_time"))
+            date = shanghai_test_date(report.get("test_time"))
             return (not mode or report["mode"] == mode) and (not kind or report["kind"] == kind) and (not date_from or bool(date) and date >= date_from) and (not date_to or bool(date) and date <= date_to)
 
         for device in all_devices:
@@ -135,6 +195,8 @@ class TestFailureService:
 
     def get_report(self, report_id: str) -> dict:
         report = self.repository.get_report(report_id)
+        if report.get("inactive"):
+            raise NotFoundError("测试失败报告当前不可用")
         indexed = dict(report)
         report["evidence_version"] = evidence_version(indexed)
         paths = report.pop("attachment_paths", {})
@@ -143,6 +205,13 @@ class TestFailureService:
         report.pop("semantic", None)
         report.pop("source_group", None)
         report.pop("known_sn", None)
+        report.pop("mongo_record", None)
+        report.pop("mongo_confirmation", None)
+        report.pop("mongo_confirmer", None)
+        report.pop("mongo_confirmation_revision", None)
+        if fallback := report.pop("test_report_fallback", None):
+            report["report_url"] = fallback["url"]
+        report.pop("inactive", None)
         report["attachments"] = []
         for kind in ("json", "log", "encoder"):
             relative = paths.get(kind)
@@ -167,7 +236,7 @@ class TestFailureService:
                     pass
             report["attachments"].append({"kind": kind, "name": Path(relative).name if relative else "", "available": available, "size": size})
         latest = self.repository.get_report(report_id)
-        if any(latest.get(key) != indexed.get(key) for key in ("revision", "attachment_paths", "attachment_signatures", "attachment_hashes")):
+        if latest.get("inactive") or evidence_version(latest) != report["evidence_version"]:
             raise ConflictError("报告版本已更新，请刷新详情后重试")
         return report
 
@@ -247,8 +316,13 @@ class TestFailureService:
     def list_confirmations(self, device_id: str) -> dict:
         return self.repository.confirmations(device_id)
 
-    def confirm_device(self, device_id: str, text: str, version: str, created_by: str, created_by_name: str = "") -> dict:
-        return self.repository.confirm(device_id, text, version, created_by, created_by_name)
+    def confirm_device(
+        self, device_id: str, text: str, version: str, created_by: str, created_by_name: str = "",
+        confirmed_by_name: RepairConfirmer | None = None,
+    ) -> dict:
+        result = self.repository.confirm(device_id, text, version, created_by, created_by_name, confirmed_by_name)
+        self.writeback_ready.set()
+        return result
 
 
 @lru_cache(maxsize=1)
@@ -256,4 +330,6 @@ def get_service() -> TestFailureService:
     return TestFailureService(
         Path(os.getenv("PRODUCTION_PLATFORM_TEST_FAILURE_DIR", "/opt/pipette_assembly_qc_log")),
         Path(config.DATA_DIR) / "defect-search" / "test-failures.sqlite3",
+        mongo_reports=True,
+        first_visible_test_date=FIRST_VISIBLE_TEST_DATE,
     )

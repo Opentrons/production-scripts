@@ -13,9 +13,11 @@ from starlette.background import BackgroundTask
 
 from modules.auth.dependencies import require_platform_access
 from modules.auth.store import AuthUser
-from .service import ConflictError, NotFoundError, TestFailureService, get_service
+from modules.data_analysis.data import CollectionDataUnavailableError
+from .service import ConflictError, NotFoundError, RepairConfirmer, TestFailureService, get_service
 from .analysis import FailureAnalysisService, get_analysis_service
 from .report_links import RoutedReportLinkService, get_report_link_service
+from .writeback import write_confirmation
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,7 @@ router = APIRouter(prefix="/defect-search/test-failures", tags=["test-failures"]
 
 def require_editor(user: AuthUser = Depends(require_platform_access)) -> AuthUser:
     if user.role == "viewer":
-        raise HTTPException(status_code=403, detail="只读账号不能扫描报告或保存测试返修确认")
+        raise HTTPException(status_code=403, detail="只读账号不能修改测试失败数据")
     return user
 
 
@@ -32,6 +34,7 @@ class ConfirmationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     text: str = Field(min_length=1, max_length=4000)
     version: str = Field(min_length=1, max_length=128)
+    confirmed_by_name: RepairConfirmer | None = None
 
 
 class AnalysisRequest(BaseModel):
@@ -41,6 +44,12 @@ class AnalysisRequest(BaseModel):
     force: bool = False
 
 
+class FailureWritebackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    report_revision: str = Field(min_length=1, max_length=128)
+    evidence_version: str = Field(min_length=1, max_length=128)
+
+
 async def _call(function, *args, **kwargs):
     try:
         return await run_in_threadpool(function, *args, **kwargs)
@@ -48,6 +57,8 @@ async def _call(function, *args, **kwargs):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except CollectionDataUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except (sqlite3.Error, OSError) as exc:
@@ -79,6 +90,15 @@ def scan_reports(_user: AuthUser = Depends(require_editor), service: TestFailure
 @router.get("/reports/{report_id}")
 async def report_detail(report_id: str, service: TestFailureService = Depends(get_service)):
     return await _call(service.get_report, report_id)
+
+
+@router.post("/reports/{report_id}/failure-writeback", include_in_schema=False)
+@router.post("/reports/{report_id}/confirmation-writeback")
+async def writeback_report(
+    report_id: str, body: FailureWritebackRequest,
+    _user: AuthUser = Depends(require_editor), service: TestFailureService = Depends(get_service),
+):
+    return await _call(write_confirmation, service, report_id, body.report_revision, body.evidence_version)
 
 
 @router.get("/reports/{report_id}/analysis")
@@ -146,4 +166,7 @@ async def confirmations(device_id: str, service: TestFailureService = Depends(ge
 
 @router.post("/devices/{device_id}/confirmations", status_code=201)
 async def confirm(device_id: str, body: ConfirmationRequest, user: AuthUser = Depends(require_editor), service: TestFailureService = Depends(get_service)):
-    return await _call(service.confirm_device, device_id, body.text, body.version, user.id, user.display_name or user.username)
+    return await _call(
+        service.confirm_device, device_id, body.text, body.version, user.id, user.display_name or user.username,
+        body.confirmed_by_name,
+    )

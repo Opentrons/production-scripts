@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Iterator
 from uuid import uuid4
 
-from .parser import digest
+from .parser import digest, shanghai_test_date
 from .products import normalize_product, product_from_serial
 from .reference import reference_stage_volume
 
 
 INDEX_VERSION = 3
+WRITEBACK_VERSION = 3
 
 
 class NotFoundError(LookupError):
@@ -29,18 +30,30 @@ def now() -> str:
 
 
 def public_confirmation(record: dict) -> dict:
-    return {key: record[key] for key in ("id", "text", "created_by", "created_by_name", "created_at")}
+    result = {key: record[key] for key in ("id", "text", "created_by", "created_by_name", "created_at")}
+    if name := record.get("confirmed_by_name"):
+        result["confirmed_by_name"] = name
+    return result
 
 
 def evidence_version(report: dict) -> str:
     """Refresh evidence/attachments without reopening an unchanged QC confirmation."""
-    return digest({key: report.get(key) for key in (
+    fields = {key: report.get(key) for key in (
         "revision", "attachment_paths", "attachment_signatures", "attachment_hashes", "parse_status", "source_format",
-    )})
+    )}
+    if report.get("test_report_fallback"):
+        fields["test_report_fallback"] = report["test_report_fallback"]
+    return digest(fields)
 
 
 def report_summary(report: dict) -> dict:
-    return {"evidence_version": evidence_version(report), **{key: report.get(key) for key in ("id", "revision", "sn", "product", "report_run_id", "mode", "test_time", "kind", "stage", "report_role", "reference_tip_volume_ul", "run_group_id", "report_folder", "source_name", "summary", "failure_count", "parse_status", "source_format")}}
+    keys = ("id", "revision", "sn", "product", "report_run_id", "mode", "test_time", "kind", "stage",
+            "report_role", "reference_tip_volume_ul", "run_group_id", "report_folder", "source_name",
+            "summary", "failure_count", "parse_status", "source_format")
+    summary = {"evidence_version": evidence_version(report), **{key: report.get(key) for key in keys}}
+    if report["source_format"] == "test_report" or report.get("test_report_fallback"):
+        summary["report_url"] = report.get("report_url") or (report.get("test_report_fallback") or {}).get("url")
+    return summary
 
 
 def _report_source(report: dict) -> str:
@@ -76,7 +89,7 @@ def _report_metadata(report: dict, root_key: str) -> dict:
     report["reference_tip_volume_ul"] = volume
     source = _report_source(report)
     scope = _folder_scope(source)
-    report["report_folder"] = scope[1]
+    report["report_folder"] = report["source_name"] if report.get("source_format") == "test_report" else scope[1]
     run_id = report.get("run_id")
     group = [run_id, report.get("mode"), report.get("report_run_id") or source] if run_id else ["source", source]
     report["run_group_id"] = digest([root_key, scope, group])
@@ -112,9 +125,10 @@ def _failure_search_text(report: dict) -> str:
 
 
 class Repository:
-    def __init__(self, database_path: Path, root_key: str):
+    def __init__(self, database_path: Path, root_key: str, *, first_visible_test_date: str = ""):
         self.path = Path(database_path)
         self.root_key = root_key
+        self.first_visible_test_date = first_visible_test_date
 
     @contextmanager
     def connection(self) -> Iterator[sqlite3.Connection]:
@@ -147,8 +161,16 @@ class Repository:
                     created_at TEXT NOT NULL, coverage TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS repair_device ON repair_confirmations(root_key, device_id, created_at);
+                CREATE TABLE IF NOT EXISTS repair_confirmation_reviewers (
+                    confirmation_id TEXT PRIMARY KEY, confirmed_by_name TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS failure_index_versions (
                     root_key TEXT PRIMARY KEY, version INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS failure_writebacks (
+                    root_key TEXT NOT NULL, database_name TEXT NOT NULL, report_id TEXT NOT NULL,
+                    report_updated_at TEXT NOT NULL, attempts INTEGER NOT NULL, retry_at REAL,
+                    PRIMARY KEY(root_key, database_name, report_id)
                 );
             """)
             yield connection
@@ -279,16 +301,152 @@ class Repository:
             raise NotFoundError("未找到测试失败报告")
         return _read_report(row["payload"], self.root_key)
 
+    def archived_reports(self) -> list[dict]:
+        with self.connection() as connection:
+            rows = connection.execute("""
+                SELECT payload FROM failure_reports WHERE root_key = ?
+                  AND json_extract(payload, '$.source_format') IN ('json', 'log')
+            """, (self.root_key,)).fetchall()
+        return [_read_report(row["payload"], self.root_key) for row in rows]
+
+    def replace_mongo_reports(self, reports: list[dict], fallbacks: dict[str, dict]) -> None:
+        with self.connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            for row in connection.execute("""
+                SELECT id, payload FROM failure_reports WHERE root_key=?
+                    AND json_extract(payload, '$.source_format') IN ('json', 'log')
+            """, (self.root_key,)).fetchall():
+                report = json.loads(row["payload"])
+                fallback = fallbacks.get(row["id"])
+                if fallback == report.get("test_report_fallback"):
+                    continue
+                if fallback:
+                    report["test_report_fallback"] = fallback
+                else:
+                    report.pop("test_report_fallback", None)
+                connection.execute("UPDATE failure_reports SET payload=? WHERE root_key=? AND id=?",
+                                   (json.dumps(report, ensure_ascii=False), self.root_key, row["id"]))
+            existing = {
+                row["id"]: json.loads(row["payload"]) for row in connection.execute("""
+                    SELECT id, payload FROM failure_reports WHERE root_key = ?
+                      AND json_extract(payload, '$.source_format') = 'test_report'
+                """, (self.root_key,))
+            }
+            for incoming in reports:
+                report = _report_metadata({**incoming, "id": digest([self.root_key, incoming["id"]])}, self.root_key)
+                report_id, revision = report["id"], report["revision"]
+                old = existing.pop(report_id, None)
+                pair = (report["mongo_confirmation"], report["mongo_confirmer"])
+                same_pair = old and pair == (old.get("mongo_confirmation"), old.get("mongo_confirmer"))
+                report["mongo_confirmation_revision"] = old.get("mongo_confirmation_revision") if same_pair else revision
+                if old == report:
+                    continue
+                payload = json.dumps(report, ensure_ascii=False)
+                updated_at = now()
+                connection.execute("INSERT OR IGNORE INTO failure_report_revisions VALUES (?,?,?,?)",
+                                   (report_id, revision, payload, updated_at))
+                if old and old.get("revision") == revision and not old.get("inactive"):
+                    connection.execute("UPDATE failure_reports SET payload=? WHERE root_key=? AND id=?",
+                                       (payload, self.root_key, report_id))
+                else:
+                    connection.execute("""
+                        INSERT INTO failure_reports VALUES (?,?,?,?,?)
+                        ON CONFLICT(id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at
+                    """, (report_id, self.root_key, report_id, payload, updated_at))
+            for report_id, report in existing.items():
+                if not report.get("inactive"):
+                    report["inactive"] = True
+                    connection.execute("UPDATE failure_reports SET payload=?, updated_at=? WHERE root_key=? AND id=?",
+                                       (json.dumps(report, ensure_ascii=False), now(), self.root_key, report_id))
+
+    def pending_writebacks(self, database_name: str, timestamp: float, limit: int) -> list[tuple[dict, str, int]]:
+        with self.connection() as connection:
+            rows = connection.execute("""
+                SELECT r.payload, r.updated_at, COALESCE(w.attempts, 0) AS attempts
+                FROM failure_reports r
+                LEFT JOIN failure_writebacks w ON w.root_key = r.root_key AND w.report_id = r.id
+                    AND w.database_name = ? AND w.report_updated_at = r.updated_at
+                WHERE r.root_key = ? AND (w.report_id IS NULL OR w.retry_at <= ?)
+                    AND json_extract(r.payload, '$.parse_status') = 'ready'
+                    AND json_extract(r.payload, '$.source_format') IN ('json', 'test_report')
+                    AND COALESCE(json_extract(r.payload, '$.inactive'), 0) = 0
+                ORDER BY COALESCE(w.retry_at, 0), r.updated_at DESC, r.id
+                LIMIT ?
+            """, (f"{database_name}:v{WRITEBACK_VERSION}", self.root_key, timestamp, limit)).fetchall()
+        return [(_read_report(row["payload"], self.root_key), row["updated_at"], row["attempts"]) for row in rows]
+
+    def record_writeback(
+        self, database_name: str, report_id: str, updated_at: str, attempts: int, retry_at: float | None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute("""
+                INSERT INTO failure_writebacks(root_key, database_name, report_id, report_updated_at, attempts, retry_at)
+                SELECT root_key, ?, id, updated_at, ?, ? FROM failure_reports
+                WHERE root_key = ? AND id = ? AND updated_at = ?
+                ON CONFLICT(root_key, database_name, report_id) DO UPDATE SET
+                    report_updated_at = excluded.report_updated_at, attempts = excluded.attempts, retry_at = excluded.retry_at
+                WHERE failure_writebacks.report_updated_at <> excluded.report_updated_at
+                    OR (failure_writebacks.retry_at IS NOT NULL AND (
+                        excluded.retry_at IS NULL OR excluded.attempts > failure_writebacks.attempts
+                    ))
+            """, (f"{database_name}:v{WRITEBACK_VERSION}", attempts, retry_at, self.root_key, report_id, updated_at))
+
+    def latest_report_confirmation(self, report_id: str, revision: str) -> dict | None:
+        with self.connection() as connection:
+            row = connection.execute("""
+                SELECT c.id, c.text, c.created_by, c.created_by_name, c.created_at, reviewer.confirmed_by_name
+                FROM repair_confirmations c
+                LEFT JOIN repair_confirmation_reviewers reviewer ON reviewer.confirmation_id = c.id
+                WHERE c.root_key = ? AND EXISTS (
+                    SELECT 1 FROM json_each(c.coverage) AS covered
+                    WHERE covered.key = ? AND covered.value = ?
+                )
+                ORDER BY c.created_at DESC, c.rowid DESC LIMIT 1
+            """, (self.root_key, report_id, revision)).fetchone()
+        return public_confirmation(dict(row)) if row else None
+
+    def has_report_confirmation(self, report_id: str) -> bool:
+        with self.connection() as connection:
+            return connection.execute("""
+                SELECT 1 FROM repair_confirmations c
+                WHERE c.root_key = ? AND EXISTS (
+                    SELECT 1 FROM json_each(c.coverage) AS covered WHERE covered.key = ?
+                ) LIMIT 1
+            """, (self.root_key, report_id)).fetchone() is not None
+
+    def writeback_reports(self, sn: str, mode: str, run_id: str | None) -> list[dict]:
+        with self.connection() as connection:
+            rows = connection.execute("""
+                SELECT payload FROM failure_reports WHERE root_key = ?
+                    AND json_extract(payload, '$.sn') = ?
+                    AND json_extract(payload, '$.mode') = ?
+                    AND json_extract(payload, '$.parse_status') = 'ready'
+                    AND json_extract(payload, '$.source_format') = 'json'
+                    AND (? IS NULL OR TRIM(json_extract(payload, '$.report_run_id')) = ?)
+            """, (self.root_key, sn, mode, run_id, run_id)).fetchall()
+        return [_read_report(row["payload"], self.root_key) for row in rows]
+
     def _devices(self, connection: sqlite3.Connection, q: str = "") -> list[dict]:
         query = q.strip().casefold()
-        reports = [_read_report(row[0], self.root_key) for row in connection.execute("SELECT payload FROM failure_reports WHERE root_key=?", (self.root_key,))]
+        reports = [_read_report(row[0], self.root_key) for row in connection.execute("""
+            SELECT payload FROM failure_reports WHERE root_key=?
+              AND COALESCE(json_extract(payload, '$.inactive'), 0) = 0
+        """, (self.root_key,))]
         confirmations = []
-        for row in connection.execute("SELECT * FROM repair_confirmations WHERE root_key=? ORDER BY created_at DESC, rowid DESC", (self.root_key,)):
+        for row in connection.execute("""
+            SELECT c.*, reviewer.confirmed_by_name FROM repair_confirmations c
+            LEFT JOIN repair_confirmation_reviewers reviewer ON reviewer.confirmation_id = c.id
+            WHERE c.root_key=? ORDER BY c.created_at DESC, c.rowid DESC
+        """, (self.root_key,)):
             record = dict(row)
             record["coverage"] = json.loads(record["coverage"])
             confirmations.append(record)
         groups: dict[str, list[dict]] = {}
         for report in reports:
+            has_log = report.get("source_format") == "log" or bool(report.get("attachment_paths", {}).get("log"))
+            if (self.first_visible_test_date and not has_log
+                    and shanghai_test_date(report.get("test_time")) < self.first_visible_test_date):
+                continue
             device_id = digest([self.root_key, _folder_scope(_report_source(report))])[:32]
             groups.setdefault(device_id, []).append(report)
         devices = []
@@ -303,6 +461,14 @@ class Repository:
             # Legacy confirmations were recorded against an SN-level row. Only
             # their actual evidence coverage can associate them with a folder.
             history = [item for item in confirmations if ids.intersection(item["coverage"])]
+            for item in group:
+                if (not history and item.get("mongo_confirmation") and item.get("mongo_confirmer")
+                        and item.get("mongo_confirmation_revision") == item["revision"]):
+                    history.append({
+                        "id": "mongo-" + item["id"], "text": item["mongo_confirmation"],
+                        "created_by": "", "created_by_name": item["mongo_confirmer"], "created_at": "",
+                        "coverage": {item["id"]: item["revision"]},
+                    })
             coverage = {(report_id, revision) for item in history for report_id, revision in item["coverage"].items()}
             latest = history[0] if history else None
             version = digest({"reports": sorted((item["id"], item["revision"]) for item in group), "confirmation": latest["id"] if latest else None})
@@ -356,7 +522,10 @@ class Repository:
                 items.append({**public_confirmation(record), "coverage": coverage})
         return {"items": items}
 
-    def confirm(self, device_id: str, text: str, version: str, created_by: str, created_by_name: str) -> dict:
+    def confirm(
+        self, device_id: str, text: str, version: str, created_by: str, created_by_name: str,
+        confirmed_by_name: str | None = None,
+    ) -> dict:
         text = text.strip()
         if not text or len(text) > 4000:
             raise ValueError("测试返修确认须为 1 至 4000 字符")
@@ -374,6 +543,15 @@ class Repository:
             coverage = {item["id"]: item["revision"] for item in device["reports"]}
             connection.execute("INSERT INTO repair_confirmations VALUES (?,?,?,?,?,?,?,?)",
                                (record["id"], self.root_key, device_id, text, created_by, record["created_by_name"], record["created_at"], json.dumps(coverage)))
+            if confirmed_by_name:
+                connection.execute(
+                    "INSERT INTO repair_confirmation_reviewers VALUES (?,?)", (record["id"], confirmed_by_name),
+                )
+                record["confirmed_by_name"] = confirmed_by_name
+            connection.executemany(
+                "UPDATE failure_reports SET updated_at=? WHERE root_key=? AND id=?",
+                [(record["created_at"], self.root_key, report_id) for report_id in coverage],
+            )
             updated = next(item for item in self._devices(connection) if item["id"] == device_id)
             updated.pop("_history", None)
             updated["matched_report_ids"] = updated.pop("_query_report_ids", [])
